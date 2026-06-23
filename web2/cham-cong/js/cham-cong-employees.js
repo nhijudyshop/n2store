@@ -21,10 +21,16 @@
         }
         const dus = cc.state.deviceUsers;
         if (!dus.length) {
-            el.innerHTML = `<div class="cc-empty">
+            el.innerHTML = `<div class="cc-emp-top">
+                <div class="cc-emp-hint">Chưa có NV từ máy. Có thể <b>thêm NV thủ công</b> cho người không bấm máy DG-600.</div>
+                <button class="cc-btn cc-btn-ghost cc-emp-addmanual" type="button"><i data-lucide="user-plus"></i> Thêm NV thủ công</button>
+              </div>
+              <div class="cc-empty">
                 <p>Chưa có nhân viên từ máy chấm công.</p>
                 <p class="cc-empty-hint">Khi agent đồng bộ máy hoặc ADMS push punch, danh sách PIN sẽ tự xuất hiện ở đây để gán nhân viên.</p>
             </div>`;
+            el.querySelector('.cc-emp-addmanual')?.addEventListener('click', addManual);
+            if (global.lucide?.createIcons) global.lucide.createIcons();
             return;
         }
         const empOptions = (selId) =>
@@ -39,8 +45,12 @@
 
         let rows = '';
         for (const du of dus) {
+            const isManual = String(du.device_user_id).startsWith('MANUAL-');
+            const pinCell = isManual
+                ? `<span class="cc-emp-manual-pill">Thủ công</span>`
+                : `${cc.esc(du.device_user_id)}<span class="cc-emp-mname">${cc.esc(du.name || '')}</span>`;
             rows += `<tr data-uid="${cc.esc(du.device_user_id)}">
-                <td class="cc-emp-pin">${cc.esc(du.device_user_id)}<span class="cc-emp-mname">${cc.esc(du.name || '')}</span></td>
+                <td class="cc-emp-pin">${pinCell}</td>
                 <td><input class="cc-emp-dn" value="${cc.esc(du.display_name || '')}" placeholder="${cc.esc(du.name || '')}"></td>
                 <td><select class="cc-emp-emp">${empOptions(du.employee_id)}</select></td>
                 <td><input class="cc-emp-rate num" type="number" value="${Number(du.daily_rate) || 0}"></td>
@@ -49,13 +59,19 @@
                 <td><input class="cc-emp-late num" type="number" value="${Number(du.late_penalty_per_min) || 0}"></td>
                 <td><input class="cc-emp-ot num" type="number" step="0.5" value="${Number(du.ot_multiplier) || 1}"></td>
                 <td class="ctr"><input class="cc-emp-active" type="checkbox" ${du.active !== false ? 'checked' : ''}></td>
-                <td><button class="cc-btn cc-btn-primary cc-emp-save">Lưu</button></td>
+                <td class="cc-emp-acts">
+                    <button class="cc-btn cc-btn-primary cc-emp-save">Lưu</button>
+                    ${isManual ? `<button class="cc-btn cc-btn-danger-link cc-emp-del" title="Xoá NV thủ công">🗑</button>` : ''}
+                </td>
             </tr>`;
         }
         el.innerHTML = `
           <div class="cc-emp-top">
             <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0, đặt lương/ngày + giờ ca. Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
-            <button class="cc-btn cc-btn-primary cc-emp-saveall" type="button"><i data-lucide="save"></i> Lưu tất cả</button>
+            <div class="cc-emp-top-btns">
+              <button class="cc-btn cc-btn-ghost cc-emp-addmanual" type="button"><i data-lucide="user-plus"></i> Thêm NV thủ công</button>
+              <button class="cc-btn cc-btn-primary cc-emp-saveall" type="button"><i data-lucide="save"></i> Lưu tất cả</button>
+            </div>
           </div>
           <div class="cc-grid-wrap">
             <table class="cc-emp">
@@ -69,10 +85,59 @@
         el.querySelectorAll('.cc-emp-save').forEach((b) => {
             b.addEventListener('click', () => saveRow(b.closest('tr')));
         });
+        el.querySelectorAll('.cc-emp-del').forEach((b) => {
+            b.addEventListener('click', () => deleteManual(b.closest('tr')));
+        });
         el.querySelector('.cc-emp-saveall')?.addEventListener('click', (e) =>
             saveAll(e.currentTarget)
         );
+        el.querySelector('.cc-emp-addmanual')?.addEventListener('click', addManual);
         if (global.lucide?.createIcons) global.lucide.createIcons();
+    }
+
+    // Thêm NV thủ công (không bấm máy DG-600): hỏi tên → tạo PIN 'MANUAL-*' →
+    // reload. Sau đó admin gán NV + nhập công qua popup ngày / override bảng lương.
+    async function addManual() {
+        const cc = CC();
+        let name = '';
+        if (global.Popup?.prompt) {
+            name = await global.Popup.prompt('Tên nhân viên thủ công', {
+                placeholder: 'VD: Cô Ba phụ kho',
+                okText: 'Tạo',
+            });
+        } else {
+            name = global.prompt('Tên nhân viên thủ công:');
+        }
+        if (name == null) return; // huỷ
+        name = String(name).trim();
+        if (!name) return cc.toast('Cần nhập tên nhân viên.', 'warning');
+        try {
+            await cc.Api.createDeviceUser({ displayName: name });
+            cc.toast(`Đã thêm NV thủ công "${name}".`, 'success');
+            await cc.loadAll();
+        } catch (e) {
+            cc.toast(e.message, 'error');
+        }
+    }
+
+    async function deleteManual(tr) {
+        const cc = CC();
+        const uid = tr.dataset.uid;
+        const name = tr.querySelector('.cc-emp-dn')?.value || uid;
+        if (
+            !(await cc.confirmBox(
+                `Xoá NV thủ công "${name}"? (xoá luôn chấm công + lương của NV này)`
+            ))
+        )
+            return;
+        try {
+            await cc.Api.deleteDeviceUser(uid);
+            cc.state.deviceUsers = cc.state.deviceUsers.filter((d) => d.device_user_id !== uid);
+            cc.toast('Đã xoá NV thủ công.', 'success');
+            render();
+        } catch (e) {
+            cc.toast(e.message, 'error');
+        }
     }
 
     // Đọc cấu hình từ 1 hàng <tr> thành body PATCH.

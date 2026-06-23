@@ -42,8 +42,8 @@
             el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
-        // Chỉ tính lương cho PIN máy ĐÃ gán nhân viên (đồng bộ với Bảng công).
-        const dus = cc.state.deviceUsers.filter((d) => d.active !== false && d.employee_id);
+        // Tính lương cho PIN đã gán NV hoặc NV thủ công (đồng bộ với Bảng công).
+        const dus = cc.state.deviceUsers.filter((d) => d.active !== false && cc.isVisibleEmp(d));
         if (!dus.length) {
             el.innerHTML = `<div class="cc-empty"><p>Chưa có PIN máy nào được gán nhân viên. Vào tab <b>Nhân viên</b> để gán.</p></div>`;
             return;
@@ -71,7 +71,10 @@
                 <td class="num tong">${fmt(m.tongLuong)}</td>
                 <td class="num">${m.daTra ? fmt(m.daTra) : '—'}</td>
                 <td class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</td>
-                <td><button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(du.device_user_id)}">Sửa</button></td>
+                <td class="cc-pl-acts">
+                    <button class="cc-btn cc-btn-ghost cc-pl-detail" data-uid="${cc.esc(du.device_user_id)}">Chi tiết</button>
+                    <button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(du.device_user_id)}">Sửa</button>
+                </td>
             </tr>`;
         }
         el.innerHTML = `
@@ -98,8 +101,138 @@
         el.querySelectorAll('.cc-pl-edit').forEach((b) => {
             b.addEventListener('click', () => openEdit(b.dataset.uid));
         });
+        el.querySelectorAll('.cc-pl-detail').forEach((b) => {
+            b.addEventListener('click', () => openDetail(b.dataset.uid));
+        });
         document.getElementById('ccExportPayroll')?.addEventListener('click', exportPayroll);
         if (global.lucide) global.lucide.createIcons();
+    }
+
+    // ── Modal CHI TIẾT (read-only): giải thích vì sao có từng khoản ──────────
+    function dmy(dk) {
+        // 'YYYY-MM-DD' → 'DD/MM'
+        const p = String(dk).split('-');
+        return p.length === 3 ? `${p[2]}/${p[1]}` : dk;
+    }
+    function hm(mins) {
+        const h = Math.floor((mins || 0) / 60);
+        const m = (mins || 0) % 60;
+        return h ? `${h}g${m ? ' ' + m + 'p' : ''}` : `${m}p`;
+    }
+    function itemLines(items, sign) {
+        const list = Array.isArray(items) ? items : [];
+        if (!list.length) return '';
+        return list
+            .map(
+                (it) =>
+                    `<div class="cc-dl-line"><span>${CC().esc(it.label || '(không nhãn)')}</span><span class="num">${sign}${fmt(Math.abs(Number(it.amount) || 0))}</span></div>`
+            )
+            .join('');
+    }
+
+    function openDetail(deviceUserId) {
+        const cc = CC();
+        const du = cc.state.deviceUsers.find((d) => d.device_user_id === deviceUserId);
+        if (!du) return;
+        const cfg = cc.cfgFor(du);
+        const m = computeRow(du);
+        const pr = cc.payrollFor(deviceUserId) || {};
+
+        // Lương chính
+        const dayRate = Number(cfg.dailyRate) || 0;
+        let luongBlock = `<div class="cc-dl-line"><span>${m.workedDays} công × ${fmt(dayRate)}/ngày</span><span class="num">${fmt(m.luongChinh)}</span></div>`;
+        if (pr.salary_days_override != null && pr.salary_days_override !== '')
+            luongBlock += `<div class="cc-dl-sub">⚙ Override công thủ công: ${cc.esc(String(pr.salary_days_override))}</div>`;
+
+        // Tăng ca
+        let otBlock = '';
+        if (pr.ot_hours_override != null && pr.ot_hours_override !== '') {
+            otBlock = `<div class="cc-dl-sub">⚙ Override OT thủ công: ${cc.esc(String(pr.ot_hours_override))} giờ</div>`;
+        } else if (m.otDays && m.otDays.length) {
+            otBlock = m.otDays
+                .map(
+                    (d) =>
+                        `<div class="cc-dl-line"><span>${dmy(d.dateKey)} · tăng ca ${hm(d.minutes)}</span><span class="num ot">+${fmt(d.pay)}</span></div>`
+                )
+                .join('');
+        } else {
+            otBlock = `<div class="cc-dl-empty">Không có tăng ca.</div>`;
+        }
+
+        // Giảm trừ — phạt muộn (auto) + thủ công
+        let lateBlock = '';
+        if (pr.giam_tru_late_override != null && pr.giam_tru_late_override !== '') {
+            lateBlock = `<div class="cc-dl-sub">⚙ Override phạt muộn thủ công: ${fmt(pr.giam_tru_late_override)}</div>`;
+        } else if (m.lateDays && m.lateDays.length) {
+            lateBlock = m.lateDays
+                .map(
+                    (d) =>
+                        `<div class="cc-dl-line"><span>${dmy(d.dateKey)} · đi muộn ${hm(d.minutes)}</span><span class="num giam">−${fmt(d.amount)}</span></div>`
+                )
+                .join('');
+        } else {
+            lateBlock = `<div class="cc-dl-empty">Không bị phạt muộn.</div>`;
+        }
+        const manualGiam = itemLines(pr.giam_tru_items, '−');
+
+        // Ghi chú theo ngày (từ state.dayNotes) cho NV + tháng này
+        const prefix = `${deviceUserId}_${cc.state.monthKey}`;
+        const noteEntries = Object.keys(cc.state.dayNotes || {})
+            .filter((k) => k.startsWith(prefix))
+            .map((k) => ({ dk: k.slice(deviceUserId.length + 1), note: cc.state.dayNotes[k] }))
+            .filter((x) => x.note)
+            .sort((a, b) => a.dk.localeCompare(b.dk));
+        const notesBlock = noteEntries.length
+            ? noteEntries
+                  .map((n) => `<div class="cc-dl-note"><b>${dmy(n.dk)}</b> ${cc.esc(n.note)}</div>`)
+                  .join('')
+            : `<div class="cc-dl-empty">Chưa có ghi chú ngày nào. Thêm ở Bảng công → bấm 1 ngày → "Ghi chú ngày này".</div>`;
+
+        const section = (title, body, totalLabel, totalVal, cls) =>
+            `<div class="cc-dl-sec">
+                <div class="cc-dl-h"><span>${title}</span>${totalLabel ? `<span class="cc-dl-tot ${cls || ''}">${totalLabel}</span>` : ''}</div>
+                ${body || `<div class="cc-dl-empty">—</div>`}
+            </div>`;
+
+        const mount = document.getElementById('ccModalMount');
+        mount.innerHTML = `
+          <div class="cc-modal-backdrop" id="ccDtBackdrop">
+            <div class="cc-modal cc-modal-lg">
+              <div class="cc-modal-head">
+                <div>Chi tiết lương · <b>${cc.esc(cc.empName(du))}</b> · ${cc.state.monthKey}</div>
+                <button class="cc-x" id="ccDtClose">✕</button>
+              </div>
+              <div class="cc-modal-body cc-detail-body">
+                ${section('Lương chính', luongBlock, fmt(m.luongChinh))}
+                ${section('Tăng ca (OT)', otBlock, m.lamThem ? '+' + fmt(m.lamThem) : '0đ', 'ot')}
+                ${section('Phụ cấp', itemLines(pr.allowances, '+'), m.phuCap ? '+' + fmt(m.phuCap) : '0đ')}
+                ${section('Thưởng', itemLines(pr.thuong_items, '+'), m.thuong ? '+' + fmt(m.thuong) : '0đ', 'thuong')}
+                ${section('Giảm trừ', `<div class="cc-dl-subh">Phạt đi muộn</div>${lateBlock}${manualGiam ? `<div class="cc-dl-subh">Giảm trừ thủ công</div>${manualGiam}` : ''}`, m.giamTru ? '−' + fmt(m.giamTru) : '0đ', 'giam')}
+                ${section('Đã trả', itemLines(pr.da_tra_items, ''), m.daTra ? fmt(m.daTra) : '0đ')}
+                <div class="cc-dl-summary">
+                  <div class="cc-dl-line tot"><span>Tổng lương</span><span class="num tong">${fmt(m.tongLuong)}</span></div>
+                  <div class="cc-dl-line tot"><span>Còn lại phải trả</span><span class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</span></div>
+                </div>
+                ${pr.ghi_chu ? `<div class="cc-dl-sec"><div class="cc-dl-h"><span>Ghi chú tháng</span></div><div class="cc-dl-monthnote">${cc.esc(pr.ghi_chu)}</div></div>` : ''}
+                ${section('📝 Ghi chú theo ngày', notesBlock)}
+              </div>
+              <div class="cc-modal-foot">
+                <button class="cc-btn cc-btn-ghost" id="ccDtEdit">Sửa điều chỉnh</button>
+                <span class="cc-foot-spacer"></span>
+                <button class="cc-btn cc-btn-primary" id="ccDtOk">Đóng</button>
+              </div>
+            </div>
+          </div>`;
+        const close = () => (mount.innerHTML = '');
+        document.getElementById('ccDtClose').onclick = close;
+        document.getElementById('ccDtOk').onclick = close;
+        document.getElementById('ccDtBackdrop').onclick = (e) => {
+            if (e.target.id === 'ccDtBackdrop') close();
+        };
+        document.getElementById('ccDtEdit').onclick = () => {
+            close();
+            openEdit(deviceUserId);
+        };
     }
 
     // ── Modal sửa điều chỉnh lương ──────────────────────────────────────────
@@ -220,7 +353,9 @@
                     document.head.appendChild(s);
                 });
             }
-            const dus = cc.state.deviceUsers.filter((d) => d.active !== false && d.employee_id);
+            const dus = cc.state.deviceUsers.filter(
+                (d) => d.active !== false && cc.isVisibleEmp(d)
+            );
             const aoa = [
                 [
                     'Nhân viên',

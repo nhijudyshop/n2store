@@ -167,6 +167,16 @@ async function ensureSchema(pool) {
             note        TEXT,
             created_at  BIGINT NOT NULL
         );
+        -- Ghi chú theo NGÀY cho từng NV (hiện ở popup ngày + bảng lương chi tiết).
+        CREATE TABLE IF NOT EXISTS web2_attendance_day_notes (
+            id              VARCHAR(96) PRIMARY KEY, -- '{device_user_id}_{date_key}'
+            device_user_id  VARCHAR(64) NOT NULL,
+            date_key        VARCHAR(10) NOT NULL,
+            note            TEXT,
+            updated_at      BIGINT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_w2att_note_date ON web2_attendance_day_notes(date_key);
+        CREATE INDEX IF NOT EXISTS idx_w2att_note_user ON web2_attendance_day_notes(device_user_id);
         -- Trạng thái đồng bộ agent (1 dòng id='current').
         CREATE TABLE IF NOT EXISTS web2_attendance_sync_status (
             id              VARCHAR(20) PRIMARY KEY,
@@ -237,6 +247,69 @@ router.post('/device-users/bulk', requireAgentSecret, async (req, res) => {
         return ok(res, { upserted });
     } catch (e) {
         console.error('[WEB2-ATTENDANCE] device-users bulk:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// POST /device-users — tạo NV THỦ CÔNG (admin), cho người KHÔNG bấm máy DG-600.
+// PIN tự sinh 'MANUAL-<base36 thời gian>' để phân biệt với PIN máy thật. Sau đó
+// admin gán NV + nhập số công (qua popup ngày / override bảng lương) như NV máy.
+router.post('/device-users', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const b = req.body || {};
+        const displayName = String(b.displayName || b.display_name || '').trim();
+        if (!displayName) return fail(res, 400, 'Cần Tên hiển thị');
+        const t = now();
+        const id = 'MANUAL-' + t.toString(36) + Math.floor(t % 1000).toString(36);
+        const r = await db.query(
+            `INSERT INTO web2_attendance_device_users
+                (device_user_id, uid, name, display_name, employee_id, daily_rate,
+                 work_start, work_end, late_penalty_per_min, ot_multiplier, active, created_at, updated_at)
+             VALUES ($1,$1,$2,$2,$3,$4,$5,$6,$7,$8,TRUE,$9,$9)
+             RETURNING *`,
+            [
+                id,
+                displayName,
+                b.employee_id != null && b.employee_id !== '' ? b.employee_id : null,
+                Number(b.daily_rate) || 200000,
+                b.work_start || '08:00',
+                b.work_end || '20:00',
+                Number(b.late_penalty_per_min) || 0,
+                b.ot_multiplier != null ? Number(b.ot_multiplier) : 2,
+                t,
+            ]
+        );
+        _notify('device-users', { id, manual: true });
+        return ok(res, { item: r.rows[0] });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] device-users create:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// DELETE /device-users/:id — xoá NV THỦ CÔNG (admin). CHỈ cho phép PIN 'MANUAL-*'
+// (PIN máy thật không xoá — để tránh mất dữ liệu máy; muốn ẩn thì tắt "Bật").
+// Dọn luôn punch/ghi chú/bảng lương/ngày-công của PIN thủ công đó.
+router.delete('/device-users/:id', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const id = String(req.params.id);
+        if (!id.startsWith('MANUAL-'))
+            return fail(res, 400, 'Chỉ xoá được NV thủ công (PIN máy thật chỉ có thể tắt "Bật").');
+        await db.query(`DELETE FROM web2_attendance_records WHERE device_user_id = $1`, [id]);
+        await db.query(`DELETE FROM web2_attendance_day_notes WHERE device_user_id = $1`, [id]);
+        await db.query(`DELETE FROM web2_attendance_payroll WHERE emp_id = $1`, [id]);
+        await db.query(`DELETE FROM web2_attendance_fullday WHERE emp_id = $1`, [id]);
+        const r = await db.query(
+            `DELETE FROM web2_attendance_device_users WHERE device_user_id = $1 RETURNING device_user_id`,
+            [id]
+        );
+        if (!r.rows.length) return fail(res, 404, 'Không tìm thấy NV');
+        _notify('device-users', { id, deleted: true });
+        return ok(res, {});
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] device-users delete:', e.message);
         return fail(res, 500, e.message);
     }
 });
@@ -312,6 +385,67 @@ router.get('/records', requireWeb2Admin, async (req, res) => {
         return ok(res, { items: r.rows });
     } catch (e) {
         console.error('[WEB2-ATTENDANCE] records list:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// =====================================================================
+// DAY NOTES (ghi chú theo ngày cho từng NV)
+// =====================================================================
+
+// GET /day-notes?start=YYYY-MM-DD&end=YYYY-MM-DD (admin).
+router.get('/day-notes', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const start = String(req.query.start || '').slice(0, 10);
+        const end = String(req.query.end || '').slice(0, 10);
+        const params = [];
+        let where = '';
+        if (start && end) {
+            where = `WHERE date_key >= $1 AND date_key <= $2`;
+            params.push(start, end);
+        } else if (start) {
+            where = `WHERE date_key >= $1`;
+            params.push(start);
+        }
+        const r = await db.query(
+            `SELECT id, device_user_id, date_key, note FROM web2_attendance_day_notes ${where}`,
+            params
+        );
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] day-notes list:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// PUT /day-notes/:id — upsert ghi chú 1 ngày (id = '{device_user_id}_{date_key}').
+// note rỗng → xoá dòng (giữ bảng sạch). (admin)
+router.put('/day-notes/:id', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const id = String(req.params.id);
+        const note = String((req.body || {}).note || '').trim();
+        // id dạng '{device_user_id}_{YYYY-MM-DD}' → tách date_key 10 ký tự cuối.
+        const dateKey = id.slice(-10);
+        const deviceUserId = id.slice(0, -11); // bỏ '_YYYY-MM-DD'
+        if (!deviceUserId || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey))
+            return fail(res, 400, 'id ghi chú không hợp lệ');
+        if (!note) {
+            await db.query(`DELETE FROM web2_attendance_day_notes WHERE id = $1`, [id]);
+            _notify('day-note', { id });
+            return ok(res, { deleted: true });
+        }
+        await db.query(
+            `INSERT INTO web2_attendance_day_notes (id, device_user_id, date_key, note, updated_at)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (id) DO UPDATE SET note = EXCLUDED.note, updated_at = EXCLUDED.updated_at`,
+            [id, deviceUserId, dateKey, note.slice(0, 1000), now()]
+        );
+        _notify('day-note', { id });
+        return ok(res, {});
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] day-notes put:', e.message);
         return fail(res, 500, e.message);
     }
 });

@@ -43,6 +43,9 @@
         listDeviceUsers: () => api('/device-users'),
         patchDeviceUser: (id, body) =>
             api('/device-users/' + encodeURIComponent(id), { method: 'PATCH', body }),
+        createDeviceUser: (body) => api('/device-users', { method: 'POST', body }),
+        deleteDeviceUser: (id) =>
+            api('/device-users/' + encodeURIComponent(id), { method: 'DELETE' }),
         // NV web 2.0 (để gán vào PIN)
         listEmployees: () =>
             call(USERS_BASE, '/list?limit=500&includeInactive=0')
@@ -57,6 +60,11 @@
         getPayroll: (monthKey) => api('/payroll?monthKey=' + encodeURIComponent(monthKey)),
         putPayroll: (id, body) =>
             api('/payroll/' + encodeURIComponent(id), { method: 'PUT', body }),
+        // Day notes (ghi chú theo ngày)
+        listDayNotes: (start, end) =>
+            api(`/day-notes?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
+        putDayNote: (id, note) =>
+            api('/day-notes/' + encodeURIComponent(id), { method: 'PUT', body: { note } }),
         // Fullday / holidays
         listFullday: () => api('/fullday'),
         addFullday: (empId, dateKey) =>

@@ -2,6 +2,22 @@
 
 ## 2026-06-23
 
+### [feat] cham-cong: thêm NV thủ công + ghi chú theo ngày + modal Chi tiết bảng lương
+
+**Backend** (`render.com/routes/web2-attendance.js`):
+
+- Bảng mới `web2_attendance_day_notes` (id `{device_user_id}_{date_key}`, note, updated_at) — ghi chú theo ngày/NV.
+- `GET /day-notes?start&end` + `PUT /day-notes/:id` (upsert, note rỗng = xoá). Load song song trong `loadAll`.
+- `POST /device-users` (admin) tạo **NV thủ công** PIN `MANUAL-<base36>` cho người không bấm máy DG-600. `DELETE /device-users/:id` chỉ cho PIN `MANUAL-*` (dọn luôn records/notes/payroll/fullday); PIN máy thật chỉ tắt "Bật".
+
+**#1 Thêm NV thủ công** (`cham-cong-employees.js`): nút "Thêm NV thủ công" (hỏi tên qua `Popup.prompt`) → tạo → gán NV + nhập công như NV máy. Hàng MANUAL hiện pill "Thủ công" + nút 🗑 xoá. Filter Bảng công/lương đổi sang `isVisibleEmp` = đã gán NV **hoặc** MANUAL-\* (NV thủ công luôn hiện dù chưa link web2 user).
+
+**#3 Ghi chú theo ngày** (`cham-cong-app.js`): popup ngày thêm ô "📝 Ghi chú ngày này" (persist `putDayNote` khi đổi). Cell Bảng công có ghi chú → chấm vàng góc + tooltip. State `dayNotes` map `{uid}_{dk}→note`.
+
+**#2 Modal Chi tiết bảng lương** (`cham-cong-payroll.js`): nút "Chi tiết" cạnh "Sửa" → modal read-only giải thích từng khoản: lương chính (công×rate), tăng ca (từng ngày OT + override), phụ cấp/thưởng/đã trả (từng item + nhãn), giảm trừ (phạt muộn từng ngày + giảm trừ thủ công), tổng/còn lại, ghi chú tháng + **ghi chú theo ngày** (#3). Nút "Sửa điều chỉnh" mở modal edit cũ.
+
+CSS bump `cham-cong.css?v=20260623d`, js api `g`/payroll+employees `h`/app `i`. ⚠ Cần Render deploy (route mới).
+
 ### [feat] Mọi "Choose File" ảnh hỗ trợ DÁN (Ctrl+V) + kéo-thả — Web2ImagePaste.enhance()
 
 User báo: ai-hub có "Choose File" mà **không dán ảnh được**. Audit toàn bộ `<input type=file accept=image>` Web 2.0 → thêm cơ chế dùng chung.

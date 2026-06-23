@@ -41,6 +41,7 @@
         deviceUsers: [],
         employees: [],
         recordsByUserDate: {}, // { deviceUserId: { dateKey: [rec] } }
+        dayNotes: {}, // '{deviceUserId}_{dateKey}' → note
         fulldaySet: new Set(), // '{empId}_{dateKey}'
         holidaySet: new Set(), // 'dateKey'
         payrollById: {}, // '{empId}_{monthKey}' → row
@@ -67,6 +68,14 @@
         }
         if (du.display_name) return du.display_name;
         return du.name || du.device_user_id;
+    }
+    function isManualEmp(du) {
+        return String(du.device_user_id || '').startsWith('MANUAL-');
+    }
+    // Hiện trên Bảng công / Bảng lương: NV đã gán (employee_id) HOẶC NV thủ công
+    // (do admin chủ động tạo). PIN máy chưa gán = rác → ẩn.
+    function isVisibleEmp(du) {
+        return !!du.employee_id || isManualEmp(du);
     }
     function recordsFor(deviceUserId) {
         return state.recordsByUserDate[deviceUserId] || {};
@@ -101,6 +110,10 @@
                 byUD[rec.device_user_id][rec.date_key] || []).push(rec);
         }
         state.recordsByUserDate = byUD;
+        const notes = {};
+        for (const n of r.dayNotes || [])
+            notes[n.id || `${n.device_user_id}_${n.date_key}`] = n.note;
+        state.dayNotes = notes;
         state.fulldaySet = new Set((r.fullday || []).map((x) => x.id));
         state.holidaySet = new Set((r.holidays || []).map((x) => x.date_key));
         const pById = {};
@@ -137,10 +150,11 @@
         // 2) Revalidate ngầm từ server.
         const { start, end } = monthRange();
         try {
-            const [du, emp, rec, fd, hol, pay, sync] = await Promise.all([
+            const [du, emp, rec, note, fd, hol, pay, sync] = await Promise.all([
                 Api.listDeviceUsers().catch(() => ({ items: [] })),
                 Api.listEmployees().catch(() => ({ users: [] })),
                 Api.listRecords(start, end).catch(() => ({ items: [] })),
+                Api.listDayNotes(start, end).catch(() => ({ items: [] })),
                 Api.listFullday().catch(() => ({ items: [] })),
                 Api.listHolidays().catch(() => ({ items: [] })),
                 Api.getPayroll(mk).catch(() => ({ items: [] })),
@@ -151,6 +165,7 @@
                 deviceUsers: du.items || [],
                 employees: emp.users || [],
                 records: rec.items || [],
+                dayNotes: note.items || [],
                 fullday: fd.items || [],
                 holidays: hol.items || [],
                 payroll: pay.items || [],
@@ -229,12 +244,12 @@
             el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
-        // Chỉ hiện PIN máy ĐÃ gán nhân viên (employee_id) + đang bật. PIN "— Chưa gán —"
-        // ở tab Nhân viên sẽ KHÔNG xuất hiện trên Bảng công (tránh rác PIN chưa gán).
-        const dus = state.deviceUsers.filter((d) => d.active !== false && d.employee_id);
+        // Hiện PIN ĐÃ gán NV hoặc NV thủ công + đang bật. PIN máy "— Chưa gán —"
+        // KHÔNG xuất hiện trên Bảng công (tránh rác PIN chưa gán).
+        const dus = state.deviceUsers.filter((d) => d.active !== false && isVisibleEmp(d));
         if (!dus.length) {
             const hasUnassigned = state.deviceUsers.some(
-                (d) => d.active !== false && !d.employee_id
+                (d) => d.active !== false && !isVisibleEmp(d)
             );
             el.innerHTML = `<div class="cc-empty">
                 <p>${hasUnassigned ? 'Chưa có PIN máy nào được gán nhân viên.' : 'Chưa có nhân viên nào từ máy chấm công.'}</p>
@@ -284,7 +299,10 @@
                 const isFull = isFulldaySet(du.device_user_id, dk);
                 const st = S.dayStatus(r, isFull); // ontime|lateearly|missing|absent
                 const wd = weekdayShort(dk);
-                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${S.STATUS_LABEL[st]} — bấm xem chi tiết"><span class="cc-dot cc-dot-${st}"></span></td>`;
+                const note = state.dayNotes[`${du.device_user_id}_${dk}`];
+                const noteCls = note ? ' has-note' : '';
+                const noteTitle = note ? ` · 📝 ${esc(note)}` : '';
+                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${S.STATUS_LABEL[st]} — bấm xem chi tiết${noteTitle}"><span class="cc-dot cc-dot-${st}"></span></td>`;
             }
             rows += `<tr>${cells}</tr>`;
         }
@@ -332,6 +350,7 @@
         const earlyM = (day.earlyMinutes || 0) % 60;
         const nvCode = 'NV' + String(deviceUserId).padStart(6, '0');
         const leaveMode = isFull ? 'paid' : dayData.status === 'absent' ? 'absent' : 'work';
+        const dayNote = state.dayNotes[`${deviceUserId}_${dateKey}`] || '';
 
         const histHtml = recs.length
             ? recs
@@ -394,6 +413,9 @@
                       <input type="time" id="ccOutTime" value="${outHM || '20:00'}"></label>
                     <div class="cc-io-calc">Về sớm <b>${earlyH}</b> giờ <b>${earlyM}</b> phút</div>
                   </div>
+                  <label class="cc-day-note-lbl">📝 Ghi chú ngày này
+                    <textarea id="ccDayNote" rows="2" placeholder="VD: tăng ca giao hàng, xin về sớm, nghỉ phép báo trước… (hiện ở Bảng lương → Chi tiết)">${esc(dayNote)}</textarea>
+                  </label>
                 </div>
 
                 <div class="cc-dt-pane" data-pane="hist" style="display:none">
@@ -525,6 +547,14 @@
                     await Api.deleteRecord(ctx.checkOut.id);
                 }
             }
+            // 5) Ghi chú ngày — upsert (rỗng = xoá). Chỉ ghi khi thay đổi.
+            const noteEl = document.getElementById('ccDayNote');
+            if (noteEl) {
+                const newNote = noteEl.value.trim();
+                const oldNote = (state.dayNotes[`${deviceUserId}_${dateKey}`] || '').trim();
+                if (newNote !== oldNote)
+                    await Api.putDayNote(`${deviceUserId}_${dateKey}`, newNote);
+            }
             toast('Đã lưu chấm công ngày.', 'success');
             ctx.close();
             await loadAll();
@@ -596,6 +626,8 @@
         state,
         cfgFor,
         empName,
+        isVisibleEmp,
+        isManualEmp,
         recordsFor,
         payrollFor,
         monthRange,

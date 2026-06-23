@@ -913,3 +913,171 @@
 .cc-sync-backup b {
     color: var(--web2-text-2);
 }
+
+/* ───────────────────────── Chấm công: bổ sung 2026-06-23 ───────────────────────── */
+
+/* Toolbar tab Nhân viên: 2 nút (Thêm NV thủ công + Lưu tất cả) */
+.cc-emp-top-btns {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+/* Pill "Thủ công" thay PIN máy cho NV nhập tay */
+.cc-emp-manual-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--web2-info-bg, #e0f2fe);
+    color: var(--web2-info-hover, #0369a1);
+}
+.cc-emp-acts {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    white-space: nowrap;
+}
+.cc-emp-del {
+    padding: 4px 8px;
+}
+
+/* Ghi chú theo ngày trong popup ngày */
+.cc-day-note-lbl {
+    display: block;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--web2-text-2);
+}
+.cc-day-note-lbl textarea {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--web2-border-btn, #d6dee2);
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 400;
+    resize: vertical;
+    box-sizing: border-box;
+}
+/* Marker góc cho ngày CÓ ghi chú trên Bảng công */
+.cc-cell.has-note {
+    position: relative;
+}
+.cc-cell.has-note::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--web2-warning, #f59e0b);
+    box-shadow: 0 0 0 1px #fff;
+}
+
+/* Bảng lương: cụm nút Chi tiết + Sửa */
+.cc-pl-acts {
+    display: flex;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* Modal CHI TIẾT lương (read-only) */
+.cc-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.cc-dl-sec {
+    border: 1px solid var(--web2-border, #e6ebee);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--web2-surface-2, #f8fafb);
+}
+.cc-dl-h {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-weight: 700;
+    color: var(--web2-text);
+    margin-bottom: 6px;
+}
+.cc-dl-tot {
+    font-weight: 800;
+}
+.cc-dl-tot.ot {
+    color: var(--web2-info-hover);
+}
+.cc-dl-tot.thuong {
+    color: var(--web2-success);
+}
+.cc-dl-tot.giam {
+    color: var(--web2-danger);
+}
+.cc-dl-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    font-size: 13px;
+    color: var(--web2-text-2);
+}
+.cc-dl-line .num {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.cc-dl-line .num.ot {
+    color: var(--web2-info-hover);
+}
+.cc-dl-line .num.giam {
+    color: var(--web2-danger);
+}
+.cc-dl-line .num.tong {
+    font-weight: 800;
+    color: var(--web2-text);
+}
+.cc-dl-line .num.con.pos {
+    color: var(--web2-danger);
+    font-weight: 700;
+}
+.cc-dl-line.tot {
+    font-weight: 700;
+    color: var(--web2-text);
+    border-top: 1px dashed var(--web2-border, #e6ebee);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+.cc-dl-sub,
+.cc-dl-subh {
+    font-size: 12px;
+    color: var(--web2-text-faded);
+}
+.cc-dl-subh {
+    font-weight: 700;
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.cc-dl-empty {
+    font-size: 12px;
+    color: var(--web2-text-faded);
+    font-style: italic;
+}
+.cc-dl-summary {
+    border-top: 2px solid var(--web2-border, #e6ebee);
+    padding-top: 6px;
+}
+.cc-dl-monthnote,
+.cc-dl-note {
+    font-size: 13px;
+    color: var(--web2-text-2);
+    padding: 3px 0;
+}
+.cc-dl-note b {
+    color: var(--web2-text);
+    margin-right: 4px;
+}
