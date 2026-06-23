@@ -941,6 +941,41 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     if (sourceDeductedStock) {
                         await _applyStock(client, items, method, +1);
                     }
+                    // FIX over-restock 2026-06-23 (browser-test CROSS-FLOW 2): thu_ve_1_phan
+                    // trên PBH cộng kho +qty NGAY, nhưng PBH vẫn còn order_lines đủ → cancel
+                    // PBH sau restock cả dòng đã trả = kho +qty LẦN 2 (50→51). Ghi qty đã trả
+                    // vào PBH.returned_line_qty → restockOrderLines trừ ra. CHỈ pbh-type
+                    // (native chưa-PBH không trừ kho nên không over-restock).
+                    if (
+                        subType === 'thu_ve_1_phan' &&
+                        sourceOrderType === 'pbh' &&
+                        sourceOrderCode &&
+                        sourceDeductedStock
+                    ) {
+                        const pbhCur = await client.query(
+                            `SELECT id, returned_line_qty FROM fast_sale_orders
+                             WHERE number = $1 FOR UPDATE`,
+                            [sourceOrderCode]
+                        );
+                        if (pbhCur.rows[0]) {
+                            const rlq =
+                                pbhCur.rows[0].returned_line_qty &&
+                                typeof pbhCur.rows[0].returned_line_qty === 'object'
+                                    ? { ...pbhCur.rows[0].returned_line_qty }
+                                    : {};
+                            for (const it of items) {
+                                const c = it.productCode;
+                                const q = Number(it.quantity) || 0;
+                                if (c && q > 0) rlq[c] = (Number(rlq[c]) || 0) + q;
+                            }
+                            await client.query(
+                                `UPDATE fast_sale_orders
+                                 SET returned_line_qty = $2::jsonb, date_updated = NOW()
+                                 WHERE id = $1`,
+                                [pbhCur.rows[0].id, JSON.stringify(rlq)]
+                            );
+                        }
+                    }
                     const hist = [
                         {
                             ts: now,
@@ -1340,6 +1375,35 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                         }
                     }
                 } else if (row.sub_type === 'thu_ve_1_phan' && row.source_order_code) {
+                    // FIX over-restock reverse 2026-06-23: huỷ phiếu trả 1 phần (pbh-type)
+                    // → trả lại returned_line_qty trên PBH nguồn (đối xứng tăng lúc tạo) để
+                    // cancel PBH sau restock ĐỦ phần chưa-trả. (stock đã un-restock ở block
+                    // _applyStock(-1) phía trên qua stock_applied.)
+                    if (row.source_order_type === 'pbh' && row.stock_applied !== false) {
+                        const pbhCur = await client.query(
+                            `SELECT id, returned_line_qty FROM fast_sale_orders
+                             WHERE number = $1 FOR UPDATE`,
+                            [row.source_order_code]
+                        );
+                        if (pbhCur.rows[0]) {
+                            const rlq =
+                                pbhCur.rows[0].returned_line_qty &&
+                                typeof pbhCur.rows[0].returned_line_qty === 'object'
+                                    ? { ...pbhCur.rows[0].returned_line_qty }
+                                    : {};
+                            for (const it of items) {
+                                const c = it.productCode;
+                                const q = Number(it.quantity) || 0;
+                                if (c && q > 0) rlq[c] = Math.max(0, (Number(rlq[c]) || 0) - q);
+                            }
+                            await client.query(
+                                `UPDATE fast_sale_orders
+                                 SET returned_line_qty = $2::jsonb, date_updated = NOW()
+                                 WHERE id = $1`,
+                                [pbhCur.rows[0].id, JSON.stringify(rlq)]
+                            );
+                        }
+                    }
                     // FIX 2026-06-23 (#1 audit): huỷ phiếu trả 1 phần → CỘNG LẠI phần
                     // wallet_deducted đã trừ về từng PBH nguồn (snapshot {id,dec}). Chỉ
                     // PBH còn live (state<>'cancel') mới cộng lại; PBH đã huỷ thì cancel

@@ -326,6 +326,14 @@ async function ensureTables(pool) {
             ALTER TABLE fast_sale_orders
                 ADD COLUMN IF NOT EXISTS stock_restored BOOLEAN DEFAULT FALSE;
 
+            -- [2026-06-23] returned_line_qty {productCode: qty} — SL của TỪNG SP đã
+            -- được THU VỀ 1 PHẦN (thu_ve_1_phan) khi PBH còn sống. restockOrderLines
+            -- trừ phần này khỏi qty restock lúc cancel → SP đã trả KHÔNG bị cộng kho
+            -- 2 lần (1 lần lúc tạo phiếu trả + 1 lần lúc cancel PBH). Browser-test
+            -- CROSS-FLOW 2 bắt: trả 1/2 → cancel → kho 50→51 (+1 ảo).
+            ALTER TABLE fast_sale_orders
+                ADD COLUMN IF NOT EXISTS returned_line_qty JSONB NOT NULL DEFAULT '{}'::jsonb;
+
             -- Migration 078: PBH split index — cho phép 1 native-order tạo nhiều PBH
             -- (tách đơn). Khi từ-native-order với ?split=true:
             --   PBH đầu  : split_index = 1
@@ -584,15 +592,24 @@ async function restockOrderLines(pool, orderRow) {
     const lines = Array.isArray(orderRow.order_lines) ? orderRow.order_lines : [];
     const now = Date.now();
     const items = [];
+    // [2026-06-23] SP đã thu về 1 phần (thu_ve_1_phan) khi PBH còn sống ĐÃ được cộng
+    // kho lúc tạo phiếu trả → trừ khỏi qty restock để KHÔNG cộng 2 lần (over-restock).
+    const returnedMap =
+        orderRow.returned_line_qty && typeof orderRow.returned_line_qty === 'object'
+            ? orderRow.returned_line_qty
+            : {};
     for (const line of lines) {
         const code = line.productCode || line.product_code || line.code;
         const qty = Number(line.quantity || line.qty || 0);
         if (!code || qty <= 0) continue;
+        const alreadyReturned = Number(returnedMap[code]) || 0;
+        const restockQty = Math.max(0, qty - alreadyReturned);
+        if (restockQty <= 0) continue;
         await pool.query(
             `UPDATE web2_products SET stock = stock + $1, updated_at = $2 WHERE code = $3`,
-            [qty, now, code]
+            [restockQty, now, code]
         );
-        items.push({ code, qty });
+        items.push({ code, qty: restockQty });
     }
     await pool.query(
         `UPDATE fast_sale_orders SET stock_restored = TRUE, date_updated = NOW() WHERE id = $1`,
@@ -2343,7 +2360,7 @@ async function _refundWalletDeductedForPbh(client, pbhRow, performedBy) {
 async function _cancelPbhInTx(client, number, performedBy) {
     const prev = await client.query(
         `SELECT id, number, state, stock_restored, order_lines, source_type, source_code,
-                partner_phone, wallet_deducted
+                partner_phone, wallet_deducted, returned_line_qty
          FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
         [number]
     );
@@ -2737,7 +2754,7 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
         const delTx = await withTransaction(pool, async (client) => {
             const prev = await client.query(
                 `SELECT id, number, state, stock_restored, order_lines,
-                        partner_phone, wallet_deducted, source_type, source_code
+                        partner_phone, wallet_deducted, source_type, source_code, returned_line_qty
                  FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
                 [req.params.number]
             );
