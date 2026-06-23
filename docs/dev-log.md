@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### [fix] Trợ lý AI — debug Gemini: 400-rotation + key revoked + model khai tử + env override
+
+Browser-test xoay key phát hiện chuỗi lỗi Gemini (đều đã fix):
+
+1. **Rotation không xoay khi HTTP 400 `API_KEY_INVALID`**: `_httpError` (web2-ai-service) + loop ai-script chỉ bắt 401/403/429/402 → Gemini trả **400** cho key hỏng → ném ngay ở key đầu, bỏ phí key tốt sau. Fix: phân loại 400 theo MESSAGE (`api key not found/invalid`, `API_KEY_INVALID`) = auth-error → cooldown + thử key kế.
+2. **2 key Gemini, 1 hỏng**: `GEMINI_API_KEY` (`AIza…`) = REVOKED ("API key not found"); `WEB2_GEMINI_API_KEY` (`AQ.…`) = VALID. Đã gộp `WEB2_GEMINI_API_KEY` vào pool (extraEnv) → rotation cool key hỏng, dùng key tốt → **Gemini chạy** (verified: "Chào anh/chị, anh/chị đang tìm mẫu áo nào ạ?"). Nên xoá key `AIza…` hỏng.
+3. **`gemini-2.0-flash` khai tử** ("no longer available") → đổi `gemini-2.5-flash` ở chat/translate/caption; ai-script có env `WEB2_GEMINI_MODEL=gemini-2.0-flash` override → thêm **remap-guard** code (deprecated→2.5-flash). Nên sửa/xoá env `WEB2_GEMINI_MODEL` trên Render.
+
+Verified live sau từng deploy: Gemini chat ✅, translate (group, Groq primary) ✅. ai-script remap = code đúng (unit-test pass), chờ Render rollout (deploy queue chậm do nhiều background commit). caption KHÔNG có route standalone (fb-posts gọi service nội bộ).
+
 ### [fix+refactor] Trợ lý AI: fix chat UI hỏng + gộp translate/caption/ai-script vào group xoay key TẬP TRUNG
 
 **Audit → browser-test → debug → cải thiện** (vòng lặp hoàn thiện Web 2.0).
