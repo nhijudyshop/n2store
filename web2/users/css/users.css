@@ -117,9 +117,50 @@
 .u-col-actions {
     width: 170px;
 }
+.u-col-pwd {
+    width: 160px;
+}
 .data-table.u-table tbody td .u-muted {
     color: #94a3b8;
     font-size: 0.8125rem;
+}
+
+/* ── Cột mật khẩu (chỉ admin xem) ───────────────────────────────── */
+.u-pwd-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+}
+.u-pwd-text {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 8px;
+    border-radius: 5px;
+    border: 1px solid #e2e8f0;
+    user-select: all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+}
+.u-pwd-copy {
+    flex: 0 0 auto;
+}
+.u-pwd-copy i {
+    width: 15px;
+    height: 15px;
+}
+.u-pwd-locked {
+    display: inline-flex;
+    align-items: center;
+    color: #cbd5e1;
+}
+.u-pwd-locked i {
+    width: 16px;
+    height: 16px;
 }
 
 .u-role-pill {

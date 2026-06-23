@@ -297,10 +297,13 @@
                     },
                     { passive: true }
                 );
-                // ảnh bấm mở tab mới
+                // ảnh bấm → phóng to bằng lightbox dùng chung (thay vì mở tab mới)
                 cont.addEventListener('click', (e) => {
                     const img = e.target.closest('.w2cp-img');
-                    if (img && img.src) global.open(img.src, '_blank');
+                    if (!img || !img.src) return;
+                    e.preventDefault();
+                    if (global.Web2ImageLightbox) global.Web2ImageLightbox.open([img.src]);
+                    else global.open(img.src, '_blank');
                 });
             }
         }

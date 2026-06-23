@@ -229,11 +229,20 @@
             el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
-        const dus = state.deviceUsers.filter((d) => d.active !== false);
+        // Chỉ hiện PIN máy ĐÃ gán nhân viên (employee_id) + đang bật. PIN "— Chưa gán —"
+        // ở tab Nhân viên sẽ KHÔNG xuất hiện trên Bảng công (tránh rác PIN chưa gán).
+        const dus = state.deviceUsers.filter((d) => d.active !== false && d.employee_id);
         if (!dus.length) {
+            const hasUnassigned = state.deviceUsers.some(
+                (d) => d.active !== false && !d.employee_id
+            );
             el.innerHTML = `<div class="cc-empty">
-                <p>Chưa có nhân viên nào từ máy chấm công.</p>
-                <p class="cc-empty-hint">Chạy agent đồng bộ ở máy shop (<b>install-windows.bat</b> / <b>lay-du-lieu.bat</b>) để nạp dữ liệu từ máy DG-600. Danh sách PIN sẽ tự xuất hiện.</p>
+                <p>${hasUnassigned ? 'Chưa có PIN máy nào được gán nhân viên.' : 'Chưa có nhân viên nào từ máy chấm công.'}</p>
+                <p class="cc-empty-hint">${
+                    hasUnassigned
+                        ? 'Vào tab <b>Nhân viên</b> để gán mỗi PIN máy vào 1 nhân viên Web 2.0 — sau khi gán sẽ hiện ở đây.'
+                        : 'Chạy agent đồng bộ ở máy shop (<b>install-windows.bat</b> / <b>lay-du-lieu.bat</b>) để nạp dữ liệu từ máy DG-600. Danh sách PIN sẽ tự xuất hiện.'
+                }</p>
             </div>`;
             return;
         }

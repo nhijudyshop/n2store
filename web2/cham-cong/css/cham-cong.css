@@ -451,6 +451,30 @@
     color: var(--web2-text-3);
     font-size: 13px;
 }
+/* Thanh đầu tab Nhân viên: hint + nút "Lưu tất cả" */
+.cc-emp-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.cc-emp-top .cc-emp-hint {
+    margin-bottom: 0;
+    flex: 1 1 320px;
+}
+.cc-emp-saveall {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.cc-emp-saveall i {
+    width: 16px;
+    height: 16px;
+}
 .cc-emp input,
 .cc-emp select {
     border: 1px solid var(--web2-border-btn);

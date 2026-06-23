@@ -227,10 +227,94 @@
         open(urls, idx);
     });
 
+    // ── Catch-all CLICK PHÓNG TO cho ảnh nội dung (2026-06-23) ──────────────
+    // Mọi <img> nội dung trong khung Web 2.0 → click mở lightbox + con trỏ
+    // zoom-in (affordance). Cặp với hover-zoom của Web2Effects (module riêng).
+    // Bỏ qua an toàn: icon/avatar nhỏ, ảnh trong link/nút (đã có hành vi riêng),
+    // sidebar, thumb của thumbStrip/Web2ImagePaste, opt-out data-w2-no-zoom.
+    var LB_CONTAINER = '.web2-shell, body.web2-theme, body.web2-clone';
+    var LB_SKIP_ANCESTOR = [
+        'a',
+        'button',
+        '[role="button"]',
+        '[onclick]',
+        'label',
+        '.web2-sidebar',
+        '.web2-aside',
+        '.sidebar',
+        'nav',
+        '[data-w2lb-url]',
+        '[data-w2lb-strip]',
+        '.w2ip-thumb',
+        '[data-w2-no-zoom]',
+        '[data-w2-no-lightbox]',
+    ].join(',');
+    var LB_OPTIN = '.w2-zoomable, [data-w2-zoom], [data-w2-lightbox]';
+    var MIN_SIZE = 56;
+
+    function _fullUrl(img) {
+        // data-full = URL gốc to (trang dùng thumbnail nhỏ); fallback src thật.
+        var full = img.getAttribute('data-full') || img.getAttribute('data-w2lb-url');
+        return safeImageUrl(full || img.currentSrc || img.src);
+    }
+    function _isLightboxable(img) {
+        if (!img || img.tagName !== 'IMG') return false;
+        if (img.closest(LB_SKIP_ANCESTOR)) return false;
+        var optedIn = img.matches(LB_OPTIN) || (img.closest && img.closest(LB_CONTAINER));
+        if (!optedIn) return false;
+        var w = img.naturalWidth || img.width || 0;
+        var h = img.naturalHeight || img.height || 0;
+        if (w && w < MIN_SIZE) return false;
+        if (h && h < MIN_SIZE) return false;
+        return !!_fullUrl(img);
+    }
+
+    // Con trỏ zoom-in khi rê chuột (affordance) — gắn lazy, 1 lần/ảnh.
+    document.addEventListener(
+        'mouseover',
+        function (e) {
+            var img = e.target;
+            if (!img || img.tagName !== 'IMG') return;
+            if (img.__w2lbCursor) return;
+            if (_isLightboxable(img)) {
+                img.__w2lbCursor = true;
+                try {
+                    img.style.cursor = 'zoom-in';
+                } catch (err) {}
+            }
+        },
+        { passive: true }
+    );
+
+    // Click ảnh nội dung → mở lightbox (nếu chưa bị xử lý bởi handler khác).
+    document.addEventListener('click', function (e) {
+        if (e.defaultPrevented) return;
+        var img = e.target;
+        if (!img || img.tagName !== 'IMG') return;
+        if (!_isLightboxable(img)) return;
+        var url = _fullUrl(img);
+        if (!url) return;
+        // Gom các ảnh nội dung "anh em" trong cùng container gần nhất để prev/next.
+        var scope =
+            img.closest('.cc-grid, .ct-table, table, .w2-gallery, [data-w2lb-group]') ||
+            img.parentElement;
+        var siblings = scope
+            ? Array.prototype.filter.call(scope.querySelectorAll('img'), _isLightboxable)
+            : [img];
+        if (siblings.length <= 1) {
+            open([url], 0);
+        } else {
+            var urls = siblings.map(_fullUrl).filter(Boolean);
+            var idx = siblings.indexOf(img);
+            open(urls, idx < 0 ? 0 : idx);
+        }
+    });
+
     global.Web2ImageLightbox = {
         open: open,
         close: close,
         thumbStripHtml: thumbStripHtml,
         safeImageUrl: safeImageUrl,
+        isLightboxable: _isLightboxable,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

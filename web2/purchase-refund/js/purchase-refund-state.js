@@ -135,9 +135,14 @@
         return `<span class="pr-thumb pr-thumb-ph"><i data-lucide="image"></i></span>`;
     }
 
-    // Lightbox xem ảnh SP full-size (native theo browser, không crop).
+    // Lightbox xem ảnh SP full-size — DÙNG CHUNG Web2ImageLightbox (1 nguồn).
+    // Fallback overlay cũ nếu module chưa load.
     function openImageLightbox(src) {
         if (!src) return;
+        if (window.Web2ImageLightbox) {
+            window.Web2ImageLightbox.open([src]);
+            return;
+        }
         let ov = document.getElementById('prImgOverlay');
         if (!ov) {
             ov = document.createElement('div');

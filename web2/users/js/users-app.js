@@ -139,6 +139,7 @@
                 return `<tr class="${inactiveCls}" data-user-id="${u.id}">
                     <td class="u-col-stt">${i + 1}</td>
                     <td><strong>${escapeHtml(u.username)}</strong></td>
+                    <td class="u-col-pwd">${renderPasswordCell(u)}</td>
                     <td>${escapeHtml(u.displayName || '—')}</td>
                     <td>
                         ${u.email ? `<div>${escapeHtml(u.email)}</div>` : ''}
@@ -180,6 +181,39 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
+    // Ô "Mật khẩu" trên bảng: chỉ admin xem được (backend trả u.passwordPlain).
+    // - account admin (role==='admin'): backend KHÔNG trả passwordPlain → khoá 🔒.
+    // - mật khẩu cũ chỉ có bcrypt (chưa mã hoá): passwordPlain === '' → gợi ý đổi MK.
+    function renderPasswordCell(u) {
+        if (u.role === 'admin') {
+            return `<span class="u-pwd-locked" title="Không hiển thị mật khẩu quản trị viên"><i data-lucide="lock"></i></span>`;
+        }
+        if (typeof u.passwordPlain !== 'string') {
+            // viewer không phải admin → không có quyền xem
+            return `<span class="u-muted">••••••</span>`;
+        }
+        if (u.passwordPlain === '') {
+            return `<span class="u-muted" title="Mật khẩu cũ chưa mã hoá — bấm Đổi mật khẩu để hiện">—</span>`;
+        }
+        return `<span class="u-pwd-wrap">
+                    <code class="u-pwd-text">${escapeHtml(u.passwordPlain)}</code>
+                    <button class="u-icon-btn u-pwd-copy" type="button" title="Sao chép mật khẩu" data-act="copypwd" data-id="${u.id}">
+                        <i data-lucide="copy"></i>
+                    </button>
+                </span>`;
+    }
+
+    async function copyUserPassword(user) {
+        const pwd = user?.passwordPlain || '';
+        if (!pwd) return;
+        try {
+            await navigator.clipboard.writeText(pwd);
+            notify(`Đã sao chép mật khẩu của ${user.username}`, 'success');
+        } catch (e) {
+            notify('Không sao chép được — hãy bôi đen để copy thủ công', 'warning');
+        }
+    }
+
     function handleAction(act, id) {
         const user = STATE.users.find((u) => u.id === id);
         if (!user) return;
@@ -189,6 +223,7 @@
         else if (act === 'kpi') openKpiAssignments(user);
         else if (act === 'history') openUserHistory(user);
         else if (act === 'delete') deactivateUser(user);
+        else if (act === 'copypwd') copyUserPassword(user);
     }
 
     // Lịch sử thao tác per-tài khoản — module shared auto-load qua sidebar.

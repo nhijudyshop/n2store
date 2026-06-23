@@ -274,6 +274,19 @@
     text-decoration: none;
     font-size: 16px;
 }
+.ct-img-btn {
+    background: none;
+    border: 0;
+    padding: 2px;
+    font-size: 16px;
+    cursor: zoom-in;
+    line-height: 1;
+    border-radius: 5px;
+    transition: background 120ms;
+}
+.ct-img-btn:hover {
+    background: var(--web2-primary-soft, #e8f2ff);
+}
 .ct-row-act {
     text-align: right;
 }

@@ -53,7 +53,10 @@
             </tr>`;
         }
         el.innerHTML = `
-          <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0, đặt lương/ngày + giờ ca. Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
+          <div class="cc-emp-top">
+            <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0, đặt lương/ngày + giờ ca. Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
+            <button class="cc-btn cc-btn-primary cc-emp-saveall" type="button"><i data-lucide="save"></i> Lưu tất cả</button>
+          </div>
           <div class="cc-grid-wrap">
             <table class="cc-emp">
               <thead><tr>
@@ -66,12 +69,15 @@
         el.querySelectorAll('.cc-emp-save').forEach((b) => {
             b.addEventListener('click', () => saveRow(b.closest('tr')));
         });
+        el.querySelector('.cc-emp-saveall')?.addEventListener('click', (e) =>
+            saveAll(e.currentTarget)
+        );
+        if (global.lucide?.createIcons) global.lucide.createIcons();
     }
 
-    async function saveRow(tr) {
-        const cc = CC();
-        const uid = tr.dataset.uid;
-        const body = {
+    // Đọc cấu hình từ 1 hàng <tr> thành body PATCH.
+    function rowBody(tr) {
+        return {
             display_name: tr.querySelector('.cc-emp-dn').value.trim(),
             employee_id: tr.querySelector('.cc-emp-emp').value || null,
             daily_rate: Number(tr.querySelector('.cc-emp-rate').value) || 0,
@@ -81,6 +87,12 @@
             ot_multiplier: Number(tr.querySelector('.cc-emp-ot').value) || 1,
             active: tr.querySelector('.cc-emp-active').checked,
         };
+    }
+
+    async function saveRow(tr) {
+        const cc = CC();
+        const uid = tr.dataset.uid;
+        const body = rowBody(tr);
         const btn = tr.querySelector('.cc-emp-save');
         btn.disabled = true;
         btn.textContent = '…';
@@ -95,6 +107,39 @@
         } finally {
             btn.disabled = false;
             btn.textContent = 'Lưu';
+        }
+    }
+
+    // Lưu TẤT CẢ hàng: PATCH tuần tự (tránh dội máy chủ), gom kết quả → 1 toast.
+    async function saveAll(btn) {
+        const cc = CC();
+        const trs = Array.from(document.querySelectorAll('.cc-emp tbody tr'));
+        if (!trs.length) return;
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        let ok = 0;
+        const fails = [];
+        for (let i = 0; i < trs.length; i++) {
+            const tr = trs[i];
+            const uid = tr.dataset.uid;
+            btn.textContent = `Đang lưu ${i + 1}/${trs.length}…`;
+            try {
+                const body = rowBody(tr);
+                await cc.Api.patchDeviceUser(uid, body);
+                const idx = cc.state.deviceUsers.findIndex((d) => d.device_user_id === uid);
+                if (idx >= 0) cc.state.deviceUsers[idx] = { ...cc.state.deviceUsers[idx], ...body };
+                ok++;
+            } catch (e) {
+                fails.push(uid);
+            }
+        }
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        if (global.lucide?.createIcons) global.lucide.createIcons();
+        if (fails.length) {
+            cc.toast(`Đã lưu ${ok}/${trs.length}. Lỗi PIN: ${fails.join(', ')}`, 'error');
+        } else {
+            cc.toast(`Đã lưu tất cả ${ok} nhân viên.`, 'success');
         }
     }
 

@@ -42,9 +42,10 @@
             el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
-        const dus = cc.state.deviceUsers.filter((d) => d.active !== false);
+        // Chỉ tính lương cho PIN máy ĐÃ gán nhân viên (đồng bộ với Bảng công).
+        const dus = cc.state.deviceUsers.filter((d) => d.active !== false && d.employee_id);
         if (!dus.length) {
-            el.innerHTML = `<div class="cc-empty"><p>Chưa có nhân viên.</p></div>`;
+            el.innerHTML = `<div class="cc-empty"><p>Chưa có PIN máy nào được gán nhân viên. Vào tab <b>Nhân viên</b> để gán.</p></div>`;
             return;
         }
         let rows = '';
@@ -219,7 +220,7 @@
                     document.head.appendChild(s);
                 });
             }
-            const dus = cc.state.deviceUsers.filter((d) => d.active !== false);
+            const dus = cc.state.deviceUsers.filter((d) => d.active !== false && d.employee_id);
             const aoa = [
                 [
                     'Nhân viên',

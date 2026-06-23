@@ -58,6 +58,51 @@ function _notify(action, id) {
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+// ── Password reversible encryption (AES-256-GCM) ─────────────────────
+// Web 2.0 internal tool: admin cần đọc lại mật khẩu NV để cấp phát. Lưu THÊM
+// một bản mã hoá 2 chiều `password_enc` (KHÔNG thay bcrypt — bcrypt vẫn là
+// nguồn verify login). Chỉ admin được giải mã để hiện lên bảng; KHÔNG lộ mật
+// khẩu của account role 'admin'. Key từ env WEB2_USER_PWD_KEY (khuyến nghị set
+// trên Render). Mất/đổi key → mất khả năng giải mã các bản cũ (login bcrypt vẫn
+// chạy bình thường). Mật khẩu cũ (chỉ có bcrypt, password_enc NULL) sẽ KHÔNG
+// hiện được — phải đổi/tạo mới mới có bản mã.
+const PWD_ENC_KEY = crypto
+    .createHash('sha256')
+    .update(String(process.env.WEB2_USER_PWD_KEY || 'web2-user-pwd-default-key-v1'))
+    .digest(); // 32 bytes
+
+function encryptPassword(plain) {
+    try {
+        if (plain == null || plain === '') return null;
+        const iv = crypto.randomBytes(12);
+        const cipher = crypto.createCipheriv('aes-256-gcm', PWD_ENC_KEY, iv);
+        const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+        const tag = cipher.getAuthTag();
+        // format: v1:<iv_b64>:<tag_b64>:<ciphertext_b64>
+        return `v1:${iv.toString('base64')}:${tag.toString('base64')}:${enc.toString('base64')}`;
+    } catch (e) {
+        console.error('[WEB2-USERS] encryptPassword error:', e.message);
+        return null;
+    }
+}
+
+function decryptPassword(blob) {
+    try {
+        if (!blob || typeof blob !== 'string') return null;
+        const parts = blob.split(':');
+        if (parts.length !== 4 || parts[0] !== 'v1') return null;
+        const iv = Buffer.from(parts[1], 'base64');
+        const tag = Buffer.from(parts[2], 'base64');
+        const data = Buffer.from(parts[3], 'base64');
+        const decipher = crypto.createDecipheriv('aes-256-gcm', PWD_ENC_KEY, iv);
+        decipher.setAuthTag(tag);
+        const dec = Buffer.concat([decipher.update(data), decipher.final()]);
+        return dec.toString('utf8');
+    } catch (e) {
+        return null; // sai key / hỏng dữ liệu → không trả plaintext
+    }
+}
+
 const ROLES = ['admin', 'manager', 'staff', 'viewer'];
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -443,6 +488,9 @@ async function doEnsureTables(pool) {
             updated_at      BIGINT NOT NULL
         );
         ALTER TABLE web2_users ADD COLUMN IF NOT EXISTS permissions JSONB;
+        -- password_enc: bản mã hoá 2 chiều (AES-256-GCM) để admin đọc lại mật khẩu
+        -- và hiện lên bảng users. NULL với mật khẩu cũ (chỉ có bcrypt) → không hiện.
+        ALTER TABLE web2_users ADD COLUMN IF NOT EXISTS password_enc TEXT;
         CREATE INDEX IF NOT EXISTS idx_web2_users_username ON web2_users(username);
         CREATE INDEX IF NOT EXISTS idx_web2_users_active   ON web2_users(is_active);
 
@@ -495,10 +543,10 @@ async function doEnsureTables(pool) {
     }
 }
 
-function mapRow(row) {
+function mapRow(row, opts = {}) {
     if (!row) return null;
     const customPerms = row.permissions || null;
-    return {
+    const out = {
         id: row.id,
         username: row.username,
         displayName: row.display_name,
@@ -513,6 +561,12 @@ function mapRow(row) {
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
     };
+    // Mật khẩu dạng đọc được: CHỈ admin xem (opts.reveal) và KHÔNG lộ account admin.
+    // hasPassword: có bản mã để hiện hay chưa (giúp frontend phân biệt "chưa có" vs admin).
+    if (opts.reveal && row.role !== 'admin') {
+        out.passwordPlain = decryptPassword(row.password_enc) || '';
+    }
+    return out;
 }
 
 function validateRole(role) {
@@ -569,9 +623,10 @@ router.get('/list', requireWeb2Auth, async (req, res) => {
         const sql = `SELECT * FROM web2_users ${where} ORDER BY id ASC LIMIT $1 OFFSET $2`;
         const r = await pool.query(sql, [limit, offset]);
         const cnt = await pool.query(`SELECT COUNT(*)::int AS n FROM web2_users ${where}`);
+        const reveal = req.web2User?.role === 'admin';
         res.json({
             success: true,
-            users: r.rows.map(mapRow),
+            users: r.rows.map((row) => mapRow(row, { reveal })),
             total: cnt.rows[0].n,
             limit,
             offset,
@@ -591,7 +646,8 @@ router.get('/:id(\\d+)', requireWeb2Auth, async (req, res) => {
             Number(req.params.id),
         ]);
         if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
-        res.json({ success: true, user: mapRow(r.rows[0]) });
+        const reveal = req.web2User?.role === 'admin';
+        res.json({ success: true, user: mapRow(r.rows[0], { reveal }) });
     } catch (e) {
         console.error('[WEB2-USERS] get error:', e.message);
         res.status(500).json({ error: e.message });
@@ -611,16 +667,18 @@ router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), asy
         if (!displayName) throw Object.assign(new Error('Họ tên bắt buộc'), { status: 400 });
         const role = validateRole(b.role);
         const hash = await bcrypt.hash(password, 10);
+        const pwdEnc = encryptPassword(password); // bản đọc-được để admin xem trên bảng
         const now = Date.now();
         try {
             const r = await pool.query(
                 `INSERT INTO web2_users
-                    (username, password_hash, display_name, email, phone, role, is_active, note, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8, $8)
+                    (username, password_hash, password_enc, display_name, email, phone, role, is_active, note, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, $9)
                  RETURNING *`,
                 [
                     username,
                     hash,
+                    pwdEnc,
                     displayName,
                     b.email || null,
                     b.phone || null,
@@ -634,7 +692,7 @@ router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), asy
                 username: r.rows[0].username,
                 role: r.rows[0].role,
             });
-            res.json({ success: true, user: mapRow(r.rows[0]) });
+            res.json({ success: true, user: mapRow(r.rows[0], { reveal: true }) });
         } catch (err) {
             if (err.code === '23505') {
                 return res.status(409).json({ error: `Username "${username}" đã tồn tại` });
@@ -796,9 +854,10 @@ router.post(
             const id = Number(req.params.id);
             const password = validatePassword((req.body || {}).password);
             const hash = await bcrypt.hash(password, 10);
+            const pwdEnc = encryptPassword(password); // cập nhật bản đọc-được cho bảng
             const r = await pool.query(
-                `UPDATE web2_users SET password_hash = $1, updated_at = $2 WHERE id = $3 RETURNING id`,
-                [hash, Date.now(), id]
+                `UPDATE web2_users SET password_hash = $1, password_enc = $2, updated_at = $3 WHERE id = $4 RETURNING id`,
+                [hash, pwdEnc, Date.now(), id]
             );
             if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
             // Invalidate all sessions for this user

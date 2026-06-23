@@ -180,7 +180,7 @@
                 <td class="ct-person">${esc(v.person_name || v.collector || '')}</td>
                 <td class="ct-amount ${isIn ? 'in' : 'out'}">${isIn ? '+' : '−'}${fmtVnd(v.amount)}</td>
                 <td class="ct-note" title="${esc(v.note || '')}">${esc((v.note || '').slice(0, 40))}</td>
-                <td class="ct-img">${v.image_id ? `<a href="${Api.imageUrl(v.image_id)}" target="_blank" title="Xem ảnh">🧾</a>` : ''}</td>
+                <td class="ct-img">${v.image_id ? `<button type="button" class="ct-img-btn" data-w2lb-url="${Api.imageUrl(v.image_id)}" title="Xem ảnh (phóng to)">🧾</button>` : ''}</td>
                 <td class="ct-row-act">
                     <button class="ct-mini" data-act="audit" data-id="${v.id}" title="Lịch sử">⟲</button>
                     ${
@@ -338,8 +338,7 @@
                   <textarea id="ctfNote" rows="2" placeholder="Diễn giải…">${isEdit ? esc(v.note || '') : ''}</textarea>
                 </label>
                 <label class="ct-fl ct-fl-full">Ảnh hoá đơn
-                  <input type="file" id="ctfImage" accept="image/*">
-                  ${isEdit && v.image_id ? `<a href="${Api.imageUrl(v.image_id)}" target="_blank" class="ct-cur-img">Ảnh hiện tại 🧾</a>` : ''}
+                  <div id="ctfImageArea"></div>
                 </label>
               </div>
               <div class="ct-modal-foot">
@@ -355,6 +354,21 @@
             if (e.target.id === 'ctFormBackdrop') close();
         };
         document.getElementById('ctfCatManage').onclick = () => openCatManage(t);
+
+        // Ô nhập ảnh hoá đơn dùng chung (paste/kéo-thả/chọn + nén) — 1 nguồn.
+        let imgCtrl = null;
+        if (global.Web2ImagePaste) {
+            imgCtrl = global.Web2ImagePaste.mount('#ctfImageArea', {
+                multiple: false,
+                maxWidth: 1600,
+                maxHeight: 1600,
+                quality: 0.7,
+                compact: true,
+                label: 'Dán / kéo-thả / chọn ảnh hoá đơn',
+                hint: 'Ctrl+V để dán ảnh chụp màn hình — tự nén còn ~1600px.',
+                initial: isEdit && v.image_id ? [Api.imageUrl(v.image_id)] : [],
+            });
+        }
 
         document.getElementById('ctFormSave').onclick = async () => {
             const amount = Math.round(Number(document.getElementById('ctfAmount').value) || 0);
@@ -376,14 +390,14 @@
                 collector: document.getElementById('ctfCollector').value.trim(),
                 note: document.getElementById('ctfNote').value.trim(),
             };
-            const fileEl = document.getElementById('ctfImage');
             const saveBtn = document.getElementById('ctFormSave');
             saveBtn.disabled = true;
             saveBtn.textContent = '…';
             try {
-                if (fileEl.files[0]) {
-                    const dataUrl = await readCompressed(fileEl.files[0]);
-                    body.imageDataUrl = dataUrl;
+                // Ảnh mới (item chưa 'existing') → dataUrl đã nén sẵn bởi Web2ImagePaste.
+                if (imgCtrl) {
+                    const newImg = imgCtrl.getItems().find((it) => !it.existing);
+                    if (newImg) body.imageDataUrl = newImg.dataUrl;
                 }
                 if (isEdit) await Api.updateVoucher(v.id, body);
                 else await Api.createVoucher(body);
@@ -398,33 +412,7 @@
         };
     }
 
-    // Nén ảnh client-side → dataURL JPEG (<= ~1600px, 0.7).
-    function readCompressed(file) {
-        return new Promise((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onload = () => {
-                const img = new Image();
-                img.onload = () => {
-                    const max = 1600;
-                    let { width, height } = img;
-                    if (width > max || height > max) {
-                        const r = Math.min(max / width, max / height);
-                        width = Math.round(width * r);
-                        height = Math.round(height * r);
-                    }
-                    const cv = document.createElement('canvas');
-                    cv.width = width;
-                    cv.height = height;
-                    cv.getContext('2d').drawImage(img, 0, 0, width, height);
-                    resolve(cv.toDataURL('image/jpeg', 0.7));
-                };
-                img.onerror = () => reject(new Error('Ảnh lỗi'));
-                img.src = fr.result;
-            };
-            fr.onerror = () => reject(new Error('Đọc ảnh lỗi'));
-            fr.readAsDataURL(file);
-        });
-    }
+    // (Nén ảnh đã chuyển sang module dùng chung Web2ImagePaste — xem mount ở openForm.)
 
     // ── Category management modal ─────────────────────────────────────────────
     function openCatManage(type) {
