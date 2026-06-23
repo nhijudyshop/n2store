@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### [feat] web2: footer sidebar bấm xem hồ sơ user + đổi avatar DiceBear (self-service)
+
+Footer sidebar (avatar + tên + @user + role) giờ bấm được → mở modal "Thông tin tài khoản". Avatar đổi qua **DiceBear** (HTTP API 10.x, SVG, `<img>`).
+
+- **Shared mới** `web2/shared/web2-user-profile.js` (`Web2UserProfile`): `avatarUrl(cfg)` build URL DiceBear 1 nguồn (BASE `api.dicebear.com/10.x`) + `open()` modal (preview lớn, picker 12 style KHÔNG cần ghi nguồn [CC0 + Pablo Stanley free-commercial], seed + 🎲 ngẫu nhiên, 7 màu nền + trong suốt, info Email/SĐT/role/đăng nhập gần nhất, "Khôi phục chữ cái"). Inject qua sidebar (mọi trang).
+- **Lưu CẤU HÌNH** `{style,seed,bg}` (JSON, KHÔNG lưu URL → đổi version 1 chỗ). Seed mặc định = username.
+- **Backend** `web2-users.js`: cột `avatar TEXT` + `mapRow.avatar` + **self-service** `PATCH /me/avatar` (requireWeb2Auth, chỉ `req.web2User.id` → không sửa được người khác). Login + `/me` trả `avatar`.
+- **Sidebar**: footer render `<img>` avatar (fallback chữ cái), `.web2-user-header` clickable (role=button + keyboard). Sau khi lưu → `Web2Auth.storeLogin` cập nhật localStorage + `Web2Sidebar.renderUserFooter` refresh ngay.
+- Bump `web2-sidebar.js/.css?v=20260623up1` toàn bộ 48 trang. ⚠ Cần Render deploy (cột avatar + endpoint).
+- License: chỉ dùng style không cần attribution (CC0 + avataaars/bottts free-commercial) → an toàn tool nội bộ.
+
 ### [security] web2/login: bỏ dòng lộ tài khoản mặc định admin/admin@@ (đã đổi mật khẩu)
 
 Trang đăng nhập Web 2.0 (`web2/login/index.html`) có dòng "Tài khoản mặc định: admin / admin@@" — sau khi user đổi mật khẩu thì đây là lộ credential không cần thiết. Gỡ block `.login-foot`.

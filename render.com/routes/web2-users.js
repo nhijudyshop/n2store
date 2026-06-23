@@ -491,6 +491,8 @@ async function doEnsureTables(pool) {
         -- password_enc: bản mã hoá 2 chiều (AES-256-GCM) để admin đọc lại mật khẩu
         -- và hiện lên bảng users. NULL với mật khẩu cũ (chỉ có bcrypt) → không hiện.
         ALTER TABLE web2_users ADD COLUMN IF NOT EXISTS password_enc TEXT;
+        -- avatar: cấu hình DiceBear dạng JSON '{"style","seed","bg"}' (self-service, mỗi user tự đổi).
+        ALTER TABLE web2_users ADD COLUMN IF NOT EXISTS avatar TEXT;
         CREATE INDEX IF NOT EXISTS idx_web2_users_username ON web2_users(username);
         CREATE INDEX IF NOT EXISTS idx_web2_users_active   ON web2_users(is_active);
 
@@ -555,6 +557,7 @@ function mapRow(row, opts = {}) {
         role: row.role,
         isActive: row.is_active,
         note: row.note || '',
+        avatar: row.avatar || null, // DiceBear config JSON (self-service)
         customPermissions: customPerms, // null if using role defaults
         permissions: effectivePermissions(row.role, customPerms), // resolved final
         lastLoginAt: row.last_login_at ? Number(row.last_login_at) : null,
@@ -979,6 +982,35 @@ router.post('/login', async (req, res) => {
 });
 
 // ── Me: resolve token → user ───────────────────────────────────────
+// ── Self-service: đổi avatar CỦA CHÍNH MÌNH (mọi user, KHÔNG cần admin) ──────
+// Body: { avatar } — chuỗi JSON cấu hình DiceBear '{"style","seed","bg"}' (hoặc null = bỏ).
+// Chỉ update đúng req.web2User.id → user không sửa được avatar người khác.
+router.patch('/me/avatar', requireWeb2Auth, async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const id = req.web2User && req.web2User.id;
+        if (!id) return res.status(401).json({ error: 'Chưa đăng nhập' });
+        let avatar = (req.body || {}).avatar;
+        if (avatar != null && avatar !== '') {
+            avatar = String(avatar).slice(0, 600); // cap; client gửi JSON nhỏ {style,seed,bg}
+        } else {
+            avatar = null; // reset về initials
+        }
+        const r = await pool.query(
+            `UPDATE web2_users SET avatar = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
+            [avatar, Date.now(), id]
+        );
+        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+        _notify('update-avatar', id);
+        res.json({ success: true, user: mapRow(r.rows[0]) });
+    } catch (e) {
+        console.error('[WEB2-USERS] me/avatar error:', e.message);
+        res.status(e.status || 500).json({ error: e.message });
+    }
+});
+
 router.get('/me', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });

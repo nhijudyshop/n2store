@@ -102,6 +102,8 @@
         // (canvas/so-order/pancake-import là feature-specific → trang tự load.)
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
+        // Hồ sơ user + đổi avatar DiceBear (mở từ footer sidebar) — mọi trang.
+        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260623a');
         // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
         //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
         //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
@@ -620,8 +622,16 @@
         const username = escapeHtml(user.username || '');
         const displayName = escapeHtml(user.displayName || user.username || '');
         const role = escapeHtml(user.role || '');
-        footer.innerHTML = `<div class="web2-user-header">
-                    <div class="web2-user-avatar" title="${username}">${initial}</div>
+        // Avatar DiceBear nếu user đã đặt; không thì chữ cái đầu.
+        const avUrl =
+            window.Web2UserProfile && user.avatar
+                ? window.Web2UserProfile.avatarUrl(user.avatar)
+                : null;
+        const avatarInner = avUrl
+            ? `<img src="${escapeHtml(avUrl)}" alt="${displayName}" referrerpolicy="no-referrer">`
+            : initial;
+        footer.innerHTML = `<div class="web2-user-header" role="button" tabindex="0" title="Xem thông tin tài khoản / đổi avatar">
+                    <div class="web2-user-avatar${avUrl ? ' has-img' : ''}" title="${username}">${avatarInner}</div>
                     <div class="web2-user-info">
                         <div class="web2-user-name" title="${displayName} (${username})">${displayName}</div>
                         <div class="web2-user-meta">
@@ -635,6 +645,15 @@
                     <i data-lucide="log-out"></i>
                     <span class="web2-user-logout-text">Đăng xuất</span>
                 </button>`;
+        const openProfile = () => window.Web2UserProfile?.open();
+        const header = footer.querySelector('.web2-user-header');
+        header?.addEventListener('click', openProfile);
+        header?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openProfile();
+            }
+        });
         footer.querySelector('#web2UserLogout')?.addEventListener('click', (e) => {
             e.stopPropagation();
             if (window.Web2Auth?.logout) window.Web2Auth.logout({ redirect: true });
