@@ -116,42 +116,16 @@ async function _loadTracked() {
 // refresh 60s cùng _loadTracked + cập nhật NGAY khi đổi TK chính (route /primary).
 let _primaryKey = null;
 
-// Kết nối 1 TK bằng session đã lưu (nền — không chặn caller; SSE cập nhật UI). Dùng
-// cho route /primary + auto-promote. KHÔNG kết nối nếu đang nối hoặc chưa có session.
-async function _connectAccount(key) {
-    if (!_pool || !key || zca.isConnected(key)) return false;
-    try {
-        const { rows } = await _pool.query(
-            `SELECT session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_key=$1`,
-            [key]
-        );
-        if (!rows[0]?.session) return false;
-        zca.loginWithCredentials(
-            key,
-            secretCrypto.decryptJson(rows[0].session),
-            rows[0].label || rows[0].display_name,
-            { expectedUid: rows[0].zalo_uid || null }
-        ).catch((e) => {
-            console.warn('[WEB2-ZALO] connect', key, 'fail:', e.message);
-            _updateAccStatus(key, 'error', 'connect: ' + String(e.message).slice(0, 120)).catch(
-                () => {}
-            );
-        });
-        return true;
-    } catch (e) {
-        console.warn('[WEB2-ZALO] _connectAccount:', e.message);
-        return false;
-    }
-}
-
+// Cập nhật cache TK chính. KHÔNG lưu phiên trên server nên KHÔNG tự kết nối — chỉ
+// đảm bảo LUÔN có 1 TK mang cờ is_primary (để gửi tin KH 1-1 + gate watchdog). User
+// tự kết nối TK chính bằng "Đăng nhập Zalo" (phiên chat.zalo.me trên trình duyệt).
 async function _loadPrimaryKey() {
     if (!_pool) return;
     try {
         let key = await _getPrimaryKey(_pool);
         if (!key) {
-            // TỰ LÀNH: chưa có TK chính (vd TK chính cũ bị xoá) nhưng còn TK cá nhân
-            // active → tự phong 1 TK làm chính (ưu tiên đang kết nối → mới nối gần nhất
-            // → tạo sớm nhất). Tránh tình trạng "không TK nào chính = không TK nào nối".
+            // TỰ LÀNH cờ: chưa có TK chính (vd bị xoá) nhưng còn TK cá nhân active →
+            // tự phong CỜ is_primary cho 1 TK (ưu tiên đang connected → mới nối → cũ nhất).
             const { rows } = await _pool.query(
                 `UPDATE web2_zalo_accounts SET is_primary=true, updated_at=$1
                    WHERE account_key = (
@@ -166,9 +140,8 @@ async function _loadPrimaryKey() {
             );
             key = rows[0]?.account_key || null;
             if (key) {
-                console.log('[WEB2-ZALO] auto-promoted primary:', key);
+                console.log('[WEB2-ZALO] auto-promoted primary (flag only):', key);
                 _notify('web2:zalo:accounts', 'update', key);
-                _connectAccount(key); // nối TK chính mới (nếu có session)
             }
         }
         _primaryKey = key;
@@ -576,26 +549,19 @@ async function _updateAccStatus(accountKey, status, txt) {
     _notify('web2:zalo:accounts', 'update', accountKey);
 }
 
-async function _saveSession(accountKey, creds, info, label) {
-    // audit r8: ném thay vì return im lặng — _pool null (cold-start race trước khi
-    // ensureSchema xong) trước đây nuốt việc lưu → login báo 'connected' nhưng
-    // session KHÔNG vào DB → restart sau mất phiên không dấu vết. Ném để login fail
-    // → status 'error' → user thử lại (lúc đó _pool đã sẵn sàng).
-    if (!_pool) throw new Error('DB pool chưa sẵn sàng (cold-start) — chưa lưu được session');
+// Sau khi đăng nhập (cookie từ trình duyệt) → CHỈ cập nhật DANH TÍNH TK (uid/tên/
+// avatar/status) để UI hiện tên. KHÔNG lưu cookie/phiên lên server (2026-06-23):
+// cột `session` luôn = NULL. Phiên chỉ sống trong RAM (zca s.creds) trong uptime.
+// (Tham số `creds` được zca truyền null — bỏ qua, giữ chữ ký callback persistSession.)
+async function _saveSession(accountKey, _creds, info, label) {
+    if (!_pool) throw new Error('DB pool chưa sẵn sàng (cold-start)');
     await _pool.query(
         `UPDATE web2_zalo_accounts SET
-            session=$1, zalo_uid=COALESCE($2, zalo_uid),
-            display_name=COALESCE($3, display_name), avatar_url=COALESCE($4, avatar_url),
-            status='connected', status_msg=NULL, last_connected_at=$5, updated_at=$5
-          WHERE account_key=$6`,
-        [
-            creds ? JSON.stringify(secretCrypto.encryptJson(creds)) : null,
-            info?.uid || null,
-            info?.name || label || null,
-            info?.avatar || null,
-            now(),
-            accountKey,
-        ]
+            session=NULL, zalo_uid=COALESCE($1, zalo_uid),
+            display_name=COALESCE($2, display_name), avatar_url=COALESCE($3, avatar_url),
+            status='connected', status_msg=NULL, last_connected_at=$4, updated_at=$4
+          WHERE account_key=$5`,
+        [info?.uid || null, info?.name || label || null, info?.avatar || null, now(), accountKey]
     );
     _notify('web2:zalo:accounts', 'update', accountKey);
 }

@@ -1,6 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 const ZK = require('./zk');
 const fb = require('./api');
+const web2 = require('./web2-push'); // DUAL-PUSH: đẩy thêm sang Web 2.0 (độc lập, nuốt lỗi)
 const fs = require('fs');
 const path = require('path');
 
@@ -13,84 +14,143 @@ const LOG_DIR = path.join(__dirname, 'logs');
 let zk = null;
 
 function log(msg) {
-  const ts = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const line = '[' + ts + '] ' + msg;
-  console.log(line);
-  try {
-    if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
-    fs.appendFileSync(path.join(LOG_DIR, new Date().toISOString().slice(0,10) + '.log'), line + '\n');
-  } catch (_) {}
+    const ts = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const line = '[' + ts + '] ' + msg;
+    console.log(line);
+    try {
+        if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
+        fs.appendFileSync(
+            path.join(LOG_DIR, new Date().toISOString().slice(0, 10) + '.log'),
+            line + '\n'
+        );
+    } catch (_) {}
 }
 
 async function sync() {
-  log('-- sync --');
-  try {
-    const users = await zk.getUsers();
-    log('users: ' + users.length);
-    if (users.length) await fb.uploadUsers(users);
-  } catch (e) { log('users err: ' + e.message); }
+    log('-- sync --');
+    let userCount = 0,
+        recCount = 0;
+    try {
+        const users = await zk.getUsers();
+        userCount = users.length;
+        log('users: ' + users.length);
+        if (users.length) await fb.uploadUsers(users);
+        // DUAL-PUSH Web 2.0 (độc lập, không ảnh hưởng Web 1.0 nếu lỗi).
+        try {
+            await web2.pushUsers(users);
+        } catch (e) {
+            log('web2 users err: ' + e.message);
+        }
+    } catch (e) {
+        log('users err: ' + e.message);
+    }
 
-  try {
-    const recs = await zk.getAttendances();
-    log('records: ' + recs.length);
-    if (recs.length) log('uploaded: ' + await fb.uploadRecords(recs));
-  } catch (e) { log('records err: ' + e.message); }
+    try {
+        const recs = await zk.getAttendances();
+        recCount = recs.length;
+        log('records: ' + recs.length);
+        if (recs.length) log('uploaded: ' + (await fb.uploadRecords(recs)));
+        try {
+            const n = await web2.pushRecords(recs);
+            log('web2 uploaded: ' + n);
+        } catch (e) {
+            log('web2 records err: ' + e.message);
+        }
+    } catch (e) {
+        log('records err: ' + e.message);
+    }
 
-  await fb.setStatus({ lastSyncTime: new Date().toISOString(), connected: true });
-  log('-- done --');
+    await fb.setStatus({ lastSyncTime: new Date().toISOString(), connected: true });
+    try {
+        await web2.setStatus({
+            connected: true,
+            lastSyncTime: new Date().toISOString(),
+            deviceCount: userCount,
+            recordCount: recCount,
+        });
+    } catch (e) {
+        log('web2 status err: ' + e.message);
+    }
+    log('-- done --');
 }
 
 async function main() {
-  log('=== attendance-sync v5 (raw ZK, TCP+UDP) ===');
+    log('=== attendance-sync v5 (raw ZK, TCP+UDP) ===');
 
-  try { fb.init(); } catch (e) { log('FATAL firebase: ' + e.message); process.exit(1); }
-
-  zk = new ZK(IP, PORT, 10000, COMMKEY);
-  for (let i = 1; i <= 3; i++) {
     try {
-      log('connect (' + i + '/3)...');
-      await zk.connect();
-      log('connected via ' + zk.proto.toUpperCase());
-      break;
+        fb.init();
     } catch (e) {
-      log('attempt ' + i + ': ' + e.message);
-      if (i === 3) { log('FATAL'); await fb.setStatus({ connected: false, lastError: e.message }); process.exit(1); }
-      await new Promise(r => setTimeout(r, 5000));
+        log('FATAL firebase: ' + e.message);
+        process.exit(1);
     }
-  }
 
-  try { log('firmware: ' + await zk.getVersion()); } catch (_) {}
-
-  await sync();
-
-  setInterval(async () => {
-    try { await sync(); } catch (e) {
-      log('err: ' + e.message);
-      try { await zk.disconnect(); await zk.connect(); log('reconnected'); } catch (re) {
-        log('reconnect fail: ' + re.message);
-        await fb.setStatus({ connected: false, lastError: re.message });
-      }
+    zk = new ZK(IP, PORT, 10000, COMMKEY);
+    for (let i = 1; i <= 3; i++) {
+        try {
+            log('connect (' + i + '/3)...');
+            await zk.connect();
+            log('connected via ' + zk.proto.toUpperCase());
+            break;
+        } catch (e) {
+            log('attempt ' + i + ': ' + e.message);
+            if (i === 3) {
+                log('FATAL');
+                await fb.setStatus({ connected: false, lastError: e.message });
+                process.exit(1);
+            }
+            await new Promise((r) => setTimeout(r, 5000));
+        }
     }
-  }, INTERVAL);
 
-  fb.onCommands(async cmd => {
-    log('cmd: ' + cmd.action);
     try {
-      if (cmd.action === 'sync_now') await sync();
-      await fb.updateCommand(cmd.id, 'completed', 'OK');
-    } catch (e) { await fb.updateCommand(cmd.id, 'error', e.message); }
-  });
+        log('firmware: ' + (await zk.getVersion()));
+    } catch (_) {}
 
-  const stop = async () => {
-    log('stopping...');
-    try { await fb.setStatus({ connected: false }); } catch (_) {}
-    try { await zk.disconnect(); } catch (_) {}
-    process.exit(0);
-  };
-  process.on('SIGINT', stop);
-  process.on('SIGTERM', stop);
+    await sync();
 
-  log('running. Ctrl+C to stop.');
+    setInterval(async () => {
+        try {
+            await sync();
+        } catch (e) {
+            log('err: ' + e.message);
+            try {
+                await zk.disconnect();
+                await zk.connect();
+                log('reconnected');
+            } catch (re) {
+                log('reconnect fail: ' + re.message);
+                await fb.setStatus({ connected: false, lastError: re.message });
+            }
+        }
+    }, INTERVAL);
+
+    fb.onCommands(async (cmd) => {
+        log('cmd: ' + cmd.action);
+        try {
+            if (cmd.action === 'sync_now') await sync();
+            await fb.updateCommand(cmd.id, 'completed', 'OK');
+        } catch (e) {
+            await fb.updateCommand(cmd.id, 'error', e.message);
+        }
+    });
+
+    const stop = async () => {
+        log('stopping...');
+        try {
+            await fb.setStatus({ connected: false });
+        } catch (_) {}
+        try {
+            await zk.disconnect();
+        } catch (_) {}
+        process.exit(0);
+    };
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
+
+    log('running. Ctrl+C to stop.');
 }
 
-main().catch(e => { console.error('FATAL:', e); process.exit(1); });
+main().catch((e) => {
+    console.error('FATAL:', e);
+    process.exit(1);
+});

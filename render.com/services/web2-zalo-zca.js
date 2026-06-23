@@ -15,8 +15,6 @@
 
 'use strict';
 
-const secretCrypto = require('../lib/web2-secret-crypto');
-
 // ── Defensive require (không crash server nếu lib lỗi cài) ──────────────
 let Zalo = null;
 let ThreadType = null;
@@ -32,7 +30,6 @@ try {
     console.warn('[web2-zalo-zca] zca-js chưa sẵn sàng:', e.message);
 }
 
-const QR_TTL_MS = 5 * 60 * 1000; // QR sống 5 phút
 const _tt = (threadType) => (threadType === 'group' ? ThreadType.Group : ThreadType.User);
 
 // ── Watchdog "không bị văng nick" (research 2026-06-22, zca-js issues #153/#198/#293/#333) ──
@@ -496,18 +493,16 @@ async function _afterLogin(accountKey, api, label, opts) {
         throw err;
     }
 
-    // audit r8: KHÔNG nuốt lỗi persist — trước đây catch chỉ warn rồi vẫn báo
-    // 'connected' dù session chưa vào DB → restart sau mất phiên âm thầm. Ném ra để
-    // caller (_afterLogin .catch / loginWithCredentials catch) set status 'error',
-    // KHÔNG attach listener / báo connected khi chưa lưu được. encryptJson idempotent
-    // (web2-secret-crypto) nên route _saveSession encryptJson lần nữa = no-op.
-    await _cb.persistSession?.(accountKey, secretCrypto.encryptJson(credentials), s.info, label);
+    // KHÔNG lưu phiên (cookie) lên server (2026-06-23): chỉ cập nhật DANH TÍNH TK
+    // (uid/tên/avatar/status) để UI hiện tên — KHÔNG ghi cookie vào DB. Phiên chỉ
+    // sống trong RAM (s.creds) phục vụ tự nối lại trong cùng uptime.
+    await _cb.persistSession?.(accountKey, null, s.info, label);
     _attachListener(accountKey, api);
     _setStatus(accountKey, 'connected');
 
-    // Lưu creds + danh tính + reset bộ đếm để watchdog tự re-login khi listener rớt
-    // (không cần đọc lại DB). expectedUid = uid thật vừa login → guard chống re-login
-    // nhầm danh tính ở các lần reconnect sau.
+    // Lưu creds TRONG RAM + danh tính + reset bộ đếm để watchdog tự re-login khi
+    // listener rớt (KHÔNG đọc DB, KHÔNG lưu DB). expectedUid = uid thật vừa login →
+    // guard chống re-login nhầm danh tính ở các lần reconnect sau.
     if (credentials) s.creds = credentials;
     s.label = label || s.label;
     s.expectedUid = (opts && opts.expectedUid) || s.info.uid || s.expectedUid || null;
@@ -672,49 +667,10 @@ function stopAll() {
     console.log('[web2-zalo-zca] stopAll (graceful shutdown)');
 }
 
-// ── Đăng nhập QR (không await — trả ngay, browser poll getQr) ───────────
-function startQrLogin(accountKey, label) {
-    if (!Zalo) throw new Error('zca-js không khả dụng: ' + (_libErr || 'unknown'));
-    const existing = _sessions.get(accountKey);
-    if (existing?.api) {
-        return { status: 'connected', alreadyConnected: true };
-    }
-    const s = { status: 'qr_pending', qr: null, startedAt: now(), label };
-    _sessions.set(accountKey, s);
+// (Đăng nhập QR đã GỠ 2026-06-23 — chỉ đăng nhập bằng phiên chat.zalo.me sống trên
+// trình duyệt qua tiện ích N2Store: route /login-cookie → loginWithCredentials.)
 
-    const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
-    const cb = (event) => {
-        const cur = _sessions.get(accountKey) || {};
-        const t = event?.type;
-        // LoginQRCallbackEventType: 0 generated, 1 expired, 2 scanned, 3 declined, 4 gotInfo
-        if (t === 0) {
-            let img = event.data?.image || '';
-            if (img && !/^data:/.test(img)) img = 'data:image/png;base64,' + img;
-            cur.qr = { image: img, token: event.data?.token, expiresAt: now() + QR_TTL_MS };
-            cur.status = 'qr_pending';
-        } else if (t === 1) {
-            cur.status = 'qr_expired';
-            cur.qr = null;
-        } else if (t === 2) {
-            cur.status = 'scanned';
-            cur.scanned = { name: event.data?.display_name, avatar: event.data?.avatar };
-        } else if (t === 3) {
-            cur.status = 'declined';
-        }
-        _sessions.set(accountKey, cur);
-    };
-
-    zalo.loginQR({}, cb)
-        .then((api) => _afterLogin(accountKey, api, label))
-        .catch((err) => {
-            console.warn('[web2-zalo-zca] loginQR fail', accountKey, err?.message);
-            _setStatus(accountKey, 'error', String(err?.message || err).slice(0, 200));
-        });
-
-    return { status: 'qr_pending' };
-}
-
-// ── Đăng nhập bằng credentials đã lưu (boot restore / manual / cookie 1-click) ──
+// ── Đăng nhập bằng credentials (cookie từ trình duyệt — KHÔNG lưu DB) ──
 // opts.expectedUid: chỉ chấp nhận nếu phiên login ra đúng uid này (guard cookie-login slot khác).
 async function loginWithCredentials(accountKey, credentials, label, opts) {
     if (!Zalo) throw new Error('zca-js không khả dụng');
@@ -747,18 +703,6 @@ async function loginWithCredentials(accountKey, credentials, label, opts) {
         const cur = _sessions.get(accountKey);
         if (cur) delete cur.connecting;
     }
-}
-
-function getQr(accountKey) {
-    const s = _sessions.get(accountKey);
-    if (!s) return { status: 'unknown' };
-    return {
-        status: s.status,
-        image: s.qr?.image || null,
-        scanned: s.scanned || null,
-        info: s.info || null,
-        error: s.lastError || null,
-    };
 }
 
 function _requireApi(accountKey) {
@@ -1162,37 +1106,13 @@ function statusAll() {
     return [..._sessions.entries()].map(([k, s]) => _health(k, s));
 }
 
-// ── Boot restore: re-login mọi acc personal có session đã lưu ───────────
-async function restoreAll(accounts) {
-    if (!Zalo || !Array.isArray(accounts)) return;
-    for (const a of accounts) {
-        if (a.account_type !== 'personal' || !a.is_active) continue;
-        // session (JSONB) giải mã trước khi dùng cho zca login (legacy plaintext trả nguyên).
-        const creds = secretCrypto.decryptJson(a.session);
-        if (!creds?.cookie || !creds?.imei) continue;
-        // Audit: ghi việc giải mã + dùng credentials (CHỈ account_key, KHÔNG log cookie/imei).
-        console.log('[web2-zalo-zca] boot restore using stored creds for', a.account_key);
-        try {
-            // expectedUid guard: chỉ chấp nhận phiên re-login ra ĐÚNG uid đã lưu →
-            // chống credentials lẫn slot login nhầm danh tính (audit CRITICAL 2026-06-20).
-            // null (acc cũ chưa có zalo_uid) → KHÔNG guard, vẫn restore như cũ.
-            await loginWithCredentials(a.account_key, creds, a.label || a.display_name, {
-                expectedUid: a.zalo_uid || null,
-            });
-            console.log('[web2-zalo-zca] restored', a.account_key);
-        } catch (e) {
-            console.warn('[web2-zalo-zca] restore fail', a.account_key, e.message);
-            _setStatus(a.account_key, 'error', 'restore: ' + String(e.message).slice(0, 120));
-        }
-    }
-}
+// (Boot restore đã GỠ 2026-06-23 — KHÔNG lưu phiên trên server nên không có gì để
+// khôi phục lúc boot; user đăng nhập lại bằng phiên chat.zalo.me trên trình duyệt.)
 
 module.exports = {
     configure,
     isAvailable,
-    startQrLogin,
     loginWithCredentials,
-    getQr,
     send,
     sendMedia,
     sendSticker,
@@ -1222,7 +1142,6 @@ module.exports = {
     disconnect,
     status,
     statusAll,
-    restoreAll,
     startWatchdog,
     stopAll,
 };
