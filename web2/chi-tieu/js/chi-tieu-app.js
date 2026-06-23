@@ -37,6 +37,11 @@
     }
     function fmtDateTime(ts) {
         if (!ts) return '';
+        // voucher_time = TIMESTAMPTZ (ISO string); created_at audit = BIGINT epoch
+        // (pg trả về dạng chuỗi số "1782202709000") → new Date(chuỗi-số) = Invalid Date.
+        // Ép số khi toàn chữ số; guard Invalid Date để không throw "Invalid time value".
+        const d = /^\d+$/.test(String(ts)) ? new Date(Number(ts)) : new Date(ts);
+        if (isNaN(d.getTime())) return '';
         return new Intl.DateTimeFormat('vi-VN', {
             timeZone: VN_TZ,
             day: '2-digit',
@@ -45,7 +50,7 @@
             hour: '2-digit',
             minute: '2-digit',
             hour12: false,
-        }).format(new Date(ts));
+        }).format(d);
     }
     // 'YYYY-MM-DD' theo +7.
     function todayVN() {

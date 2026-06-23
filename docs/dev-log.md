@@ -2,6 +2,20 @@
 
 ## 2026-06-23
 
+### [feat+fix] Nút tự tạo mật khẩu (web2/users) + audit browser-test Chấm công & Quản lý chi tiêu
+
+**1. Nút "Tạo" mật khẩu** (`web2/users/index.html` + `css/users.css` + `js/users-app.js`, bump `?v=20260623pg`):
+
+- Thêm nút 🎲 **Tạo** cạnh ô mật khẩu (cả form Tạo user + modal Đổi mật khẩu) → sinh **1 từ tiếng Anh dễ nhớ dài đúng 9 chữ** (danh sách 111 từ curated, lọc `.length===9` runtime chống gõ nhầm; `Math.random` pick). Ô để `type=text` cho admin đọc/copy đưa NV + toast gợi ý.
+- Browser-test: bấm → `dimension`/`wonderful`/`yardstick`/`education` — đều 9 ký tự, ngẫu nhiên mỗi lần, 0 console error.
+
+**2. Audit + browser-test (click như user thật, seed→test→xoá sạch DB — user cho phép):**
+
+- **Chấm công** (`web2/cham-cong/`): timesheet dot-grid (16 NV máy, 6 NV web2, 454 chấm) ✓, popup chi tiết ngày (Vào/Ra + OT + về sớm + 2 tab) ✓, thêm/xoá lượt chấm thủ công (add `09:15 manual` → persist → xoá → về absent) ✓, gán NV (PIN 2 → "Nhân viên Test" hiện đúng tên ở timesheet → revert) ✓, tab Bảng lương (tính công/OT/giảm trừ, tên NV gán "Còi" đúng) + modal Điều chỉnh lương ✓. **Fix**: empty-state còn trỏ nút "Nhập Excel/TXT" đã gỡ → đổi sang hướng dẫn chạy `install-windows.bat`/`lay-du-lieu.bat` (`cham-cong-app.js`, bump `?v=20260623g`).
+- **Quản lý chi tiêu** (`web2/chi-tieu/`): tạo phiếu thu (TTM000003, summary cập nhật) ✓, sửa số tiền ✓, **huỷ phiếu** (lý do qua Popup.prompt, loại khỏi list paid + summary→0) ✓, xoá hẳn (cleanup) ✓, tab Báo cáo (breakdown danh mục/tháng/nguồn/quỹ) ✓, quản lý danh mục (thêm/xoá) ✓. **🐛 Fix bug** (`chi-tieu-app.js`, bump `?v=20260623b`): popup **Lịch sử** báo "Lỗi: Invalid time value" — `created_at` audit là `BIGINT` epoch (pg trả chuỗi số `"1782…"`) → `new Date(chuỗi-số)` = Invalid Date → `Intl.format()` throw. Sửa `fmtDateTime`: ép `Number(ts)` khi toàn chữ số + guard `isNaN` (không throw). Verify lại: audit hiện đúng "Sửa/Tạo · Quản trị viên · 15:19/15:18" GMT+7.
+
+Tất cả data test đã dọn sạch, không sót. 2 trang chạy ổn, 0 lỗi app sau fix.
+
 ### [fix] Trợ lý AI — debug Gemini: 400-rotation + key revoked + model khai tử + env override
 
 Browser-test xoay key phát hiện chuỗi lỗi Gemini (đều đã fix):
