@@ -843,6 +843,11 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     // KNH nhưng TRỪ MỘT PHẦN: lock PBH nguồn FOR UPDATE, re-cap theo số TƯƠI,
                     // trừ walletCredit (clamp 0) phân bổ theo từng PBH, snapshot {id,dec} để
                     // DELETE phiếu trả cộng lại. KHÔNG set stock_restored (chỉ trả 1 phần).
+                    // ⚠ KNOWN-LIMITATION (audit vòng 4, defer): vì KHÔNG trừ qty đã trả khỏi
+                    // order_lines của PBH nguồn, nếu SAU ĐÓ huỷ TOÀN BỘ PBH nguồn thì
+                    // restockOrderLines restock cả dòng đã trả → over-restock đúng phần này.
+                    // Chuỗi này hiếm (trả 1 phần rồi huỷ cả đơn). Fix triệt để cần sửa
+                    // order_lines (đụng totals/reconcile PBH) → để dịp focused, không rush.
                     if (subType === 'thu_ve_1_phan' && walletCredit > 0 && sourceOrderCode) {
                         const lockQ =
                             sourceOrderType === 'pbh'
@@ -906,7 +911,28 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             }
                         }
                     }
-                    await _applyStock(client, items, method, +1);
+                    // FIX 2026-06-23 (audit vòng 4): kho CHỈ bị trừ khi tạo PBH
+                    // (from-native-order / merge-to-pbh). Native order CHƯA convert
+                    // sang PBH = CHƯA trừ kho → restock nó = BƠM TỒN ẢO. Chỉ restock
+                    // khi nguồn THỰC SỰ đã trừ kho (có ≥1 PBH state<>'cancel'). pbh
+                    // type: PBH luôn đã trừ kho → restock. native type: phải có PBH live.
+                    let sourceDeductedStock = true;
+                    if (sourceOrderType === 'native' && sourceOrderCode) {
+                        if (subType === 'khong_nhan_hang') {
+                            sourceDeductedStock = knhPbhIds.length > 0;
+                        } else {
+                            const pbhChk = await client.query(
+                                `SELECT 1 FROM fast_sale_orders
+                                 WHERE source_type = 'native_order' AND source_code = $1
+                                   AND state <> 'cancel' LIMIT 1`,
+                                [sourceOrderCode]
+                            );
+                            sourceDeductedStock = pbhChk.rows.length > 0;
+                        }
+                    }
+                    if (sourceDeductedStock) {
+                        await _applyStock(client, items, method, +1);
+                    }
                     const hist = [
                         {
                             ts: now,
@@ -1135,6 +1161,18 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                 if (row.status !== 'active') {
                     // Idempotent: đã huỷ rồi → 409, KHÔNG đụng kho/ví lần 2.
                     const err = new Error('Phiếu đã huỷ');
+                    err.httpStatus = 409;
+                    throw err;
+                }
+                // FIX 2026-06-23 (audit vòng 4): chặn huỷ phiếu thu_ve_1_phan ĐÃ lên
+                // bill 0đ (bill_status='consumed'). SP đã được XUẤT LẠI qua PBH đổi →
+                // huỷ phiếu thu về sẽ trừ kho LẦN 2 (net âm/clamp 0 = mất hàng) +
+                // re-add wallet_deducted cho PBH nguồn dù KH đã nhận hàng đổi = lệch
+                // kho + over-refund ví. Muốn đảo: huỷ PBH đổi (consumed_pbh_code) trước.
+                if (row.bill_status === 'consumed') {
+                    const err = new Error(
+                        `Phiếu đã lên bill đổi ${row.consumed_pbh_code || ''} — huỷ PBH đổi đó trước, không huỷ phiếu thu về trực tiếp`
+                    );
                     err.httpStatus = 409;
                     throw err;
                 }

@@ -88,7 +88,13 @@
                     <td>${stockCell}</td>
                     <td class="rt-actions">
                         <button class="rt-btn-hist" data-hist="${esc(r.code)}" title="Lịch sử thao tác phiếu ${esc(r.code)}"><i data-lucide="history"></i></button>
-                        ${cancelled ? '<span class="rt-muted">Đã huỷ</span>' : `<button class="rt-btn-del" data-del="${esc(r.code)}" title="Huỷ phiếu + hoàn lại ví/kho">Huỷ</button>`}
+                        ${
+                            cancelled
+                                ? '<span class="rt-muted">Đã huỷ</span>'
+                                : r.billStatus === 'consumed'
+                                  ? '<span class="rt-muted" title="Đã lên bill đổi — huỷ PBH đổi để đảo, không huỷ phiếu trực tiếp">Đã lên bill</span>'
+                                  : `<button class="rt-btn-del" data-del="${esc(r.code)}" title="Huỷ phiếu + hoàn lại ví/kho">Huỷ</button>`
+                        }
                     </td>
                 </tr>`;
             })
