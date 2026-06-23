@@ -3,15 +3,19 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c768b5a` — feat(web2-cham-cong): bảng công dạng chấm tròn màu + popup chi tiết (Vào/Ra/OT/về sớm, đi làm·nghỉ phép)
-**Last updated**: 2026-06-23 13:26:18 +07
-**Latest session**: [`RESUME:20260623-132618-c768b5a`](../20260623-132618-c768b5a.md)
-**Summary**: Kết nối DG-600 thật (192.168.1.201): pull 2276 lượt qua agent + bảng công dạng chấm tròn + popup chi tiết
+**Latest commit**: `a47424f` — feat(web2-admin): Người dùng vào group Quản trị viên + bỏ badge số group + smart cache IndexedDB cho Chấm công
+**Last updated**: 2026-06-23 13:36:13 +07
+**Latest session**: [`RESUME:20260623-133613-a47424f`](../20260623-133613-a47424f.md)
+**Summary**: Người dùng vào Quản trị viên + bỏ badge số + smart cache Chấm công + verify gán tên
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
+- [`web2/`](./web2.md) — 48 file(s)
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -40,11 +44,11 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-23 12:39
+- [`live-chat/`](./live-chat.md) — updated 2026-06-23 13:36
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-23 12:39
+- [`native-orders/`](./native-orders.md) — updated 2026-06-23 13:36
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
@@ -56,14 +60,14 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 13:26
+- [`render.com/`](./render.com.md) — updated 2026-06-23 13:36
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-23 00:50
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-23 12:39
+- [`so-order/`](./so-order.md) — updated 2026-06-23 13:36
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
@@ -73,9 +77,9 @@
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
 - [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-22 16:08
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 12:39
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 13:36
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 13:26
+- [`web2/`](./web2.md) — updated 2026-06-23 13:36
