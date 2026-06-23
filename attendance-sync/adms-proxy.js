@@ -19,6 +19,13 @@ const PORT = 8081;
 const RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const LOG_DIR = path.join(__dirname, 'logs');
 
+// DUAL-PUSH Web 2.0: mirror moi request /iclock/* sang ADMS endpoint Web 2.0
+// (<render>/api/web2-attendance-adms/iclock/*). Fire-and-forget, KHONG cho phep
+// anh huong response tra ve may (Web 1.0 van la nguon dieu khien may). Tat: WEB2_DUAL_PUSH=0.
+const WEB2_ADMS_BASE =
+    (process.env.WEB2_ADMS_URL || RENDER_URL).replace(/\/$/, '') + '/api/web2-attendance-adms';
+const WEB2_DUAL_PUSH = process.env.WEB2_DUAL_PUSH !== '0';
+
 // Recent logs buffer for /debug endpoint
 const recentLogs = [];
 const MAX_RECENT = 200;
@@ -34,7 +41,10 @@ function log(msg) {
 
     try {
         if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
-        fs.appendFileSync(path.join(LOG_DIR, new Date().toISOString().slice(0, 10) + '.log'), line + '\n');
+        fs.appendFileSync(
+            path.join(LOG_DIR, new Date().toISOString().slice(0, 10) + '.log'),
+            line + '\n'
+        );
     } catch (_) {}
 }
 
@@ -45,7 +55,7 @@ async function forwardToRender(method, reqPath, body, headers) {
         method,
         headers: {
             'Content-Type': headers['content-type'] || 'text/plain',
-        }
+        },
     };
     if (body) opts.body = body;
 
@@ -61,6 +71,19 @@ async function forwardToRender(method, reqPath, body, headers) {
         log('  -> ERROR forwarding: ' + e.message);
         return { status: 502, body: 'proxy error: ' + e.message };
     }
+}
+
+// Mirror sang Web 2.0 ADMS (fire-and-forget). Chi cho /iclock/*. Loi -> nuot (log).
+function mirrorToWeb2(method, reqPath, body, headers) {
+    if (!WEB2_DUAL_PUSH || !reqPath.startsWith('/iclock')) return;
+    const url = WEB2_ADMS_BASE + reqPath;
+    fetch(url, {
+        method,
+        headers: { 'Content-Type': (headers && headers['content-type']) || 'text/plain' },
+        body: body || undefined,
+    })
+        .then((r) => log('  -> Web2 ADMS: ' + r.status))
+        .catch((e) => log('  -> Web2 ADMS loi (bo qua): ' + e.message));
 }
 
 const server = http.createServer(async (req, res) => {
@@ -83,7 +106,14 @@ const server = http.createServer(async (req, res) => {
     // Status endpoint
     if (url.pathname === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ proxy: 'running', port: PORT, render: RENDER_URL, logs: recentLogs.length }));
+        res.end(
+            JSON.stringify({
+                proxy: 'running',
+                port: PORT,
+                render: RENDER_URL,
+                logs: recentLogs.length,
+            })
+        );
         return;
     }
 
@@ -92,7 +122,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST') {
         body = await new Promise((resolve) => {
             let data = '';
-            req.on('data', chunk => data += chunk);
+            req.on('data', (chunk) => (data += chunk));
             req.on('end', () => resolve(data));
         });
     }
@@ -117,8 +147,9 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // Forward to Render
+    // Forward to Render (Web 1.0) + mirror sang Web 2.0 (fire-and-forget, doc lap).
     log('  Forwarding to Render...');
+    mirrorToWeb2(req.method, fullPath, body || undefined, req.headers);
     const result = await forwardToRender(req.method, fullPath, body || undefined, req.headers);
 
     res.writeHead(result.status, { 'Content-Type': 'text/plain' });

@@ -1,0 +1,4 @@
+web2-config.json
+node_modules/
+logs/
+*.log

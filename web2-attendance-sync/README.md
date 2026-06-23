@@ -4,14 +4,7 @@ Agent chạy ở **máy tính trong shop** (cùng mạng LAN với máy chấm c
 
 > Render là cloud, KHÔNG vào được mạng LAN của shop. Vì vậy agent chạy ở máy shop và **đẩy ra ngoài** (outbound) → vượt NAT, không cần mở port.
 
-Có **2 chế độ** — chọn 1:
-
-| Chế độ                       | File            | Khi nào dùng                                                                      | Cần cài thư viện              |
-| ---------------------------- | --------------- | --------------------------------------------------------------------------------- | ----------------------------- |
-| **ZK pull** ✅ (khuyên dùng) | `sync.js`       | **Đã test chạy được với DG-600 thật.** Kéo dữ liệu qua LAN cổng 4370, mỗi 5 phút. | Có (`node-zklib`, bat tự cài) |
-| **ADMS proxy** (dự phòng)    | `adms-proxy.js` | Chỉ khi máy có menu "Cloud/ADMS server" + muốn realtime (DG-600 thường KHÔNG có). | Không                         |
-
-> **Cách nhanh nhất:** copy thư mục `web2-attendance-sync/` sang máy PC shop → sửa `config.json` → **bấm đúp `install-windows.bat`** (tự cài thư viện + chạy ZK pull). Giữ cửa sổ mở.
+> ⭐ **ĐỌC TRƯỚC — đa số shop KHÔNG cần chạy folder này.** Shop đã có **collector Web 1.0** (`attendance-sync/`) chạy thường trực trên 1 máy. Cách gọn nhất để Web 2.0 có dữ liệu là bật **DUAL-PUSH** ở collector đó (1 máy, 1 kết nối DG-600, đẩy sang CẢ 2 backend). Xem `attendance-sync/README.md` → mục "Dual-push Web 2.0". Folder `web2-attendance-sync/` chỉ là **bản dự phòng độc lập** khi shop KHÔNG chạy collector Web 1.0.
 
 ---
 
@@ -33,7 +26,7 @@ Sửa `config.json`:
 
 ---
 
-## 2A. Chạy ZK pull (khuyên dùng — đã test)
+## 2A. Chạy ZK pull (đã test)
 
 **Windows:** bấm đúp `install-windows.bat` (tự cài thư viện + chạy). **Mac:** bấm đúp `run-mac.command`.
 
@@ -63,29 +56,13 @@ Trên **máy chấm công DG-600** (menu _Comm → Cloud Server / ADMS_ — DG-6
 
 ## 3. Giữ agent chạy nền 24/7
 
-### ✅ Windows — TỰ ĐỘNG khi bật máy (khuyên dùng nhất)
+> ⭐ **KHUYẾN NGHỊ: KHÔNG chạy nền bằng folder này.** Máy DG-600 chỉ cho ~1 kết nối cùng lúc → chạy thêm agent ở đây sẽ **tranh kết nối** với collector Web 1.0 đang chạy sẵn. Thay vào đó bật **DUAL-PUSH** ở `attendance-sync/` (collector Web 1.0 đẩy luôn sang Web 2.0). Khi đó **không cần** chạy gì trong folder này.
 
-**Bấm đúp `cai-tu-dong.bat` (1 lần duy nhất).** Từ đó:
-
-- Cứ **bật máy / đăng nhập Windows là tự đồng bộ** (5 phút/lần), **chạy ngầm** — không hiện cửa sổ đen, **không cần mở trang web**.
-- **Tự chạy lại** nếu node lỗi/mất mạng (vòng lặp trong `chay-nen.bat`, đợi 15s rồi thử lại).
-- Đăng ký qua **Windows Task Scheduler** (trigger _khi đăng nhập_) → chạy `run-hidden.vbs` (ẩn cửa sổ) → `chay-nen.bat` (vòng lặp `node sync.js`).
-
-> Nếu `cai-tu-dong.bat` báo **không tạo được tác vụ** (thiếu quyền) → **chuột phải → Run as administrator** rồi chạy lại.
-
-**Tắt tự động:** bấm đúp `go-tu-dong.bat` (gỡ khỏi startup + dừng tiến trình đang chạy).
-
-| File              | Vai trò                                                            |
-| ----------------- | ------------------------------------------------------------------ |
-| `cai-tu-dong.bat` | Cài tự chạy khi bật máy + khởi động ngay                           |
-| `go-tu-dong.bat`  | Gỡ tự chạy + dừng đồng bộ                                          |
-| `chay-nen.bat`    | Vòng lặp `node sync.js`, tự chạy lại nếu lỗi (không bấm trực tiếp) |
-| `run-hidden.vbs`  | Chạy `chay-nen.bat` ẩn cửa sổ (Task Scheduler gọi)                 |
-
-### Cách khác
+Folder này chỉ là **bản dự phòng độc lập** cho shop **KHÔNG** chạy collector Web 1.0:
 
 - **Windows (giữ cửa sổ mở):** bấm đúp `install-windows.bat`, hoặc `pm2 start sync.js --name web2-attendance`.
 - **Mac/Linux**: `./run-mac.command`, hoặc `pm2 start sync.js --name web2-attendance`.
+- **Lấy 1 lần thủ công:** `lay-du-lieu.bat` / `lay-du-lieu.command`.
 
 ---
 
@@ -110,24 +87,16 @@ Rồi điền đúng chuỗi đó vào `config.json` (`attendanceSecret`). Deplo
 3. Dải "Máy chấm công" hiện **Đang kết nối** + punch xuất hiện trong bảng công (realtime qua SSE).
 4. Sang tab **Nhân viên** gán mỗi PIN máy vào 1 nhân viên + đặt lương/ngày + giờ ca.
 
-**Nguồn dữ liệu DUY NHẤT = file bat này** (`sync.js`). Trang web KHÔNG có nút lấy/nhập thủ công — dữ liệu chỉ vào DB qua bat, rồi client tự cập nhật (smart cache + SSE realtime).
+**Nguồn dữ liệu = collector** (dual-push từ `attendance-sync/`, hoặc `sync.js` của folder này nếu chạy dự phòng). Trang web KHÔNG có nút lấy/nhập thủ công — dữ liệu chỉ vào DB qua collector, rồi client tự cập nhật (smart cache + SSE realtime).
 
 ---
 
-## 6. Ba cách dùng (chọn 1, đơn giản)
+## 6. Tóm tắt cách dùng
 
-### ✅ Cách 0 — TỰ ĐỘNG khi bật máy (khuyên dùng nhất, Windows)
+| Tình huống                                 | Làm gì                                                                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Shop CÓ chạy collector Web 1.0** (đa số) | Bật **dual-push** ở `attendance-sync/` (copy `web2-config.example.json` → `web2-config.json`, dán secret). KHÔNG chạy folder này. |
+| Shop KHÔNG chạy Web 1.0                    | Chạy `install-windows.bat` (giữ cửa sổ) — bản dự phòng.                                                                           |
+| Chỉ muốn lấy 1 lần                         | `lay-du-lieu.bat` / `lay-du-lieu.command` (cùng LAN).                                                                             |
 
-**Bấm đúp `cai-tu-dong.bat` 1 lần.** Xong — từ đó bật máy là tự đồng bộ ngầm 5 phút/lần, tự chạy lại nếu lỗi, không cần mở cửa sổ, không cần mở web. Tắt: `go-tu-dong.bat`. (Chi tiết ở mục 3.)
-
-### Cách 1 — Bấm nút LẤY 1 LẦN (khi cùng mạng)
-
-Lúc nào muốn lấy thì **bấm đúp `lay-du-lieu.bat`** (Windows) / `lay-du-lieu.command` (Mac).
-→ Kéo dữ liệu 1 lần rồi đóng. Phải đang **cùng mạng LAN** với máy chấm công (tự dò IP).
-
-### Cách 2 — Chạy NỀN giữ cửa sổ mở (tự đồng bộ)
-
-**Bấm đúp `install-windows.bat`** / `run-mac.command` và **giữ cửa sổ mở** → tự đồng bộ mỗi 5 phút.
-Dùng 1 PC luôn bật ở shop. (Như cách 0 nhưng phải giữ cửa sổ + tự bấm lại sau reboot.)
-
-> **Lưu ý:** chỉ chạy nền trên **1 PC** (không cần nhiều máy). Dữ liệu idempotent (`id = PIN_giờ`) nên có lỡ chạy trùng cũng không nhân đôi, nhưng máy chấm công thường chỉ cho 1 kết nối cùng lúc → 1 PC là gọn nhất.
+> **Chỉ 1 collector kết nối máy DG-600 cùng lúc.** Dữ liệu idempotent (`id = PIN_giờ`) nên không nhân đôi, nhưng máy thường chỉ cho 1 kết nối → tránh chạy 2 collector song song.

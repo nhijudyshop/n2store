@@ -2,6 +2,18 @@
 
 ## 2026-06-23
 
+### [refactor] cham-cong: DUAL-PUSH từ collector Web 1.0 (1 máy/1 kết nối DG-600 → cả 2 backend), bỏ agent Web 2.0 riêng
+
+User chỉ ra: Web 1.0 đã chạy sẵn collector chấm công trên 1 máy shop → agent Web 2.0 riêng (`web2-attendance-sync/`) là collector THỨ HAI tranh kết nối cùng máy DG-600 (máy chỉ ~1 kết nối/lúc). Gom về 1 collector dual-push:
+
+- **`attendance-sync/web2-push.js`** (mới): forwarder đẩy users/records/sync-status sang `/api/web2-attendance` (secret từ `web2-config.json` hoặc env `WEB2_ATTENDANCE_SECRET`; thiếu → no-op). Map shape giống api.js Web 1.0. **Nuốt mọi lỗi** → không ảnh hưởng Web 1.0.
+- **`attendance-sync/index.js`** (ZK pull): sau khi push Web 1.0, gọi thêm `web2.pushUsers/pushRecords/setStatus` (try/catch).
+- **`attendance-sync/adms-proxy.js`** (ADMS mode): `mirrorToWeb2()` fire-and-forget mirror mọi `/iclock/*` sang `/api/web2-attendance-adms/iclock/*` (Web2 ADMS open, không cần secret). Tắt bằng env `WEB2_DUAL_PUSH=0`.
+- `web2-config.example.json` + `.gitignore` (bảo vệ secret + logs).
+- **Gỡ** 4 file auto-start Web 2.0 vừa thêm (`cai-tu-dong/go-tu-dong/chay-nen.bat`, `run-hidden.vbs`) — không cần collector thứ 2. `web2-attendance-sync/` còn lại là **fallback** khi shop KHÔNG chạy Web 1.0.
+- README cả 2 folder cập nhật. Web1⊥Web2 vẫn giữ: 2 backend độc lập DB/bảng, chỉ chung 1 collector đọc thiết bị vật lý.
+- Bật: copy `attendance-sync/web2-config.example.json` → `web2-config.json`, dán secret. Log sync hiện `web2 uploaded: N`.
+
 ### [fix] Trợ lý AI Web 2.0 — 9 bug đã verify đối kháng (resilience + UX, không mất data)
 
 Fix các finding isReal=true sau audit đối kháng module Trợ lý AI (`web2/ai-hub/` + `render.com/{routes,services}/web2-ai*`):
