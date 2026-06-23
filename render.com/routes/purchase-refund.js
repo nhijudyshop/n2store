@@ -34,7 +34,7 @@ const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const { recordAuditEvent } = require('../services/web2-audit-sink');
 // Trần over-refund SERVER-AUTHORITATIVE — đọc SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với web2-supplier-wallet (/tx) — xem lib/web2-so-order-qty.js.
-const { loadSoOrderReceivedQtyMap } = require('../lib/web2-so-order-qty');
+const { loadSoOrderReceivedMap } = require('../lib/web2-so-order-qty');
 router.use(requireWeb2AuthSoft);
 
 // -----------------------------------------------------
@@ -415,6 +415,37 @@ router.post('/quick-refund', async (req, res) => {
     try {
         await client.query('BEGIN');
 
+        // FIX #2-sync (2026-06-23): cap amount theo COST THẬT so-order (đối xứng /tx).
+        // computedAmount ở trên dùng `price` CLIENT gửi trong products → client thổi giá
+        // → cap vô dụng (cap = chính giá phồng). Thêm tầng cap server-authoritative:
+        // amount ≤ Σ(rowReturns[rid].qty × costVnd) khi MỌI rid tra được cost từ so-order
+        // (cho hoàn ít hơn, chặn phồng). Thiếu cost (so-order wipe / rid lạ) → giữ flow cũ.
+        // soMap dùng lại cho qty-cap returned_row_ids bên dưới (1 query). Hoàn NCC = giá
+        // nhập, KHÔNG có lý do vượt cost → khác COD khách (nhập tay, không cap).
+        let soMap = null;
+        const _rr = b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
+        if (_rr) {
+            soMap = await loadSoOrderReceivedMap(client);
+            let maxAmount = 0;
+            let allHaveCost = true;
+            for (const [rid, v] of Object.entries(_rr)) {
+                const q = Number(v?.qty) || 0;
+                if (q <= 0) continue;
+                const cv = soMap.get(String(rid))?.costVnd;
+                if (Number.isFinite(cv) && cv > 0) maxAmount += q * cv;
+                else {
+                    allHaveCost = false;
+                    break;
+                }
+            }
+            if (allHaveCost && maxAmount > 0 && amount > maxAmount * 1.01) {
+                console.warn(
+                    `[PURCHASE-REFUND] quick-refund ${code}: cost-cap amount=${amount} > computed=${maxAmount} → cap`
+                );
+                amount = maxAmount;
+            }
+        }
+
         // 1. Tạo phiếu (approved + stock_deducted) — idempotent theo (entity_slug, code).
         const data = {
             supplierName: supplier,
@@ -512,8 +543,8 @@ router.post('/quick-refund', async (req, res) => {
         if (rowReturns) {
             const cur = metaQ.rows[0]?.returned_row_ids || {};
             // SL đã NHẬN THẬT lấy từ web2_so_order (server), KHÔNG tin client `ordered`.
-            // Đọc 1 lần trong transaction.
-            const receivedMap = await loadSoOrderReceivedQtyMap(client);
+            // Tái dùng soMap đã load ở amount-cap trên (1 query).
+            const receivedMap = soMap || (await loadSoOrderReceivedMap(client));
             for (const [rid, v] of Object.entries(rowReturns)) {
                 // [11]: cộng dồn delta (xem web2-supplier-wallet /tx).
                 const prev = cur[rid] || {};
@@ -524,7 +555,7 @@ router.post('/quick-refund', async (req, res) => {
                 // viễn khi client gửi `ordered` nhỏ lần đầu). Pin `ordered = cap` để lần
                 // sau còn trần khi so-order bị wipe. so-order KHÔNG tra được → fallback
                 // tightest(prevOrdered, clientOrdered); không nguồn nào → REJECT.
-                const serverQty = receivedMap.get(String(rid));
+                const serverQty = receivedMap.get(String(rid))?.received;
                 const clientOrdered = Number(v?.ordered);
                 const prevOrdered = Number(prev.ordered);
                 let cap;
@@ -551,9 +582,17 @@ router.post('/quick-refund', async (req, res) => {
                     err.httpStatus = 400;
                     throw err;
                 }
+                // Cap per-row amount theo cost THẬT (đối xứng amount-cap tổng + /tx).
+                const rowCostVnd = receivedMap.get(String(rid))?.costVnd;
+                const rowQty = Number(v?.qty) || 0;
+                const claimedRowAmount = Number(v?.amount) || 0;
+                const cappedRowAmount =
+                    Number.isFinite(rowCostVnd) && rowCostVnd > 0
+                        ? Math.min(claimedRowAmount, rowQty * rowCostVnd)
+                        : claimedRowAmount;
                 cur[rid] = {
                     qty: newQty,
-                    amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
+                    amount: (Number(prev.amount) || 0) + cappedRowAmount,
                     ts: now,
                     ordered: cap, // pin trần (audit #2: symmetry với /tx prevOrdered)
                 };
