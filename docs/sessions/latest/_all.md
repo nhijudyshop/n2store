@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3850bda` — feat(web2-attendance-sync): 2 cách đơn giản — bấm nút lấy 1 lần (--once + lay-du-lieu.bat) + chạy nền 1 PC nghe nút 'Đồng bộ máy'
-**Last updated**: 2026-06-23 14:09:19 +07
-**Latest session**: [`RESUME:20260623-140919-3850bda`](../20260623-140919-3850bda.md)
-**Summary**: Agent chấm công: bỏ 2-máy lease, làm 2 cách đơn giản (bấm nút lấy 1 lần + chạy nền 1 PC nghe nút Đồng bộ máy)
+**Latest commit**: `53ef887` — feat(web2-cham-cong): dải trạng thái nhận biết PC đồng bộ tắt (stale >15') + hướng dẫn dự phòng (lay-du-lieu.bat / Nhập Excel)
+**Last updated**: 2026-06-23 14:14:41 +07
+**Latest session**: [`RESUME:20260623-141441-53ef887`](../20260623-141441-53ef887.md)
+**Summary**: feat(web2-cham-cong): dải trạng thái nhận biết PC đồng bộ tắt (stale >15') + hướng dẫn dự phò...
 
 ## Folders affected in this commit
 
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 5 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -77,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 13:44
+- [`web2/`](./web2.md) — updated 2026-06-23 14:14
