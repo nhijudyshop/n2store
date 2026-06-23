@@ -3,18 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `465bb90` — auto: session update
-**Last updated**: 2026-06-23 18:11:57 +07
-**Latest session**: [`RESUME:20260623-181157-465bb90`](../20260623-181157-465bb90.md)
+**Latest commit**: `e01086f` — auto: session update
+**Last updated**: 2026-06-23 18:17:46 +07
+**Latest session**: [`RESUME:20260623-181746-e01086f`](../20260623-181746-e01086f.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`attendance-sync/`](./attendance-sync.md) — 6 file(s)
+- [`attendance-sync/`](./attendance-sync.md) — 3 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 5 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -23,14 +21,14 @@
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
 - [`_root/`](./_root.md) — updated 2026-06-22 09:24
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
-- [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-23 18:11
+- [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-23 18:17
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
 - [`balance-history/`](./balance-history.md) — updated 2026-06-20 12:07
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 18:11
+- [`docs/`](./docs.md) — updated 2026-06-23 18:17
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -77,9 +75,9 @@
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
 - [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-22 16:08
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 18:11
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 18:12
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 18:11
+- [`web2/`](./web2.md) — updated 2026-06-23 18:17
