@@ -115,10 +115,63 @@ async function _loadTracked() {
 // `isPrimary` để biết TK nào được watchdog chăm + tự reconnect (chỉ TK chính). Cache
 // refresh 60s cùng _loadTracked + cập nhật NGAY khi đổi TK chính (route /primary).
 let _primaryKey = null;
+
+// Kết nối 1 TK bằng session đã lưu (nền — không chặn caller; SSE cập nhật UI). Dùng
+// cho route /primary + auto-promote. KHÔNG kết nối nếu đang nối hoặc chưa có session.
+async function _connectAccount(key) {
+    if (!_pool || !key || zca.isConnected(key)) return false;
+    try {
+        const { rows } = await _pool.query(
+            `SELECT session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_key=$1`,
+            [key]
+        );
+        if (!rows[0]?.session) return false;
+        zca.loginWithCredentials(
+            key,
+            secretCrypto.decryptJson(rows[0].session),
+            rows[0].label || rows[0].display_name,
+            { expectedUid: rows[0].zalo_uid || null }
+        ).catch((e) => {
+            console.warn('[WEB2-ZALO] connect', key, 'fail:', e.message);
+            _updateAccStatus(key, 'error', 'connect: ' + String(e.message).slice(0, 120)).catch(
+                () => {}
+            );
+        });
+        return true;
+    } catch (e) {
+        console.warn('[WEB2-ZALO] _connectAccount:', e.message);
+        return false;
+    }
+}
+
 async function _loadPrimaryKey() {
     if (!_pool) return;
     try {
-        _primaryKey = await _getPrimaryKey(_pool);
+        let key = await _getPrimaryKey(_pool);
+        if (!key) {
+            // TỰ LÀNH: chưa có TK chính (vd TK chính cũ bị xoá) nhưng còn TK cá nhân
+            // active → tự phong 1 TK làm chính (ưu tiên đang kết nối → mới nối gần nhất
+            // → tạo sớm nhất). Tránh tình trạng "không TK nào chính = không TK nào nối".
+            const { rows } = await _pool.query(
+                `UPDATE web2_zalo_accounts SET is_primary=true, updated_at=$1
+                   WHERE account_key = (
+                     SELECT account_key FROM web2_zalo_accounts
+                      WHERE account_type='personal' AND is_active=true
+                      ORDER BY (status='connected') DESC, last_connected_at DESC NULLS LAST, created_at ASC
+                      LIMIT 1)
+                   AND NOT EXISTS (
+                     SELECT 1 FROM web2_zalo_accounts WHERE is_primary=true AND account_type='personal')
+                 RETURNING account_key`,
+                [now()]
+            );
+            key = rows[0]?.account_key || null;
+            if (key) {
+                console.log('[WEB2-ZALO] auto-promoted primary:', key);
+                _notify('web2:zalo:accounts', 'update', key);
+                _connectAccount(key); // nối TK chính mới (nếu có session)
+            }
+        }
+        _primaryKey = key;
     } catch (e) {
         console.warn('[WEB2-ZALO] loadPrimaryKey failed:', e.message);
     }
@@ -770,20 +823,7 @@ router.post('/accounts/:key/primary', async (req, res) => {
 
         // Kết nối TK chính bằng session đã lưu (nền — không chặn response; SSE cập
         // nhật UI khi connecting→connected). Chưa có session → user tự đăng nhập QR.
-        const willConnect = !!rows[0].session && !zca.isConnected(key);
-        if (willConnect) {
-            zca.loginWithCredentials(
-                key,
-                secretCrypto.decryptJson(rows[0].session),
-                rows[0].label || rows[0].display_name,
-                { expectedUid: rows[0].zalo_uid || null }
-            ).catch((e) => {
-                console.warn('[WEB2-ZALO] primary connect fail:', e.message);
-                _updateAccStatus(key, 'error', 'primary: ' + String(e.message).slice(0, 120)).catch(
-                    () => {}
-                );
-            });
-        }
+        const willConnect = await _connectAccount(key);
         _notify('web2:zalo:accounts', 'update', key);
         res.json({ success: true, accountKey: key, connecting: willConnect });
     } catch (e) {
@@ -793,11 +833,18 @@ router.post('/accounts/:key/primary', async (req, res) => {
 
 router.delete('/accounts/:key', requireWeb2Admin, async (req, res) => {
     try {
+        const wasPrimary = req.params.key === _primaryKey;
         zca.disconnect(req.params.key);
         await getDb(req).query(`DELETE FROM web2_zalo_accounts WHERE account_key=$1`, [
             req.params.key,
         ]);
         _notify('web2:zalo:accounts', 'deleted', req.params.key);
+        // Xoá TK chính → tự phong TK chính mới (+ kết nối) cho TK cá nhân còn lại,
+        // tránh "không TK nào chính = không TK nào tự kết nối". _loadPrimaryKey tự lành.
+        if (wasPrimary) {
+            _primaryKey = null;
+            await _loadPrimaryKey();
+        }
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
