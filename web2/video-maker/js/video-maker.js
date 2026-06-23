@@ -936,9 +936,12 @@
             const all = (global.Web2ProductsCache?.getAll?.() || []).filter(
                 (p) => p && p.imageUrl && /^(https?:\/\/|\/|data:image\/)/i.test(String(p.imageUrl))
             );
-            if (!all.length) {
-                setStat('Kho chưa có SP kèm ảnh — bấm "+ Thêm ảnh" tay nhé.');
-                return notify('Kho chưa có SP kèm ảnh', 'warning');
+            // Pure-stock (MoneyPrinterTurbo): user tick "ảnh kho miễn phí", HOẶC kho
+            // không có SP kèm ảnh → dựng cảnh từ Pexels thay vì kẹt.
+            const forceStock = $('#vmUseStock')?.checked;
+            if (forceStock || !all.length) {
+                await _topicFromStock(topic, setStat);
+                return;
             }
             // chọn SP liên quan chủ đề (tên chứa từ khoá) → thiếu thì bù ngẫu nhiên
             const words = topic
@@ -995,6 +998,102 @@
         } finally {
             btn.disabled = false;
         }
+    }
+
+    // Tỉ lệ khung → từ khoá ratio cho kho stock (Pexels orientation).
+    function _stockRatio() {
+        const k = state.ratioKey;
+        if (k === 'portrait') return '9:16';
+        if (k === 'square') return '1:1';
+        return '16:9';
+    }
+
+    // MoneyPrinterTurbo pure-stock: dựng N cảnh từ ẢNH KHO MIỄN PHÍ theo chủ đề.
+    // 1 lần search (per = n*2) rồi lấy n ảnh phân biệt → tải CORS → cảnh. Tránh
+    // N request API. Trả [] nếu kho chưa cấu hình / không kết quả.
+    async function _buildStockScenes(topic, n) {
+        if (!global.Web2VideoStock?.search) return [];
+        const want = Math.max(4, Math.min(8, Number(n) || 5));
+        let items = await global.Web2VideoStock.search(topic, {
+            type: 'photo',
+            ratio: _stockRatio(),
+            per: Math.max(12, want * 2),
+        });
+        // Chủ đề tiếng Việt ít kết quả → thử lại bằng bản dịch EN nếu có Web2Translate.
+        if (items.length < want && global.Web2Translate?.toEn) {
+            try {
+                const en = await global.Web2Translate.toEn(topic);
+                if (en && en.toLowerCase() !== topic.toLowerCase()) {
+                    const more = await global.Web2VideoStock.search(en, {
+                        type: 'photo',
+                        ratio: _stockRatio(),
+                        per: Math.max(12, want * 2),
+                    });
+                    const seen = new Set(items.map((x) => x.url));
+                    for (const m of more) if (!seen.has(m.url)) items.push(m);
+                }
+            } catch {}
+        }
+        const photos = items.filter((it) => it.type === 'photo' && it.url).slice(0, want);
+        if (!photos.length) return [];
+        const imgs = await Promise.all(photos.map((p) => loadImageCors(p.url)));
+        return photos.map((p, i) => ({
+            id: _sid++,
+            src: p.url,
+            _img: imgs[i],
+            title: '',
+            subtitle: '',
+            dur: 2.8,
+            _stockAuthor: p.author || '',
+        }));
+    }
+
+    // Tạo video THUẦN STOCK từ chủ đề: AI viết kịch bản (không cần SP) → ảnh kho
+    // miễn phí mỗi cảnh → narration + phụ đề. Dùng khi kho không có ảnh SP, hoặc
+    // user tick "Ưu tiên ảnh kho miễn phí".
+    async function _topicFromStock(topic, setStat) {
+        setStat('Đang viết kịch bản + lấy ảnh kho miễn phí…');
+        let ai = { narration: '', scenes: [], ai: false };
+        try {
+            ai = await global.Web2VideoAiScript.generate({ topic, products: [] });
+        } catch (e) {
+            console.warn('[video-maker] stock script fail:', e.message);
+        }
+        const n = Math.max(4, Math.min(8, ai.scenes?.length || 5));
+        const scenes = await _buildStockScenes(topic, n);
+        if (!scenes.length) {
+            setStat(
+                'Kho ảnh miễn phí không trả kết quả — thử chủ đề tiếng Anh, hoặc "+ Thêm ảnh".'
+            );
+            notify('Kho ảnh miễn phí trống cho chủ đề này', 'warning');
+            return false;
+        }
+        scenes.forEach((sc, i) => {
+            sc.title = ai.scenes?.[i]?.title || '';
+            sc.subtitle = ai.scenes?.[i]?.subtitle || '';
+        });
+        state.scenes = scenes;
+        // Không có SP → AI có thể trả narration rỗng → tự bù lời đọc theo chủ đề
+        // (kẻo video câm + không phụ đề). Gán caption ngay để preview hiện luôn.
+        const narration =
+            ai.narration && ai.narration.trim()
+                ? ai.narration
+                : `Cả nhà ơi, shop vừa có ${topic} cực xinh nè! Inbox shop để được tư vấn và chốt đơn ngay nha!`;
+        $('#vmNarr').value = narration;
+        if (state.captions) _assignGlobalCaptions(narration);
+        state.accent = _rand(ACCENTS);
+        state.voiceId = _rand(global.Web2VideoTTS.VOICES).id;
+        renderScenes();
+        renderPickers();
+        renderVoices();
+        drawAt(0);
+        setStat(
+            ai.ai
+                ? `✅ Kịch bản AI + ${scenes.length} cảnh ảnh kho cho "${topic}". Bấm "Tạo giọng đọc" → "Xuất video".`
+                : `✅ ${scenes.length} cảnh ảnh kho cho "${topic}" (AI chưa cấu hình key). Bấm "Tạo giọng đọc".`
+        );
+        notify(`Đã tạo video ảnh kho cho "${topic}"`, 'success');
+        return true;
     }
 
     // MoneyPrinterTurbo one-click: chủ đề → kịch bản AI + cảnh → giọng đọc + phụ đề
@@ -1272,9 +1371,10 @@
                     `✅ ${info.name} — ${info.duration.toFixed(1)}s, ${info.w}×${info.h}. Nhập lời đọc + chọn giọng rồi bấm "Xuất video".`
                 );
                 notify(
-                    'Đã nạp video — slideshow ảnh tạm ẩn, sẽ lồng tiếng vào video này',
+                    'Đã nạp video → chuyển qua "Giọng & Âm thanh": tạo giọng đọc rồi Xuất video',
                     'success'
                 );
+                gotoVoiceStep(); // liên kết bước: đưa thẳng tới chỗ lồng tiếng + xuất
             } catch (err) {
                 setStat('❌ ' + (err.message || err));
                 notify('Không nạp được video', 'error');
@@ -1496,5 +1596,20 @@
         if (!state.playing) drawAt(0);
     }
 
-    global.VideoMakerPage = { init, refresh, addSceneFromUrl, _state: state };
+    // Liên kết bước: chuyển sang tab "Giọng & Âm thanh" (nơi có lời đọc + Xuất video)
+    // sau khi nguồn (ảnh/cảnh/video) đã sẵn → user không bị "xong rồi làm gì".
+    function gotoVoiceStep() {
+        const r = document.getElementById('vmtab-voice');
+        if (r) r.checked = true;
+        setTimeout(() => {
+            try {
+                ($('#vmNarr') || $('#vmExport'))?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+            } catch {}
+        }, 90);
+    }
+
+    global.VideoMakerPage = { init, refresh, addSceneFromUrl, gotoVoiceStep, _state: state };
 })(window);

@@ -1,5 +1,18 @@
 # Dev Log
 
+## 2026-06-24
+
+### [fix] web2: ai-hub tạo ảnh kẹt sau 1 hình + ẩn tên Pexels/Pixabay + liên kết flow video-maker + auto-stock
+
+User báo 3 việc (+ hoàn thiện auto-stock):
+
+1. **ai-hub "Tạo ảnh" kẹt sau 1 hình, phải F5** — gốc: KHÔNG có timeout ở cả client lẫn server → token Pollinations treo/rate-limit làm `await fetch` không bao giờ resolve → nút disabled vĩnh viễn. Fix: (a) server `web2-ai-image-service.js` `_pollinations` thêm `AbortSignal.timeout(45s)` mỗi token → treo thì xoay token kế; (b) client `ai-image.js` thêm `AbortSignal.timeout(120s)` + thông báo "Quá lâu, bấm lại" + `finally` luôn mở nút. **Verified browser**: tạo ảnh 1 OK → nút mở lại → tạo ảnh 2 OK (2 card resolved, 0 loading). Cần deploy web2-api cho server timeout.
+2. **Ẩn tên nguồn Pexels/Pixabay** — bỏ khỏi MỌI text user-facing: modal title "Kho ảnh / video miễn phí" (bỏ "(Pexels · Pixabay)"), footer "Ảnh & video bản quyền-free", message chưa-cấu-hình → "Liên hệ admin", checkbox + title attr. Verified `hasBrandName:false`.
+3. **Liên kết flow ("chọn video xong rồi làm gì")** — `VideoMakerPage.gotoVoiceStep()` (chuyển tab "Giọng & Âm thanh" + scroll tới lời đọc/Xuất). Gọi sau khi: nạp video stock (video-stock pick), import video file (#vmImpFile). Toast next-step rõ ràng. Verified tab switch.
+4. **Auto-stock topic→video** (MoneyPrinterTurbo pure-stock): `Web2VideoStock.search(q,opts)` (API lập trình) + `_buildStockScenes`/`_topicFromStock` + checkbox `#vmUseStock`. Khi kho không có ảnh SP HOẶC tick "Dùng ảnh kho miễn phí" → dựng N cảnh từ kho stock theo chủ đề (1 search per=n\*2 + dịch EN bù nếu ít kết quả). AI rỗng narration (không SP) → bù lời đọc theo chủ đề + gán caption ngay. Verified: 5 cảnh stock + narration + caption.
+
+Bump video-maker.js `?v=20260624b`, video-render/stock `?v=20260624a`, ai-image.js `?v=20260624a`.
+
 ## 2026-06-23
 
 ### [feat] web2: MoneyPrinterTurbo phụ đề tự động (karaoke) + Tạo video 1 chạm + LIVE stock keys

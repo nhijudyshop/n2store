@@ -214,21 +214,28 @@
         try {
             const payload = { prompt, provider, model, width, height };
             if (provider === 'gemini' && editImageData) payload.image = editImageData;
+            // Timeout 120s: nguồn ảnh (Pollinations/Flux) treo → KHÔNG kẹt nút mãi
+            // (bug "tạo 1 hình rồi không tạo tiếp, phải F5"). Abort → catch → mở lại nút.
             const r = await fetch(H().API() + '/image', {
                 method: 'POST',
                 headers: H().authHeaders(true),
                 body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(120000),
             });
             const j = await r.json();
             if (!j.ok) throw new Error(j.error || 'Tạo ảnh thất bại');
             const srcUrl = j.url || j.dataUrl;
             renderCard(card, srcUrl, prompt, j.provider);
         } catch (e) {
+            const msg =
+                e.name === 'TimeoutError' || e.name === 'AbortError'
+                    ? 'Quá lâu (nguồn ảnh bận) — bấm Tạo ảnh lại nhé.'
+                    : e.message || String(e);
             card.classList.remove('loading');
-            card.innerHTML = `<div style="padding:14px;text-align:center;color:var(--web2-danger);font-size:.78rem">⚠️ ${H().escapeHtml(e.message || e)}</div>`;
-            H().toast('Lỗi tạo ảnh: ' + (e.message || e), 'error');
+            card.innerHTML = `<div style="padding:14px;text-align:center;color:var(--web2-danger);font-size:.78rem">⚠️ ${H().escapeHtml(msg)}</div>`;
+            H().toast('Lỗi tạo ảnh: ' + msg, 'error');
         } finally {
-            btn.disabled = false;
+            btn.disabled = false; // LUÔN mở lại nút → tạo tiếp được, khỏi F5
         }
     }
 

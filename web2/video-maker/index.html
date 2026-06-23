@@ -97,6 +97,22 @@
                                         AI viết kịch bản từ chủ đề + ghép ảnh SP của bạn + giọng đọc
                                         Việt.
                                     </div>
+                                    <label
+                                        class="vm-row"
+                                        style="
+                                            gap: 8px;
+                                            align-items: center;
+                                            margin: 6px 0;
+                                            cursor: pointer;
+                                        "
+                                        title="Dùng ảnh kho bản quyền-free thay ảnh SP — hợp video không có ảnh SP"
+                                    >
+                                        <input type="checkbox" id="vmUseStock" />
+                                        <span
+                                            ><i data-lucide="image"></i> Dùng ảnh kho miễn phí thay
+                                            ảnh SP</span
+                                        >
+                                    </label>
                                     <button class="vm-btn random block" id="vmRandom">
                                         <i data-lucide="shuffle"></i> Tạo ngẫu nhiên từ kho SP
                                     </button>
@@ -139,7 +155,7 @@
                                             type="button"
                                             class="vm-btn sm"
                                             id="vmStock"
-                                            title="Tìm ảnh/video bản quyền-free (Pexels/Pixabay) chèn vào video"
+                                            title="Tìm ảnh/video bản quyền-free chèn vào video"
                                         >
                                             <i data-lucide="clapperboard"></i> Kho ảnh/video miễn
                                             phí
@@ -589,15 +605,15 @@
         <script src="../shared/web2-pos-installer.js?v=20260620a"></script>
         <script src="./js/video-tts.js?v=20260622i"></script>
         <script src="./js/video-anim.js?v=20260619a"></script>
-        <script src="./js/video-render.js?v=20260623cap"></script>
+        <script src="./js/video-render.js?v=20260624a"></script>
         <script src="./js/video-scene-editor.js?v=20260621scene"></script>
         <script src="./js/video-audio.js?v=20260619a"></script>
         <script src="./js/video-ai-script.js?v=20260619a"></script>
         <script src="./js/video-vieneu.js?v=20260622e"></script>
         <script src="./js/video-library.js?v=20260622f"></script>
         <script src="./js/video-import.js?v=20260621el"></script>
-        <script src="./js/video-stock.js?v=20260623sc"></script>
-        <script src="./js/video-maker.js?v=20260623cap"></script>
+        <script src="./js/video-stock.js?v=20260624a"></script>
+        <script src="./js/video-maker.js?v=20260624b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)

@@ -100,7 +100,7 @@
             const d = await r.json().catch(() => ({}));
             if (d && d.configured === false) {
                 body.innerHTML =
-                    '<div class="vstk-msg">Kho ảnh/video miễn phí <b>chưa được cấu hình</b>.<br>Thêm <code>PEXELS_API_KEY</code> (free tại <b>pexels.com/api</b>) vào env <code>web2-api</code> trên Render rồi deploy lại.</div>';
+                    '<div class="vstk-msg">Kho ảnh/video miễn phí <b>chưa được cấu hình</b>.<br>Liên hệ admin để bật tính năng này.</div>';
                 return;
             }
             const items = (d && d.items) || [];
@@ -158,11 +158,12 @@
                 });
                 if (global.Web2VideoImport && global.Web2VideoImport.load) {
                     await global.Web2VideoImport.load(file);
-                    toast(
-                        'Đã nạp video stock để lồng tiếng. Đóng cửa sổ rồi tạo giọng + xuất.',
-                        'success'
-                    );
                     close();
+                    // Liên kết bước: nạp video xong → qua "Giọng & Âm thanh" để
+                    // lồng tiếng + xuất (trả lời "chọn video xong rồi làm gì").
+                    if (global.VideoMakerPage?.gotoVoiceStep) global.VideoMakerPage.gotoVoiceStep();
+                    if (global.VideoMakerPage?.refresh) global.VideoMakerPage.refresh();
+                    toast('Đã nạp video → giờ tạo giọng đọc rồi bấm "Xuất video".', 'success');
                 } else {
                     toast('Không nạp được video (module import thiếu)', 'error');
                 }
@@ -197,6 +198,27 @@
         foot.querySelector('.vstk-prev').disabled = st.page <= 1;
     }
 
+    // API lập trình (KHÔNG modal) — cho luồng tự động lấy stock (topic→video).
+    // Trả items[] (rỗng nếu chưa cấu hình key / lỗi / không kết quả).
+    async function search(query, opts) {
+        opts = opts || {};
+        const q = String(query == null ? '' : query).trim();
+        if (!q) return [];
+        const type = opts.type === 'video' ? 'video' : 'photo';
+        const ratio = opts.ratio || '9:16';
+        const per = Math.min(40, Math.max(1, Number(opts.per) || 12));
+        const page = Math.max(1, Number(opts.page) || 1);
+        try {
+            const u = `${API()}/search?q=${encodeURIComponent(q)}&type=${type}&page=${page}&ratio=${encodeURIComponent(ratio)}&per=${per}`;
+            const r = await fetch(u);
+            const d = await r.json().catch(() => ({}));
+            if (!d || d.configured === false) return [];
+            return Array.isArray(d.items) ? d.items.filter((x) => x && x.url) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     function open(opts) {
         opts = opts || {};
         injectCss();
@@ -215,7 +237,7 @@
         ov.innerHTML = `
         <div class="vstk-modal" role="dialog" aria-label="Kho ảnh/video miễn phí">
             <div class="vstk-head">
-                <b>🎞️ Kho ảnh / video miễn phí (Pexels · Pixabay)</b>
+                <b>🎞️ Kho ảnh / video miễn phí</b>
                 <button class="vstk-x" aria-label="Đóng">×</button>
             </div>
             <div class="vstk-bar">
@@ -228,7 +250,7 @@
             </div>
             <div class="vstk-body"><div class="vstk-msg">Nhập từ khoá để tìm ảnh/video bản quyền-free chèn vào video.</div></div>
             <div class="vstk-foot">
-                <span class="vstk-credit">Nguồn miễn phí — Pexels / Pixabay (ghi nguồn khuyến khích)</span>
+                <span class="vstk-credit">Ảnh &amp; video bản quyền-free</span>
                 <span>
                     <button class="vstk-prev" disabled>‹ Trước</button>
                     <span class="vstk-pg">Trang 1</span>
@@ -267,5 +289,5 @@
         setTimeout(() => ov.querySelector('.vstk-q').focus(), 30);
     }
 
-    global.Web2VideoStock = { open, close };
+    global.Web2VideoStock = { open, close, search };
 })(window);

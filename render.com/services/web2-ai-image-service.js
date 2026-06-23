@@ -27,6 +27,7 @@ const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
 // referrer KHÔNG bí mật (browser tự gửi) → nâng tier nhẹ cho path no-token. Override env.
 const POLLINATIONS_REFERRER = (process.env.WEB2_POLLINATIONS_REFERRER || 'nhijudy.store').trim();
 const POL_COOLDOWN_MS = 60 * 1000;
+const POL_FETCH_TIMEOUT_MS = 45 * 1000; // cắt token treo → xoay token kế (chống kẹt)
 
 // Nhiều token Seed free (auth.pollinations.ai) → xoay tua cộng dồn quota + bỏ giới hạn
 // anonymous (1 req/15s). Bearer token PHẢI ở server (docs: "Never put Bearer tokens in
@@ -78,7 +79,12 @@ async function _pollinations(prompt, opts) {
     let lastErr = '';
     for (const token of ordered) {
         try {
-            const r = await fetch(baseUrl, { headers: { Authorization: `Bearer ${token}` } });
+            // Timeout per-token: token rate-limited/treo trả chậm → cắt 45s rồi xoay
+            // token kế, tránh treo CẢ request (bug "tạo 1 hình rồi kẹt, phải F5").
+            const r = await fetch(baseUrl, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: AbortSignal.timeout(POL_FETCH_TIMEOUT_MS),
+            });
             const ct = r.headers.get('content-type') || '';
             if (!r.ok) {
                 if (r.status === 401 || r.status === 403 || r.status === 429)
