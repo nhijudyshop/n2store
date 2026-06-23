@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### [feat] cham-cong: lương theo THÁNG (cố định) + dung sai ±phút vào/ra
+
+- **Lương tháng** (cố định): tab Nhân viên thêm cột **"Loại lương" (Ngày/Tháng)**. Chọn "Tháng" → ô Lương = lương/tháng, `calcMonth` đặt `luongChinh = số tiền nhập` (KHÔNG nhân số ngày công); ngày nghỉ trừ qua "Giảm trừ" thủ công. NV thủ công (MANUAL-\*) mặc định = monthly. workedDays vẫn đếm để hiển thị.
+- **Dung sai ±phút**: cột **"Dung sai (phút)"** (mặc định 5) per-NV. `calcDay` kéo check-in trễ ≤ grace về mốc bắt đầu (không muộn, không trừ) + về sớm ≤ grace coi đủ ca (thay hằng số NEAR_END_ROUND_MIN=10 cũ). VD ca 08:00 vào 08:05 / ca 20:00 ra 19:55 → đúng giờ.
+- Backend `web2-attendance.js`: cột `salary_type VARCHAR(10) DEFAULT 'daily'` + `grace_minutes INT DEFAULT 5` (ALTER idempotent); PATCH + POST manual nhận 2 field (manual default monthly).
+- `cfgFor` (app.js) + payroll detail modal (hiện "Lương tháng cố định (đi làm N ngày)"). Bump js salary g/payroll i/employees i/app j. ⚠ Cần Render deploy (cột mới).
+
 ### [fix] web2 money-flow audit — 3 bug verify (cost-cap hoàn NCC CRITICAL + cart race HIGH + SSE web2:products HIGH)
 
 Tiếp vòng audit money-flow (user duyệt fix 3 item):

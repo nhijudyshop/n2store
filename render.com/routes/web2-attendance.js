@@ -120,10 +120,14 @@ async function ensureSchema(pool) {
             late_penalty_per_min  BIGINT  NOT NULL DEFAULT 5000,
             ot_multiplier         NUMERIC NOT NULL DEFAULT 2,
             sunday_full           BOOLEAN NOT NULL DEFAULT FALSE,
+            salary_type           VARCHAR(10) NOT NULL DEFAULT 'daily', -- 'daily' | 'monthly'
+            grace_minutes         INTEGER NOT NULL DEFAULT 5,            -- dung sai vào/ra (phút)
             active                BOOLEAN NOT NULL DEFAULT TRUE,
             created_at            BIGINT  NOT NULL,
             updated_at            BIGINT  NOT NULL
         );
+        ALTER TABLE web2_attendance_device_users ADD COLUMN IF NOT EXISTS salary_type VARCHAR(10) NOT NULL DEFAULT 'daily';
+        ALTER TABLE web2_attendance_device_users ADD COLUMN IF NOT EXISTS grace_minutes INTEGER NOT NULL DEFAULT 5;
         -- Punch thô từ máy. id = '{device_user_id}_{epoch_ms}' → idempotent.
         CREATE TABLE IF NOT EXISTS web2_attendance_records (
             id              VARCHAR(80) PRIMARY KEY,
@@ -262,21 +266,25 @@ router.post('/device-users', requireWeb2Admin, async (req, res) => {
         if (!displayName) return fail(res, 400, 'Cần Tên hiển thị');
         const t = now();
         const id = 'MANUAL-' + t.toString(36) + Math.floor(t % 1000).toString(36);
+        // NV thủ công mặc định tính LƯƠNG THÁNG (thường trả tháng), đổi được qua dropdown.
+        const salaryType = b.salary_type === 'daily' ? 'daily' : 'monthly';
         const r = await db.query(
             `INSERT INTO web2_attendance_device_users
                 (device_user_id, uid, name, display_name, employee_id, daily_rate,
-                 work_start, work_end, late_penalty_per_min, ot_multiplier, active, created_at, updated_at)
-             VALUES ($1,$1,$2,$2,$3,$4,$5,$6,$7,$8,TRUE,$9,$9)
+                 work_start, work_end, late_penalty_per_min, ot_multiplier, salary_type, grace_minutes, active, created_at, updated_at)
+             VALUES ($1,$1,$2,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$11)
              RETURNING *`,
             [
                 id,
                 displayName,
                 b.employee_id != null && b.employee_id !== '' ? b.employee_id : null,
-                Number(b.daily_rate) || 200000,
+                Number(b.daily_rate) || 0,
                 b.work_start || '08:00',
                 b.work_end || '20:00',
                 Number(b.late_penalty_per_min) || 0,
                 b.ot_multiplier != null ? Number(b.ot_multiplier) : 2,
+                salaryType,
+                b.grace_minutes != null ? Number(b.grace_minutes) : 5,
                 t,
             ]
         );
@@ -332,6 +340,8 @@ router.patch('/device-users/:id', requireWeb2Admin, async (req, res) => {
             late_penalty_per_min: 'late_penalty_per_min',
             ot_multiplier: 'ot_multiplier',
             sunday_full: 'sunday_full',
+            salary_type: 'salary_type',
+            grace_minutes: 'grace_minutes',
             active: 'active',
         };
         for (const [k, col] of Object.entries(map)) {

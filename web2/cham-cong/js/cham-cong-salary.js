@@ -9,7 +9,6 @@
     'use strict';
 
     const VN_TZ = 'Asia/Ho_Chi_Minh';
-    const NEAR_END_ROUND_MIN = 10; // về trước mốc kết ca ≤10' → làm tròn lên mốc
 
     // 'HH:MM' → phút trong ngày.
     function hmToMinutes(hm) {
@@ -76,21 +75,25 @@
 
         const startMoment = vnMoment(dateKey, cfg.workStart || '08:00');
         const endMoment = vnMoment(dateKey, cfg.workEnd || '20:00');
-        const checkIn = dayData.checkIn;
+        // Dung sai ±phút (cfg.graceMinutes, mặc định 5): vào trễ / về sớm trong khoảng
+        // này coi như ĐÚNG GIỜ (vd ca 08:00 vào 08:05 không tính muộn; ca 20:00 ra 19:55
+        // không tính về sớm). Áp đối xứng cho cả vào lẫn ra.
+        const grace = Number.isFinite(Number(cfg.graceMinutes)) ? Number(cfg.graceMinutes) : 5;
+        const graceMs = Math.max(0, grace) * 60000;
+        let checkIn = dayData.checkIn;
         let checkOut = dayData.checkOut || dayData.checkIn;
 
-        // Đi muộn: vào sau mốc bắt đầu.
+        // Dung sai VÀO: vào trễ ≤ grace → kéo về mốc bắt đầu (không muộn, không trừ lương).
+        if (checkIn > startMoment && checkIn - startMoment <= graceMs) checkIn = startMoment;
+
+        // Đi muộn: vào sau mốc bắt đầu (sau khi đã trừ dung sai).
         if (checkIn > startMoment) {
             out.lateMinutes = Math.floor((checkIn - startMoment) / 60000);
             out.lateDeduction = out.lateMinutes * latePer;
         }
 
-        // Làm tròn về gần mốc kết ca (≤10') → coi như đủ ca.
-        if (
-            checkOut < endMoment &&
-            endMoment - checkOut <= NEAR_END_ROUND_MIN * 60000 &&
-            checkOut >= startMoment
-        ) {
+        // Dung sai RA / làm tròn gần mốc kết ca: về sớm ≤ grace → coi như đủ ca.
+        if (checkOut < endMoment && endMoment - checkOut <= graceMs && checkOut >= startMoment) {
             checkOut = endMoment;
         }
 
@@ -186,7 +189,13 @@
 
         // Overrides (nếu admin set).
         const pr = payroll || {};
-        if (pr.salary_days_override != null && pr.salary_days_override !== '') {
+        // Lương THÁNG (cố định): luongChinh = đúng số tiền nhập (ô "Lương" = lương/tháng),
+        // KHÔNG nhân số ngày công. Ngày nghỉ trừ qua "Giảm trừ" thủ công ở Bảng lương.
+        // workedDays vẫn đếm để hiển thị. Bỏ qua override công (lương tháng là cố định).
+        const isMonthly = String(cfg.salaryType) === 'monthly';
+        if (isMonthly) {
+            luongChinh = Number(cfg.dailyRate) || 0;
+        } else if (pr.salary_days_override != null && pr.salary_days_override !== '') {
             workedDays = Number(pr.salary_days_override);
             luongChinh = workedDays * (Number(cfg.dailyRate) || 0);
         }

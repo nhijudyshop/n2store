@@ -140,9 +140,16 @@
 
         // Lương chính
         const dayRate = Number(cfg.dailyRate) || 0;
-        let luongBlock = `<div class="cc-dl-line"><span>${m.workedDays} công × ${fmt(dayRate)}/ngày</span><span class="num">${fmt(m.luongChinh)}</span></div>`;
-        if (pr.salary_days_override != null && pr.salary_days_override !== '')
-            luongBlock += `<div class="cc-dl-sub">⚙ Override công thủ công: ${cc.esc(String(pr.salary_days_override))}</div>`;
+        const isMonthly = cfg.salaryType === 'monthly';
+        let luongBlock;
+        if (isMonthly) {
+            luongBlock = `<div class="cc-dl-line"><span>Lương tháng cố định (đi làm ${m.workedDays} ngày)</span><span class="num">${fmt(m.luongChinh)}</span></div>
+                <div class="cc-dl-sub">Lương tháng KHÔNG nhân số ngày công. Trừ ngày nghỉ qua mục "Giảm trừ" bên dưới.</div>`;
+        } else {
+            luongBlock = `<div class="cc-dl-line"><span>${m.workedDays} công × ${fmt(dayRate)}/ngày</span><span class="num">${fmt(m.luongChinh)}</span></div>`;
+            if (pr.salary_days_override != null && pr.salary_days_override !== '')
+                luongBlock += `<div class="cc-dl-sub">⚙ Override công thủ công: ${cc.esc(String(pr.salary_days_override))}</div>`;
+        }
 
         // Tăng ca
         let otBlock = '';

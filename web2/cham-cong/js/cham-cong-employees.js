@@ -49,14 +49,21 @@
             const pinCell = isManual
                 ? `<span class="cc-emp-manual-pill">Thủ công</span>`
                 : `${cc.esc(du.device_user_id)}<span class="cc-emp-mname">${cc.esc(du.name || '')}</span>`;
+            const isMonthly = du.salary_type === 'monthly';
+            const grace = du.grace_minutes != null ? Number(du.grace_minutes) : 5;
             rows += `<tr data-uid="${cc.esc(du.device_user_id)}">
                 <td class="cc-emp-pin">${pinCell}</td>
                 <td><input class="cc-emp-dn" value="${cc.esc(du.display_name || '')}" placeholder="${cc.esc(du.name || '')}"></td>
                 <td><select class="cc-emp-emp">${empOptions(du.employee_id)}</select></td>
                 <td><input class="cc-emp-rate num" type="number" value="${Number(du.daily_rate) || 0}"></td>
+                <td><select class="cc-emp-stype">
+                    <option value="daily" ${isMonthly ? '' : 'selected'}>Ngày</option>
+                    <option value="monthly" ${isMonthly ? 'selected' : ''}>Tháng</option>
+                </select></td>
                 <td><input class="cc-emp-ws" type="time" value="${du.work_start || '08:00'}"></td>
                 <td><input class="cc-emp-we" type="time" value="${du.work_end || '20:00'}"></td>
                 <td><input class="cc-emp-late num" type="number" value="${Number(du.late_penalty_per_min) || 0}"></td>
+                <td><input class="cc-emp-grace num" type="number" min="0" value="${grace}"></td>
                 <td><input class="cc-emp-ot num" type="number" step="0.5" value="${Number(du.ot_multiplier) || 1}"></td>
                 <td class="ctr"><input class="cc-emp-active" type="checkbox" ${du.active !== false ? 'checked' : ''}></td>
                 <td class="cc-emp-acts">
@@ -67,7 +74,7 @@
         }
         el.innerHTML = `
           <div class="cc-emp-top">
-            <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0, đặt lương/ngày + giờ ca. Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
+            <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0. <b>Loại lương</b>: Ngày = lương/ngày × số công; Tháng = lương cố định cả tháng. <b>Dung sai</b> = số phút vào trễ / về sớm bỏ qua (vd 5'). Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
             <div class="cc-emp-top-btns">
               <button class="cc-btn cc-btn-ghost cc-emp-addmanual" type="button"><i data-lucide="user-plus"></i> Thêm NV thủ công</button>
               <button class="cc-btn cc-btn-primary cc-emp-saveall" type="button"><i data-lucide="save"></i> Lưu tất cả</button>
@@ -76,8 +83,8 @@
           <div class="cc-grid-wrap">
             <table class="cc-emp">
               <thead><tr>
-                <th>PIN máy</th><th>Tên hiển thị</th><th>Gán NV</th><th>Lương/ngày</th>
-                <th>Giờ vào</th><th>Giờ ra</th><th>Phạt muộn/phút</th><th>Hệ số OT</th><th>Bật</th><th></th>
+                <th>PIN máy</th><th>Tên hiển thị</th><th>Gán NV</th><th>Lương</th><th>Loại lương</th>
+                <th>Giờ vào</th><th>Giờ ra</th><th>Phạt muộn/phút</th><th>Dung sai (phút)</th><th>Hệ số OT</th><th>Bật</th><th></th>
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>
@@ -146,9 +153,12 @@
             display_name: tr.querySelector('.cc-emp-dn').value.trim(),
             employee_id: tr.querySelector('.cc-emp-emp').value || null,
             daily_rate: Number(tr.querySelector('.cc-emp-rate').value) || 0,
+            salary_type:
+                tr.querySelector('.cc-emp-stype').value === 'monthly' ? 'monthly' : 'daily',
             work_start: tr.querySelector('.cc-emp-ws').value || '08:00',
             work_end: tr.querySelector('.cc-emp-we').value || '20:00',
             late_penalty_per_min: Number(tr.querySelector('.cc-emp-late').value) || 0,
+            grace_minutes: Math.max(0, Number(tr.querySelector('.cc-emp-grace').value) || 0),
             ot_multiplier: Number(tr.querySelector('.cc-emp-ot').value) || 1,
             active: tr.querySelector('.cc-emp-active').checked,
         };
