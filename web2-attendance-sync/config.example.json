@@ -1,5 +1,6 @@
 {
-    "_note": "Copy file này thành config.json rồi sửa. KHÔNG commit config.json (chứa secret).",
+    "_note": "Copy thành config.json rồi sửa. CHỈ CẦN sửa 'attendanceSecret'. KHÔNG commit config.json (chứa secret).",
+    "_note_device": "device.ip TỰ DÒ trên LAN (cổng 4370) — để mặc định cũng được. Chỉ sửa nếu có NHIỀU máy và muốn ép đúng 1 máy.",
 
     "renderBase": "https://chatomni-proxy.nhijudyshop.workers.dev",
     "attendanceSecret": "ĐẶT_GIỐNG_WEB2_ATTENDANCE_SECRET_TRÊN_RENDER",

@@ -25,10 +25,9 @@ cp config.example.json config.json   # rồi sửa config.json
 
 Sửa `config.json`:
 
-- `renderBase`: giữ mặc định (worker) — `https://chatomni-proxy.nhijudyshop.workers.dev`
-- `attendanceSecret`: **đặt GIỐNG** biến môi trường `WEB2_ATTENDANCE_SECRET` trên Render (xem mục 4)
-- `device.ip` / `device.port`: IP + cổng máy chấm công trong LAN (mặc định `192.168.1.201:4370`)
-- `proxyPort`: cổng proxy ADMS (mặc định `8081`)
+- `attendanceSecret`: **đặt GIỐNG** `WEB2_ATTENDANCE_SECRET` trên Render (xem mục 4) — **chỉ cần sửa cái này**.
+- `device.ip`: **TỰ DÒ** trên LAN (cổng 4370) — để mặc định cũng được. Chỉ sửa nếu có **nhiều máy** và muốn ép đúng 1 máy.
+- `renderBase` / `proxyPort` / `pollMinutes`: giữ mặc định.
 
 > `config.json` đã được `.gitignore` — KHÔNG commit (chứa secret).
 

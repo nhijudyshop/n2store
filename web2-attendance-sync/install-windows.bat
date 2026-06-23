@@ -8,9 +8,9 @@ if not exist config.json (
   echo [1/3] Chua co config.json - tao tu mau...
   copy config.example.json config.json >nul 2>&1
   echo.
-  echo === MO file config.json sua 2 cho roi CHAY LAI file nay: ===
+  echo === MO file config.json dan secret roi CHAY LAI file nay: ===
   echo   - attendanceSecret : dan secret WEB2_ATTENDANCE_SECRET
-  echo   - device.ip        : IP may cham cong trong mang LAN (vd 192.168.1.201)
+  echo   (device.ip tu do tren mang - khong can sua)
   echo.
   pause
   exit /b 1

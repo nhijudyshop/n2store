@@ -12,6 +12,8 @@
 
 const https = require('https');
 const http = require('http');
+const net = require('net');
+const os = require('os');
 const { URL } = require('url');
 const { loadConfig } = require('./lib-config');
 
@@ -25,6 +27,81 @@ try {
 
 const cfg = loadConfig();
 const BASE = cfg.renderBase + '/api/web2-attendance';
+let deviceIp = cfg.device.ip; // resolve động (config.ip hoặc tự dò LAN)
+
+// ── Auto-discovery: tự dò IP máy chấm công trên LAN (cổng 4370) ───────────
+// Lấy subnet /24 từ IP máy đang chạy → thử kết nối từng IP. device.ip trong
+// config (nếu reachable) ƯU TIÊN; không thì quét. Nhiều thiết bị → cảnh báo.
+function _localSubnet() {
+    const ifs = os.networkInterfaces();
+    for (const name of Object.keys(ifs)) {
+        for (const i of ifs[name] || []) {
+            if (
+                i.family === 'IPv4' &&
+                !i.internal &&
+                /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))\./.test(i.address)
+            ) {
+                return i.address.replace(/\.\d+$/, '');
+            }
+        }
+    }
+    return null;
+}
+function _checkPort(ip, port, timeoutMs = 700) {
+    return new Promise((resolve) => {
+        const s = new net.Socket();
+        let done = false;
+        const finish = (ok) => {
+            if (done) return;
+            done = true;
+            s.destroy();
+            resolve(ok);
+        };
+        s.setTimeout(timeoutMs);
+        s.once('connect', () => finish(true));
+        s.once('timeout', () => finish(false));
+        s.once('error', () => finish(false));
+        s.connect(port, ip);
+    });
+}
+async function _scanLan(port) {
+    const sub = _localSubnet();
+    if (!sub) return [];
+    console.log(`[discover] quét ${sub}.0/24 tìm máy chấm công (cổng ${port})…`);
+    const ips = [];
+    for (let i = 1; i <= 254; i++) ips.push(`${sub}.${i}`);
+    const found = [];
+    const BATCH = 48;
+    for (let i = 0; i < ips.length; i += BATCH) {
+        const res = await Promise.all(
+            ips.slice(i, i + BATCH).map((ip) => _checkPort(ip, port).then((ok) => (ok ? ip : null)))
+        );
+        for (const ip of res) if (ip) found.push(ip);
+    }
+    return found;
+}
+async function resolveDeviceIp() {
+    const port = cfg.device.port;
+    if (cfg.device.ip && (await _checkPort(cfg.device.ip, port))) {
+        return cfg.device.ip; // config trỏ đúng + reachable → dùng luôn
+    }
+    const found = await _scanLan(port);
+    if (found.length) {
+        if (found.length > 1) {
+            console.warn(
+                `[discover] ⚠ Tìm thấy NHIỀU thiết bị cổng ${port}: ${found.join(', ')}. ` +
+                    `Dùng ${found[0]}. Nếu sai, đặt "device.ip" trong config.json.`
+            );
+        } else {
+            console.log(`[discover] ✅ Tìm thấy máy chấm công: ${found[0]}`);
+        }
+        return found[0];
+    }
+    console.warn(
+        `[discover] Không dò được máy trên LAN. Dùng config device.ip=${cfg.device.ip} (kiểm tra IP + cùng mạng).`
+    );
+    return cfg.device.ip;
+}
 
 function postJson(path, payload) {
     return new Promise((resolve, reject) => {
@@ -65,7 +142,7 @@ function putJson(path, payload) {
 }
 
 async function syncOnce() {
-    const zk = new ZKLib(cfg.device.ip, cfg.device.port, cfg.device.timeoutMs, 4000);
+    const zk = new ZKLib(deviceIp, cfg.device.port, cfg.device.timeoutMs, 4000);
     try {
         await zk.createSocket();
         // Users
@@ -115,15 +192,20 @@ async function syncOnce() {
         try {
             await zk.disconnect();
         } catch {}
+        // Máy có thể đổi IP (DHCP) → dò lại cho lần sau.
+        try {
+            deviceIp = await resolveDeviceIp();
+        } catch {}
         return false;
     }
 }
 
 async function loop() {
+    deviceIp = await resolveDeviceIp(); // tự dò trước khi sync lần đầu
     await syncOnce();
     const ms = Math.max(1, cfg.pollMinutes) * 60 * 1000;
     setInterval(syncOnce, ms);
-    console.log(`[sync] lặp mỗi ${cfg.pollMinutes} phút. Máy ${cfg.device.ip}:${cfg.device.port}`);
+    console.log(`[sync] lặp mỗi ${cfg.pollMinutes} phút. Máy ${deviceIp}:${cfg.device.port}`);
 }
 
 loop();
