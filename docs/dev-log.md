@@ -2,6 +2,23 @@
 
 ## 2026-06-23
 
+### [feat] users: hiện mật khẩu (AES 2 chiều, trừ admin) + username cho 2 ký tự — và cham-cong: scroll + Lưu tất cả + ẩn NV chưa gán
+
+**1. Username cho phép 2 ký tự** (`render.com/routes/web2-users.js` + `web2/users/index.html`): regex `validateUsername` `{3,40}`→`{2,40}` + message + hint frontend "2-40 ký tự".
+
+**2. Hiện mật khẩu lên bảng users — chỉ admin, TRỪ account admin** (bump users css/js `?v=20260623ph`):
+
+- Mật khẩu lưu bcrypt (1 chiều, không khôi phục được). Thêm cột `password_enc TEXT` lưu **bản mã hoá 2 chiều AES-256-GCM** (`encryptPassword`/`decryptPassword`, format `v1:iv:tag:ct` base64; key sha256 từ env `WEB2_USER_PWD_KEY`, có fallback default cho beta). bcrypt VẪN là nguồn verify login — `password_enc` chỉ để admin đọc lại.
+- Capture trên create + change-password. `mapRow(row,{reveal})` chỉ giải mã khi viewer là **admin** (`req.web2User.role==='admin'`) và **row.role !== 'admin'** (không lộ mật khẩu quản trị viên). `/list` + `/:id` truyền `reveal`.
+- Frontend: cột "Mật khẩu" + `renderPasswordCell` — admin row → 🔒, mật khẩu cũ (chưa mã hoá, `password_enc` NULL) → "—" + tooltip "đổi MK để hiện", có mật khẩu → `<code>` + nút copy (`copypwd`). CSS `u-col-pwd`/`u-pwd-text`/`u-pwd-locked`.
+- ⚠ Cần Render deploy để chạy. Mật khẩu cũ chỉ hiện sau khi đổi/tạo mới. Khuyến nghị set env `WEB2_USER_PWD_KEY` trên Render (bảo mật at-rest tốt hơn fallback default).
+
+**3. cham-cong** (`web2/cham-cong/`, bump css `?v=20260623c`, js payroll/employees `?v=20260623g`, app `?v=20260623h`):
+
+- **Không scroll được** → `<main>` thiếu class scrollable. `.web2-shell` là `height:100vh;overflow:hidden`, vùng cuộn là `.web2-main{overflow:auto}`. Thêm `class="web2-main"` cho `<main>` (khớp 8+ trang khác).
+- **Nút "Lưu tất cả"** (tab Nhân viên): toolbar `.cc-emp-top` + `saveAll()` PATCH tuần tự từng hàng (progress `Đang lưu i/N…`), gom kết quả → 1 toast; refactor `rowBody(tr)` dùng chung với `saveRow`.
+- **Ẩn NV chưa gán** (employee_id NULL = "— Chưa gán —") khỏi **Bảng công** + **Bảng lương** + Excel export: filter `&& d.employee_id`. Empty-state phân biệt "chưa gán PIN nào" vs "chưa có dữ liệu máy".
+
 ### [feat] Trợ lý AI: keys LIVE (12 chat + 3 ảnh) + Render build-filter cắt phút + tab Cấu hình admin-only + bỏ chữ key/free
 
 **Keys lên Render (WEB2\_ prefix) + đã build LIVE:** set 16 env `WEB2_*` qua Render API (merge guard, 43→59) → Gemini 6 + Groq 5 + OpenRouter 1 (xoay tua, ưu tiên Gemini) + Cloudflare 3 account ảnh. Verify /chat thật cả 3 provider trả tiếng Việt ✓, Cloudflare ảnh ✓. Test toàn bộ key serect: Gemini cũ (11) chết "leaked"; Gemini mới (3 AQ+1 AIza) + Groq 5 + OpenRouter + CF 3 đều sống.
