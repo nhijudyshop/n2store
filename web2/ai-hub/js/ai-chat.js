@@ -320,7 +320,9 @@
             provider: c.provider,
             model: c.model,
             system: c.system || undefined,
-            messages: c.messages.filter((m) => m.role !== 'assistant' || m.content).slice(0, -1),
+            // Bỏ assistant placeholder rỗng (đang stream) — filter đã đủ, KHÔNG slice(0,-1)
+            // (sẽ chặt nhầm message user). Giữ user + assistant cũ có nội dung làm history.
+            messages: c.messages.filter((m) => m.role !== 'assistant' || m.content),
         });
         let res;
         try {
@@ -371,9 +373,7 @@
                 provider: c.provider,
                 model: c.model,
                 system: c.system || undefined,
-                messages: c.messages
-                    .filter((m) => m.role !== 'assistant' || m.content)
-                    .slice(0, -1),
+                messages: c.messages.filter((m) => m.role !== 'assistant' || m.content),
             }),
             signal: abortCtrl?.signal,
         });
