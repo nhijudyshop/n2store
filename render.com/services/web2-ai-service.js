@@ -45,6 +45,9 @@ const PROVIDERS = {
         label: 'Gemini',
         kind: 'gemini',
         envPrefix: 'GEMINI_API_KEY',
+        // Gộp key cũ của web2-ai-script (WEB2_GEMINI_API_KEY) vào pool → xoay chung,
+        // không còn 1-key-riêng-lẻ; nếu GEMINI_API_KEY hỏng thì key này vẫn cứu được.
+        extraEnv: ['WEB2_GEMINI_API_KEY'],
         defaultModel: 'gemini-2.5-flash',
         models: [
             { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
@@ -91,6 +94,17 @@ function _keys(providerId) {
             .forEach((k) => {
                 if (!arr.includes(k)) arr.push(k);
             });
+    }
+    // Env phụ (vd WEB2_GEMINI_API_KEY) — gộp vào pool để xoay chung.
+    for (const name of p.extraEnv || []) {
+        const v = (process.env[name] || '').trim();
+        if (v)
+            v.split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .forEach((k) => {
+                    if (!arr.includes(k)) arr.push(k);
+                });
     }
     return arr;
 }
@@ -359,6 +373,37 @@ async function chatStream(opts = {}, onDelta) {
     return { text: full, provider: providerId, model: mdl };
 }
 
+// ───────────────────────── complete: failover provider + xoay key ─────────────────────────
+// Cho service nội bộ (translate/caption/ai-script) tái dùng group xoay key TẬP TRUNG.
+// Thử lần lượt providers (mỗi provider tự xoay nhiều key + cooldown); trả provider đầu OK.
+// complete(messages, {providers, modelFor, system, temperature, maxTokens}) → {text, provider, model}
+async function complete(messages, opts = {}) {
+    const want =
+        opts.providers && opts.providers.length ? opts.providers : ['groq', 'gemini', 'openrouter'];
+    const avail = want.filter((id) => PROVIDERS[id] && _keys(id).length);
+    if (!avail.length) {
+        const e = new Error('Không có provider AI nào cấu hình key');
+        e._noKey = true;
+        throw e;
+    }
+    let lastErr;
+    for (const provider of avail) {
+        try {
+            return await chat({
+                provider,
+                model: opts.modelFor && opts.modelFor[provider],
+                system: opts.system,
+                messages,
+                temperature: opts.temperature,
+                maxTokens: opts.maxTokens,
+            });
+        } catch (e) {
+            lastErr = e;
+        }
+    }
+    throw lastErr || new Error('Tất cả provider AI đều lỗi');
+}
+
 // ───────────────────────── Trạng thái / tiện ích ─────────────────────────
 function clampNum(v, min, max, dflt) {
     const n = Number(v);
@@ -428,6 +473,7 @@ async function test(providerId) {
 module.exports = {
     chat,
     chatStream,
+    complete,
     status,
     listModels,
     test,

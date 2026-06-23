@@ -12,6 +12,8 @@
  */
 'use strict';
 
+const ai = require('./web2-ai-service'); // group xoay nhiều key TẬP TRUNG (Groq/Gemini/OpenRouter)
+
 const MAX_TEXT = 2000;
 const LANG_NAMES = {
     vi: 'Vietnamese',
@@ -41,76 +43,22 @@ function _prompt(text, to, from, context) {
     return p;
 }
 
-async function _groq(prompt) {
-    const key = process.env.GROQ_API_KEY;
-    if (!key) return null;
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.2,
-            max_tokens: 1024,
-            messages: [
-                { role: 'system', content: SYSTEM },
-                { role: 'user', content: prompt },
-            ],
-        }),
-    });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j.choices?.[0]?.message?.content?.trim() || null;
-}
-
-async function _deepseek(prompt) {
-    const key = process.env.DEEPSEEK_API_KEY;
-    if (!key) return null;
-    const r = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-            model: 'deepseek-chat',
-            temperature: 0.2,
-            max_tokens: 1024,
-            messages: [
-                { role: 'system', content: SYSTEM },
-                { role: 'user', content: prompt },
-            ],
-        }),
-    });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j.choices?.[0]?.message?.content?.trim() || null;
-}
-
-async function _gemini(prompt) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) return null;
-    const r = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: `${SYSTEM}\n\n${prompt}` }] }],
-                generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
-            }),
-        }
-    );
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-}
-
+// LLM qua group xoay key TẬP TRUNG (web2-ai-service): failover Groq→Gemini→OpenRouter,
+// mỗi provider tự xoay nhiều key + cooldown. Trước đây tự gọi 3 endpoint 1-key-lẻ.
 async function _llm(text, to, from, context) {
     const prompt = _prompt(text, to, from, context);
-    let out = await _groq(prompt).catch(() => null);
-    if (out) return { text: out, provider: 'groq' };
-    out = await _deepseek(prompt).catch(() => null);
-    if (out) return { text: out, provider: 'deepseek' };
-    out = await _gemini(prompt).catch(() => null);
-    if (out) return { text: out, provider: 'gemini' };
-    return null;
+    try {
+        const r = await ai.complete([{ role: 'user', content: prompt }], {
+            providers: ['groq', 'gemini', 'openrouter'],
+            modelFor: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.0-flash' },
+            system: SYSTEM,
+            temperature: 0.2,
+            maxTokens: 1024,
+        });
+        return r && r.text ? { text: r.text, provider: r.provider } : null;
+    } catch {
+        return null;
+    }
 }
 
 // Fallback FREE, KHÔNG KEY: Google translate public endpoint (gtx). Best-effort.
@@ -148,9 +96,7 @@ async function translate(text, opts = {}) {
 
 function engines() {
     const e = [];
-    if (process.env.GROQ_API_KEY) e.push('groq');
-    if (process.env.DEEPSEEK_API_KEY) e.push('deepseek');
-    if (process.env.GEMINI_API_KEY) e.push('gemini');
+    for (const id of ['groq', 'gemini', 'openrouter']) if (ai.keysOf(id).length) e.push(id);
     e.push('google-free');
     return e;
 }

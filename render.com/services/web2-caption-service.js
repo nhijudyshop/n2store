@@ -13,6 +13,8 @@
 
 'use strict';
 
+const ai = require('./web2-ai-service'); // group xoay nhiều key TẬP TRUNG (Groq/Gemini/OpenRouter)
+
 // ── Hashtag bank (offline, FREE) — theo từ khoá danh mục thời trang VN ──────
 const HASHTAG_BASE = ['#NhiJudy', '#thoitrang', '#shoponline', '#sale', '#xinhxan'];
 const HASHTAG_MAP = [
@@ -125,67 +127,6 @@ const SYSTEM_VI =
     '("kẻo hết", "số lượng có hạn"). CTA an toàn: mời inbox shop. ' +
     'GIÁ ghi kiểu rút gọn shop (14k / 14xu / 14kkk cho 14.000; 150k cho 150.000; 1tr cho 1 triệu) ' +
     '— TUYỆT ĐỐI KHÔNG ghi "14.000đ" hay "đ".';
-
-async function callGroq(prompt) {
-    const key = process.env.GROQ_API_KEY;
-    if (!key) return null;
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.8,
-            max_tokens: 400,
-            messages: [
-                { role: 'system', content: SYSTEM_VI },
-                { role: 'user', content: prompt },
-            ],
-        }),
-    });
-    if (!res.ok) return null;
-    const j = await res.json();
-    return j.choices?.[0]?.message?.content?.trim() || null;
-}
-
-async function callDeepSeek(prompt) {
-    const key = process.env.DEEPSEEK_API_KEY;
-    if (!key) return null;
-    const res = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-            model: 'deepseek-chat',
-            temperature: 0.8,
-            max_tokens: 400,
-            messages: [
-                { role: 'system', content: SYSTEM_VI },
-                { role: 'user', content: prompt },
-            ],
-        }),
-    });
-    if (!res.ok) return null;
-    const j = await res.json();
-    return j.choices?.[0]?.message?.content?.trim() || null;
-}
-
-async function callGemini(prompt) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) return null;
-    // audit r8: key qua header x-goog-api-key (KHÔNG ?key= URL → lộ vào log Render).
-    // Khớp Groq/DeepSeek (Authorization header) cùng file + aikol-gemini-clone-service.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-            contents: [{ parts: [{ text: `${SYSTEM_VI}\n\n${prompt}` }] }],
-            generationConfig: { temperature: 0.8, maxOutputTokens: 400 },
-        }),
-    });
-    if (!res.ok) return null;
-    const j = await res.json();
-    return j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-}
 
 // Lưới an toàn: ép tông thân thiện — thay xưng hô trang trọng nếu AI lỡ dùng.
 function _friendlyTone(text) {
