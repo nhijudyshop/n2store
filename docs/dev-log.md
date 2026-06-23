@@ -2,6 +2,24 @@
 
 ## 2026-06-23
 
+### [feat] Máy in: 2 chức năng tự chọn sẵn máy mặc định theo TÊN
+
+**Yêu cầu:** trang **Máy in** (`web2/printer-settings/`) — "In tem / mã sản phẩm (máy tem)" mặc định = **Máy in 2 tem mã sản phẩm**; "In Phiếu Bán Hàng (bill 80mm)" mặc định = **Máy in PBH Huyền + Hạnh + Còi + Hồng**.
+
+**Files:**
+
+- `web2/shared/web2-printer.js` — thêm `ROLE_DEFAULT_NAMES` (`{pbh, label}` khớp theo TÊN máy in, vì id do server sinh ngẫu nhiên) + `_defaultPrinterIdForRole()` + `effectiveRoleId()` (export). `getPrinterFor()` đổi fallback chain: **máy user gán → máy mặc định theo tên → máy đầu danh sách → null**. `roleIsBridge()` ăn theo (gọi `getPrinterFor`).
+- `web2/printer-settings/index.html` — `renderRoles()` dùng `P.effectiveRoleId(r.key)` để chọn sẵn (selected) máy mặc định khi user CHƯA gán; khớp với hành vi in thực tế.
+- Bump `web2-printer.js?v=20260623role` ở 4 trang load (printer-settings, products, fastsaleorder-invoice, native-orders) để prod nạp module mới — default áp dụng cả nơi IN (`web2-bill-service` PBH + `web2-products-print-modal` tem).
+
+**Chi tiết:**
+
+- Default theo TÊN (không persist id) → tự sửa lành (rename/xoá máy → re-resolve). User gán thủ công vẫn ưu tiên; id cũ chết (máy bị xoá) → rớt về mặc định theo tên.
+- Node test (chạy đúng module) PASS 5 case: no-role→default đúng tên, override thắng, stale id→default, clear→default, roleIsBridge=true.
+- Browser test live (`web2/printer-settings`, `roles:{}`): pbh→"Máy in PBH Huyền + Hạnh + Còi + Hồng", label→"Máy in 2 tem mã sản phẩm". 0 page/console error.
+
+**Status:** ✅ Done.
+
 ### [feat+refactor] Ảnh dùng chung 1 nguồn: Web2ImagePaste (nhập) + Web2ImageLightbox click-phóng-to + hover-zoom
 
 **Audit toàn bộ chỗ import/hiển thị ảnh Web 2.0** (2 explore agent song song) → gom về module chung.

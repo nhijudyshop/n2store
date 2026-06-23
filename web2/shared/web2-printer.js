@@ -55,6 +55,13 @@
         { key: 'pbh', label: 'In Phiếu Bán Hàng (bill 80mm)' },
         { key: 'label', label: 'In tem / mã sản phẩm (máy tem)' },
     ];
+    // Máy in MẶC ĐỊNH cho từng chức năng — khớp theo TÊN (không theo id vì id máy
+    // in do server sinh ngẫu nhiên). Dùng khi user CHƯA gán thủ công (getRoles()
+    // trống cho role đó). Đổi tên máy in trên server thì cập nhật danh sách này.
+    const ROLE_DEFAULT_NAMES = {
+        pbh: 'Máy in PBH Huyền + Hạnh + Còi + Hồng',
+        label: 'Máy in 2 tem mã sản phẩm',
+    };
     const PRINTER_DEFAULTS = {
         name: '',
         ip: '',
@@ -195,10 +202,37 @@
         localStorage.setItem(LS_ROLES, JSON.stringify(r));
         return r;
     }
-    // Máy in cho 1 chức năng — fallback: máy gán → máy đầu danh sách → null.
+    // ID máy in khớp tên mặc định cho 1 chức năng (case-insensitive, trim) — '' nếu
+    // không có máy nào trùng tên / role không có default.
+    function _defaultPrinterIdForRole(roleKey) {
+        const want = ROLE_DEFAULT_NAMES[roleKey];
+        if (!want) return '';
+        const norm = (s) =>
+            String(s == null ? '' : s)
+                .trim()
+                .toLowerCase();
+        const target = norm(want);
+        const m = _printers.find((p) => norm(p.name) === target);
+        return m ? m.id : '';
+    }
+    // ID máy in HIỆU LỰC cho 1 role (cho UI hiển thị selected): máy user gán thủ công
+    // (nếu còn tồn tại) → máy mặc định theo tên → '' (Chưa gán). KHÔNG fallback máy
+    // đầu danh sách ở đây — đó chỉ là lưới an toàn lúc IN (getPrinterFor), không phải
+    // "mặc định" để hiển thị.
+    function effectiveRoleId(roleKey) {
+        const explicit = getRoles()[roleKey];
+        if (explicit && getPrinter(explicit)) return explicit;
+        return _defaultPrinterIdForRole(roleKey) || '';
+    }
+    // Máy in cho 1 chức năng — fallback: máy gán → máy mặc định theo tên → máy đầu
+    // danh sách → null.
     function getPrinterFor(roleKey) {
-        const id = getRoles()[roleKey];
-        return getPrinter(id) || getPrinters()[0] || null;
+        return (
+            getPrinter(getRoles()[roleKey]) ||
+            getPrinter(_defaultPrinterIdForRole(roleKey)) ||
+            getPrinters()[0] ||
+            null
+        );
     }
 
     // Migrate danh sách/cấu hình LOCAL cũ → đẩy LÊN SERVER 1 lần (chỉ khi server rỗng).
@@ -669,6 +703,7 @@
 
     global.Web2Printer = {
         ROLES,
+        ROLE_DEFAULT_NAMES,
         PRINTER_DEFAULTS,
         loadPrinters,
         getPrinters,
@@ -678,6 +713,7 @@
         onPrintersChanged,
         getRoles,
         setRole,
+        effectiveRoleId,
         getPrinterFor,
         dotsWidth,
         roleIsBridge,

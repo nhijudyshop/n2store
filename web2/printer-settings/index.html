@@ -504,7 +504,7 @@
         <!-- SSE để đồng bộ danh sách máy in realtime giữa các user/máy -->
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../../web2/shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../../web2/shared/web2-printer.js?v=20260615auth"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260623role"></script>
         <!-- Tải bộ cài máy POS (.bat MENU: Print Bridge + VieNeu + OmniVoice) — DÙNG CHUNG -->
         <script src="../../web2/shared/web2-pos-installer.js?v=20260620a"></script>
         <script>
@@ -589,11 +589,15 @@
                 const list = P.getPrinters();
                 const roles = P.getRoles();
                 $('roleList').innerHTML = P.ROLES.map((r) => {
+                    // selected = máy user gán thủ công HOẶC máy mặc định theo tên
+                    // (effectiveRoleId) → 2 chức năng tự chọn sẵn máy mặc định khi
+                    // chưa gán, khớp với hành vi in thực tế (getPrinterFor).
+                    const effId = P.effectiveRoleId ? P.effectiveRoleId(r.key) : roles[r.key] || '';
                     const opts = ['<option value="">— Chưa gán —</option>']
                         .concat(
                             list.map(
                                 (p) =>
-                                    `<option value="${p.id}" ${roles[r.key] === p.id ? 'selected' : ''}>${esc(p.name || p.ip)}</option>`
+                                    `<option value="${p.id}" ${effId === p.id ? 'selected' : ''}>${esc(p.name || p.ip)}</option>`
                             )
                         )
                         .join('');
