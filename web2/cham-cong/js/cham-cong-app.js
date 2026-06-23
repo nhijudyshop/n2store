@@ -59,11 +59,13 @@
         };
     }
     function empName(du) {
-        if (du.display_name) return du.display_name;
+        // Ưu tiên CAO NHẤT: NV được GÁN (employee_id) — "gán NV thì hiện tên NV gán".
+        // display_name do agent tự điền = tên máy, KHÔNG được che tên NV đã gán.
         if (du.employee_id) {
             const e = state.employees.find((x) => String(x.id) === String(du.employee_id));
             if (e) return e.displayName || e.username;
         }
+        if (du.display_name) return du.display_name;
         return du.name || du.device_user_id;
     }
     function recordsFor(deviceUserId) {
