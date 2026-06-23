@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2869d0d` — feat(web2-cham-cong): 1 nguồn duy nhất = bat → DB (bỏ nút Đồng bộ máy + Nhập Excel/TXT thủ công); client tự lấy data mới qua smart cache + SSE
-**Last updated**: 2026-06-23 14:38:11 +07
-**Latest session**: [`RESUME:20260623-143811-2869d0d`](../20260623-143811-2869d0d.md)
-**Summary**: Chấm công 1 nguồn = bat → DB + smart cache/SSE tự lấy data mới (bỏ nút thủ công) + fix sync-status PUT
+**Latest commit**: `e47b0b8` — feat(web2-ai): env prefix WEB2* (phân biệt) + ưu tiên Gemini free trước + Cloudflare xoay nhiều account
+**Last updated**: 2026-06-23 15:02:47 +07
+**Latest session**: [`RESUME:20260623-150247-e47b0b8`](../20260623-150247-e47b0b8.md)
+**Summary**: feat(web2-ai): env prefix WEB2* (phân biệt) + ưu tiên Gemini free trước + Cloudflare xoay nhiều account
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 3 file(s)
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -56,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 13:36
+- [`render.com/`](./render.com.md) — updated 2026-06-23 15:02
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -78,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 14:38
+- [`web2/`](./web2.md) — updated 2026-06-23 15:02
