@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### [fix] Browser-test tương tác (user thật) bắt + fix 2 bug money/stock: over-restock partial + /tx mint ledger NCC
+
+User "1 và 2 cứ browser test tương tác như user thật rồi debug code fix". Cả 2 đều: demo bug qua browser → fix code → deploy → re-test verify.
+
+**① CROSS-FLOW 2 — over-restock thu_ve_1_phan trên PBH (commit `d94047ab9`)**: browser test trả 1/2 SP trên PBH (HNAO3 ×2) → cancel PBH → kho **50→51 (+1 ảo)**: dòng đã trả bị restock 2 lần (phiếu trả +1 + cancel +2). ✅ Partial wallet-decrement (round-2 #1) verify ĐÚNG (cancel hoàn CHỈ remainder 39000 → ví refund 200000 ĐÚNG 1 LẦN, không double). Fix: cột `fast_sale_orders.returned_line_qty {code:qty}` — tăng lúc tạo phiếu trả pbh-type, giảm lúc huỷ; `restockOrderLines` restock `max(0, line.qty − returned)`. Re-test 2 chiều: partial→cancel = 50; partial→DELETE phiếu→cancel = 50. ✅
+
+**② #2 — /tx ví NCC mint ledger do amount KHÔNG recompute (commit `ddbe635c9`)**: browser demo — seed so-order row cost 100000, gửi `/tx return qty1 amount777000` → ledger NCC mint **777000** (qty-cap 1≤5 không chặn vì qty đúng; amount lấy thẳng body). Fix: lib `loadSoOrderReceivedMap` trả `{received, costVnd}` (costPrice×rate, mirror frontend FALLBACK_RATES); `/tx` cap `amount ≤ Σ(qty×costVnd)` khi MỌI rid tra được cost (cho hoàn ít hơn, chặn phồng); per-row `returned_row_ids.amount` cũng cap. Thiếu cost (so-order wipe) → giữ flow cũ. `loadSoOrderReceivedQtyMap` thành wrapper (purchase-refund vẫn xài). Re-test: amount777000→**cap 100000**; qty-cap regression (qty10>5) vẫn reject. ✅
+
+State pristine sau test: so-order test tab xoá, HNAO3=50, ví=0, 0 lỗi console. (Test supplier TEST-NCC-VITEST để lại — BETA, marked.)
+
 ### [test] Browser-test battery (workflow thiết kế + chạy thật) — 5 flow tiền/kho ĐỀU PASS, 0 bug mới
 
 Ultracode: workflow 5-agent thiết kế test battery (4 recipe + cross-flow critic, ưu tiên theo bug-finding×money-impact). Chạy THẬT qua browser (click/nhập + assert invariant tiền/kho), test customer 0123456788, seed→test→cleanup sạch. Kết quả:
