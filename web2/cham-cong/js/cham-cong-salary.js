@@ -104,10 +104,14 @@
         out.baseSalary = Math.round((hourlyRate * baseMinutes) / 60);
         out.worked = baseMinutes > 0;
 
-        // OT: ra sau mốc kết ca.
+        // OT: ra sau mốc kết ca. Lương THÁNG (cố định) KHÔNG auto-OT (hourlyRate suy ra
+        // từ lương tháng sẽ sai khổng lồ) → otPay=0, muốn thưởng OT thì thêm tay ở "Thưởng".
         if (checkOut > endMoment) {
             out.otMinutes = Math.round((checkOut - endMoment) / 60000);
-            out.otPay = Math.round((out.otMinutes / 60) * hourlyRate * otMult);
+            out.otPay =
+                String(cfg.salaryType) === 'monthly'
+                    ? 0
+                    : Math.round((out.otMinutes / 60) * hourlyRate * otMult);
         } else if (checkOut < endMoment) {
             // Về sớm: ra trước mốc kết ca (đã loại trừ làm-tròn ≤10').
             out.earlyMinutes = Math.floor((endMoment - checkOut) / 60000);
