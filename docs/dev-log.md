@@ -2,6 +2,16 @@
 
 ## 2026-06-24
 
+### [audit-deep-2] web2: verify Ví NCC + auth-gate + KPI privacy (code-level) — 0 bug, 1 design-note
+
+Tiếp tục đào sâu (round 2). Toàn bộ VERIFY (không sửa code) — kết quả: hệ thống đúng.
+
+1. **Ví NCC ledger** (`/api/web2-supplier-wallet/tx`) — test fake supplier `ZZTEST-NCC-AUDIT`: server REJECT `type=debt` (400, chỉ `payment|return`), `amount>0` enforced, idempotency tx_id pre-check (`alreadyProcessed`), return-amount cap theo cost THẬT từ so-order (anti-mint, FIX #2 2026-06-23). Dọn sạch qua `DELETE /supplier/:name` (x-admin-secret = CLEANUP_SECRET, hit web2-api trực tiếp; ledger+meta=1/1 rows).
+2. **Auth gate `WEB2_AUTH_ENFORCE`** — probe 5 write-endpoint KHÔNG token (products POST/DELETE, supplier-wallet tx, customer-wallet deposit, native-orders create) → tất cả **401**. order-tags write (`/create`,`/update`,`/delete`) đều `requireWeb2AuthSoft`. Mutation Web 2.0 được khoá đúng.
+3. **KPI privacy (code-level)** — live multi-user KHÔNG test được sạch (web2-users không có DELETE endpoint → tạo user test = rác vĩnh viễn). Đọc code xác nhận: `applyKpiScope` (routes/v2/kpi.js:393) scope-filter ĐƠN HÀNG = **fail-open** (NV không-assignment / no-token → thấy hết đơn — comment ghi rõ "default open access", CHỦ Ý). NHƯNG tầng privacy THẬT = **pill-mask server-side** (`web2-order-tags-service.js:436`): NV xem đơn NV-khác → pill `👤 KPI` xám, **KHÔNG đính tên/tiền**; chỉ admin / đơn-mình / chưa-gán mới thấy detail. Comment: "tầng DUY NHẤT đáng tin (frontend không tin được)". → privacy KPI an toàn (thấy đơn nhưng không lộ tiền NV khác).
+
+**Design-note (không phải bug)**: kpiScope fail-open là chủ ý + được pill-mask bù. Nếu sau muốn fail-closed (NV không-assignment thấy 0 đơn) thì sửa `applyKpiScope` line 421 — nhưng hiện KHÔNG lộ data nhạy cảm nên không cần.
+
 ### [fix] web2: 5 silent-failure frontend + 1 HIGH server bug (split-PBH cancel) — từ review 2 agent
 
 2 agent review (silent-failure-hunter + code-reviewer) trên luồng tiền/PBH/tồn. Đã VERIFY từng finding bằng đọc code thật (loại các finding agent tự downgrade: confirm-purchase double-add an toàn READ COMMITTED, idempotency namespacing không collide). Fix các finding xác nhận thật:
