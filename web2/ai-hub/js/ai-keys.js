@@ -59,6 +59,10 @@
             <div class="aih-keys-grid">
                 ${image.map(imgCard).join('')}
             </div>
+            <h3 style="margin:22px 0 0;font-size:1.05rem;color:var(--web2-text)">🎙️ Giọng nói (TTS)</h3>
+            <div class="aih-keys-grid" id="aihVoiceGrid">
+                <p class="aih-keyhint">Đang tải…</p>
+            </div>
             <p class="aih-keyhint" style="margin-top:20px">
                 💡 Key giấu ở <b>env Render</b> (an toàn, không lộ ra trình duyệt). Thêm nhiều key
                 <code>&lt;PREFIX&gt;1</code>, <code>&lt;PREFIX&gt;2</code>… để <b>xoay tua</b> cộng dồn quota free.
@@ -72,6 +76,75 @@
             b.addEventListener('click', () => testProvider(b.dataset.test, b))
         );
         if (global.lucide) global.lucide.createIcons();
+        loadVoice(); // mục Giọng nói (TTS) — read-only, pool riêng theo vendor
+    }
+
+    // ── Giọng nói (TTS) — đọc trạng thái 3 vendor (pool RIÊNG, KHÔNG dùng web2-ai-service) ──
+    const VOICE = [
+        {
+            id: 'eleven',
+            label: 'ElevenLabs',
+            path: '/api/web2-elevenlabs/status',
+            env: 'ELEVENLABS_API_KEY1, 2, 3…',
+            note: 'TTS cao cấp · sound FX · STT · lọc tạp âm',
+        },
+        {
+            id: 'pro',
+            label: 'Giọng AI Pro',
+            path: '/api/web2-tts-pro/status',
+            env: 'VIVIBE_API_KEY1..5',
+            note: 'Giọng đọc chất lượng cao',
+        },
+        {
+            id: 'vieneu',
+            label: 'VieNeu (clone giọng)',
+            path: '/api/web2-vieneu-registry/list',
+            env: '(server máy shop)',
+            note: 'Clone giọng Việt — chạy server máy shop + tunnel',
+        },
+    ];
+    function voiceBase() {
+        return H()
+            .API()
+            .replace(/\/api\/web2-ai$/, '');
+    }
+    async function loadVoice() {
+        const grid = document.getElementById('aihVoiceGrid');
+        if (!grid) return;
+        const base = voiceBase();
+        const cards = await Promise.all(
+            VOICE.map(async (v) => {
+                try {
+                    const j = await fetch(base + v.path, { headers: H().authHeaders(false) }).then(
+                        (r) => r.json()
+                    );
+                    let on, info;
+                    if (v.id === 'vieneu') {
+                        const n = (j.servers || []).length;
+                        on = n > 0;
+                        info = on ? `${n} máy online` : 'chưa có máy online';
+                    } else {
+                        on = !!j.configured;
+                        info = on ? `${j.keys || 0} key xoay tua` : 'chưa cấu hình';
+                    }
+                    return voiceCard(v, on, info);
+                } catch {
+                    return voiceCard(v, false, 'không kết nối được');
+                }
+            })
+        );
+        grid.innerHTML = cards.join('');
+        if (global.lucide) global.lucide.createIcons();
+    }
+    function voiceCard(v, on, info) {
+        return `<div class="aih-keycard ${on ? '' : 'off'}">
+            <div class="aih-keycard-head">
+                <span class="aih-dot ${on ? '' : 'cool'}" style="width:10px;height:10px"></span>
+                <h4>${H().escapeHtml(v.label)}</h4>
+                <span class="aih-pill ${on ? '' : 'warn'}">${H().escapeHtml(info)}</span>
+            </div>
+            <p class="aih-keyhint">${H().escapeHtml(v.note)} · env <code>${H().escapeHtml(v.env)}</code></p>
+        </div>`;
     }
 
     function chatCard(p) {
