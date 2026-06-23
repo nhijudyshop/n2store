@@ -41,7 +41,15 @@ function rateLimit(req, res, next) {
     }
     hits.push(now);
     _hits.set(ip, hits);
-    if (_hits.size > 2000) _hits.clear();
+    // Dọn theo TTL khi Map phình to: chỉ xoá IP đã hết hạn (mọi timestamp > 60s), GIỮ window
+    // của IP còn hit hợp lệ — tránh _hits.clear() reset cửa sổ của cả IP đang spam (burst bypass).
+    if (_hits.size > 2000) {
+        for (const [k, arr] of _hits) {
+            const fresh = arr.filter((t) => now - t < 60_000);
+            if (fresh.length === 0) _hits.delete(k);
+            else _hits.set(k, fresh);
+        }
+    }
     next();
 }
 
@@ -111,7 +119,12 @@ router.post(
             res.json({ ok: true, ...out });
         } catch (e) {
             console.error('[web2-ai] chat', e.message);
-            res.status(e._noKey ? 503 : 500).json({ ok: false, error: String(e.message || e) });
+            const code = e._noKey ? 503 : e._noVision ? 422 : 500;
+            res.status(code).json({
+                ok: false,
+                error: String(e.message || e),
+                noVision: !!e._noVision,
+            });
         }
     }
 );
@@ -130,7 +143,12 @@ router.post(
         if (res.flushHeaders) res.flushHeaders();
 
         let closed = false;
-        req.on('close', () => (closed = true));
+        // Client đóng tab/ngắt SSE → abort upstream LLM fetch ngay (không đốt quota free).
+        const ac = new AbortController();
+        req.on('close', () => {
+            closed = true;
+            ac.abort();
+        });
         const send = (event, data) => {
             if (closed) return;
             try {
@@ -143,12 +161,16 @@ router.post(
             const { provider, model, messages, system, temperature, maxTokens } = req.body || {};
             const out = await ai.chatStream(
                 { provider, model, messages, system, temperature, maxTokens },
-                (delta) => send('delta', { text: delta })
+                (delta) => send('delta', { text: delta }),
+                ac.signal
             );
             send('done', { provider: out.provider, model: out.model });
         } catch (e) {
-            console.error('[web2-ai] chat/stream', e.message);
-            send('error', { error: String(e.message || e), noKey: !!e._noKey });
+            // Abort do client ngắt → không phải lỗi thật, không log/gửi error.
+            if (!closed && e?.name !== 'AbortError') {
+                console.error('[web2-ai] chat/stream', e.message);
+                send('error', { error: String(e.message || e), noKey: !!e._noKey });
+            }
         } finally {
             if (!closed) {
                 try {

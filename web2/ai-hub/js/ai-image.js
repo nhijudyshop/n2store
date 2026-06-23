@@ -48,6 +48,10 @@
         document.getElementById('aihImgProvider').addEventListener('change', (e) => {
             fillModels(e.target.value);
             toggleEditField(e.target.value);
+            // Đổi sang nguồn KHÔNG sửa ảnh (editsImage=false) mà đang có ảnh gốc → dọn ảnh gốc +
+            // card "Ảnh gốc" cho khớp thực tế (nguồn này sẽ bỏ qua ảnh gốc).
+            const p = imageProviders().find((x) => x.id === e.target.value);
+            if (editImageData && !(p && p.editsImage)) clearSource();
         });
         document.getElementById('aihImgGen').addEventListener('click', generate);
         document.getElementById('aihImgEnhance')?.addEventListener('click', enhancePrompt);
@@ -121,15 +125,18 @@
         const tag = document.createElement('button');
         tag.type = 'button';
         tag.textContent = '🖼 Ảnh gốc — bỏ';
-        tag.onclick = () => {
-            card.remove();
-            editImageData = null;
-            const f = document.getElementById('aihImgFile');
-            if (f) f.value = '';
-        };
+        tag.onclick = () => clearSource();
         bar.appendChild(tag);
         card.appendChild(bar);
         gallery.prepend(card);
+    }
+    // Dọn ảnh gốc: xoá state + card "Ảnh gốc" + reset file input (dùng cho nút "bỏ" và khi đổi
+    // sang nguồn không sửa ảnh).
+    function clearSource() {
+        editImageData = null;
+        document.getElementById('aihGallery')?.querySelector('.aih-imgcard.source')?.remove();
+        const f = document.getElementById('aihImgFile');
+        if (f) f.value = '';
     }
 
     // #2 — Nút AI viết mô tả: nhập ngắn → LLM mở rộng thành prompt chi tiết tạo ảnh.
@@ -168,8 +175,14 @@
         }
     }
 
-    function onShow() {
+    async function onShow() {
         if (!inited) init();
+        // Tự phục hồi nếu /status fail lúc boot → providers rỗng → dropdown trống (kẹt vĩnh viễn
+        // vì fillProviders chỉ chạy 1 lần trong init). Nạp lại status rồi refill khi đang rỗng.
+        if (imageProviders().length === 0) {
+            await H().loadStatus();
+            fillProviders();
+        }
         if (global.lucide) global.lucide.createIcons();
     }
 
@@ -188,6 +201,14 @@
         card.className = 'aih-imgcard loading';
         card.innerHTML = '<div class="aih-spinner"></div><span>Đang tạo…</span>';
         gallery.prepend(card);
+
+        // Ảnh gốc chỉ dùng được với Gemini (Nano Banana) — cảnh báo rõ nếu nguồn khác sẽ bỏ qua.
+        if (editImageData && provider !== 'gemini') {
+            H().toast(
+                'Ảnh gốc chỉ dùng được với Nano Banana (Gemini) — nguồn hiện tại sẽ bỏ qua ảnh gốc',
+                'warning'
+            );
+        }
 
         btn.disabled = true;
         try {

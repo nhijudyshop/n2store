@@ -13,7 +13,7 @@
  */
 'use strict';
 
-const { keysOf } = require('./web2-ai-service');
+const { keysOf, runWithKey } = require('./web2-ai-service');
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_PROMPT = 1500;
@@ -126,17 +126,8 @@ const GEMINI_IMAGE_MODELS = [
     { id: 'gemini-2.5-flash-image', label: 'Nano Banana (2.5 Flash Image)' },
     { id: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash Image' },
 ];
-let _gemRr = 0;
-function _gemKey() {
-    const keys = keysOf('gemini');
-    if (!keys.length) return null;
-    const k = keys[_gemRr % keys.length];
-    _gemRr = (_gemRr + 1) % keys.length;
-    return k;
-}
 async function _gemini(prompt, { model, image }) {
-    const key = _gemKey();
-    if (!key) {
+    if (!keysOf('gemini').length) {
         const e = new Error('Gemini chưa cấu hình key (GEMINI_API_KEY)');
         e._noKey = true;
         throw e;
@@ -150,27 +141,47 @@ async function _gemini(prompt, { model, image }) {
         const data = m ? m[2] : String(image).replace(/^data:[^,]*,/, '');
         parts.push({ inlineData: { mimeType: mime, data } });
     }
-    const r = await fetch(`${GEMINI_BASE}/models/${mdl}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-            contents: [{ role: 'user', parts }],
-            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-        }),
+    // Xoay TOÀN BỘ pool key Gemini + cooldown CHUNG (qua runWithKey) — 1 key 401/429/503 thì
+    // thử key kế thay vì fail oan dù pool còn key tốt.
+    return runWithKey('gemini', async (key) => {
+        const r = await fetch(`${GEMINI_BASE}/models/${mdl}:generateContent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts }],
+                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+            }),
+        });
+        if (!r.ok) {
+            let detail = `HTTP ${r.status}`;
+            try {
+                const j = await r.json();
+                detail = j?.error?.message || detail;
+            } catch {}
+            const err = new Error(`Gemini: ${String(detail).slice(0, 200)}`);
+            const d = String(detail);
+            if (r.status === 401 || r.status === 403) err._auth = true;
+            if (r.status === 429 || r.status === 402) err._quota = true;
+            if (r.status === 502 || r.status === 503 || r.status === 529) err._overload = true;
+            // Gemini trả HTTP 400 cho key hỏng → coi như auth để xoay key kế.
+            if (
+                /api[\s_-]?key (not found|not valid|invalid)|API_KEY_INVALID|invalid api key/i.test(
+                    d
+                )
+            )
+                err._auth = true;
+            if (
+                /quota|rate.?limit|exhausted|resource has been exhausted|too many requests/i.test(d)
+            )
+                err._quota = true;
+            throw err;
+        }
+        const j = await r.json();
+        const out = (j?.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData?.data);
+        if (!out) throw new Error('Gemini: phản hồi không có ảnh (có thể bị chặn nội dung)');
+        const mime = out.inlineData.mimeType || 'image/png';
+        return { provider: 'gemini', dataUrl: `data:${mime};base64,${out.inlineData.data}` };
     });
-    if (!r.ok) {
-        let detail = `HTTP ${r.status}`;
-        try {
-            const j = await r.json();
-            detail = j?.error?.message || detail;
-        } catch {}
-        throw new Error(`Gemini: ${String(detail).slice(0, 200)}`);
-    }
-    const j = await r.json();
-    const out = (j?.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData?.data);
-    if (!out) throw new Error('Gemini: phản hồi không có ảnh (có thể bị chặn nội dung)');
-    const mime = out.inlineData.mimeType || 'image/png';
-    return { provider: 'gemini', dataUrl: `data:${mime};base64,${out.inlineData.data}` };
 }
 
 // ───────────────────────── Public ─────────────────────────

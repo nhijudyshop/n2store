@@ -14,6 +14,7 @@
     let currentId = null;
     let abortCtrl = null;
     let streaming = false;
+    let userStopped = false; // phân biệt user chủ động bấm "Dừng" với lỗi/abort khác
     let pendingImages = []; // ảnh đính kèm cho tin nhắn KẾ TIẾP (dataURL), chỉ model 👁
 
     // ── persistence ──
@@ -25,20 +26,44 @@
             convos = [];
         }
     }
+    // Loại ảnh base64 khỏi bản persist (tránh tràn quota localStorage). Trả mảng convo slim.
+    function _slim(list) {
+        return list.map((c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+                m.images && m.images.length
+                    ? { role: m.role, content: m.content, hadImages: m.images.length }
+                    : m
+            ),
+        }));
+    }
     function save() {
+        // Cap mảng in-memory về MAX_CONVOS để khớp bản persist (tránh lệch runtime/lưu trữ:
+        // convos[50+] chỉ sống runtime rồi mất sau reload). Đảm bảo currentId còn trỏ tới 1 convo.
+        if (convos.length > MAX_CONVOS) {
+            convos = convos.slice(0, MAX_CONVOS);
+            if (!convos.some((c) => c.id === currentId)) currentId = convos[0]?.id || null;
+        }
         try {
-            // KHÔNG persist ảnh base64 (dễ tràn quota localStorage) — chỉ giữ in-memory cho
-            // phiên hiện tại; reload mất ảnh đính kèm (text lịch sử vẫn còn). Lưu cờ hadImages.
-            const slim = convos.slice(0, MAX_CONVOS).map((c) => ({
-                ...c,
-                messages: c.messages.map((m) =>
-                    m.images && m.images.length
-                        ? { role: m.role, content: m.content, hadImages: m.images.length }
-                        : m
-                ),
-            }));
-            localStorage.setItem(STORE_KEY, JSON.stringify(slim));
-        } catch {}
+            localStorage.setItem(STORE_KEY, JSON.stringify(_slim(convos)));
+        } catch (e) {
+            // Tràn quota → cắt bớt convo cũ rồi thử lại; vẫn fail thì báo user (KHÔNG nuốt im lặng).
+            if (e && e.name === 'QuotaExceededError') {
+                const half = Math.max(1, Math.floor(MAX_CONVOS / 2));
+                convos = convos.slice(0, half);
+                if (!convos.some((c) => c.id === currentId)) currentId = convos[0]?.id || null;
+                try {
+                    localStorage.setItem(STORE_KEY, JSON.stringify(_slim(convos)));
+                    return;
+                } catch {}
+                H().toast(
+                    'Bộ nhớ trình duyệt đầy — lịch sử chat cũ có thể không được lưu',
+                    'warning'
+                );
+            } else {
+                console.error('[ai-chat] save failed', e);
+            }
+        }
     }
     function current() {
         return convos.find((c) => c.id === currentId) || null;
@@ -128,6 +153,22 @@
         if (!vision && pendingImages.length) {
             pendingImages = [];
             renderAttachStrip();
+        }
+        // Đổi sang model KHÔNG xem ảnh → strip ảnh trong LỊCH SỬ để follow-up không re-send ảnh
+        // cũ (gây lỗi 400 "model does not support images"). Giữ cờ hadImages cho UI.
+        if (!vision) {
+            const c = current();
+            if (c) {
+                let stripped = false;
+                c.messages.forEach((m) => {
+                    if (m.images && m.images.length) {
+                        m.hadImages = m.images.length;
+                        delete m.images;
+                        stripped = true;
+                    }
+                });
+                if (stripped) save();
+            }
         }
     }
     function addImageFile(f) {
@@ -370,6 +411,7 @@
         if (el) el.classList.add('aih-cursor');
 
         setStreaming(true);
+        userStopped = false;
         abortCtrl = new AbortController();
         let acc = '';
         let rafPending = false;
@@ -393,17 +435,26 @@
         try {
             ok = await doStream(c, onDelta);
         } catch (e) {
-            if (e.name === 'AbortError') ok = !!acc;
+            // Abort = user chủ động dừng → KHÔNG coi là lỗi (không hiện ⚠️/toast).
+            if (e.name === 'AbortError') ok = true;
             else acc += (acc ? '\n\n' : '') + '⚠️ ' + (e.message || e);
         }
         // finalize
-        c.messages[idx].content = acc || '*(không có phản hồi)*';
+        const wasUserStopped = userStopped;
+        if (wasUserStopped && !acc) {
+            // User dừng TRƯỚC token đầu tiên → bỏ bubble assistant rỗng thay vì để placeholder.
+            c.messages.splice(idx, 1);
+        } else {
+            c.messages[idx].content = acc || '*(không có phản hồi)*';
+        }
         c.updatedAt = Date.now();
         save();
         setStreaming(false);
         abortCtrl = null;
+        userStopped = false;
         renderMessages();
-        if (!ok && !acc) H().toast('AI không phản hồi — kiểm tra key ở tab Quản lý key', 'warning');
+        if (!ok && !acc && !wasUserStopped)
+            H().toast('AI không phản hồi — kiểm tra key ở tab Quản lý key', 'warning');
     }
 
     // Đọc SSE từ /chat/stream. Trả true nếu xong sạch. Fallback /chat non-stream nếu stream fail.
@@ -476,6 +527,7 @@
     }
 
     function stop() {
+        userStopped = true;
         if (abortCtrl) abortCtrl.abort();
     }
 

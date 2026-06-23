@@ -22,6 +22,7 @@
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const COOLDOWN_AUTH_MS = 60 * 60 * 1000; // key sai → 1h
 const COOLDOWN_QUOTA_MS = 5 * 60 * 1000; // hết quota → 5'
+const COOLDOWN_OVERLOAD_MS = 20 * 1000; // provider quá tải (503/529) → nghỉ ngắn 20s
 const MAX_KEYS = 10; // số env <PREFIX>1..N quét
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 2048;
@@ -146,12 +147,19 @@ async function _withKey(providerId, fn) {
             return await fn(key);
         } catch (e) {
             lastErr = e;
+            // Client ngắt (đóng SSE) → KHÔNG đánh dấu cooldown key, KHÔNG failover, ném ngay.
+            if (e && (e.name === 'AbortError' || e._aborted)) throw e;
             if (e && e._auth) {
                 _cooldown.set(key, Date.now() + COOLDOWN_AUTH_MS);
                 continue;
             }
             if (e && e._quota) {
                 _cooldown.set(key, Date.now() + COOLDOWN_QUOTA_MS);
+                continue;
+            }
+            if (e && e._overload) {
+                // Provider quá tải tạm thời → nghỉ ngắn rồi xoay sang key/provider kế.
+                _cooldown.set(key, Date.now() + COOLDOWN_OVERLOAD_MS);
                 continue;
             }
             throw e; // lỗi nội dung (prompt rỗng…) → không phí key khác
@@ -175,6 +183,12 @@ async function _httpError(r, providerLabel) {
     const d = String(detail);
     if (r.status === 401 || r.status === 403) err._auth = true;
     if (r.status === 429 || r.status === 402) err._quota = true;
+    // Provider quá tải tạm thời (502 Bad Gateway / 503 Unavailable / 529 Overloaded) → coi
+    // là _overload để xoay sang key/provider kế thay vì fail cứng ở key đầu. KHÔNG blanket 500
+    // (500 có thể là bad-request thật → đốt cả pool); 500 chỉ xét qua body text bên dưới.
+    if (r.status === 502 || r.status === 503 || r.status === 529) err._overload = true;
+    if (/overload|unavailable|temporarily|try again|service unavailable/i.test(d))
+        err._overload = true;
     // Gemini trả HTTP 400 cho key hỏng (API_KEY_INVALID / "API key not found") → coi như
     // auth để XOAY sang key kế (không thì rotation ném ngay ở key đầu, bỏ phí key tốt sau).
     if (/api[\s_-]?key (not found|not valid|invalid)|API_KEY_INVALID|invalid api key/i.test(d))
@@ -250,6 +264,22 @@ function _resolve(providerId, model) {
     return { p, mdl };
 }
 
+// Chặn sớm khi gửi ảnh tới model KHÔNG xem được ảnh → tránh lỗi 400 upstream tối nghĩa.
+// Gemini: mọi model đều vision → bỏ qua. Provider khác: model phải có vision:true.
+function _assertVision(p, mdl, messages) {
+    if (p.kind === 'gemini') return;
+    const hasImages = messages.some((m) => m.role !== 'system' && m.images && m.images.length);
+    if (!hasImages) return;
+    const md = p.models.find((m) => m.id === mdl);
+    if (md && md.vision) return;
+    const e = new Error(
+        `Model "${md?.label || mdl}" không xem được ảnh — hãy chọn model có biểu tượng 👁 ` +
+            `(vd Llama 4 Scout của Groq, hoặc Gemini).`
+    );
+    e._noVision = true;
+    throw e;
+}
+
 async function _openaiChat(p, mdl, messages, opts) {
     return _withKey(opts._pid, async (key) => {
         const r = await fetch(`${p.baseURL}/chat/completions`, {
@@ -307,6 +337,7 @@ async function chat(opts = {}) {
     const { p, mdl } = _resolve(providerId, opts.model);
     const messages = _normMessages(opts.messages, opts.system);
     if (!messages.some((m) => m.role !== 'system')) throw new Error('Thiếu nội dung chat');
+    _assertVision(p, mdl, messages);
     const o = {
         _pid: providerId,
         temperature: clampNum(opts.temperature, 0, 2, DEFAULT_TEMPERATURE),
@@ -321,11 +352,18 @@ async function chat(opts = {}) {
 
 // ───────────────────────── Chat (streaming) ─────────────────────────
 // Đọc SSE body theo dòng, gọi cb(dataString) cho mỗi `data: ...`.
-async function _readSSE(body, onData) {
+// GHI CHÚ: mỗi provider (Gemini alt=sse, OpenAI-style stream) phát 1 JSON hoàn chỉnh trên
+// 1 dòng `data:`; buffer theo `\n` đã chống cắt-chunk. signal cho phép client ngắt → hủy
+// đọc + cancel reader (không đốt quota cho phản hồi không ai nhận).
+async function _readSSE(body, onData, signal) {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
     for (;;) {
+        if (signal?.aborted) {
+            await reader.cancel().catch(() => {});
+            break;
+        }
         const { value, done } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
@@ -339,12 +377,15 @@ async function _readSSE(body, onData) {
     if (buf.trim().startsWith('data:')) onData(buf.trim().slice(5).trim());
 }
 
-// chatStream(opts, onDelta) — gọi onDelta(textChunk) khi có; trả {text, provider, model}.
-async function chatStream(opts = {}, onDelta) {
+// chatStream(opts, onDelta, signal) — gọi onDelta(textChunk) khi có; trả {text, provider, model}.
+// signal (AbortSignal) propagate xuống fetch + _readSSE để client đóng SSE thì hủy upstream
+// LLM fetch ngay (không đốt quota free cho response không ai nhận).
+async function chatStream(opts = {}, onDelta, signal) {
     const providerId = opts.provider || defaultProvider();
     const { p, mdl } = _resolve(providerId, opts.model);
     const messages = _normMessages(opts.messages, opts.system);
     if (!messages.some((m) => m.role !== 'system')) throw new Error('Thiếu nội dung chat');
+    _assertVision(p, mdl, messages);
     const temperature = clampNum(opts.temperature, 0, 2, DEFAULT_TEMPERATURE);
     const maxTokens = clampNum(opts.maxTokens, 1, 8192, DEFAULT_MAX_TOKENS);
     let full = '';
@@ -368,6 +409,7 @@ async function chatStream(opts = {}, onDelta) {
                     ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
                     generationConfig: { temperature, maxOutputTokens: maxTokens },
                 }),
+                signal,
             });
             parseLine = (d) => {
                 try {
@@ -390,6 +432,7 @@ async function chatStream(opts = {}, onDelta) {
                     max_tokens: maxTokens,
                     stream: true,
                 }),
+                signal,
             });
             parseLine = (d) => {
                 if (d === '[DONE]') return;
@@ -401,7 +444,9 @@ async function chatStream(opts = {}, onDelta) {
         }
         if (!r.ok) throw await _httpError(r, p.label);
         if (!r.body) throw new Error(`${p.label}: không có stream body`);
-        await _readSSE(r.body, parseLine);
+        await _readSSE(r.body, parseLine, signal);
+        // Client ngắt giữa chừng → coi như xong, KHÔNG ném "phản hồi rỗng" (sẽ bị hiểu nhầm lỗi).
+        if (signal?.aborted) return;
         if (!full.trim()) throw new Error(`${p.label}: phản hồi rỗng`);
     });
 
@@ -506,6 +551,13 @@ async function test(providerId) {
     }
 }
 
+// runWithKey — cho image-service tái dùng CHUNG cơ chế xoay key + cooldown (1h auth / 5' quota
+// / 20s overload). fn(key) PHẢI ném lỗi gắn cờ _auth/_quota/_overload (vd qua classifyHttpError)
+// để rotation biết xoay sang key kế thay vì fail cứng.
+function runWithKey(providerId, fn) {
+    return _withKey(providerId, fn);
+}
+
 // keysOf — cho image-service tái dùng pool key Gemini (KHÔNG lộ ra route/frontend).
 module.exports = {
     chat,
@@ -518,4 +570,6 @@ module.exports = {
     defaultProvider,
     maskKey,
     keysOf: _keys,
+    runWithKey,
+    classifyHttpError: _httpError,
 };
