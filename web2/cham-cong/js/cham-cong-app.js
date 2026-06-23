@@ -212,7 +212,7 @@
             ${
                 active
                     ? ''
-                    : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Tới shop (cùng wifi) bấm <b>lay-du-lieu.bat</b> để lấy ngay, hoặc dùng <b>Nhập Excel/TXT</b>.</span>`
+                    : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Tới shop (cùng wifi) bấm <b>lay-du-lieu.bat</b> để lấy ngay.</span>`
             }
         `;
     }
@@ -524,70 +524,6 @@
         }
     }
 
-    // ── Import Excel/TXT ──────────────────────────────────────────────────────
-    function lazyXlsx() {
-        return new Promise((resolve, reject) => {
-            if (global.XLSX) return resolve(global.XLSX);
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-            s.onload = () => resolve(global.XLSX);
-            s.onerror = () => reject(new Error('Không tải được thư viện Excel'));
-            document.head.appendChild(s);
-        });
-    }
-    // Map 1 hàng (mảng cell) → punch. Tự dò cột PIN / thời gian / loại.
-    function rowToPunch(cells) {
-        if (!cells || !cells.length) return null;
-        // Tìm cột thời gian (có dạng ngày-giờ).
-        let pin = null;
-        let time = null;
-        let type = 0;
-        for (const c of cells) {
-            const s = String(c == null ? '' : c).trim();
-            if (!s) continue;
-            if (time == null && /\d{4}[-/]\d{1,2}[-/]\d{1,2}.*\d{1,2}:\d{2}/.test(s)) {
-                time = s.replace(/\//g, '-');
-                continue;
-            }
-            if (pin == null && /^\d{1,8}$/.test(s)) {
-                pin = s;
-                continue;
-            }
-        }
-        if (!pin || !time) return null;
-        return { device_user_id: pin, check_time: time, type };
-    }
-    async function importFile(file) {
-        try {
-            const name = (file.name || '').toLowerCase();
-            let rows = [];
-            if (name.endsWith('.txt') || name.endsWith('.dat') || name.endsWith('.csv')) {
-                const text = await file.text();
-                rows = text
-                    .split(/\r?\n/)
-                    .filter((l) => l.trim())
-                    .map((l) => rowToPunch(l.split(/\t|,|;/)))
-                    .filter(Boolean);
-            } else {
-                const XLSX = await lazyXlsx();
-                const buf = await file.arrayBuffer();
-                const wb = XLSX.read(buf, { type: 'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
-                rows = aoa.map(rowToPunch).filter(Boolean);
-            }
-            if (!rows.length) {
-                toast('Không tìm thấy dòng chấm công hợp lệ (cần cột PIN + thời gian).', 'warning');
-                return;
-            }
-            const r = await Api.importRecords(rows);
-            toast(`Đã nhập ${r.inserted}/${r.total} punch.`, 'success');
-            await loadAll();
-        } catch (e) {
-            toast('Lỗi nhập file: ' + e.message, 'error');
-        }
-    }
-
     // ── Month nav ────────────────────────────────────────────────────────────
     function shiftMonth(delta) {
         const [y, m] = state.monthKey.split('-').map(Number);
@@ -633,20 +569,6 @@
         document.getElementById('ccPrev')?.addEventListener('click', () => shiftMonth(-1));
         document.getElementById('ccNext')?.addEventListener('click', () => shiftMonth(1));
         document.getElementById('ccReload')?.addEventListener('click', loadAll);
-        document.getElementById('ccSyncBtn')?.addEventListener('click', async () => {
-            try {
-                await Api.queueCommand('sync_now');
-                toast('Đã gửi lệnh đồng bộ tới máy. Đợi agent xử lý…', 'info');
-            } catch (e) {
-                toast(e.message, 'error');
-            }
-        });
-        const fileInp = document.getElementById('ccFile');
-        document.getElementById('ccImport')?.addEventListener('click', () => fileInp?.click());
-        fileInp?.addEventListener('change', () => {
-            if (fileInp.files[0]) importFile(fileInp.files[0]);
-            fileInp.value = '';
-        });
 
         if (global.lucide) global.lucide.createIcons();
 

@@ -37,20 +37,6 @@
                                     ›
                                 </button>
                             </div>
-                            <button
-                                class="cc-btn cc-btn-ghost"
-                                id="ccSyncBtn"
-                                title="Gửi lệnh đồng bộ tới máy"
-                            >
-                                <i data-lucide="refresh-ccw"></i> Đồng bộ máy
-                            </button>
-                            <button
-                                class="cc-btn cc-btn-ghost"
-                                id="ccImport"
-                                title="Nhập file Excel/TXT xuất từ máy"
-                            >
-                                <i data-lucide="upload"></i> Nhập Excel/TXT
-                            </button>
                             <button class="cc-btn cc-btn-icon" id="ccReload" title="Tải lại">
                                 <i data-lucide="rotate-cw"></i>
                             </button>
@@ -77,7 +63,6 @@
         </div>
 
         <div id="ccModalMount"></div>
-        <input type="file" id="ccFile" accept=".xlsx,.xls,.txt,.csv,.dat" hidden />
 
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
         <script src="../shared/web2-sidebar.js?v=20260623adm2"></script>
@@ -85,10 +70,10 @@
         <!-- Smart cache (IndexedDB) — load tức thì + revalidate ngầm -->
         <script src="../shared/web2-idb-store.js?v=20260619a"></script>
         <!-- Page app — load theo thứ tự phụ thuộc (app LAST) -->
-        <script src="js/cham-cong-salary.js?v=20260623e"></script>
-        <script src="js/cham-cong-api.js?v=20260623e"></script>
-        <script src="js/cham-cong-payroll.js?v=20260623e"></script>
-        <script src="js/cham-cong-employees.js?v=20260623e"></script>
-        <script src="js/cham-cong-app.js?v=20260623e"></script>
+        <script src="js/cham-cong-salary.js?v=20260623f"></script>
+        <script src="js/cham-cong-api.js?v=20260623f"></script>
+        <script src="js/cham-cong-payroll.js?v=20260623f"></script>
+        <script src="js/cham-cong-employees.js?v=20260623f"></script>
+        <script src="js/cham-cong-app.js?v=20260623f"></script>
     </body>
 </html>

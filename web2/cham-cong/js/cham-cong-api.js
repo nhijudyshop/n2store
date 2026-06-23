@@ -52,9 +52,7 @@
         listRecords: (start, end) =>
             api(`/records?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
         addRecord: (body) => api('/records', { method: 'POST', body }),
-        importRecords: (records) => api('/records/import', { method: 'POST', body: { records } }),
         deleteRecord: (id) => api('/records/' + encodeURIComponent(id), { method: 'DELETE' }),
-        clearAll: () => api('/records/clear-all', { method: 'DELETE' }),
         // Payroll
         getPayroll: (monthKey) => api('/payroll?monthKey=' + encodeURIComponent(monthKey)),
         putPayroll: (id, body) =>
@@ -69,9 +67,7 @@
             api('/holidays', { method: 'POST', body: { dateKey, note } }),
         delHoliday: (dateKey) =>
             api('/holidays/' + encodeURIComponent(dateKey), { method: 'DELETE' }),
-        // Sync + commands
+        // Sync status (chỉ đọc — hiển thị dải trạng thái máy)
         getSyncStatus: () => api('/sync-status'),
-        queueCommand: (action, deviceUserId) =>
-            api('/commands', { method: 'POST', body: { action, deviceUserId } }),
     };
 })(window);

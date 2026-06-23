@@ -89,7 +89,7 @@ Rồi điền đúng chuỗi đó vào `config.json` (`attendanceSecret`). Deplo
 3. Dải "Máy chấm công" hiện **Đang kết nối** + punch xuất hiện trong bảng công (realtime qua SSE).
 4. Sang tab **Nhân viên** gán mỗi PIN máy vào 1 nhân viên + đặt lương/ngày + giờ ca.
 
-Không có agent? Vẫn dùng được: nút **Nhập Excel/TXT** trên trang để nạp file xuất từ phần mềm máy.
+**Nguồn dữ liệu DUY NHẤT = file bat này** (`sync.js`). Trang web KHÔNG có nút lấy/nhập thủ công — dữ liệu chỉ vào DB qua bat, rồi client tự cập nhật (smart cache + SSE realtime).
 
 ---
 

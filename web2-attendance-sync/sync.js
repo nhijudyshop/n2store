@@ -103,7 +103,7 @@ async function resolveDeviceIp() {
     return cfg.device.ip;
 }
 
-function postJson(path, payload) {
+function postJson(path, payload, method = 'POST') {
     return new Promise((resolve, reject) => {
         const url = new URL(BASE + path);
         const data = Buffer.from(JSON.stringify(payload));
@@ -111,7 +111,7 @@ function postJson(path, payload) {
         const req = lib.request(
             url,
             {
-                method: 'POST',
+                method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Content-Length': data.length,
@@ -137,54 +137,9 @@ function postJson(path, payload) {
         req.end();
     });
 }
+// sync-status route là PUT → phải gửi đúng method (trước đây gửi POST → 404 → "Lần cuối: —").
 function putJson(path, payload) {
-    return postJson(path, payload).catch(() => null); // sync-status best-effort
-}
-// GET/PATCH có secret — cho lệnh "Đồng bộ máy" (nút trên trang).
-function reqJson(method, path, payload) {
-    return new Promise((resolve) => {
-        const url = new URL(BASE + path);
-        const data = payload ? Buffer.from(JSON.stringify(payload)) : null;
-        const lib = url.protocol === 'https:' ? https : http;
-        const headers = { 'x-web2-attendance-secret': cfg.attendanceSecret || '' };
-        if (data) {
-            headers['Content-Type'] = 'application/json';
-            headers['Content-Length'] = data.length;
-        }
-        const req = lib.request(url, { method, headers, timeout: 15000 }, (res) => {
-            let body = '';
-            res.on('data', (c) => (body += c));
-            res.on('end', () => {
-                try {
-                    resolve(JSON.parse(body));
-                } catch {
-                    resolve(null);
-                }
-            });
-        });
-        req.on('error', () => resolve(null));
-        req.on('timeout', () => {
-            req.destroy();
-            resolve(null);
-        });
-        if (data) req.write(data);
-        req.end();
-    });
-}
-
-// Poll lệnh "Đồng bộ máy" từ trang (chế độ nền). Có lệnh → sync ngay + báo xong.
-async function pollCommands() {
-    const r = await reqJson('GET', '/commands/pending');
-    const cmds = (r && r.commands) || [];
-    if (!cmds.length) return;
-    console.log(`[cmd] nhận ${cmds.length} lệnh "Đồng bộ máy" → đồng bộ ngay`);
-    const okSync = await syncOnce();
-    for (const c of cmds) {
-        await reqJson('PATCH', '/commands/' + c.id, {
-            status: okSync ? 'completed' : 'failed',
-            result: okSync ? 'synced' : 'sync error',
-        });
-    }
+    return postJson(path, payload, 'PUT').catch(() => null);
 }
 
 async function syncOnce() {
@@ -261,11 +216,7 @@ async function loop() {
     }
     const ms = Math.max(1, cfg.pollMinutes) * 60 * 1000;
     setInterval(syncOnce, ms);
-    // Lắng lệnh "Đồng bộ máy" từ trang (mỗi 20s) → cho phép bấm nút lấy ngay.
-    setInterval(() => pollCommands().catch(() => {}), 20000);
-    console.log(
-        `[sync] lặp mỗi ${cfg.pollMinutes} phút + nghe nút "Đồng bộ máy". Máy ${deviceIp}:${cfg.device.port}`
-    );
+    console.log(`[sync] lặp mỗi ${cfg.pollMinutes} phút. Máy ${deviceIp}:${cfg.device.port}`);
 }
 
 loop();
