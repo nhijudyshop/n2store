@@ -40,57 +40,85 @@ const CF_MODELS = [
     { id: '@cf/black-forest-labs/flux-1-schnell', label: 'Flux-1 Schnell (mặc định)' },
     { id: '@cf/bytedance/stable-diffusion-xl-lightning', label: 'SDXL Lightning' },
 ];
-function _cfCreds() {
-    const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
-    const token = (
-        process.env.CLOUDFLARE_WORKERS_AI_TOKEN ||
-        process.env.CLOUDFLARE_API_TOKEN ||
-        ''
-    ).trim();
-    return accountId && token ? { accountId, token } : null;
+// Nhiều account Cloudflare free (mỗi cái 10k neuron/ngày) → XOAY để cộng dồn quota.
+// Cặp WEB2_CLOUDFLARE_ACCOUNT_ID{i} + WEB2_CLOUDFLARE_WORKERS_AI_TOKEN{i} (i=1..10) + legacy đơn.
+function _cfAccounts() {
+    const out = [];
+    const push = (acc, tok) => {
+        acc = (acc || '').trim();
+        tok = (tok || '').trim();
+        if (acc && tok && !out.some((a) => a.accountId === acc))
+            out.push({ accountId: acc, token: tok });
+    };
+    for (let i = 1; i <= 10; i++) {
+        push(
+            process.env['WEB2_CLOUDFLARE_ACCOUNT_ID' + i],
+            process.env['WEB2_CLOUDFLARE_WORKERS_AI_TOKEN' + i]
+        );
+    }
+    push(process.env.WEB2_CLOUDFLARE_ACCOUNT_ID, process.env.WEB2_CLOUDFLARE_WORKERS_AI_TOKEN);
+    push(
+        process.env.CLOUDFLARE_ACCOUNT_ID,
+        process.env.CLOUDFLARE_WORKERS_AI_TOKEN || process.env.CLOUDFLARE_API_TOKEN
+    );
+    return out;
 }
+let _cfRr = 0;
 async function _cloudflare(prompt, { model, width, height }) {
-    const creds = _cfCreds();
-    if (!creds) {
+    const accounts = _cfAccounts();
+    if (!accounts.length) {
         const e = new Error('Cloudflare Workers AI chưa cấu hình (ACCOUNT_ID + token)');
         e._noKey = true;
         throw e;
     }
     const mdl = CF_MODELS.some((m) => m.id === model) ? model : CF_MODELS[0].id;
-    const r = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${creds.accountId}/ai/run/${mdl}`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${creds.token}`,
-            },
-            body: JSON.stringify({
-                prompt,
-                width: clampInt(width, 256, 1536, 1024),
-                height: clampInt(height, 256, 1536, 1024),
-                steps: 4,
-            }),
+    // round-robin: rải tải giữa các account free.
+    const start = _cfRr % accounts.length;
+    _cfRr = (_cfRr + 1) % accounts.length;
+    const ordered = accounts.map((_, i) => accounts[(start + i) % accounts.length]);
+    let lastErr = '';
+    for (const cred of ordered) {
+        const r = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${cred.accountId}/ai/run/${mdl}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${cred.token}`,
+                },
+                body: JSON.stringify({
+                    prompt,
+                    width: clampInt(width, 256, 1536, 1024),
+                    height: clampInt(height, 256, 1536, 1024),
+                    steps: 4,
+                }),
+            }
+        );
+        const ct = r.headers.get('content-type') || '';
+        if (!r.ok) {
+            let detail = `HTTP ${r.status}`;
+            try {
+                const j = await r.json();
+                detail = j?.errors?.[0]?.message || j?.messages?.[0]?.message || detail;
+            } catch {}
+            lastErr = String(detail).slice(0, 200);
+            // auth/quota/rate → thử account kế; lỗi khác cũng thử (ảnh không phải mutation nguy hiểm).
+            continue;
         }
-    );
-    const ct = r.headers.get('content-type') || '';
-    if (!r.ok) {
-        let detail = `HTTP ${r.status}`;
-        try {
+        if (ct.includes('application/json')) {
             const j = await r.json();
-            detail = j?.errors?.[0]?.message || j?.messages?.[0]?.message || detail;
-        } catch {}
-        throw new Error(`Cloudflare: ${String(detail).slice(0, 200)}`);
+            const b64 = j?.result?.image;
+            if (b64) return { provider: 'cloudflare', dataUrl: `data:image/jpeg;base64,${b64}` };
+            lastErr = 'phản hồi không có ảnh';
+            continue;
+        }
+        const buf = Buffer.from(await r.arrayBuffer());
+        return {
+            provider: 'cloudflare',
+            dataUrl: `data:image/png;base64,${buf.toString('base64')}`,
+        };
     }
-    // flux-1-schnell → JSON {result:{image: base64}}. SDXL → binary PNG.
-    if (ct.includes('application/json')) {
-        const j = await r.json();
-        const b64 = j?.result?.image;
-        if (!b64) throw new Error('Cloudflare: phản hồi không có ảnh');
-        return { provider: 'cloudflare', dataUrl: `data:image/jpeg;base64,${b64}` };
-    }
-    const buf = Buffer.from(await r.arrayBuffer());
-    return { provider: 'cloudflare', dataUrl: `data:image/png;base64,${buf.toString('base64')}` };
+    throw new Error(`Cloudflare: ${lastErr || 'tất cả account đều lỗi/hết quota'}`);
 }
 
 // ───────────────────────── Gemini Nano Banana ─────────────────────────
@@ -175,8 +203,8 @@ function status() {
             },
             {
                 id: 'cloudflare',
-                label: 'Cloudflare Workers AI',
-                configured: !!_cfCreds(),
+                label: `Cloudflare Workers AI${_cfAccounts().length > 1 ? ` (${_cfAccounts().length} account)` : ''}`,
+                configured: _cfAccounts().length > 0,
                 models: CF_MODELS,
                 editsImage: false,
             },

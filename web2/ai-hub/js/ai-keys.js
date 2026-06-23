@@ -10,18 +10,18 @@
 
     // Gợi ý env var + nơi lấy key free cho từng provider.
     const ENV_HINT = {
+        gemini: {
+            env: 'WEB2_GEMINI_API_KEY1, WEB2_GEMINI_API_KEY2…',
+            url: 'aistudio.google.com/apikey',
+            note: 'Ưu tiên dùng trước · free 1500 req/ngày · cũng tạo ảnh (Nano Banana)',
+        },
         groq: {
-            env: 'GROQ_API_KEY1, GROQ_API_KEY2…',
+            env: 'WEB2_GROQ_API_KEY1, WEB2_GROQ_API_KEY2…',
             url: 'console.groq.com/keys',
             note: 'Free 30 req/phút · GPT-OSS, Llama 3.3',
         },
-        gemini: {
-            env: 'GEMINI_API_KEY1, GEMINI_API_KEY2…',
-            url: 'aistudio.google.com/apikey',
-            note: 'Free 1500 req/ngày · cũng tạo ảnh (Nano Banana)',
-        },
         openrouter: {
-            env: 'OPENROUTER_API_KEY1, OPENROUTER_API_KEY2…',
+            env: 'WEB2_OPENROUTER_API_KEY1, WEB2_OPENROUTER_API_KEY2…',
             url: 'openrouter.ai/keys',
             note: 'Free, KHÔNG cần thẻ · 29 model :free',
         },
@@ -29,8 +29,8 @@
     const IMG_HINT = {
         pollinations: 'Không cần key — luôn sẵn sàng.',
         cloudflare:
-            'Set env CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_WORKERS_AI_TOKEN (dash.cloudflare.com → AI → Workers AI).',
-        gemini: 'Dùng chung key GEMINI_API_KEY ở trên.',
+            'Xoay nhiều account free: WEB2_CLOUDFLARE_ACCOUNT_ID1 + WEB2_CLOUDFLARE_WORKERS_AI_TOKEN1, …2, …3 (mỗi account free 10k/ngày).',
+        gemini: 'Dùng chung pool key Gemini ở trên (Nano Banana).',
     };
 
     function init() {}

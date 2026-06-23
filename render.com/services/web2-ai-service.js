@@ -27,11 +27,26 @@ const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 2048;
 
 // ───────────────────────── Registry provider ─────────────────────────
+// THỨ TỰ = ưu tiên failover của complete() + default chat: GEMINI TRƯỚC (free 1500/ngày,
+// user ưu tiên dùng key Gemini free) → Groq → OpenRouter.
+// envPrefixes: quét key theo nhiều prefix. ƯU TIÊN `WEB2_*` (key riêng module AI, free)
+// rồi tới legacy (`GEMINI_API_KEY`…). Mỗi prefix quét `<prefix>1..10` + `<prefix>` (phẩy).
 const PROVIDERS = {
+    gemini: {
+        label: 'Gemini',
+        kind: 'gemini',
+        envPrefixes: ['WEB2_GEMINI_API_KEY', 'GEMINI_API_KEY'],
+        defaultModel: 'gemini-2.5-flash',
+        models: [
+            { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+            { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (nhanh)' },
+            { id: 'gemini-flash-latest', label: 'Gemini Flash (mới nhất)' },
+        ],
+    },
     groq: {
         label: 'Groq',
         kind: 'openai',
-        envPrefix: 'GROQ_API_KEY',
+        envPrefixes: ['WEB2_GROQ_API_KEY', 'GROQ_API_KEY'],
         baseURL: 'https://api.groq.com/openai/v1',
         defaultModel: 'openai/gpt-oss-20b',
         models: [
@@ -41,24 +56,10 @@ const PROVIDERS = {
             { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (nhanh)' },
         ],
     },
-    gemini: {
-        label: 'Gemini',
-        kind: 'gemini',
-        envPrefix: 'GEMINI_API_KEY',
-        // Gộp key cũ của web2-ai-script (WEB2_GEMINI_API_KEY) vào pool → xoay chung,
-        // không còn 1-key-riêng-lẻ; nếu GEMINI_API_KEY hỏng thì key này vẫn cứu được.
-        extraEnv: ['WEB2_GEMINI_API_KEY'],
-        defaultModel: 'gemini-2.5-flash',
-        models: [
-            { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-            { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (nhanh)' },
-            { id: 'gemini-flash-latest', label: 'Gemini Flash (mới nhất)' },
-        ],
-    },
     openrouter: {
         label: 'OpenRouter',
         kind: 'openai',
-        envPrefix: 'OPENROUTER_API_KEY',
+        envPrefixes: ['WEB2_OPENROUTER_API_KEY', 'OPENROUTER_API_KEY'],
         baseURL: 'https://openrouter.ai/api/v1',
         defaultModel: 'openai/gpt-oss-20b:free',
         extraHeaders: {
@@ -76,35 +77,27 @@ const PROVIDERS = {
 };
 
 // ───────────────────────── Đọc + xoay key ─────────────────────────
-// Đọc danh sách key của provider: <PREFIX>1..N rồi <PREFIX> (đơn / phẩy). Dedup.
+// Gom key từ MỌI prefix (WEB2_* ưu tiên trước → legacy), mỗi prefix quét `<prefix>1..10`
+// + `<prefix>` (đơn/phẩy). Dedup. Thứ tự đảm bảo key WEB2_ free được thử trước.
 function _keys(providerId) {
     const p = PROVIDERS[providerId];
     if (!p) return [];
     const arr = [];
-    for (let i = 1; i <= MAX_KEYS; i++) {
-        const v = (process.env[p.envPrefix + i] || '').trim();
-        if (v && !arr.includes(v)) arr.push(v);
-    }
-    const single = (process.env[p.envPrefix] || '').trim();
-    if (single) {
-        single
+    const add = (raw) =>
+        String(raw)
             .split(',')
             .map((s) => s.trim())
             .filter(Boolean)
             .forEach((k) => {
                 if (!arr.includes(k)) arr.push(k);
             });
-    }
-    // Env phụ (vd WEB2_GEMINI_API_KEY) — gộp vào pool để xoay chung.
-    for (const name of p.extraEnv || []) {
-        const v = (process.env[name] || '').trim();
-        if (v)
-            v.split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-                .forEach((k) => {
-                    if (!arr.includes(k)) arr.push(k);
-                });
+    for (const prefix of p.envPrefixes || []) {
+        for (let i = 1; i <= MAX_KEYS; i++) {
+            const v = (process.env[prefix + i] || '').trim();
+            if (v) add(v);
+        }
+        const single = (process.env[prefix] || '').trim();
+        if (single) add(single);
     }
     return arr;
 }
@@ -386,7 +379,7 @@ async function chatStream(opts = {}, onDelta) {
 // complete(messages, {providers, modelFor, system, temperature, maxTokens}) → {text, provider, model}
 async function complete(messages, opts = {}) {
     const want =
-        opts.providers && opts.providers.length ? opts.providers : ['groq', 'gemini', 'openrouter'];
+        opts.providers && opts.providers.length ? opts.providers : ['gemini', 'groq', 'openrouter'];
     const avail = want.filter((id) => PROVIDERS[id] && _keys(id).length);
     if (!avail.length) {
         const e = new Error('Không có provider AI nào cấu hình key');
