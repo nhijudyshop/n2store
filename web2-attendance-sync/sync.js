@@ -140,6 +140,52 @@ function postJson(path, payload) {
 function putJson(path, payload) {
     return postJson(path, payload).catch(() => null); // sync-status best-effort
 }
+// GET/PATCH có secret — cho lệnh "Đồng bộ máy" (nút trên trang).
+function reqJson(method, path, payload) {
+    return new Promise((resolve) => {
+        const url = new URL(BASE + path);
+        const data = payload ? Buffer.from(JSON.stringify(payload)) : null;
+        const lib = url.protocol === 'https:' ? https : http;
+        const headers = { 'x-web2-attendance-secret': cfg.attendanceSecret || '' };
+        if (data) {
+            headers['Content-Type'] = 'application/json';
+            headers['Content-Length'] = data.length;
+        }
+        const req = lib.request(url, { method, headers, timeout: 15000 }, (res) => {
+            let body = '';
+            res.on('data', (c) => (body += c));
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(body));
+                } catch {
+                    resolve(null);
+                }
+            });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => {
+            req.destroy();
+            resolve(null);
+        });
+        if (data) req.write(data);
+        req.end();
+    });
+}
+
+// Poll lệnh "Đồng bộ máy" từ trang (chế độ nền). Có lệnh → sync ngay + báo xong.
+async function pollCommands() {
+    const r = await reqJson('GET', '/commands/pending');
+    const cmds = (r && r.commands) || [];
+    if (!cmds.length) return;
+    console.log(`[cmd] nhận ${cmds.length} lệnh "Đồng bộ máy" → đồng bộ ngay`);
+    const okSync = await syncOnce();
+    for (const c of cmds) {
+        await reqJson('PATCH', '/commands/' + c.id, {
+            status: okSync ? 'completed' : 'failed',
+            result: okSync ? 'synced' : 'sync error',
+        });
+    }
+}
 
 async function syncOnce() {
     const zk = new ZKLib(deviceIp, cfg.device.port, cfg.device.timeoutMs, 4000);
@@ -200,12 +246,26 @@ async function syncOnce() {
     }
 }
 
+// --once: lấy dữ liệu 1 LẦN rồi thoát (chế độ "bấm nút lấy" thủ công).
+// Không cờ: chạy liên tục, đồng bộ mỗi pollMinutes (chế độ 1 PC nền).
+const ONCE = process.argv.includes('--once');
+
 async function loop() {
     deviceIp = await resolveDeviceIp(); // tự dò trước khi sync lần đầu
-    await syncOnce();
+    const okSync = await syncOnce();
+    if (ONCE) {
+        console.log(
+            okSync ? '[once] ✅ Lấy dữ liệu xong.' : '[once] ❌ Lấy dữ liệu LỖI — xem dòng trên.'
+        );
+        process.exit(okSync ? 0 : 1);
+    }
     const ms = Math.max(1, cfg.pollMinutes) * 60 * 1000;
     setInterval(syncOnce, ms);
-    console.log(`[sync] lặp mỗi ${cfg.pollMinutes} phút. Máy ${deviceIp}:${cfg.device.port}`);
+    // Lắng lệnh "Đồng bộ máy" từ trang (mỗi 20s) → cho phép bấm nút lấy ngay.
+    setInterval(() => pollCommands().catch(() => {}), 20000);
+    console.log(
+        `[sync] lặp mỗi ${cfg.pollMinutes} phút + nghe nút "Đồng bộ máy". Máy ${deviceIp}:${cfg.device.port}`
+    );
 }
 
 loop();

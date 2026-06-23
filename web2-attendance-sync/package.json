@@ -6,6 +6,7 @@
     "main": "sync.js",
     "scripts": {
         "start": "node sync.js",
+        "once": "node sync.js --once",
         "pull": "node sync.js",
         "proxy": "node adms-proxy.js"
     },

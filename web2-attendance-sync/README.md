@@ -93,17 +93,16 @@ Không có agent? Vẫn dùng được: nút **Nhập Excel/TXT** trên trang đ
 
 ---
 
-## 6. Nhiều máy chạy file bat thì sao?
+## 6. Hai cách dùng (chọn 1, đơn giản)
 
-### A. Nhiều PC chạy cùng 1 máy chấm công
+### Cách 1 — Bấm nút LẤY 1 LẦN (khi cùng mạng)
 
-**An toàn — KHÔNG nhân đôi dữ liệu.** Mỗi lượt chấm có khoá `id = PIN_thời-gian`; backend `ON CONFLICT DO UPDATE` nên 2 PC đẩy cùng 1 lượt → vẫn 1 dòng (idempotent). Lệnh remote dùng `FOR UPDATE SKIP LOCKED` nên không xử lý trùng.
+Lúc nào muốn lấy thì **bấm đúp `lay-du-lieu.bat`** (Windows) / `lay-du-lieu.command` (Mac).
+→ Kéo dữ liệu 1 lần rồi đóng. Phải đang **cùng mạng LAN** với máy chấm công (tự dò IP).
 
-**Nhưng** lãng phí (mỗi PC kéo lại toàn bộ mỗi 5 phút) và máy ZK thường **chỉ cho 1 kết nối cùng lúc** ở cổng 4370 → 2 PC nối song song có thể lỗi/timeout (không hỏng data, chỉ rớt nhịp). Dòng `sync-status` cũng bị các PC ghi đè lẫn nhau.
+### Cách 2 — Chạy NỀN 1 PC (tự đồng bộ)
 
-➡️ **Khuyến nghị: chạy trên ĐÚNG 1 PC.** Muốn dự phòng thì để PC thứ 2 tắt sẵn, PC chính hỏng mới bật.
+**Bấm đúp `install-windows.bat`** / `run-mac.command` và **giữ cửa sổ mở** → tự đồng bộ mỗi 5 phút.
+Dùng 1 PC luôn bật ở shop.
 
-### B. Nhiều máy chấm công (nhiều chi nhánh)
-
-Mỗi chi nhánh 1 PC + 1 agent — agent **tự dò máy gần nó** trong LAN. Dữ liệu các máy gộp chung lên 1 trang.
-⚠️ Hiện tại lượt chấm phân biệt theo **PIN**, KHÔNG theo máy. Nếu 2 máy **trùng số PIN** cho 2 người khác nhau → sẽ lẫn. Cần tách theo từng máy → báo để thêm "mã máy" vào dữ liệu.
+> **Lưu ý:** chỉ chạy nền trên **1 PC** (không cần nhiều máy). Dữ liệu idempotent (`id = PIN_giờ`) nên có lỡ chạy trùng cũng không nhân đôi, nhưng máy chấm công thường chỉ cho 1 kết nối cùng lúc → 1 PC là gọn nhất.
