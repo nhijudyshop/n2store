@@ -28,6 +28,13 @@
 //       addFiles(FileList|File[]), destroy()
 //     }
 //
+//   Web2ImagePaste.enhance(input, opts) → { detach }
+//     Nâng cấp 1 <input type=file> SẴN CÓ để cũng nhận DÁN (Ctrl+V) + kéo-thả,
+//     GIỮ nút "Chọn file" gốc. Ảnh dán/thả được bơm vào input.files + dispatch
+//     'change' → handler sẵn có của trang chạy (KHÔNG cần đổi handler). Dùng cho
+//     ai-hub, video-maker, fb-posts, photo-studio… opts: { dropZone, onFiles,
+//     hint, hintText, hintInto, onError }.
+//
 //   Tiện ích tĩnh (cho trang chỉ cần nén, không cần UI — vd chat/zalo/ai-hub):
 //     Web2ImagePaste.compress(fileOrBlobOrDataUrl, opts) → Promise<item>
 //     Web2ImagePaste.imagesFromClipboard(clipboardData) → File[]

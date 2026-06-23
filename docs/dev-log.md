@@ -2,6 +2,24 @@
 
 ## 2026-06-23
 
+### [feat] Mọi "Choose File" ảnh hỗ trợ DÁN (Ctrl+V) + kéo-thả — Web2ImagePaste.enhance()
+
+User báo: ai-hub có "Choose File" mà **không dán ảnh được**. Audit toàn bộ `<input type=file accept=image>` Web 2.0 → thêm cơ chế dùng chung.
+
+**🆕 `Web2ImagePaste.enhance(input, opts)`** (`web2/shared/web2-image-paste.js`, bump autoload `?v=20260623b`):
+
+- Nâng cấp 1 file-input **SẴN CÓ** để cũng nhận **DÁN (Ctrl+V)** + **kéo-thả**, GIỮ nút "Chọn file" gốc. Ảnh dán/thả được **bơm vào `input.files` + dispatch `change`** → handler sẵn có của trang chạy y như chọn file → **KHÔNG phải đổi handler**. Có dropZone tuỳ chọn + highlight kéo-thả + hint chip "📋 hoặc dán (Ctrl+V) / kéo-thả".
+- `opts`: `dropZone`, `onFiles` (override injection), `hint`/`hintText`/`hintInto`, `onError`.
+
+**Áp dụng (mọi Choose File ảnh chưa có paste):**
+
+- `ai-hub` (Nano Banana sửa/ghép — ví dụ user): `enhance('#aihImgFile', dropZone '#aihImgEditField')`. ✅ Verified: drop ảnh → `inputHasFile=1` (bơm vào input → handler chạy → `editImageData`), hint hiện, 0 error.
+- `video-maker` (#vmAdd thêm ảnh slideshow): dropZone `.vm-upload`. ✅ Verified enhanced + hint + 0 error.
+- `fb-posts` (#fbpMedFile): dropZone `.fbp-media-bar`.
+- `photo-studio` (4 input): source dán thẳng lên khung dàn `#psStage` (hint ở stage rỗng) + nền/logo/batch dán khi rê vào vùng tương ứng.
+
+(chat-panel, zalo, photo-editor, product-card, chi-tieu đã có paste/ảnh-area từ trước.) Giờ mọi nơi nhập ảnh Web 2.0 đều dán/kéo-thả được — 1 nguồn `Web2ImagePaste`.
+
 ### [feat] Máy in: 2 chức năng tự chọn sẵn máy mặc định theo TÊN
 
 **Yêu cầu:** trang **Máy in** (`web2/printer-settings/`) — "In tem / mã sản phẩm (máy tem)" mặc định = **Máy in 2 tem mã sản phẩm**; "In Phiếu Bán Hàng (bill 80mm)" mặc định = **Máy in PBH Huyền + Hạnh + Còi + Hồng**.
