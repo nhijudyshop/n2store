@@ -2,6 +2,20 @@
 
 ## 2026-06-24
 
+### [audit] web2: full menu audit — 50 trang load+interaction+CRUD test, fix dead-link + video-maker probe noise
+
+Audit toàn bộ menu Web 2.0 (yêu cầu user: liệt kê menu + render server + env → browser-test từng trang như user → fix → lặp). Inventory: 14 nhóm menu / 50 trang web2 + 5 render service (web2-api, n2store-fallback, web2-realtime, n2store-realtime, 2 Postgres) + env Web 2.0.
+
+**Phương pháp**: (1) smoke-all-pages baseline → 69 clean / 13 issues (13 đều là Web 1.0 same-origin `/api/*` 404 trên localhost — môi trường, NGOÀI scope — + 3 trang 404 chết); (2) audit driver `nav + /state console-errors + DOM health` cho cả 50 trang; (3) interaction probe `gõ search + click nút SAFE (bỏ destructive) + mở/đóng modal` cho ~25 trang; (4) CRUD thật products create→get→delete; (5) screenshot eyeball overview/products/ai-hub.
+
+**Lỗi tìm + fix**:
+
+1. **Dead link `web2/partner-customer`** (đã xoá) — nút "Mở thẻ KH Web 2.0" ở comment-row live-chat link tới trang 404. Repoint → `web2/customers/?phone=` (trang sống) + guard `partner.Phone`. Thêm deep-link `?phone=`/`?q=` cho trang customers (prefill search + filter on init). **Verified**: rows=1 đúng KH test.
+2. **video-maker `ERR_CONNECTION_REFUSED`** — `probeLocal` (VieNeu TTS localhost:8123/8124) bắn MỖI lần load cho MỌI user → browser log lỗi network (try/catch JS không chặn). Gate: auto-load chỉ dò nếu đã từng thấy máy local (localStorage flag); nút "Làm mới" luôn dò + nhớ. **Verified**: console clean.
+3. **Smoke harness stale** — gỡ 3 trang chết (tpos-pancake, live-campaign, partner-customer), bổ sung WEB2_PAGES đủ 50 trang.
+
+**Kết quả**: 50/50 trang load KHÔNG console error (sau fix video-maker); ~25 trang interaction-clean; products CRUD write-path OK (auth + validation server "supplier bắt buộc" + create `{success,product}` + delete force) — test data dọn sạch 0 leftover. printer-settings probe localhost:17777 = CÓ CHỦ ĐÍCH (chỉ bắn khi có máy in bridge đã cấu hình → warning offline). live-chat 404/401 = Pancake token test env (môi trường).
+
 ### [fix] web2: ai-hub tạo ảnh kẹt sau 1 hình + ẩn tên Pexels/Pixabay + liên kết flow video-maker + auto-stock
 
 User báo 3 việc (+ hoàn thiện auto-stock):
