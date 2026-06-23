@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f8012d2` — auto: session update
-**Last updated**: 2026-06-23 13:41:08 +07
-**Latest session**: [`RESUME:20260623-134108-f8012d2`](../20260623-134108-f8012d2.md)
-**Summary**: auto: session update
+**Latest commit**: `7e7ca83` — fix(web2-cham-cong): NV gán ưu tiên hơn tên máy (PIN gán Còi → Bảng công hiện 'Còi' không phải 'Coi')
+**Last updated**: 2026-06-23 13:44:54 +07
+**Latest session**: [`RESUME:20260623-134454-7e7ca83`](../20260623-134454-7e7ca83.md)
+**Summary**: Fix gán NV ưu tiên hơn tên máy (Còi) + cache hydrate guard
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -78,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 13:41
+- [`web2/`](./web2.md) — updated 2026-06-23 13:44
