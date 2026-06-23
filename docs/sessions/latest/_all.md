@@ -3,25 +3,25 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fceb82e` — feat(web2): Web2SmartCache primitive (SWR+IDB+SSE+dedup) + adopt in suppliers-cache
-**Last updated**: 2026-06-23 23:09:10 +07
-**Latest session**: [`RESUME:20260623-230910-fceb82e`](../20260623-230910-fceb82e.md)
-**Summary**: Web2SmartCache primitive (SWR+IDB+SSE+dedup) + suppliers-cache adopt; audit 8 GitHub repos
+**Latest commit**: `13d201c` — feat(web2): MoneyPrinterTurbo stock footage (Pexels/Pixabay) in video-maker
+**Last updated**: 2026-06-23 23:48:22 +07
+**Latest session**: [`RESUME:20260623-234822-13d201c`](../20260623-234822-13d201c.md)
+**Summary**: 3 cache migrations onto Web2SmartCache + codegraph setup + MoneyPrinterTurbo stock footage in video-maker + repo re-audit
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 - [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 52 file(s)
+- [`web2/`](./web2.md) — 16 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-22 09:24
+- [`_root/`](./_root.md) — updated 2026-06-23 23:48
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-23 18:17
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
@@ -30,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 23:09
+- [`docs/`](./docs.md) — updated 2026-06-23 23:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -60,14 +60,14 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 23:09
+- [`render.com/`](./render.com.md) — updated 2026-06-23 23:48
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-23 23:09
+- [`so-order/`](./so-order.md) — updated 2026-06-23 23:48
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 23:09
+- [`web2/`](./web2.md) — updated 2026-06-23 23:48
