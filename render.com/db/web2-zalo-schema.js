@@ -57,7 +57,11 @@ async function ensureWeb2ZaloSchema(pool) {
                     ADD COLUMN IF NOT EXISTS last_msg_sender_uid VARCHAR(100),
                     ADD COLUMN IF NOT EXISTS info_synced_at   BIGINT;
                 ALTER TABLE IF EXISTS web2_zalo_accounts
-                    ADD COLUMN IF NOT EXISTS is_primary       BOOLEAN NOT NULL DEFAULT false;
+                    ADD COLUMN IF NOT EXISTS is_primary       BOOLEAN NOT NULL DEFAULT false,
+                    -- owner_id = MÁY/trình duyệt sở hữu account (per-máy isolation,
+                    -- 2026-06-23): mỗi máy chỉ thấy/dùng account của mình. NULL = vô chủ.
+                    ADD COLUMN IF NOT EXISTS owner_id         VARCHAR(80);
+                CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_owner ON web2_zalo_accounts(owner_id);
             `);
             // Backfill last_msg_sender_uid từ tin gần nhất (chỉ rows còn NULL → idempotent).
             await pool.query(`
@@ -100,7 +104,8 @@ async function ensureWeb2ZaloSchema(pool) {
                                 -- disconnected|qr_pending|scanned|connected|banned|error|token_ok
                 status_msg    TEXT,
                 is_active     BOOLEAN NOT NULL DEFAULT true,
-                is_primary    BOOLEAN NOT NULL DEFAULT false, -- TK cá nhân CHÍNH gửi tin KH 1-1 (1 dòng true)
+                is_primary    BOOLEAN NOT NULL DEFAULT false, -- (legacy, không dùng — per-máy owner-scoped)
+                owner_id      VARCHAR(80),                    -- MÁY/trình duyệt sở hữu (per-máy isolation)
                 meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
                 last_connected_at BIGINT,
                 created_at    BIGINT NOT NULL,
@@ -121,25 +126,8 @@ async function ensureWeb2ZaloSchema(pool) {
         } catch (e) {
             console.error('[web2-zalo-schema] wipe session warn:', e.message);
         }
-        // Seed TK CHÍNH gửi tin KH 1-1 + tự kết nối (chỉ khi CHƯA có TK chính nào).
-        // GENERIC (không hardcode account_key — TK seed cũ có thể bị xoá): chọn 1 TK
-        // cá nhân active (ưu tiên đang kết nối → mới nối gần nhất → tạo sớm nhất).
-        // User đổi sau bằng nút "Đặt làm chính". Idempotent. (Runtime cũng tự phong
-        // lại trong _loadPrimaryKey nếu TK chính bị xoá — xem routes/web2-zalo.js.)
-        try {
-            await pool.query(
-                `UPDATE web2_zalo_accounts SET is_primary=true
-                  WHERE account_key = (
-                    SELECT account_key FROM web2_zalo_accounts
-                     WHERE account_type='personal' AND is_active=true
-                     ORDER BY (status='connected') DESC, last_connected_at DESC NULLS LAST, created_at ASC
-                     LIMIT 1)
-                    AND NOT EXISTS (
-                      SELECT 1 FROM web2_zalo_accounts WHERE is_primary=true AND account_type='personal')`
-            );
-        } catch (e) {
-            console.error('[web2-zalo-schema] seed primary warn:', e.message);
-        }
+        // (Bỏ seed is_primary 2026-06-23 — per-máy owner-scoped: không cần TK chính
+        // toàn cục. Tin KH 1-1 dùng account của chính MÁY gửi — xem routes.)
 
         // ── 2. Hội thoại (1 dòng / account × thread) ────────────────────────────
         await pool.query(`

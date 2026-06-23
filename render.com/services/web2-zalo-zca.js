@@ -78,25 +78,15 @@ let _cb = {
     onDelivered: null,
     onReaction: null,
     onUndo: null,
-    onConnected: null, // fire khi acc kết nối xong (boot/QR) → route repair tên nhóm
-    isPrimary: null, // (accountKey) → bool: CHỈ TK chính được watchdog chăm + tự reconnect
+    onConnected: null, // fire khi acc kết nối xong → route repair tên nhóm
 };
 
 function configure(cb) {
     _cb = Object.assign(_cb, cb || {});
 }
 
-// CHỈ TK chính (is_primary) được TỰ kết nối lại + watchdog keepAlive. TK phụ kết
-// nối tay thì giữ, rớt là thôi (không "refresh kết nối liên tục"). Callback do
-// route cấp (so khớp DB, cache 60s). Thiếu callback → mặc định true (tương thích
-// ngược / test đứng một mình).
-function _isPrimary(accountKey) {
-    try {
-        return _cb.isPrimary ? !!_cb.isPrimary(accountKey) : true;
-    } catch {
-        return true;
-    }
-}
+// (Bỏ gate is_primary 2026-06-23 — per-máy owner-scoped: mỗi phiên trong RAM là
+// account của 1 máy → watchdog giữ MỌI phiên còn s.creds. Owner-scope ở tầng route.)
 
 function isAvailable() {
     return !!Zalo;
@@ -532,13 +522,7 @@ async function _afterLogin(accountKey, api, label, opts) {
 function _scheduleReconnect(accountKey, code) {
     const s = _sessions.get(accountKey);
     if (!s || s.reconnecting || s.disposed) return;
-    if (!s.creds) return; // chưa có creds (QR-only chưa lưu) → đợi boot restore / login lại
-    // CHỈ TK chính tự kết nối lại. TK phụ rớt thì để disconnected, user tự nối tay.
-    if (!_isPrimary(accountKey)) {
-        clearTimeout(s.reconnectTimer);
-        s.reconnectTimer = null;
-        return;
-    }
+    if (!s.creds) return; // chưa có creds (phiên RAM) → đợi user đăng nhập lại từ trình duyệt
     if (s.reconnectTimer) return; // đã có lịch
     const isKick = code === 3000 || code === 3003;
     let delay;
@@ -625,9 +609,8 @@ function startWatchdog() {
 async function _watchdogTick() {
     for (const [key, s] of _sessions.entries()) {
         if (s.disposed || s.reconnecting) continue;
-        // Watchdog CHỈ chăm TK chính (keepAlive + re-login chủ động + tự sống lại).
-        // TK phụ: không ping, không respawn → rớt là thôi.
-        if (!_isPrimary(key)) continue;
+        // Per-máy: mỗi phiên trong RAM là account của 1 máy → watchdog chăm MỌI phiên
+        // (keepAlive + re-login chủ động + tự sống lại bằng s.creds trong RAM).
         try {
             // Re-login CHỦ ĐỘNG trong cửa sổ zpw_sek (~7 ngày) → cuốn cookie trước khi hết hạn.
             if (s.api && s.connectedAt && now() - s.connectedAt > PROACTIVE_RELOGIN_MS) {
