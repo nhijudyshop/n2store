@@ -40,7 +40,16 @@ function aiScriptRateLimit(req, res, next) {
     next();
 }
 
-const MODEL = process.env.WEB2_GEMINI_MODEL || 'gemini-2.5-flash';
+// Remap model đã khai tử → bản hiện hành (env WEB2_GEMINI_MODEL có thể còn trỏ gemini-2.0-flash
+// đã bị Google gỡ "no longer available" → ép về 2.5-flash, khỏi phải đợi sửa env Render).
+const _DEPRECATED_GEMINI = {
+    'gemini-2.0-flash': 'gemini-2.5-flash',
+    'gemini-1.5-flash': 'gemini-2.5-flash',
+    'gemini-1.5-pro': 'gemini-2.5-pro',
+    'gemini-pro': 'gemini-2.5-flash',
+};
+const _MODEL_RAW = process.env.WEB2_GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = _DEPRECATED_GEMINI[_MODEL_RAW] || _MODEL_RAW;
 // Pool key Gemini xoay (WEB2_GEMINI_API_KEY + GEMINI_API_KEY* gộp trong web2-ai-service).
 const geminiKeys = () => ai.keysOf('gemini');
 
