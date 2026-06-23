@@ -1,4 +1,4 @@
-# Latest Snapshot — `render.com/`
+# Latest Snapshot — `web2-attendance-sync/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,24 +9,21 @@
 **Last updated**: 2026-06-23 12:39:07 +07
 **Summary**: Group Quản trị viên admin-only + Chấm công DG-600 + Quản lý chi tiêu (Sổ quỹ) — module Web 2.0 riêng
 
-## Files changed in this commit (`render.com/`)
+## Files changed in this commit (`web2-attendance-sync/`)
 
-- `render.com/lib/web2-cashbook-lib.js`
-- `render.com/routes/web2-ai.js`
-- `render.com/routes/web2-attendance-adms.js`
-- `render.com/routes/web2-attendance.js`
-- `render.com/routes/web2-cashbook.js`
-- `render.com/server.js`
-- `render.com/services/web2-ai-image-service.js`
-- `render.com/services/web2-ai-service.js`
+- `web2-attendance-sync/.gitignore`
+- `web2-attendance-sync/README.md`
+- `web2-attendance-sync/adms-proxy.js`
+- `web2-attendance-sync/config.example.json`
+- `web2-attendance-sync/install-windows.bat`
+- `web2-attendance-sync/lib-config.js`
+- `web2-attendance-sync/package.json`
+- `web2-attendance-sync/run-mac.command`
+- `web2-attendance-sync/sync.js`
 
-## Last 5 commits touching `render.com/`
+## Last 5 commits touching `web2-attendance-sync/`
 
 - `fadcac906` feat(web2-admin): group Quản trị viên (admin-only) + Chấm công DG-600 + Quản lý chi tiêu _(2026-06-23)_
-- `45530fad2` fix(purchase-refund): quick-refund cap amount theo cost so-order (đồng bộ /tx #2) _(2026-06-23)_
-- `ddbe635c9` fix(web2-supplier-wallet): #2 — /tx recompute amount theo cost so-order (chống mint ledger NCC) _(2026-06-23)_
-- `d94047ab9` fix(web2-returns): over-restock khi thu*ve_1_phan trên PBH rồi cancel (returned_line_qty) *(2026-06-23)\_
-- `c586e362c` fix(web2-returns): stock*applied — DELETE/approve đối xứng với create gate (regression vòng 4) *(2026-06-23)\_
 
 ---
 
