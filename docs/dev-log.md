@@ -16,7 +16,7 @@
 4. `so-order/js/so-order-receive.js` — item upsert `action:'error'` bị loại khỏi confirm-purchase im lặng (tồn không cập nhật, user tưởng nhận đủ). Thêm toast liệt kê SP lỗi.
 5. `so-order/js/so-order-barcode.js` — item lỗi tạo mã bị loại khỏi in tem im lặng. Thêm toast.
 
-**⚠ FLAG (chưa fix, cần phân tích thêm)**: `web2-returns.js` `thu_ve_1_phan` — `returned_line_qty` cộng dồn KHÔNG cap theo SL đã bán → 2 partial-return cùng SP/PBH vượt SL bán có thể lệch tồn lúc cancel. Cơ chế stock thu_ve_1_phan phức tạp (ví cộng ngay, tồn reconcile lúc cancel) — cần verify hướng exploit trước khi cap, tránh fix sai luồng đang chạy đúng. Để lại cho review chuyên sâu.
+**⚠ FLAG (verified — narrow edge, KHÔNG rush fix)**: `web2-returns.js` `thu_ve_1_phan` (line ~748) ĐÃ cap mỗi dòng `quantity = Math.min(it.quantity, ref.quantity)` theo SL ĐÃ BÁN — nên 1 lần thu về KHÔNG vượt được SL bán (an toàn). Khe hở HẸP: cap theo TỔNG đã bán, KHÔNG trừ phần đã thu trước (`returned_line_qty`) → 2+ lần thu về cùng SP/PBH cộng dồn có thể vượt SL bán (vd bán 5: thu 3 OK→RLQ=3, thu 3 nữa vẫn OK vì cap theo 5 không phải remaining 2→RLQ=6). Fix ĐÚNG = cap theo `remaining = sold − currentRLQ`, NHƯNG để race-safe phải đọc RLQ + cap BÊN TRONG locked tx (line ~955, hiện cap ở ngoài tx) = refactor luồng tiền-return, cần test cả 3 sub-type (khong_nhan_hang/thu_ve_1_phan/cod_shipper) ± sourceOrderCode. Single-return đang đúng → để fix có chủ đích + test đầy đủ, không vá vội.
 
 Đào sâu hơn (yêu cầu user "càng sâu càng chi tiết càng tốt") — drive các luồng nghiệp vụ THẬT qua API client trong browser, verify bất biến dữ liệu liên-trang, dọn sạch test data sau mỗi luồng. Dùng codegraph map server contract trước.
 
