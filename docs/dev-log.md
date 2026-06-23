@@ -2,6 +2,18 @@
 
 ## 2026-06-23
 
+### [test] Browser-test battery (workflow thiết kế + chạy thật) — 5 flow tiền/kho ĐỀU PASS, 0 bug mới
+
+Ultracode: workflow 5-agent thiết kế test battery (4 recipe + cross-flow critic, ưu tiên theo bug-finding×money-impact). Chạy THẬT qua browser (click/nhập + assert invariant tiền/kho), test customer 0123456788, seed→test→cleanup sạch. Kết quả:
+
+- ✅ **CROSS-FLOW 1 (seam double-refund, ưu tiên #1)**: native→PBH(ví 161000)→KNH return→PBH cancel. Ví hoàn ĐÚNG 1 LẦN (39000→200000, cancel KHÔNG hoàn lại = 200000), kho restock 1 lần (49→50). Guard zero-out wallet_deducted + stock_restored vững.
+- ✅ **Recipe 1 (COD reference_id collision — verify fix vòng 5)**: dựng đúng collision (PBH có sẵn withdraw `native-order-pbh` refId=số PBH), rồi Sửa COD "trừ công nợ khách" 30000 trên CÙNG PBH → ví trừ THẬT 39000→9000, tạo tx `return-cod` 30000 RIÊNG (không bị nuốt). 2 withdraw cùng refId khác reference_type cùng tồn tại. **Pre-fix sẽ kẹt 39000 (swallowed); fix scope reference_type hoạt động đúng.**
+- ✅ **COD cancel refund**: huỷ phiếu COD → hoàn ví 9000→39000.
+- ✅ **Recipe 4 over-sell**: HNAO2 stock 35, đơn qty 100 → convert reject `over_sell`, kho giữ 35 (không trừ). (HNAO stock 1 → `cho_hang_blocked` — guard khác cũng chặn.)
+- ✅ **Recipe 3 reconcile return-failed**: scan→pack→ship→return-failed → restock +1 + hoàn ví wallet_deducted + PBH cancel (1 lần); return-failed lần 2 reject (idempotent, không double).
+
+KHÔNG tìm thấy bug mới — các flow tiền/kho vững. (Khác đợt trước: browser-test bắt được regression stock_applied thật.) Cleanup pristine: ví 0, HNAO3 50, HNAO2 35, 0 PBH active, 0 lỗi console.
+
 ### [fix] Browser-test bắt REGRESSION vòng 4 — DELETE/approve phiếu native-only trừ kho ảo (stock_applied)
 
 Test thật bằng browser (click/nhập như user) trang Thu về phát hiện **bất đối xứng do chính fix vòng 4 (gate `_applyStock`) tạo ra**: tạo phiếu KNH trên đơn native chưa-có-PBH → gate skip restock → kho GIỮ 50 (đúng); NHƯNG huỷ phiếu → nhánh rollback vẫn trừ kho (record `stock_status='applied'`) → **kho rớt 50→48 = mất hàng ảo**. Code-review + agent vòng 4 miss vì chỉ soi create cô lập; chỉ end-to-end create→delete mới lộ.
