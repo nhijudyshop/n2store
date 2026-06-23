@@ -90,3 +90,20 @@ Rồi điền đúng chuỗi đó vào `config.json` (`attendanceSecret`). Deplo
 4. Sang tab **Nhân viên** gán mỗi PIN máy vào 1 nhân viên + đặt lương/ngày + giờ ca.
 
 Không có agent? Vẫn dùng được: nút **Nhập Excel/TXT** trên trang để nạp file xuất từ phần mềm máy.
+
+---
+
+## 6. Nhiều máy chạy file bat thì sao?
+
+### A. Nhiều PC chạy cùng 1 máy chấm công
+
+**An toàn — KHÔNG nhân đôi dữ liệu.** Mỗi lượt chấm có khoá `id = PIN_thời-gian`; backend `ON CONFLICT DO UPDATE` nên 2 PC đẩy cùng 1 lượt → vẫn 1 dòng (idempotent). Lệnh remote dùng `FOR UPDATE SKIP LOCKED` nên không xử lý trùng.
+
+**Nhưng** lãng phí (mỗi PC kéo lại toàn bộ mỗi 5 phút) và máy ZK thường **chỉ cho 1 kết nối cùng lúc** ở cổng 4370 → 2 PC nối song song có thể lỗi/timeout (không hỏng data, chỉ rớt nhịp). Dòng `sync-status` cũng bị các PC ghi đè lẫn nhau.
+
+➡️ **Khuyến nghị: chạy trên ĐÚNG 1 PC.** Muốn dự phòng thì để PC thứ 2 tắt sẵn, PC chính hỏng mới bật.
+
+### B. Nhiều máy chấm công (nhiều chi nhánh)
+
+Mỗi chi nhánh 1 PC + 1 agent — agent **tự dò máy gần nó** trong LAN. Dữ liệu các máy gộp chung lên 1 trang.
+⚠️ Hiện tại lượt chấm phân biệt theo **PIN**, KHÔNG theo máy. Nếu 2 máy **trùng số PIN** cho 2 người khác nhau → sẽ lẫn. Cần tách theo từng máy → báo để thêm "mã máy" vào dữ liệu.
