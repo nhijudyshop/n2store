@@ -2,6 +2,21 @@
 
 ## 2026-06-23
 
+### [refactor] Zalo: BỎ lưu phiên trên server — chỉ đăng nhập qua chat.zalo.me (browser), BỎ QR
+
+User: bỏ hết chức năng lưu Zalo lên server, chạy bằng phiên chat.zalo.me trên trình duyệt máy, hướng dẫn đăng nhập chat.zalo.me rồi ấn đăng nhập, bỏ QR. Audit + plan mode → user duyệt (realtime giữ ở server RAM, KHÔNG lưu DB; xoá sạch phiên DB cũ).
+
+**Backend** (`render.com`):
+
+- `web2-zalo-zca.js`: `_afterLogin` KHÔNG gọi persist cookie (`persistSession(null)`) — GIỮ `s.creds` trong RAM cho reconnect trong uptime. GỠ `startQrLogin`/`getQr`/`QR_TTL_MS`/`restoreAll` + exports. Bỏ import `secretCrypto` (hết dùng).
+- `web2-zalo.js` (routes): `_saveSession` ghi `session=NULL` (chỉ cập nhật uid/tên/avatar/status). GỠ route `/login-qr`, `/qr`, `/reconnect`, hàm `restoreSessions` + `_connectAccount`. `_loadPrimaryKey` chỉ auto-promote CỜ is_primary (không tự kết nối). Route `/primary` bỏ auto-connect. `ensureSchema` nạp `_loadPrimaryKey` lúc boot. Bỏ import `secretCrypto`.
+- `web2-zalo-schema.js`: boot **wipe** `UPDATE web2_zalo_accounts SET session=NULL` (idempotent, giữ cột). `server.js`: bỏ gọi `restoreSessions()` (chỉ `ensureSchema`).
+- GIỮ: `/login-cookie` (đăng nhập DUY NHẤT qua phiên trình duyệt + extension), listener realtime + persist tin + SSE, watchdog reconnect trong RAM (primary-gated), graceful `stopZalo`.
+
+**Frontend** (`web2/zalo/`, bump `?v=20260623noqr`): GỠ modal QR + nút "Tạo & quét QR" + nút "Kết nối lại" + `startQr`/`pollQr`/`openQrModal`/`closeQrModal`; `ZaloApi` bỏ `loginQr`/`qr`/`reconnect`; `STATUS_LABEL` bỏ qr-states + `state.qr`; CSS bỏ `.wz-qr-*`. GIỮ "Đăng nhập Zalo" (cookie) + `autoRenewZalo`. THÊM hint `wz-login-guide` "Đăng nhập chat.zalo.me trên trình duyệt máy này → rồi bấm Đăng nhập Zalo (máy chủ không lưu mật khẩu/phiên)". Sửa text kick-warn/extension-missing/choice-card bỏ nhắc QR.
+
+Verified browser-test: 0 nút QR, 0 "Kết nối lại", 1 "Đăng nhập Zalo", login-guide hiện, `ZaloApi.loginQr/reconnect=undefined`, 0 console error. node -c toàn bộ pass. Deploy: server restart → mọi TK disconnected (không boot-restore), user "Đăng nhập Zalo" từ trình duyệt để nối.
+
 ### [fix] SECURITY web2: gate 11 route mutation native-orders + BIGINT Number() trong balance-history (audit money-flow)
 
 Audit đối kháng money-flow Web 2.0 (37 agent, 20/31 finding verify isReal) phát hiện **lỗ hổng auth LIVE**: 11 route mutation `render.com/routes/native-orders.js` KHÔNG có middleware auth, trong khi sibling `fast-sale-orders.js` đã gate `requireWeb2AuthSoft` HẾT — mà `WEB2_AUTH_ENFORCE=1` đang BẬT prod → mọi route này lộ thiên (tạo/sửa/xác nhận/huỷ→hoàn ví/xoá/merge/split đơn không cần đăng nhập, biết `code` là gọi được).
