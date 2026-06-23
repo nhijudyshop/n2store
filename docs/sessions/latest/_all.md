@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c106ad9` — auto: session update
-**Last updated**: 2026-06-23 13:58:14 +07
-**Latest session**: [`RESUME:20260623-135814-c106ad9`](../20260623-135814-c106ad9.md)
-**Summary**: auto: session update
+**Latest commit**: `4b7acfc` — feat(web2-attendance-sync): tự dò IP máy chấm công trên LAN (khỏi nhập IP) + FAQ nhiều máy chạy bat
+**Last updated**: 2026-06-23 13:58:59 +07
+**Latest session**: [`RESUME:20260623-135859-4b7acfc`](../20260623-135859-4b7acfc.md)
+**Summary**: Agent tự dò IP máy chấm công LAN + FAQ nhiều máy chạy bat (idempotent an toàn, nên 1 PC)
 
 ## Folders affected in this commit
 
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 4 file(s)
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -72,7 +72,7 @@
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
 - [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-22 16:08
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 13:58
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 13:59
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
