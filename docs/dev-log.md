@@ -2,6 +2,29 @@
 
 ## 2026-06-23
 
+### [fix] Trợ lý AI Web 2.0 — 9 bug đã verify đối kháng (resilience + UX, không mất data)
+
+Fix các finding isReal=true sau audit đối kháng module Trợ lý AI (`web2/ai-hub/` + `render.com/{routes,services}/web2-ai*`):
+
+**Backend (`render.com`)**:
+
+- **(medium) Hủy upstream khi client đóng SSE**: `/chat/stream` tạo `AbortController`, `req.on('close')` gọi `ac.abort()`; `chatStream(opts, onDelta, signal)` truyền `signal` vào CẢ 2 fetch (Gemini + OpenAI-style) + `_readSSE(body, onData, signal)` (check `signal?.aborted` mỗi vòng → `reader.cancel()`). `_withKey` ném ngay khi `AbortError` (không cooldown/failover). Route không log/gửi error cho AbortError. → không đốt quota free cho phản hồi không ai nhận.
+- **(medium) Phân loại lỗi quá tải để xoay key**: `_httpError` thêm cờ `_overload` cho 502/503/529 + body-text (overload/unavailable/try again); `_withKey` xử lý `_overload` như quota nhưng cooldown ngắn `COOLDOWN_OVERLOAD_MS=20s` → `chat`/`chatStream` xoay sang key/provider khoẻ thay vì fail cứng ở key đầu.
+- **(medium) Ảnh tạo Gemini xoay key**: `_gemini` (image-service) bỏ `_gemKey` thủ công → dùng `runWithKey('gemini', …)` (export mới từ ai-service) tái dùng cooldown CHUNG + classify 401/403/429/502/503/529/Gemini-400-key-hỏng → 1 key lỗi thì thử key kế.
+- **(medium) Vision-guard server-side**: `_assertVision(p, mdl, messages)` chặn sớm khi gửi ảnh tới model không-vision (trừ Gemini, mọi model vision) → ném `_noVision`; `chat` + `chatStream` gọi trước fetch; route `/chat` trả 422 + `noVision:true` (thay 400 upstream tối nghĩa).
+
+**Frontend (`web2/ai-hub/js`)** — bump `?v=20260623g`:
+
+- **(medium) Tab Tạo ảnh kẹt dropdown rỗng nếu /status fail lúc boot**: `ai-image.onShow` async, nếu `imageProviders().length===0` → `await loadStatus()` + `fillProviders()` (tự phục hồi, không cần reload trang).
+- **(medium) editImageData bỏ ảnh âm thầm với nguồn non-gemini**: `generate()` cảnh báo khi có ảnh gốc + provider≠gemini; đổi provider sang nguồn không `editsImage` → `clearSource()` (dọn state + card + file input).
+- **(low) Vision history strip**: `ai-chat.updateAttach` đổi sang model không-vision → strip `images` trong LỊCH SỬ (giữ `hadImages`) để follow-up không re-send ảnh cũ gây 400.
+- **(low) Dừng stream trước token đầu**: cờ `userStopped` (set trong `stop()`), AbortError coi như OK (không ⚠️), `userStopped && !acc` → splice bubble rỗng + KHÔNG toast "AI không phản hồi".
+- **(low) save() nuốt QuotaExceededError + convos không cap**: cap `convos` về MAX_CONVOS in-memory (giữ currentId hợp lệ), catch QuotaExceededError → cắt nửa + retry → toast warning nếu vẫn fail (không nuốt im lặng).
+
+**(low) Rate-limit (`web2-ai.js`)**: thay `_hits.clear()` bằng sweep theo TTL (xoá IP hết hạn, giữ window IP còn hit) → chống burst-bypass khi >2000 IP.
+
+Bỏ qua 8 dương-tính-giả (delta trùng lặp / round-robin atomicity / \_readSSE đa-dòng / pollinations URL / complete failover / newConvo model rỗng / rAF orphaned node / dropdown image disabled). Verify: `node --check` 5 file PASS + unit-check vision-guard (text-only model ném `_noVision`, vision model qua). Chưa deploy/browser-test live.
+
 ### [feat] cham-cong agent: tự chạy nền khi bật Windows (auto-start + auto-restart)
 
 Agent đồng bộ máy DG-600 (`web2-attendance-sync/`) trước chỉ chạy khi giữ `install-windows.bat` mở → đóng/reboot là dừng (→ "Chưa đồng bộ"). Thêm cơ chế chạy nền tự động:
