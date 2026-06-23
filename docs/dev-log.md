@@ -2,6 +2,19 @@
 
 ## 2026-06-24
 
+### [feat+fix] web2: menu reorg + gộp Phân quyền + fix lightbox stuck + verify avatar/audit-scope (user 9 việc)
+
+User pivot sang 9 việc UI/menu + 2 câu hỏi verify. Kết quả:
+
+- **#1 Avatar** — test kỹ end-to-end (mở modal→chọn style→Lưu→persist server+localStorage+footer cập nhật+SỐNG sau reload, cả style Emoji=fun-emoji). **Hoạt động ĐÚNG**, không tái hiện được bug. Nguyên nhân khả dĩ: token Web2 hết hạn (401 im) / JS cũ cache. Harden: message 401 rõ ("phiên hết hạn → đăng nhập lại") + bump v20260624a.
+- **#2 (verify)** — permission matrix (`/api/web2-users/pages` = hardcoded `WEB2_PAGES`) **KHÔNG auto-discover trang mới**: chỉ 18/50 trang trong registry (STALE) + **KHÔNG trang nào enforce** (không có `hasPermission` — chỉ khai báo; gate thật = `adminOnly` menu + `requireWeb2Admin` server). Code trang mới KHÔNG tự có quyền → phải thêm tay vào `WEB2_PAGES`. services từ `/api/services-overview` (inventory server).
+- **#3** — gộp users-permissions vào trang Người dùng: 2 tab (Người dùng | Phân quyền), tab Phân quyền nhúng iframe `users-permissions?embed=1` (ẩn sidebar). Verified: tab switch + 28 perm rows render embedded. Gỡ "Phân quyền" khỏi menu.
+- **#4-#9 menu reorg** (web2-sidebar NAV): Dashboard KPI→Báo cáo; Lịch sử thao tác + Cấu hình&Hệ thống(admin-only)→Cấu hình; Đối soát CK→"Chuyển khoản KH"(đổi tên từ Tài chính); Zalo+Chat Pancake→Khách hàng; Tăng comment+Comment Live+Điều khiển TV+TV Livestream→Facebook.
+- **Menu cleanup** (user request 2) — `cleanLabel()` cắt emoji cuối tên trang + bỏ badge "- WEB 2.0". Verified 49 links 0 badge 0 emoji.
+- **🔴 FIX lightbox stuck/đè layout** (user request 3) — `Web2ImageLightbox` overlay set `cssText` có `display:flex` ĐÈ `[hidden]` (inline > UA) → sau open→close overlay vẫn flex+opacity:0 = lớp vô hình phủ inset:0/z99999 NUỐT mọi click → trang kẹt. Fix: quản `display` trực tiếp (none↔flex). Verified: sau close, elementFromPoint(center)=element thật (không phải overlay). Bump v20260624a.
+- **#7 (verify)** — audit-log scope (`v2/audit-log.js:178`): admin xem hết + lọc tự do; NV **ÉP self-scope** (khớp id/username/display_name, bỏ qua filterUser); chưa login→rỗng. **ĐÚNG**: mỗi user chỉ xem lịch sử mình, admin xem tất cả (server-enforced).
+- **Bonus**: split-PBH merge double-bill (#2) + merge dedup (#5) **verified LIVE** (stock conservation holds, idempotent re-bill).
+
 ### [fix] web2: 5 bug từ workflow audit round-3 (2 HIGH money/stock + 3 MEDIUM) — adversarial-verified
 
 Workflow 13-agent (5 finder song song × verify đối kháng + synthesis) audit reconcile/returns-3-subtype/order-tags/delivery-zone/conservation. 7 finding → **6 sống sau verify đối kháng** → tôi đọc code thật xác nhận + fix 5 (1 reconcile dimension trùng root với merge-dedupe). order-tags: **0 bug** (sạch).
