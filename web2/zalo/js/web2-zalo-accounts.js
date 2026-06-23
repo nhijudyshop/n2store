@@ -88,18 +88,10 @@
                     `<button class="wz-btn wz-btn-sm" data-act="disconnect" data-key="${esc(a.accountKey)}" aria-label="Ngắt kết nối ${esc(dn)}" title="Ngắt kết nối"><i data-lucide="power"></i></button>`
                 );
             } else {
-                // CHÍNH: Đăng nhập Zalo 1-click (lấy phiên chat.zalo.me qua extension — không quét QR).
+                // ĐĂNG NHẬP DUY NHẤT: lấy phiên chat.zalo.me đang mở trên trình duyệt máy
+                // này (qua tiện ích N2Store). KHÔNG lưu phiên trên server, KHÔNG QR.
                 acts.push(
-                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="zalologin" data-key="${esc(a.accountKey)}" title="Đăng nhập bằng phiên Zalo đang mở trên trình duyệt (cần đăng nhập chat.zalo.me)"><i data-lucide="log-in"></i> Đăng nhập Zalo</button>`
-                );
-                // Phụ: kết nối lại bằng session đã lưu (nếu có).
-                if (a.hasSession)
-                    acts.push(
-                        `<button class="wz-btn wz-btn-sm" data-act="reconnect" data-key="${esc(a.accountKey)}" title="Dùng lại phiên đã lưu"><i data-lucide="refresh-cw"></i> Kết nối lại</button>`
-                    );
-                // Phụ: quét QR (dự phòng khi không có extension / phiên trình duyệt).
-                acts.push(
-                    `<button class="wz-btn wz-btn-sm" data-act="qr" data-key="${esc(a.accountKey)}" title="Đăng nhập bằng quét mã QR"><i data-lucide="qr-code"></i> QR</button>`
+                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="zalologin" data-key="${esc(a.accountKey)}" title="Đăng nhập bằng phiên Zalo đang mở trên trình duyệt (mở chat.zalo.me + đăng nhập trước)"><i data-lucide="log-in"></i> Đăng nhập Zalo</button>`
                 );
             }
         } else {
@@ -127,17 +119,16 @@
         const stLabel = STATUS_LABEL[eff] || eff;
         const kickWarn =
             t === 'personal' && a.status === 'kicked'
-                ? `<div class="wz-kick-warn"><i data-lucide="alert-triangle"></i> Tài khoản đang mở ở nơi khác — máy chủ tạm dừng nghe. Đừng mở <b>chat.zalo.me</b> tài khoản này trên máy/trình duyệt khác (app điện thoại vẫn dùng được), rồi bấm <b>Kết nối lại</b>.</div>`
+                ? `<div class="wz-kick-warn"><i data-lucide="alert-triangle"></i> Tài khoản đang mở ở nơi khác — máy chủ tạm dừng nghe. Đừng mở <b>chat.zalo.me</b> tài khoản này trên máy/trình duyệt khác (app điện thoại vẫn dùng được), rồi bấm <b>Đăng nhập Zalo</b> lại.</div>`
                 : '';
         const liveHint =
             t === 'personal' && a.status === 'connected'
-                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Đang nghe realtime trên máy chủ → nhân viên dùng được ở mọi máy. Lưu ý: đừng đăng nhập <b>chat.zalo.me</b> tài khoản này ở nơi khác (sẽ làm rớt; máy chủ tự kết nối lại).</div>`
+                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Đang nghe realtime trên máy chủ → nhân viên dùng được ở mọi máy. Máy chủ <b>không lưu phiên</b> (chỉ giữ trong RAM): rớt nhẹ tự nối lại; nếu rớt hẳn / máy chủ khởi động lại → đăng nhập lại từ trình duyệt.</div>`
                 : '';
-        // TK phụ (cá nhân, không phải TK chính): máy chủ KHÔNG tự kết nối / giữ kết nối.
-        // Bấm "Đặt làm chính" để hệ thống tự kết nối + giữ realtime cho TK này.
-        const secondaryHint =
-            t === 'personal' && !a.isPrimary
-                ? `<div class="wz-sec-hint"><i data-lucide="info"></i> TK phụ — máy chủ <b>không tự kết nối / không refresh liên tục</b>. Bấm <b>Đặt làm chính</b> để hệ thống tự kết nối & giữ realtime.</div>`
+        // Hướng dẫn đăng nhập (TK cá nhân chưa kết nối): mở chat.zalo.me rồi Đăng nhập Zalo.
+        const loginGuide =
+            t === 'personal' && a.status !== 'connected'
+                ? `<div class="wz-login-guide"><i data-lucide="info"></i> <span>Đăng nhập <a href="https://chat.zalo.me/" target="_blank" rel="noopener"><b>chat.zalo.me</b></a> trên trình duyệt máy này (đúng tài khoản), rồi bấm <b>Đăng nhập Zalo</b>. Máy chủ không lưu mật khẩu/phiên.</span></div>`
                 : '';
         return `<div class="wz-acc-card${a.isPrimary ? ' is-primary' : ''}">
             <div class="wz-acc-top">
@@ -150,7 +141,7 @@
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
             <div class="wz-statustxt"><span class="wz-dot ${esc(eff)}"></span>${esc(stLabel)}${a.statusMsg && a.status !== 'kicked' ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
-            ${kickWarn}${liveHint}${secondaryHint}
+            ${kickWarn}${liveHint}${loginGuide}
             <div class="wz-acc-actions">${acts.join('')}</div>
         </div>`;
     }
@@ -186,31 +177,12 @@
     async function onAccAction(act, key, btn) {
         const a = state.accounts.find((x) => x.accountKey === key);
         try {
-            if (act === 'qr') return startQr(key);
             if (act === 'zalologin') {
                 setBusy(btn, true);
                 await loginZaloCookie(key);
                 return;
             }
-            if (act === 'reconnect') {
-                setBusy(btn, true);
-                try {
-                    await window.ZaloApi.reconnect(key);
-                    notify('Đã kết nối lại', 'success');
-                    setTimeout(loadAccounts, 1500);
-                } catch (e) {
-                    // Phiên đã lưu hết hạn → mời mở chat.zalo.me đăng nhập lại (1 chạm),
-                    // rồi bấm "Đăng nhập Zalo". Tránh chỉ toast tan biến.
-                    const go = await Popup.confirm(
-                        (e.message || 'Phiên Zalo đã hết hạn.') +
-                            '\n\nMở chat.zalo.me để đăng nhập lại tài khoản này?',
-                        { okText: 'Mở chat.zalo.me', cancelText: 'Để sau' }
-                    );
-                    if (go) window.open('https://chat.zalo.me/', '_blank', 'noopener');
-                    setTimeout(loadAccounts, 800);
-                }
-                return;
-            } else if (act === 'disconnect') {
+            if (act === 'disconnect') {
                 await window.ZaloApi.disconnect(key);
                 notify('Đã ngắt kết nối', 'success');
                 loadAccounts();

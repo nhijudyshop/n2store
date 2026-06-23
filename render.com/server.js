@@ -946,9 +946,10 @@ app.use('/api/web2-msg-templates', web2MsgTemplatesRoutes);
 // acc personal từ session đã lưu khi boot (giống Pancake relay autoConnect).
 const web2ZaloRoutes = require('./routes/web2-zalo');
 web2ZaloRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+// KHÔNG boot-restore phiên (2026-06-23): không lưu phiên Zalo trên server. ensureSchema
+// wipe cột session + nạp cache TK chính; user "Đăng nhập Zalo" từ trình duyệt để nối.
 web2ZaloRoutes
     .ensureSchema(web2Pool || chatDbPool)
-    .then(() => web2ZaloRoutes.restoreSessions && web2ZaloRoutes.restoreSessions())
     .catch((e) => console.warn('[web2-zalo] schema warn:', e.message));
 app.use('/api/web2-zalo', web2ZaloRoutes);
 // WEB2.0 — Zalo retention: xoá tin nhắn + media cũ hơn 7 ngày (rolling window).

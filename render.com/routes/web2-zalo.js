@@ -19,7 +19,6 @@ const router = express.Router();
 
 const { ensureWeb2ZaloSchema } = require('../db/web2-zalo-schema');
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
-const secretCrypto = require('../lib/web2-secret-crypto');
 const zca = require('../services/web2-zalo-zca');
 const oa = require('../services/web2-zalo-oa');
 
@@ -627,65 +626,9 @@ router.post('/accounts', async (req, res) => {
     }
 });
 
-// Bắt đầu đăng nhập QR (zca)
-router.post('/accounts/:key/login-qr', async (req, res) => {
-    try {
-        const db = getDb(req);
-        const { rows } = await db.query(`SELECT * FROM web2_zalo_accounts WHERE account_key=$1`, [
-            req.params.key,
-        ]);
-        if (!rows[0])
-            return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản' });
-        const r = zca.startQrLogin(req.params.key, rows[0].label || rows[0].display_name);
-        await db.query(
-            `UPDATE web2_zalo_accounts SET status=$1, updated_at=$2 WHERE account_key=$3`,
-            [r.status, now(), req.params.key]
-        );
-        res.json({ success: true, ...r });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// Poll QR / trạng thái đăng nhập
-router.get('/accounts/:key/qr', (req, res) => {
-    res.json({ success: true, ...zca.getQr(req.params.key) });
-});
-
-// Đăng nhập lại bằng session đã lưu (manual reconnect)
-router.post('/accounts/:key/reconnect', async (req, res) => {
-    try {
-        const db = getDb(req);
-        const { rows } = await db.query(`SELECT * FROM web2_zalo_accounts WHERE account_key=$1`, [
-            req.params.key,
-        ]);
-        if (!rows[0]?.session)
-            return res.status(400).json({
-                success: false,
-                error: 'Chưa có session để kết nối lại — cần đăng nhập QR',
-            });
-        const r = await zca.loginWithCredentials(
-            req.params.key,
-            secretCrypto.decryptJson(rows[0].session),
-            rows[0].label,
-            // audit r8: guard danh tính — khớp restoreAll/login-cookie. Thiếu →
-            // session thuộc Zalo uid khác có thể gắn nhầm vào slot này (corrupt identity).
-            { expectedUid: rows[0].zalo_uid || null }
-        );
-        res.json({ success: true, ...r });
-    } catch (e) {
-        // Phiên/cookie đã lưu hết hạn → zalo.login throw "Đăng nhập thất bại". KHÔNG
-        // phải lỗi server (500) → trả 400 + hướng dẫn đăng nhập lại rõ ràng.
-        const wrong = e && e.code === 'WRONG_ACCOUNT';
-        res.status(400).json({
-            success: false,
-            error: wrong
-                ? e.message
-                : 'Phiên Zalo đã lưu hết hạn — hãy đăng nhập lại: mở chat.zalo.me (đăng nhập tài khoản này) rồi bấm "Đăng nhập Zalo", hoặc bấm "QR" để quét mã.',
-            expired: !wrong,
-        });
-    }
-});
+// (Đăng nhập QR + "Kết nối lại bằng session đã lưu" đã GỠ 2026-06-23 — KHÔNG lưu
+// phiên trên server. Đăng nhập DUY NHẤT qua /login-cookie: phiên chat.zalo.me sống
+// trên trình duyệt + tiện ích N2Store. "Kết nối lại" = bấm "Đăng nhập Zalo" lại.)
 
 // "Đăng nhập Zalo" 1-click: client (qua extension) gửi {cookie, imei, userAgent} của phiên
 // chat.zalo.me → login zca-js bằng cookie (KHÔNG cần quét QR). _afterLogin tự lưu session +
@@ -796,11 +739,10 @@ router.post('/accounts/:key/primary', async (req, res) => {
             console.warn('[WEB2-ZALO] primary: disconnect others:', e.message);
         }
 
-        // Kết nối TK chính bằng session đã lưu (nền — không chặn response; SSE cập
-        // nhật UI khi connecting→connected). Chưa có session → user tự đăng nhập QR.
-        const willConnect = await _connectAccount(key);
+        // KHÔNG lưu phiên trên server → không tự kết nối được. User bấm "Đăng nhập
+        // Zalo" trên TK chính (phiên chat.zalo.me trên trình duyệt) để nối realtime.
         _notify('web2:zalo:accounts', 'update', key);
-        res.json({ success: true, accountKey: key, connecting: willConnect });
+        res.json({ success: true, accountKey: key, connecting: false });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -814,8 +756,8 @@ router.delete('/accounts/:key', requireWeb2Admin, async (req, res) => {
             req.params.key,
         ]);
         _notify('web2:zalo:accounts', 'deleted', req.params.key);
-        // Xoá TK chính → tự phong TK chính mới (+ kết nối) cho TK cá nhân còn lại,
-        // tránh "không TK nào chính = không TK nào tự kết nối". _loadPrimaryKey tự lành.
+        // Xoá TK chính → tự phong CỜ TK chính mới cho TK cá nhân còn lại (để gửi 1-1).
+        // KHÔNG tự kết nối (không lưu phiên) — user "Đăng nhập Zalo" để nối.
         if (wasPrimary) {
             _primaryKey = null;
             await _loadPrimaryKey();
@@ -2369,6 +2311,7 @@ async function ensureSchema(pool) {
     _pool = pool;
     await ensureWeb2ZaloSchema(pool);
     await _loadTracked();
+    await _loadPrimaryKey(); // nạp cache TK chính lúc boot (KHÔNG boot-restore phiên)
     // Refresh cache định kỳ (an toàn khi nhiều instance / thay đổi ngoài luồng).
     if (!ensureSchema._refreshTimer) {
         ensureSchema._refreshTimer = setInterval(() => {
@@ -2379,38 +2322,12 @@ async function ensureSchema(pool) {
     }
 }
 
-// Re-login mọi acc personal có session đã lưu (gọi sau ensureSchema khi boot)
-async function restoreSessions() {
-    if (!_pool || !zca.isAvailable()) return;
-    try {
-        await _loadPrimaryKey(); // cache TK chính trước khi zca hỏi callback isPrimary
-        // CHỈ tự kết nối TK CHÍNH lúc boot (is_primary=true). TK phụ để dormant —
-        // user tự đăng nhập/kết nối tay khi cần (tránh "refresh kết nối liên tục").
-        const { rows } = await _pool.query(
-            `SELECT account_key, account_type, is_active, session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_type='personal' AND is_active=true AND session IS NOT NULL AND is_primary=true`
-        );
-        // Giải mã session AT-REST trước khi đưa vào zca (no-op nếu chưa bật WEB2_ENC_KEY
-        // hoặc data legacy plaintext). Bản copy mới — KHÔNG mutate row gốc.
-        const decrypted = rows.map((r) => ({ ...r, session: secretCrypto.decryptJson(r.session) }));
-        await zca.restoreAll(decrypted);
-        // Dọn trạng thái cũ: TK phụ KHÔNG được restore lúc boot → nếu DB còn 'connected'
-        // (stale từ instance trước) thì set 'disconnected' cho đúng thực tế (không listener).
-        await _pool
-            .query(
-                `UPDATE web2_zalo_accounts SET status='disconnected', updated_at=$1
-                 WHERE account_type='personal' AND is_primary=false
-                   AND status IN ('connected','connecting','reconnecting')`,
-                [now()]
-            )
-            .catch(() => {});
-    } catch (e) {
-        console.warn('[WEB2-ZALO] restoreSessions failed:', e.message);
-    }
-}
+// (restoreSessions đã GỠ 2026-06-23 — KHÔNG lưu phiên trên server nên không boot-
+// restore. Boot chỉ ensureSchema (wipe cột session) + nạp cache TK chính. Mọi TK
+// đều disconnected sau restart; user "Đăng nhập Zalo" từ trình duyệt để nối lại.)
 
 router.ensureSchema = ensureSchema;
 router.initializeNotifiers = initializeNotifiers;
-router.restoreSessions = restoreSessions;
 router.runZaloRetention = runZaloRetention;
 // Graceful shutdown: dừng watchdog + đóng listener zca để nhường phiên cho instance mới
 // (tránh deploy chồng instance "đấu" phiên — bị kick 3000/3003).

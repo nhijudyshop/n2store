@@ -77,15 +77,8 @@
         createAccount(label) {
             return _fetch('/accounts', { method: 'POST', body: JSON.stringify({ label }) });
         },
-        loginQr(key) {
-            return _fetch(`/accounts/${encodeURIComponent(key)}/login-qr`, { method: 'POST' });
-        },
-        qr(key) {
-            return _fetch(`/accounts/${encodeURIComponent(key)}/qr`, { method: 'GET' });
-        },
-        reconnect(key) {
-            return _fetch(`/accounts/${encodeURIComponent(key)}/reconnect`, { method: 'POST' });
-        },
+        // (loginQr/qr/reconnect đã GỠ 2026-06-23 — chỉ đăng nhập bằng phiên chat.zalo.me
+        //  trên trình duyệt qua loginCookie. "Kết nối lại" = đăng nhập Zalo lại.)
         disconnect(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/disconnect`, { method: 'POST' });
         },

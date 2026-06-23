@@ -110,6 +110,17 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_active ON web2_zalo_accounts(is_active);
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_oa     ON web2_zalo_accounts(oa_id) WHERE oa_id IS NOT NULL;
         `);
+        // KHÔNG lưu phiên Zalo trên server (2026-06-23): wipe cột `session` đang lưu
+        // → sạch sẽ, không còn cookie trên server. Cột giữ nguyên (không DROP). Boot
+        // sau đó mọi TK = disconnected; user "Đăng nhập Zalo" từ trình duyệt để nối.
+        // Idempotent (lần sau session đã NULL → no-op).
+        try {
+            await pool.query(
+                `UPDATE web2_zalo_accounts SET session=NULL WHERE session IS NOT NULL`
+            );
+        } catch (e) {
+            console.error('[web2-zalo-schema] wipe session warn:', e.message);
+        }
         // Seed TK CHÍNH gửi tin KH 1-1 + tự kết nối (chỉ khi CHƯA có TK chính nào).
         // GENERIC (không hardcode account_key — TK seed cũ có thể bị xoá): chọn 1 TK
         // cá nhân active (ưu tiên đang kết nối → mới nối gần nhất → tạo sớm nhất).
