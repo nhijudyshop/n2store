@@ -182,6 +182,20 @@
             if (updated) {
                 SO.notify(`Đã cập nhật ${updated} SP (pending qty)`, 'info');
             }
+            // upsertPending trả success:true KỂ CẢ khi item lẻ lỗi (action:'error',
+            // vd mã trùng SP khác). KHÔNG để trôi im lặng — báo user để re-sync.
+            const errored = (res?.items || []).filter((it) => it && it.action === 'error');
+            if (errored.length) {
+                console.warn(
+                    '[so-order] syncRowsToKho: %d SP lỗi sync vào Kho',
+                    errored.length,
+                    errored.map((e) => ({ name: e.name, error: e.error }))
+                );
+                SO.notify(
+                    `${errored.length} SP KHÔNG sync được vào Kho (mã trùng SP khác?) — kiểm tra lại`,
+                    'warning'
+                );
+            }
         } catch (e) {
             console.warn('[so-order] syncRowsToKho upsertPending:', e.message);
             SO.notify('Lỗi sync SP vào Kho: ' + e.message, 'error');

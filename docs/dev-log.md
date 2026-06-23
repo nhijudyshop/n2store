@@ -2,6 +2,22 @@
 
 ## 2026-06-24
 
+### [audit-deep] web2: end-to-end cross-page data-flow verification + fix silent sync failure
+
+Đào sâu hơn (yêu cầu user "càng sâu càng chi tiết càng tốt") — drive các luồng nghiệp vụ THẬT qua API client trong browser, verify bất biến dữ liệu liên-trang, dọn sạch test data sau mỗi luồng. Dùng codegraph map server contract trước.
+
+**Luồng đã verify (đều cleanup 0 leftover)**:
+
+1. **Kho SP CRUD** — create `{success,product}` (server sinh/sanitize code, validate "supplier bắt buộc") → get → delete force → gone.
+2. **adjustStock atomic** — stock 5 → +10=15 → −3=12 → delete (delta gộp, clamp 0).
+3. **so-order MUA (purchase side)** — `upsertPending` (code bắt buộc) → product status `CHO_MUA`/pending=8/stock=0 → hiện trong pending list → `confirmPurchase` → stock=8/pending=0/`DANG_BAN`. Linkage Sổ Order → Kho SP đúng.
+4. **native-orders BÁN (sell side)** — create order (draft) → PBH `/from-native-order` → **stock 20→17** (−qty3) → `/by-source/:code/cancel` → **17→20** (restock idempotent, migration 077 `stock_restored`). Linkage Đơn Web → PBH → Kho SP đúng cả 2 chiều.
+5. **SSE realtime fan-out** — subscribe `web2:products` → create phát `action:create`, delete phát `action:delete` (nhận realtime). Backbone đồng-bộ-giữa-máy OK.
+6. **Ví KH money-integrity** — deposit 5000 → +5000; **replay cùng idempotencyKey → VẪN 5000 (không double)**; withdraw → 0 (net-zero). Idempotency dedupe (d-fix #3) + balance math đúng.
+7. **CHO_MUA chặn PBH** — order có SP `CHO_MUA` → `/from-native-order` trả **400 `cho_hang_blocked`** (chặn bán hàng chưa về). Cross-feature guard đúng.
+
+**Bug fix (silent failure)**: `so-order/js/so-order-kho-sync.js syncRowsToKho` — `upsertPending` trả `success:true` KỂ CẢ khi item lẻ lỗi (`action:'error'`, vd mã trùng SP khác). Hàm chỉ báo `created/updated`, **nuốt im item lỗi** → user tưởng sync đủ. Fix: đếm `items[].action==='error'` → `console.warn` chi tiết + toast cảnh báo "N SP KHÔNG sync được (mã trùng?)". (Callers khác — so-order-receive map theo action/name, barcode skip item thiếu code — đã xử lý đúng.)
+
 ### [audit] web2: full menu audit — 50 trang load+interaction+CRUD test, fix dead-link + video-maker probe noise
 
 Audit toàn bộ menu Web 2.0 (yêu cầu user: liệt kê menu + render server + env → browser-test từng trang như user → fix → lặp). Inventory: 14 nhóm menu / 50 trang web2 + 5 render service (web2-api, n2store-fallback, web2-realtime, n2store-realtime, 2 Postgres) + env Web 2.0.
