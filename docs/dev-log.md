@@ -2,6 +2,10 @@
 
 ## 2026-06-23
 
+### [security] web2/login: bỏ dòng lộ tài khoản mặc định admin/admin@@ (đã đổi mật khẩu)
+
+Trang đăng nhập Web 2.0 (`web2/login/index.html`) có dòng "Tài khoản mặc định: admin / admin@@" — sau khi user đổi mật khẩu thì đây là lộ credential không cần thiết. Gỡ block `.login-foot`.
+
 ### [feat] Zalo PER-MÁY (owner-scoped): mỗi máy chỉ thấy/dùng account chat.zalo.me của máy đó
 
 User: máy nào đăng nhập chat.zalo.me thì máy đó dùng account đó, KHÔNG share máy khác (local theo chat.zalo.me). Sau research (zca-js Node-only, extension polyfill rủi ro cao) + plan-mode duyệt: chọn **Option B owner-scoped** (server giữ socket RAM nhưng gắn chủ sở hữu = máy; máy khác không đọc/gửi được) + **tin KH 1-1 cũng per-máy** (chấp nhận phân mảnh). Xây trên nền no-persist/no-QR đợt trước.
