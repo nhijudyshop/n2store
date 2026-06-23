@@ -90,7 +90,7 @@ async function linkTransaction(db, { id, phone, name, verifiedBy }) {
         const tx = r.rows[0];
         // Re-check SAU lock: link song song vừa credit xong → skip (idempotent).
         if (tx.debt_added === true) return { linked: false, alreadyProcessed: true };
-        const amount = parseInt(tx.transfer_amount) || 0;
+        const amount = Number(tx.transfer_amount) || 0;
         if (tx.transfer_type !== 'in' || amount <= 0) {
             // Non-deposit → chỉ gán phone, không cộng ví.
             await client.query(
@@ -443,7 +443,7 @@ router.post('/:id/reassign', requireWeb2AuthSoft, async (req, res) => {
         }
         const tx = r.rows[0];
         const oldPhone = tx.linked_customer_phone || null;
-        const amount = parseInt(tx.transfer_amount) || 0;
+        const amount = Number(tx.transfer_amount) || 0;
 
         // Normalize phones (loose: strip non-digits, handle 84 prefix)
         const normalize = (p) => {

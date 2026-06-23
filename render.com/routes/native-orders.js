@@ -21,7 +21,11 @@ const {
 } = require('../services/web2-order-customer-service');
 const web2WalletService = require('../services/web2-wallet-service');
 // Gate admin cho thao tác KPI nhạy cảm (chốt base = khóa bất biến → chỉ admin).
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+// requireWeb2AuthSoft: gate mềm → 401 khi WEB2_AUTH_ENFORCE=1 (ĐANG BẬT prod). Áp cho
+// MỌI route mutation gọi từ browser — parity với fast-sale-orders.js (sibling đã gate).
+// ⚠ KHÔNG gate /from-comment: cart.js loopback (v2/cart.js) gọi server-to-server KHÔNG kèm
+// token → cần forward token trước khi gate (follow-up).
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
 // EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events mỗi thao tác đơn →
 // per-order history (Web2AuditLog.openRecord entity='native-order').
 const { recordAuditEvent } = require('../services/web2-audit-sink');
@@ -713,7 +717,7 @@ async function nextSessionIndex(pool, fbUserId) {
 // by normalized phone match. Idempotent: only updates orders where
 // customer_id IS NULL.
 // -----------------------------------------------------
-router.post('/backfill-customer-links', async (req, res) => {
+router.post('/backfill-customer-links', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -762,7 +766,7 @@ router.get('/health', async (req, res) => {
 // Không ảnh hưởng display_stt của đơn cũ. Optional renumber=true để renumber
 // tất cả đơn hiện có theo created_at ASC.
 // -----------------------------------------------------
-router.post('/reset-stt', async (req, res) => {
+router.post('/reset-stt', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -1186,7 +1190,7 @@ router.post('/from-comment', async (req, res) => {
 // live-chat (2026-06-09). SĐT/địa chỉ có thể bỏ trống điền sau.
 // Gen code NJ-... như đơn livestream. status='draft' → user thêm SP qua modal sửa.
 // -----------------------------------------------------
-router.post('/create-manual', async (req, res) => {
+router.post('/create-manual', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -1840,7 +1844,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
 // -----------------------------------------------------
 // PATCH /api/native-orders/:code — update mutable fields
 // -----------------------------------------------------
-router.patch('/:code', async (req, res) => {
+router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2143,7 +2147,7 @@ async function _emitPatchKpiEvents(pool, orderBefore, orderAfter, before, after,
 // lập sau khi đóng gói / chuẩn bị giao. Cancel bằng PATCH /:code body
 // {status:'cancelled'} hoặc dùng /by-source/:code/cancel ở fast-sale-orders.
 // -----------------------------------------------------
-router.post('/:code/confirm', async (req, res) => {
+router.post('/:code/confirm', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2195,7 +2199,7 @@ router.post('/:code/confirm', async (req, res) => {
 // biết bill in mấy lần, tránh in trùng gây soạn/chuẩn bị hàng lặp. Trả counts mới.
 // (Đặt TRƯỚC /:code/* — path 1 segment, không đụng /:code/confirm…)
 // -----------------------------------------------------
-router.post('/mark-printed', async (req, res) => {
+router.post('/mark-printed', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const codes = Array.isArray(req.body && req.body.codes) ? req.body.codes.filter(Boolean) : [];
@@ -2229,7 +2233,7 @@ router.post('/mark-printed', async (req, res) => {
 // + cancel logic ở fast-sale-orders.js).
 // Idempotent: nếu đã cancelled → trả về current state.
 // -----------------------------------------------------
-router.post('/:code/cancel', async (req, res) => {
+router.post('/:code/cancel', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2446,7 +2450,7 @@ router.post('/:code/cancel', async (req, res) => {
 // -----------------------------------------------------
 // DELETE /api/native-orders/:code — hard delete
 // -----------------------------------------------------
-router.delete('/:code', async (req, res) => {
+router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2525,7 +2529,7 @@ router.delete('/:code', async (req, res) => {
 //     across cùng display_stt (atomic).
 //   - Frontend hiển thị "<STT>-<split_index>" cho mọi order có split_index > 0.
 // -----------------------------------------------------
-router.post('/:code/split-order', async (req, res) => {
+router.post('/:code/split-order', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
@@ -2649,7 +2653,7 @@ router.post('/:code/split-order', async (req, res) => {
     }
 });
 
-router.post('/merge', async (req, res) => {
+router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const codes = Array.isArray(req.body?.codes) ? req.body.codes : null;
@@ -2796,7 +2800,7 @@ router.post('/merge', async (req, res) => {
     }
 });
 
-router.post('/merge-to-pbh', async (req, res) => {
+router.post('/merge-to-pbh', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const codes = Array.isArray(req.body?.codes) ? req.body.codes : null;

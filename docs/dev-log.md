@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### [fix] SECURITY web2: gate 11 route mutation native-orders + BIGINT Number() trong balance-history (audit money-flow)
+
+Audit đối kháng money-flow Web 2.0 (37 agent, 20/31 finding verify isReal) phát hiện **lỗ hổng auth LIVE**: 11 route mutation `render.com/routes/native-orders.js` KHÔNG có middleware auth, trong khi sibling `fast-sale-orders.js` đã gate `requireWeb2AuthSoft` HẾT — mà `WEB2_AUTH_ENFORCE=1` đang BẬT prod → mọi route này lộ thiên (tạo/sửa/xác nhận/huỷ→hoàn ví/xoá/merge/split đơn không cần đăng nhập, biết `code` là gọi được).
+
+- **Gate `requireWeb2AuthSoft`** (parity fast-sale-orders, frontend đã gửi `x-web2-token` qua `native-orders-api.js _fetchJson`→`_authHeaders`): `/backfill-customer-links`, `/reset-stt`, `/create-manual`, `PATCH /:code`, `/:code/confirm`, `/mark-printed`, `/:code/cancel`, `DELETE /:code`, `/:code/split-order`, `/merge`, `/merge-to-pbh`. `/:code/lock-kpi-base` vẫn `requireWeb2Admin`.
+- **CHỪA `/from-comment`** (KHÔNG gate vòng này): cart `v2/cart.js:232` loopback server-to-server gọi KHÔNG kèm token → gate giờ sẽ 401 cart drag-drop. Follow-up: forward token trong loopback rồi mới gate (finding đã hạ MEDIUM — chỉ tạo draft, không động tiền).
+- **BIGINT money parse**: `web2-balance-history.js:93,446` đổi `parseInt(tx.transfer_amount)`→`Number(...)` (parseInt dừng ở ký tự non-digit → có thể credit sai ví; Number là convention codebase).
+- Verify: `node --check` cả 2 file PASS. Không đụng `web2-zalo-zca.js` (agent song song đang sửa).
+- **Backlog chưa fix (cần user duyệt, overlap code vừa ship/contended)**: (CRITICAL) quick/bulk refund không gửi `rowReturns` → cost-cap `purchase-refund.js:426-447` KHÔNG chạy (commit 45530fad2 vô hiệu ở UI chính); (HIGH×2) cart.js race read-modify-write `products` thiếu transaction/FOR UPDATE; (HIGH) purchase-refund đổi tồn kho KHÔNG `_notify('web2:products')` → supplier-wallet stale; (MEDIUM) wallet deposit/withdraw chưa validate `:phone`.
+
 ### [feat] cham-cong: file bat TURNKEY auto-everything cho collector (như Web 1.0 setup.bat)
 
 User muốn 1 bat chạy là auto hết (như Web 1.0). Thêm vào `attendance-sync/`:
