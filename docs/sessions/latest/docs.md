@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260623-195339-33b4426`
-**Session file**: [`./20260623-195339-33b4426.md`](../20260623-195339-33b4426.md)
-**Commit**: `33b4426` — auto: session update
-**Last updated**: 2026-06-23 19:53:39 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260623-200449-7628f1e`
+**Session file**: [`./20260623-200449-7628f1e.md`](../20260623-200449-7628f1e.md)
+**Commit**: `7628f1e` — security(web2-login): bỏ dòng lộ tài khoản mặc định admin/admin@@
+**Last updated**: 2026-06-23 20:04:49 +07
+**Summary**: security(web2-login): bỏ dòng lộ tài khoản mặc định admin/admin@@
 
 ## Files changed in this commit (`docs/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `7628f1e10` security(web2-login): bỏ dòng lộ tài khoản mặc định admin/admin@@ _(2026-06-23)_
+- `2cb03947b` chore(session): RESUME:20260623-195339-33b4426 _(2026-06-23)_
 - `6dfdad3ab` feat(web2-zalo): per-máy owner-scoped — mỗi máy chỉ thấy/dùng account chat.zalo.me của máy đó _(2026-06-23)_
 - `7ba0447ab` chore(session): RESUME:20260623-191834-601dace _(2026-06-23)_
 - `42fb07988` tweak(web2-cham-cong): dung sai mặc định 5→6 phút (8h06/19h54 vẫn đúng giờ) + migrate _(2026-06-23)_
-- `3de2ce922` chore(session): RESUME:20260623-185502-583ffca _(2026-06-23)_
-- `2b159d663` feat(web2-cham-cong): lương theo tháng (cố định) + dung sai ±phút vào/ra _(2026-06-23)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260623-195339-33b4426` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260623-200449-7628f1e` cho Claude walk chain theo CLAUDE.md protocol.
