@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9294b1d` — fix(web2): footer avatar missing on some pages + ai-hub provider/model cleanup + English AI prompts
-**Last updated**: 2026-06-24 03:36:40 +07
-**Latest session**: [`RESUME:20260624-033640-9294b1d`](../20260624-033640-9294b1d.md)
-**Summary**: fix(web2): footer avatar missing on some pages + ai-hub provider/model cleanup + English AI prompts
+**Latest commit**: `6bd2fac` — feat(web2): ai-hub reuse Web2VideoStock free image/video picker in Tạo ảnh + Ghép đồ
+**Last updated**: 2026-06-24 04:00:08 +07
+**Latest session**: [`RESUME:20260624-040008-6bd2fac`](../20260624-040008-6bd2fac.md)
+**Summary**: feat(web2): ai-hub reuse Web2VideoStock free image/video picker in Tạo ảnh + Ghép đồ
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -57,7 +57,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-24 03:36
+- [`render.com/`](./render.com.md) — updated 2026-06-24 04:00
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-24 01:35
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -79,4 +79,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-24 03:36
+- [`web2/`](./web2.md) — updated 2026-06-24 04:00
