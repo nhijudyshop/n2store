@@ -2,6 +2,22 @@
 
 ## 2026-06-24
 
+### [fix] web2: 5 bug từ workflow audit round-3 (2 HIGH money/stock + 3 MEDIUM) — adversarial-verified
+
+Workflow 13-agent (5 finder song song × verify đối kháng + synthesis) audit reconcile/returns-3-subtype/order-tags/delivery-zone/conservation. 7 finding → **6 sống sau verify đối kháng** → tôi đọc code thật xác nhận + fix 5 (1 reconcile dimension trùng root với merge-dedupe). order-tags: **0 bug** (sạch).
+
+**🔴 #1 HIGH money+stock leak** — `web2-returns.js:1315`: nhánh `khong_nhan_hang` DELETE re-attach lock theo PBH thiếu `AND state <> 'cancel'` (2 nhánh kia + comment 1309-1311 đều có) → re-arm `wallet_deducted`/`stock_restored=FALSE` lên PBH ĐÃ HUỶ → cancel sau double-refund ví + phantom-restock. Fix: thêm `AND state <> 'cancel'` (one-line, mirror sibling).
+
+**🔴 #2 HIGH double-bill** — `fast-sale-orders.js from-native-order`: merged PBH (merge-to-pbh) có `source_id=NULL` (1 PBH gộp nhiều member) → `existsQ` theo source_id KHÔNG thấy member → stale-tab/direct-API tạo PBH thứ 2 = double trừ kho + ví. Fix: thêm idempotency guard theo **source_code membership** (mirror cancel route native-orders.js:119-122) → trả idempotent.
+
+**🟠 #3 MEDIUM wallet leak window** — `fast-sale-orders.js:2131`: `_applyWalletToPbh(pool)` → withdraw COMMIT riêng, rồi `pool.query(UPDATE wallet_deducted)` rời → crash giữa = ví trừ nhưng wallet_deducted=0 → cancel hoàn 0đ. Fix: gộp withdraw + UPDATE vào 1 `withTransaction` (truyền client → runWithTx reuse, atomic; giống `applyWalletToUnpaidPbhs`). Try/catch giữ semantics "ví lỗi không chặn PBH".
+
+**🟠 #4 MEDIUM phí giao sai im lặng** — bulk PBH áp auto-pick offline (`pickOffline`) bỏ qua `confidence` → phí thấp-tin-cậy bill thẳng (vd tên tỉnh trong địa chỉ HCM → ship tỉnh 35k nhầm). Fix layer-1 (an toàn): giữ `pickedConfidence/pickedNote`, hiện "⚠ phí auto Xđ — KIỂM TRA" trong cột trạng thái khi confidence≠high. (Layer-2 = siết `_detectProvince` heuristic — KHÔNG làm, rủi ro over-tighten; layer-1 là safety-net.)
+
+**🟠 #5 MEDIUM reconcile dead-end + latent restock double-subtract** — `fast-sale-orders.js:1044` merge `combinedLines.push(...lines)` KHÔNG dedupe → gộp 2 PBH cùng mã SP → order_lines có dòng trùng mã → reconcile (1-bucket/mã, cap theo dòng đầu) không đóng gói được + `restockOrderLines` trừ returnedMap[code] lặp. Fix: dedupe order_lines theo mã lúc merge (cộng quantity + discountAmount; dòng không-mã giữ riêng).
+
+Verify: node --check 3 file OK + native-orders load 0 error. Server fix (#1,#2,#3,#5) cần deploy web2-api → live-test split/merge/return.
+
 ### [audit-deep-2] web2: verify Ví NCC + auth-gate + KPI privacy (code-level) — 0 bug, 1 design-note
 
 Tiếp tục đào sâu (round 2). Toàn bộ VERIFY (không sửa code) — kết quả: hệ thống đúng.

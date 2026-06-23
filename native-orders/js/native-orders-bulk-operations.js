@@ -280,6 +280,11 @@
                 pickedValue: pick?.option?.value || '',
                 pickedLabel: pick?.option?.label || '',
                 pickedPrice: pick?.option?.price || 0,
+                // BUG FIX (2026-06-24): giữ confidence/note để CẢNH BÁO khi auto-pick
+                // độ tin cậy thấp (vd tên tỉnh nằm trong địa chỉ HCM → ship tỉnh nhầm).
+                // Trước đây bulk bỏ qua → bill phí sai im lặng.
+                pickedConfidence: pick?.confidence || '',
+                pickedNote: pick?.note || '',
             };
         });
         const validCount = rows.filter((r) => r.valid).length;
@@ -299,7 +304,15 @@
                 <td style="padding:8px 6px;text-align:center;color:${r.totalQty > 0 ? '#0f172a' : '#dc2626'};">${r.totalQty > 0 ? r.totalQty : '⚠ 0'}</td>
                 <td style="padding:8px 6px;text-align:right;color:#10b981;font-weight:600;">${fmt(r.totalAmt)}đ</td>
                 <td style="padding:8px 6px;text-align:center;">
-                    ${r.valid ? '<span style="color:#10b981;">✓ Sẵn sàng</span>' : `<span style="color:#dc2626;">⚠ Thiếu ${NO.escapeHtml(r.missing.join(', '))}</span>`}
+                    ${
+                        r.valid
+                            ? `<span style="color:#10b981;">✓ Sẵn sàng</span>${
+                                  r.pickedConfidence && r.pickedConfidence !== 'high'
+                                      ? `<br><span style="color:#f59e0b;font-size:11px;" title="${NO.escapeHtml(r.pickedNote || 'Độ tin cậy thấp — kiểm tra phương thức giao')}">⚠ phí auto ${fmt(r.pickedPrice)}đ — KIỂM TRA</span>`
+                                      : ''
+                              }`
+                            : `<span style="color:#dc2626;">⚠ Thiếu ${NO.escapeHtml(r.missing.join(', '))}</span>`
+                    }
                 </td>
             </tr>`
             )

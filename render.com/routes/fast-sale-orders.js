@@ -1053,6 +1053,31 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
             totalCod += Number(r.cash_on_delivery) || 0;
             totalWalletDeducted += Number(r.wallet_deducted) || 0;
         }
+        // BUG FIX (2026-06-24): gộp 2 PBH cùng productCode trước đây để order_lines
+        // có DÒNG TRÙNG mã → reconcile (1-bucket/mã, cap theo dòng ĐẦU) không đóng gói
+        // được + restockOrderLines trừ returnedMap[code] LẶP mỗi dòng. Dedupe theo mã:
+        // cộng dồn quantity + discountAmount, dòng KHÔNG mã (phí ship/free) giữ riêng.
+        // Totals tiền là row-level (cộng ở trên) nên line-money chỉ để hiển thị.
+        const _lineByCode = new Map();
+        const combinedLinesDeduped = [];
+        for (const ln of combinedLines) {
+            const code = ln && (ln.productCode || ln.code);
+            if (!code) {
+                combinedLinesDeduped.push(ln);
+                continue;
+            }
+            const key = String(code).trim().toLowerCase();
+            const ex = _lineByCode.get(key);
+            if (ex) {
+                ex.quantity = (Number(ex.quantity) || 0) + (Number(ln.quantity) || 0);
+                ex.discountAmount =
+                    (Number(ex.discountAmount) || 0) + (Number(ln.discountAmount) || 0);
+            } else {
+                const copy = { ...ln };
+                _lineByCode.set(key, copy);
+                combinedLinesDeduped.push(copy);
+            }
+        }
         const mergedStts = sortedRows.map((r) => Number(r.display_stt) || 0).filter(Boolean);
         const mergedSourceCode = sortedRows.map((r) => r.number).join('+');
         const combinedComment = sortedRows
@@ -1112,7 +1137,7 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
                         baseRow.district_name,
                         baseRow.ward_code,
                         baseRow.ward_name,
-                        JSON.stringify(combinedLines),
+                        JSON.stringify(combinedLinesDeduped),
                         totalQty,
                         totalUntaxed,
                         totalDiscount,
@@ -1652,6 +1677,28 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
                 note: 'Đã có PBH. Gửi ?split=true để tạo PBH bổ sung (tách đơn).',
             });
         }
+        // BUG FIX (2026-06-24): đơn ĐÃ nằm trong PBH GỘP (merge-to-pbh) có source_id=NULL
+        // (merged PBH spans nhiều member) nên existsQ theo source_id KHÔNG thấy → trước
+        // đây tạo PBH thứ 2 = double trừ kho + double trừ ví (stale-tab/direct-API).
+        // Bắt theo source_code membership giống cancel route (native-orders.js:119-122).
+        if (existingPbhs.length === 0 && !splitMode) {
+            const mergedQ = await pool.query(
+                `SELECT * FROM fast_sale_orders
+                 WHERE source_type = 'native_order' AND state <> 'cancel'
+                   AND (source_code = $1 OR source_code LIKE $2
+                        OR source_code LIKE $3 OR source_code LIKE $4)
+                 ORDER BY split_index ASC, date_created ASC LIMIT 1`,
+                [src.code, `${src.code}+%`, `%+${src.code}+%`, `%+${src.code}`]
+            );
+            if (mergedQ.rows.length) {
+                return res.json({
+                    success: true,
+                    order: mapRow(mergedQ.rows[0]),
+                    idempotent: true,
+                    note: 'Đơn đã nằm trong PBH gộp — không tạo PBH riêng.',
+                });
+            }
+        }
         const splitIndex = existingPbhs.length + 1; // 1 = PBH đầu, ≥2 = tách đơn.
 
         // 2026-06-04: HỢP NHẤT 1 mã NJ/đơn — PBH number = mã đơn web (NJ-...) thay vì
@@ -2081,34 +2128,49 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
         // 2026-06-04: THU HỘ — trừ ví khách (nếu có số dư) cho phần COD còn lại.
         // Trừ thật khỏi ví (idempotent theo PBH number), giảm residual = COD còn lại.
         // Ví đủ trả hết → native order coi như "đã thanh toán" (residual=0).
-        const wlt = await _applyWalletToPbh(
-            pool,
-            src.phone,
-            r.rows[0],
-            req.body?._editor?.userName || req.body?.userName || null
-        );
-        if (wlt.deducted > 0) {
-            const upd = await pool.query(
-                `UPDATE fast_sale_orders
-                 SET payment_amount = COALESCE(payment_amount,0) + $1,
-                     residual = $2,
-                     cash_on_delivery = $2,
-                     wallet_deducted = COALESCE(wallet_deducted,0) + $1,
-                     date_updated = NOW()
-                 WHERE id = $3 RETURNING *`,
-                [wlt.deducted, wlt.residualAfter, r.rows[0].id]
-            );
-            if (upd.rows[0]) r.rows[0] = upd.rows[0];
-            // SSE ví → pill số dư + ví KH refresh
-            if (_notifyClients) {
-                try {
-                    _notifyClients(
-                        `web2:wallet:${String(src.phone).replace(/\D/g, '')}`,
-                        { action: 'pbh-deduct', phone: src.phone, ts: Date.now() },
-                        'update'
+        // BUG FIX (2026-06-24): withdraw + UPDATE wallet_deducted PHẢI atomic. Trước đây
+        // _applyWalletToPbh(pool) → processWithdraw COMMIT riêng rồi pool.query(UPDATE) rời
+        // → crash/lỗi giữa = ví bị trừ nhưng wallet_deducted=0 → cancel sau hoàn 0đ (mất
+        // tiền). Truyền client → runWithTx reuse client → 2 thao tác cùng commit/rollback
+        // (giống applyWalletToUnpaidPbhs). Ví lỗi KHÔNG chặn PBH đã tạo (giữ semantics cũ).
+        let walletDeductedNow = 0;
+        try {
+            await withTransaction(pool, async (client) => {
+                const wlt = await _applyWalletToPbh(
+                    client,
+                    src.phone,
+                    r.rows[0],
+                    req.body?._editor?.userName || req.body?.userName || null
+                );
+                if (wlt.deducted > 0) {
+                    const upd = await client.query(
+                        `UPDATE fast_sale_orders
+                         SET payment_amount = COALESCE(payment_amount,0) + $1,
+                             residual = $2,
+                             cash_on_delivery = $2,
+                             wallet_deducted = COALESCE(wallet_deducted,0) + $1,
+                             date_updated = NOW()
+                         WHERE id = $3 RETURNING *`,
+                        [wlt.deducted, wlt.residualAfter, r.rows[0].id]
                     );
-                } catch {}
-            }
+                    if (upd.rows[0]) r.rows[0] = upd.rows[0];
+                    walletDeductedNow = wlt.deducted;
+                }
+            });
+        } catch (e) {
+            // Rollback → ví + wallet_deducted nhất quán (cả 2 không đổi); chỉ log, KHÔNG
+            // ném (PBH đã commit ở transaction trên không được rớt vì lỗi thu hộ ví).
+            console.warn('[FAST-SALE-ORDERS] from-native-order wallet apply failed:', e.message);
+        }
+        if (walletDeductedNow > 0 && _notifyClients) {
+            // SSE ví → pill số dư + ví KH refresh
+            try {
+                _notifyClients(
+                    `web2:wallet:${String(src.phone).replace(/\D/g, '')}`,
+                    { action: 'pbh-deduct', phone: src.phone, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
         }
 
         const o = mapRow(r.rows[0]);

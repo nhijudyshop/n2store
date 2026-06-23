@@ -1312,7 +1312,11 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                     const lockQ =
                         row.source_order_type === 'pbh'
                             ? await client.query(
-                                  `SELECT id FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                                  // BUG FIX (2026-06-24): thiếu `state <> 'cancel'` ở nhánh pbh
+                                  // (2 nhánh kia + comment 1309-1311 đều có) → re-arm
+                                  // wallet_deducted/stock_restored lên PBH ĐÃ HUỶ → cancel sau
+                                  // double-refund ví + phantom-restock. Mirror native branch.
+                                  `SELECT id FROM fast_sale_orders WHERE number = $1 AND state <> 'cancel' FOR UPDATE`,
                                   [row.source_order_code]
                               )
                             : await client.query(
