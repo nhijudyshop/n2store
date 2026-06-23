@@ -178,6 +178,22 @@
             renderGarments();
             e.target.value = '';
         });
+        // Kho ảnh free → chọn ảnh người / quần áo từ kho bản quyền-free.
+        el('aihTryPersonStock')?.addEventListener('click', () => {
+            if (H().pickStock)
+                H().pickStock((dataUrl) => {
+                    person = dataUrl;
+                    renderPerson();
+                });
+        });
+        el('aihTryGarmentStock')?.addEventListener('click', () => {
+            if (H().pickStock)
+                H().pickStock((dataUrl) => {
+                    if (garments.length >= 5) return H().toast('Tối đa 5 ảnh quần áo', 'warning');
+                    garments.push(dataUrl);
+                    renderGarments();
+                });
+        });
         el('aihTryGo')?.addEventListener('click', run);
         renderPerson();
         renderGarments();

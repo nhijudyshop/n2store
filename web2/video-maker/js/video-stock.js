@@ -78,6 +78,7 @@
             } catch {}
             st.ov = null;
         }
+        st.onPick = null; // reset callback dùng chung (ai-hub) khi đóng
     }
 
     async function doSearch(resetPage) {
@@ -149,6 +150,17 @@
     }
 
     async function pick(it, cell) {
+        // 2026-06-24: callback dùng chung — trang khác (ai-hub Tạo ảnh / Ghép đồ)
+        // mở picker với opts.onPick(item,cell) → tự xử lý ảnh chọn, bỏ qua logic
+        // riêng của video-maker bên dưới.
+        if (st.onPick) {
+            try {
+                st.onPick(it, cell);
+            } catch (e) {
+                /* ignore */
+            }
+            return;
+        }
         if (it.type === 'video') {
             toast('Đang tải video stock…', 'info');
             try {
@@ -223,6 +235,7 @@
         opts = opts || {};
         injectCss();
         close();
+        st.onPick = typeof opts.onPick === 'function' ? opts.onPick : null;
         // ratio từ trang nếu có (state.ratio) — mặc định dọc 9:16.
         try {
             const r =

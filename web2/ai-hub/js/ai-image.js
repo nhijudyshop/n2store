@@ -54,6 +54,10 @@
             if (editImageData && !(p && p.editsImage)) clearSource();
         });
         document.getElementById('aihImgGen').addEventListener('click', generate);
+        // Kho ảnh free → chọn ảnh bản quyền-free làm ẢNH GỐC (Nano Banana sửa/ghép).
+        document.getElementById('aihImgStock')?.addEventListener('click', () => {
+            if (H().pickStock) H().pickStock((dataUrl) => setSource(dataUrl));
+        });
         document.getElementById('aihImgEnhance')?.addEventListener('click', enhancePrompt);
         document.getElementById('aihImgPrompt').addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();

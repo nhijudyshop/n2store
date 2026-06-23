@@ -205,6 +205,15 @@
                                 <button class="aih-gen" id="aihImgGen">
                                     <i data-lucide="wand-sparkles"></i> Tạo ảnh
                                 </button>
+                                <button
+                                    type="button"
+                                    class="aih-gen"
+                                    id="aihImgStock"
+                                    style="background: #475569; margin-top: 8px"
+                                    title="Chọn ảnh bản quyền-free làm ảnh gốc để Nano Banana sửa/ghép"
+                                >
+                                    <i data-lucide="folder-open"></i> Kho ảnh free (làm ảnh gốc)
+                                </button>
                                 <p class="aih-keyhint">
                                     🟢 <b>Pollinations</b> dùng được ngay. Các nguồn khác
                                     (Cloudflare, Gemini) do admin thiết lập sẵn.
@@ -231,6 +240,14 @@
                                     <label class="aih-label">1) Ảnh người</label>
                                     <div id="aihTryPerson" style="margin-bottom: 6px"></div>
                                     <input type="file" id="aihTryPersonFile" accept="image/*" />
+                                    <button
+                                        type="button"
+                                        class="aih-enhance"
+                                        id="aihTryPersonStock"
+                                        style="margin-top: 6px"
+                                    >
+                                        <i data-lucide="folder-open"></i> Kho ảnh free
+                                    </button>
                                 </div>
                                 <div class="aih-field">
                                     <label class="aih-label"
@@ -251,6 +268,14 @@
                                         accept="image/*"
                                         multiple
                                     />
+                                    <button
+                                        type="button"
+                                        class="aih-enhance"
+                                        id="aihTryGarmentStock"
+                                        style="margin-top: 6px"
+                                    >
+                                        <i data-lucide="folder-open"></i> Kho ảnh free
+                                    </button>
                                 </div>
                                 <div class="aih-field">
                                     <label class="aih-label" for="aihTryPrompt"
@@ -286,10 +311,13 @@
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
-        <script src="./js/ai-hub.js?v=20260623c"></script>
+        <script src="./js/ai-hub.js?v=20260624a"></script>
         <script src="./js/ai-chat.js?v=20260623g"></script>
-        <script src="./js/ai-image.js?v=20260624a"></script>
-        <script src="./js/ai-tryon.js?v=20260624a"></script>
+        <!-- Kho ảnh/video miễn phí dùng chung (từ video-maker) — picker stock cho
+             tab Tạo ảnh + Ghép đồ (onPick callback). -->
+        <script src="../video-maker/js/video-stock.js?v=20260624b"></script>
+        <script src="./js/ai-image.js?v=20260624b"></script>
+        <script src="./js/ai-tryon.js?v=20260624b"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
         <script>
             (function () {
