@@ -207,6 +207,140 @@
         window.open(url, '_blank');
     }
 
+    // ---------- gợi ý mật khẩu: 1 từ tiếng Anh 9 chữ cái ----------
+    // Danh sách từ thường gặp, dễ nhớ, dễ đọc — lọc đúng 9 ký tự ở runtime
+    // để chống lỗi gõ nhầm độ dài.
+    const PASS_WORDS = [
+        'adventure',
+        'beautiful',
+        'chocolate',
+        'wonderful',
+        'knowledge',
+        'breakfast',
+        'celebrate',
+        'dangerous',
+        'education',
+        'furniture',
+        'gardening',
+        'happiness',
+        'important',
+        'jellyfish',
+        'lightning',
+        'marketing',
+        'necessary',
+        'operation',
+        'paragraph',
+        'sometimes',
+        'telephone',
+        'vegetable',
+        'waterfall',
+        'xylophone',
+        'yesterday',
+        'butterfly',
+        'cardboard',
+        'challenge',
+        'character',
+        'chemistry',
+        'community',
+        'companion',
+        'corporate',
+        'dimension',
+        'direction',
+        'discovery',
+        'elephants',
+        'emergency',
+        'equipment',
+        'excellent',
+        'existence',
+        'favourite',
+        'framework',
+        'freshness',
+        'guarantee',
+        'handshake',
+        'highlight',
+        'household',
+        'hurricane',
+        'influence',
+        'insurance',
+        'invention',
+        'landscape',
+        'lifestyle',
+        'limestone',
+        'magnitude',
+        'mechanism',
+        'microwave',
+        'milkshake',
+        'moonlight',
+        'mountains',
+        'newspaper',
+        'nightfall',
+        'nutrition',
+        'objective',
+        'offspring',
+        'orchestra',
+        'packaging',
+        'pineapple',
+        'pollution',
+        'porcelain',
+        'portfolio',
+        'president',
+        'principle',
+        'promotion',
+        'quotation',
+        'recognize',
+        'rectangle',
+        'represent',
+        'resources',
+        'riverside',
+        'saxophone',
+        'september',
+        'signature',
+        'snowflake',
+        'spaceship',
+        'spotlight',
+        'staircase',
+        'statement',
+        'structure',
+        'substance',
+        'sunflower',
+        'sweetness',
+        'synthetic',
+        'territory',
+        'therefore',
+        'thumbnail',
+        'timetable',
+        'tradition',
+        'treasures',
+        'treatment',
+        'triangles',
+        'universal',
+        'variation',
+        'viewpoint',
+        'volunteer',
+        'warehouse',
+        'whirlwind',
+        'wholesome',
+        'wondering',
+        'yardstick',
+    ].filter((w) => w.length === 9);
+
+    function genPassword() {
+        const list = PASS_WORDS.length ? PASS_WORDS : ['wonderful'];
+        return list[Math.floor(Math.random() * list.length)];
+    }
+
+    // Sinh mật khẩu vào ô input + để type=text cho admin đọc/copy đưa NV.
+    function fillGenPassword(inputId) {
+        const el = document.getElementById(inputId);
+        if (!el) return;
+        const pwd = genPassword();
+        el.type = 'text';
+        el.value = pwd;
+        el.focus();
+        el.select?.();
+        notify('Mật khẩu gợi ý: ' + pwd, 'info');
+    }
+
     // ---------- user modal (create + edit) ----------
     function openUserModal(user) {
         STATE.editingUser = user || null;
@@ -475,6 +609,12 @@
         });
         document.getElementById('uUserSaveBtn').addEventListener('click', confirmUserSave);
         document.getElementById('uPwdSaveBtn').addEventListener('click', confirmPasswordSave);
+        document
+            .getElementById('uFormPassGen')
+            ?.addEventListener('click', () => fillGenPassword('uFormPassword'));
+        document
+            .getElementById('uPwdGen')
+            ?.addEventListener('click', () => fillGenPassword('uPwdNew'));
         document.getElementById('uPermsSaveBtn').addEventListener('click', confirmPermsSave);
         document
             .getElementById('uPermsResetDefaults')

@@ -233,7 +233,7 @@
         if (!dus.length) {
             el.innerHTML = `<div class="cc-empty">
                 <p>Chưa có nhân viên nào từ máy chấm công.</p>
-                <p class="cc-empty-hint">Bật agent đồng bộ máy DG-600, dùng ADMS push, hoặc bấm <b>Nhập Excel/TXT</b> để nạp dữ liệu.</p>
+                <p class="cc-empty-hint">Chạy agent đồng bộ ở máy shop (<b>install-windows.bat</b> / <b>lay-du-lieu.bat</b>) để nạp dữ liệu từ máy DG-600. Danh sách PIN sẽ tự xuất hiện.</p>
             </div>`;
             return;
         }

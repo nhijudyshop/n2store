@@ -17,7 +17,7 @@
 
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623fix" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
-        <link rel="stylesheet" href="css/users.css?v=20260622t6" />
+        <link rel="stylesheet" href="css/users.css?v=20260623pg" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
@@ -106,8 +106,18 @@
                     </label>
                     <label class="u-field" id="uPasswordField">
                         <span>Mật khẩu <em>*</em></span>
-                        <input id="uFormPassword" type="password" autocomplete="new-password" />
-                        <small>Tối thiểu 8 ký tự.</small>
+                        <div class="u-pass-row">
+                            <input id="uFormPassword" type="text" autocomplete="new-password" />
+                            <button
+                                class="u-pass-gen"
+                                type="button"
+                                id="uFormPassGen"
+                                title="Tạo mật khẩu ngẫu nhiên (1 từ tiếng Anh 9 chữ)"
+                            >
+                                <i data-lucide="dices"></i> Tạo
+                            </button>
+                        </div>
+                        <small>Tối thiểu 8 ký tự. Bấm "Tạo" để sinh 1 từ tiếng Anh dễ nhớ.</small>
                     </label>
                     <label class="u-field">
                         <span>Họ tên <em>*</em></span>
@@ -163,7 +173,17 @@
                 <div class="u-modal-body">
                     <label class="u-field">
                         <span>Mật khẩu mới <em>*</em></span>
-                        <input id="uPwdNew" type="password" autocomplete="new-password" />
+                        <div class="u-pass-row">
+                            <input id="uPwdNew" type="text" autocomplete="new-password" />
+                            <button
+                                class="u-pass-gen"
+                                type="button"
+                                id="uPwdGen"
+                                title="Tạo mật khẩu ngẫu nhiên (1 từ tiếng Anh 9 chữ)"
+                            >
+                                <i data-lucide="dices"></i> Tạo
+                            </button>
+                        </div>
                         <small>Tối thiểu 8 ký tự. Mọi session hiện tại sẽ bị logout.</small>
                     </label>
                 </div>
@@ -228,7 +248,7 @@
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../shared/web2-sidebar.js?v=20260623adm2"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
-        <script src="js/users-app.js?v=20260623w3"></script>
+        <script src="js/users-app.js?v=20260623pg"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

@@ -350,6 +350,49 @@
     gap: 12px;
 }
 
+/* Password field + auto-generate button */
+.u-pass-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.u-pass-row input {
+    flex: 1;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.02em;
+}
+.u-pass-gen {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 13px;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #eef2ff, #e0e7ff);
+    color: #4338ca;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 120ms,
+        transform 80ms,
+        box-shadow 120ms;
+}
+.u-pass-gen:hover {
+    background: linear-gradient(180deg, #e0e7ff, #c7d2fe);
+    box-shadow: 0 2px 8px rgba(67, 56, 202, 0.18);
+}
+.u-pass-gen:active {
+    transform: translateY(1px);
+}
+.u-pass-gen i {
+    width: 15px;
+    height: 15px;
+}
+
 /* Permissions matrix */
 .u-perms-toolbar {
     display: flex;
