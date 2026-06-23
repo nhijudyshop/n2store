@@ -469,8 +469,6 @@
     background: var(--wz-ok);
     box-shadow: 0 0 0 3px var(--wz-ok-soft);
 }
-.wz-dot.qr_pending,
-.wz-dot.scanned,
 .wz-dot.connecting,
 .wz-dot.reconnecting {
     background: var(--wz-warn);
@@ -478,8 +476,6 @@
 }
 .wz-dot.error,
 .wz-dot.banned,
-.wz-dot.declined,
-.wz-dot.qr_expired,
 .wz-dot.kicked {
     background: var(--wz-danger);
     box-shadow: 0 0 0 3px var(--wz-danger-soft);
@@ -584,60 +580,31 @@
     align-items: center;
 }
 
-/* ── QR modal ───────────────────────────────────────────────────────── */
-.wz-qr-box {
+/* (QR modal styles đã GỠ 2026-06-23 — không còn đăng nhập QR.) */
+
+/* Hướng dẫn đăng nhập (TK chưa kết nối): mở chat.zalo.me rồi Đăng nhập Zalo. */
+.wz-login-guide {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    padding: 4px;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: var(--wz-radius-sm, 8px);
+    font-size: 12px;
+    line-height: 1.45;
+    background: var(--wz-blue-soft, #e8f2ff);
+    color: var(--wz-blue, #0068ff);
+    border: 1px solid color-mix(in srgb, var(--wz-blue, #0068ff) 22%, transparent);
 }
-.wz-qr-frame {
-    position: relative;
-    width: 244px;
-    height: 244px;
-    border-radius: 18px;
-    padding: 10px;
-    background: #fff;
-    border: 1px solid var(--wz-line);
-    box-shadow: var(--wz-shadow-1);
-    display: grid;
-    place-items: center;
+.wz-login-guide a {
+    color: inherit;
+    text-decoration: underline;
 }
-.wz-qr-frame.is-waiting::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border-radius: 20px;
-    background: conic-gradient(from 0deg, transparent 60%, var(--wz-blue));
-    -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    padding: 2px;
-    animation: wzSpin 2.6s linear infinite;
-    opacity: 0.5;
-}
-.wz-qr-img {
-    width: 100%;
-    height: 100%;
-    border-radius: 10px;
-    object-fit: contain;
-    transition: opacity var(--wz-mid) ease;
-}
-.wz-qr-hint {
-    font-size: 13px;
-    color: var(--wz-muted);
-    text-align: center;
-    max-width: 290px;
-    line-height: 1.5;
-}
-.wz-qr-status {
-    font-size: 13.5px;
-    font-weight: 600;
-    text-align: center;
-    min-height: 20px;
+.wz-login-guide i {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
 }
 
 /* ── Chat 2-pane ────────────────────────────────────────────────────── */
@@ -1345,10 +1312,8 @@
     .wz-lookup-result {
         animation: none !important;
     }
-    .wz-dot.qr_pending,
-    .wz-dot.scanned,
     .wz-dot.connecting,
-    .wz-qr-frame.is-waiting::before,
+    .wz-dot.reconnecting,
     .wz-skel::after,
     .wz-btn.is-busy::after {
         animation: none !important;

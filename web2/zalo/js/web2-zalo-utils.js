@@ -112,11 +112,7 @@
         connected: 'Đã kết nối',
         token_ok: 'Token OK',
         connecting: 'Đang kết nối…',
-        qr_pending: 'Chờ quét QR',
-        scanned: 'Đã quét — chờ xác nhận',
         disconnected: 'Ngắt kết nối',
-        declined: 'Bị từ chối',
-        qr_expired: 'QR hết hạn',
         banned: 'Bị khoá',
         kicked: 'Bị giành phiên (mở nơi khác?)',
         reconnecting: 'Đang kết nối lại…',
@@ -138,7 +134,6 @@
             search: '',
         },
         zns: { templates: [], log: [] },
-        qr: { key: null, timer: null },
     };
     const _autoSynced = new Set(); // account đã auto seed danh bạ (tránh lặp)
 

@@ -300,13 +300,14 @@
                 </header>
                 <div class="wz-modal-body modal-body">
                     <p class="wz-hint" style="margin: 0 0 12px">
-                        Đặt tên gợi nhớ, rồi chọn 1 trong 2 cách:<br />
-                        • <b>Đăng nhập bằng Zalo đang mở</b> — nhanh, không quét QR,
-                        <b>không văng Zalo Web</b>. Cần tiện ích N2Store + đang đăng nhập đúng tài
-                        khoản trên <b>chat.zalo.me</b>.<br />
-                        • <b>Tạo & quét QR</b> — quét bằng app Zalo trên điện thoại.<br />
-                        ⚠ Nên dùng <b>tài khoản phụ</b> (đăng nhập không chính thức, có thể bị
-                        khoá).
+                        Đặt tên gợi nhớ, rồi:<br />
+                        1. Mở <b>chat.zalo.me</b> trên trình duyệt máy này + đăng nhập đúng tài
+                        khoản Zalo.<br />
+                        2. Bấm <b>Đăng nhập bằng Zalo đang mở</b> dưới đây (cần tiện ích
+                        <b>N2Store</b>).<br />
+                        Máy chủ <b>không lưu mật khẩu/phiên</b> — chỉ dùng phiên đang mở trên trình
+                        duyệt. ⚠ Nên dùng <b>tài khoản phụ</b> (đăng nhập không chính thức, có thể
+                        bị khoá).
                     </p>
                     <div class="wz-field">
                         <label for="wzAddLabel">Tên gợi nhớ</label>
@@ -317,9 +318,6 @@
                     <button class="wz-btn" id="wzAddCancel" type="button">
                         <i data-lucide="x"></i> Hủy
                     </button>
-                    <button class="wz-btn" id="wzAddSave" type="button">
-                        <i data-lucide="qr-code"></i> Tạo & quét QR
-                    </button>
                     <button class="wz-btn wz-btn-primary" id="wzAddSaveCookie" type="button">
                         <i data-lucide="log-in"></i> Đăng nhập bằng Zalo đang mở
                     </button>
@@ -327,39 +325,7 @@
             </div>
         </div>
 
-        <!-- QR login modal -->
-        <div
-            class="wz-modal"
-            id="wzQrModal"
-            hidden
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="wzQrTitle"
-        >
-            <div class="wz-modal-backdrop" id="wzQrBackdrop"></div>
-            <div class="wz-modal-panel modal-content">
-                <header class="wz-modal-head">
-                    <h2 id="wzQrTitle">Đăng nhập Zalo bằng QR</h2>
-                    <button class="wz-modal-close" id="wzQrClose" type="button" aria-label="Đóng">
-                        <i data-lucide="x"></i>
-                    </button>
-                </header>
-                <div class="wz-modal-body modal-body">
-                    <div class="wz-qr-box">
-                        <div class="wz-qr-frame is-waiting" id="wzQrFrame">
-                            <img class="wz-qr-img" id="wzQrImg" alt="Mã QR đăng nhập Zalo" />
-                        </div>
-                        <div class="wz-qr-status" id="wzQrStatus" role="status" aria-live="polite">
-                            Đang tạo mã QR…
-                        </div>
-                        <div class="wz-qr-hint">
-                            Mở Zalo trên điện thoại → <b>Cá nhân → Quét mã QR</b> → quét mã trên để
-                            đăng nhập.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- (QR login modal đã GỠ 2026-06-23 — chỉ đăng nhập bằng phiên chat.zalo.me) -->
 
         <!-- OA connect modal -->
         <div

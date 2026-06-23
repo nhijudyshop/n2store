@@ -153,8 +153,8 @@
                     <span class="wz-choice-ic personal"><i data-lucide="user-plus"></i></span>
                     <div><h3>Tài khoản cá nhân</h3></div>
                 </div>
-                <p>Đăng nhập bằng QR → chat 2 chiều với khách như người thật, không giới hạn 24h như Facebook.</p>
-                <span class="wz-choice-cta">Thêm & quét QR <i data-lucide="arrow-right"></i></span>
+                <p>Đăng nhập bằng phiên chat.zalo.me trên trình duyệt máy này → chat 2 chiều với khách như người thật, không giới hạn 24h như Facebook.</p>
+                <span class="wz-choice-cta">Thêm tài khoản <i data-lucide="arrow-right"></i></span>
             </div>` +
             `<div class="wz-acc-card wz-choice" id="wzAddOa" role="button" tabindex="0" aria-label="Kết nối Zalo OA">
                 <div class="wz-acc-top">
@@ -223,7 +223,7 @@
         if (!ext || !ext.hasExtension || !ext.hasExtension()) {
             if (!silent)
                 await Popup.warning(
-                    'Cần cài tiện ích N2Store trên trình duyệt để "Đăng nhập Zalo" 1 chạm. Hoặc dùng nút QR.'
+                    'Cần cài tiện ích N2Store trên trình duyệt máy này để "Đăng nhập Zalo" (lấy phiên chat.zalo.me đang mở).'
                 );
             return false;
         }
@@ -281,94 +281,13 @@
         }
     }
 
-    // ── QR login flow ──────────────────────────────────────────────────
-    async function startQr(key) {
-        openQrModal('Đang tạo mã QR…');
-        state.qr.key = key;
-        try {
-            const r = await window.ZaloApi.loginQr(key);
-            if (r.alreadyConnected) {
-                closeQrModal();
-                notify('Tài khoản đã kết nối', 'success');
-                return loadAccounts();
-            }
-            pollQr(key);
-        } catch (e) {
-            $('#wzQrStatus').innerHTML = `<span class="wz-err">${esc(e.message)}</span>`;
-        }
-    }
-
-    function pollQr(key) {
-        clearInterval(state.qr.timer);
-        let errCount = 0;
-        state.qr.timer = setInterval(async () => {
-            if (state.qr.key !== key) return clearInterval(state.qr.timer);
-            try {
-                const r = await window.ZaloApi.qr(key);
-                errCount = 0;
-                if (r.image && $('#wzQrImg')) {
-                    $('#wzQrImg').src = r.image;
-                    $('#wzQrImg').style.visibility = 'visible';
-                    $('#wzQrFrame')?.classList.remove('is-waiting'); // tắt vòng xoay khi đã có QR
-                }
-                const lbl = STATUS_LABEL[r.status] || r.status || '';
-                $('#wzQrStatus').innerHTML = r.scanned?.name
-                    ? `Đã quét: <b>${esc(r.scanned.name)}</b> — xác nhận trên điện thoại`
-                    : r.status === 'error'
-                      ? `<span class="wz-err">${esc(r.error || 'Lỗi đăng nhập')}</span>`
-                      : esc(lbl);
-                if (r.status === 'connected') {
-                    clearInterval(state.qr.timer);
-                    closeQrModal();
-                    notify('Đăng nhập Zalo thành công!', 'success');
-                    loadAccounts();
-                } else if (r.status === 'qr_expired' || r.status === 'declined') {
-                    clearInterval(state.qr.timer);
-                }
-            } catch (e) {
-                // chịu được vài lần lỗi mạng tạm thời; quá ngưỡng thì dừng + báo
-                if (++errCount >= 4) {
-                    clearInterval(state.qr.timer);
-                    const el = $('#wzQrStatus');
-                    if (el)
-                        el.innerHTML = `<span class="wz-err">${esc(e.message || 'Lỗi mạng — đóng và thử lại')}</span>`;
-                }
-            }
-        }, 1500);
-    }
-
-    function openQrModal(msg) {
-        $('#wzQrImg').src = '';
-        $('#wzQrImg').style.visibility = 'hidden';
-        $('#wzQrFrame')?.classList.add('is-waiting');
-        $('#wzQrStatus').textContent = msg || '';
-        showModal('#wzQrModal');
-    }
-    function closeQrModal() {
-        clearInterval(state.qr.timer);
-        state.qr.key = null;
-        hideModal('#wzQrModal');
-    }
+    // (QR login flow đã GỠ 2026-06-23 — đăng nhập DUY NHẤT bằng phiên chat.zalo.me
+    // trên trình duyệt qua loginZaloCookie. Thêm TK mới cũng qua cookie path bên dưới.)
 
     // ── Add personal account modal (thay prompt() — thân thiện hơn) ────────
     function addPersonal() {
         $('#wzAddLabel').value = 'Zalo shop';
         showModal('#wzAddModal');
-    }
-    async function saveAddPersonal() {
-        const label = ($('#wzAddLabel').value || '').trim() || 'Zalo shop';
-        const btn = $('#wzAddSave');
-        setBusy(btn, true);
-        try {
-            const r = await window.ZaloApi.createAccount(label);
-            hideModal('#wzAddModal');
-            await loadAccounts();
-            if (r.data?.accountKey) startQr(r.data.accountKey);
-        } catch (e) {
-            notify('✗ ' + e.message, 'error');
-        } finally {
-            setBusy(btn, false);
-        }
     }
 
     // THÊM tài khoản bằng phiên chat.zalo.me (cookie) — KHÔNG quét QR (2026-06-20).
@@ -450,10 +369,7 @@
     // ── Export ─────────────────────────────────────────────────────────────
     WZApp.loadAccounts = loadAccounts;
     WZApp.onAccAction = onAccAction;
-    WZApp.startQr = startQr;
-    WZApp.closeQrModal = closeQrModal;
     WZApp.addPersonal = addPersonal;
-    WZApp.saveAddPersonal = saveAddPersonal;
     WZApp.saveAddPersonalCookie = saveAddPersonalCookie;
     WZApp.openOaModal = openOaModal;
     WZApp.closeOaModal = closeOaModal;

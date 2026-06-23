@@ -86,20 +86,15 @@
             }
         });
 
-        // Add-personal modal
-        $('#wzAddSave').addEventListener('click', WZApp.saveAddPersonal);
+        // Add-personal modal (đăng nhập bằng phiên chat.zalo.me — KHÔNG QR)
         $('#wzAddSaveCookie')?.addEventListener('click', WZApp.saveAddPersonalCookie);
         $('#wzAddCancel').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
         $('#wzAddClose').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
         $('#wzAddBackdrop').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
         $('#wzAddLabel').addEventListener('keydown', (e) => {
             if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt đang soạn
-            if (e.key === 'Enter') WZApp.saveAddPersonal();
+            if (e.key === 'Enter') WZApp.saveAddPersonalCookie();
         });
-
-        // QR modal
-        $('#wzQrClose').addEventListener('click', WZApp.closeQrModal);
-        $('#wzQrBackdrop').addEventListener('click', WZApp.closeQrModal);
 
         // OA modal
         $('#wzOaClose').addEventListener('click', WZApp.closeOaModal);
@@ -145,7 +140,6 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (!$('#wzAddModal').hidden) WZApp.hideModal('#wzAddModal');
-                else if (!$('#wzQrModal').hidden) WZApp.closeQrModal();
                 else if (!$('#wzOaModal').hidden) WZApp.closeOaModal();
             }
         });
