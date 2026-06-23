@@ -166,8 +166,16 @@
             body: JSON.stringify({ avatar: cfg ? JSON.stringify(cfg) : null }),
         });
         const j = await res.json().catch(() => ({}));
-        if (!res.ok || !j.success)
+        if (!res.ok || !j.success) {
+            // Lỗi hay gặp nhất khi "lưu nhưng không cập nhật": token Web 2.0 hết hạn
+            // → 401 (WEB2_AUTH_ENFORCE). Báo RÕ để user đăng nhập lại thay vì tưởng bug.
+            if (res.status === 401 || res.status === 403) {
+                throw new Error(
+                    'Phiên đăng nhập Web 2.0 đã hết hạn — hãy đăng xuất/đăng nhập lại rồi đổi avatar.'
+                );
+            }
             throw new Error(j.error || 'Lưu avatar lỗi (HTTP ' + res.status + ')');
+        }
         // Cập nhật user trong localStorage + refresh footer sidebar (mọi trang).
         auth.storeLogin({ token: stored.token, expiresAt: stored.expiresAt, user: j.user });
         const aside = document.querySelector('.web2-aside');

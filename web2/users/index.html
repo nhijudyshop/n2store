@@ -48,43 +48,119 @@
                     </div>
                 </header>
 
-                <section class="u-toolbar">
-                    <div class="u-toolbar-row">
-                        <input
-                            id="uSearch"
-                            type="search"
-                            placeholder="Tìm theo username, tên, email…"
-                            autocomplete="off"
-                            class="u-search-input"
-                        />
-                        <label class="u-toggle">
-                            <input type="checkbox" id="uShowInactive" />
-                            <span>Hiển thị user đã vô hiệu</span>
-                        </label>
-                    </div>
-                </section>
+                <!-- 2026-06-24: gộp "Phân quyền" (users-permissions) vào module Người
+                     dùng — 2 tab: danh sách user + ma trận phân quyền (nhúng iframe). -->
+                <div
+                    class="u-tabs"
+                    role="tablist"
+                    style="
+                        display: flex;
+                        gap: 6px;
+                        margin: 0 0 14px;
+                        border-bottom: 1px solid var(--web2-border, #e2e8f0);
+                    "
+                >
+                    <button
+                        class="u-tab is-active"
+                        data-utab="users"
+                        type="button"
+                        role="tab"
+                        style="
+                            background: none;
+                            border: none;
+                            border-bottom: 2px solid var(--web2-primary, #2563eb);
+                            color: var(--web2-primary, #2563eb);
+                            font-weight: 600;
+                            font-size: 14px;
+                            padding: 8px 14px;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i data-lucide="users" style="width: 16px; height: 16px"></i> Người dùng
+                    </button>
+                    <button
+                        class="u-tab"
+                        data-utab="perms"
+                        type="button"
+                        role="tab"
+                        style="
+                            background: none;
+                            border: none;
+                            border-bottom: 2px solid transparent;
+                            color: #64748b;
+                            font-weight: 600;
+                            font-size: 14px;
+                            padding: 8px 14px;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                        "
+                    >
+                        <i data-lucide="shield-check" style="width: 16px; height: 16px"></i> Phân
+                        quyền
+                    </button>
+                </div>
 
-                <div class="u-table-wrap">
-                    <table class="data-table u-table" id="uTable">
-                        <thead>
-                            <tr>
-                                <th class="u-col-stt">#</th>
-                                <th>Username</th>
-                                <th class="u-col-pwd">Mật khẩu</th>
-                                <th>Họ tên</th>
-                                <th>Email / SĐT</th>
-                                <th class="u-col-role">Vai trò</th>
-                                <th class="u-col-state">Trạng thái</th>
-                                <th>Đăng nhập gần nhất</th>
-                                <th class="u-col-actions">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="uTableBody"></tbody>
-                    </table>
-                    <div class="u-empty" id="uEmpty" hidden>
-                        <i data-lucide="user-x"></i>
-                        <p>Chưa có user nào.</p>
+                <div id="uPanelUsers" class="u-tabpanel">
+                    <section class="u-toolbar">
+                        <div class="u-toolbar-row">
+                            <input
+                                id="uSearch"
+                                type="search"
+                                placeholder="Tìm theo username, tên, email…"
+                                autocomplete="off"
+                                class="u-search-input"
+                            />
+                            <label class="u-toggle">
+                                <input type="checkbox" id="uShowInactive" />
+                                <span>Hiển thị user đã vô hiệu</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <div class="u-table-wrap">
+                        <table class="data-table u-table" id="uTable">
+                            <thead>
+                                <tr>
+                                    <th class="u-col-stt">#</th>
+                                    <th>Username</th>
+                                    <th class="u-col-pwd">Mật khẩu</th>
+                                    <th>Họ tên</th>
+                                    <th>Email / SĐT</th>
+                                    <th class="u-col-role">Vai trò</th>
+                                    <th class="u-col-state">Trạng thái</th>
+                                    <th>Đăng nhập gần nhất</th>
+                                    <th class="u-col-actions">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="uTableBody"></tbody>
+                        </table>
+                        <div class="u-empty" id="uEmpty" hidden>
+                            <i data-lucide="user-x"></i>
+                            <p>Chưa có user nào.</p>
+                        </div>
                     </div>
+                </div>
+                <!-- /uPanelUsers -->
+
+                <div id="uPanelPerms" class="u-tabpanel" hidden>
+                    <iframe
+                        id="uPermFrame"
+                        title="Ma trận phân quyền Web 2.0"
+                        loading="lazy"
+                        style="
+                            width: 100%;
+                            height: calc(100vh - 190px);
+                            min-height: 480px;
+                            border: 1px solid var(--web2-border, #e2e8f0);
+                            border-radius: 10px;
+                            background: #fff;
+                        "
+                    ></iframe>
                 </div>
             </main>
         </div>
@@ -251,10 +327,38 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <!-- Avatar DiceBear (Web2UserProfile.avatarUrl) — load TRƯỚC app để table render
              avatar ngay, không chờ sidebar inject async. -->
-        <script src="../shared/web2-user-profile.js?v=20260623b"></script>
+        <script src="../shared/web2-user-profile.js?v=20260624a"></script>
         <script src="js/users-app.js?v=20260623up2"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+            // Tab switch: Người dùng ↔ Phân quyền (iframe lazy-load). Gộp users-permissions
+            // vào module Người dùng (2026-06-24).
+            (function () {
+                const tabs = document.querySelectorAll('.u-tab');
+                const panU = document.getElementById('uPanelUsers');
+                const panP = document.getElementById('uPanelPerms');
+                const frame = document.getElementById('uPermFrame');
+                let permLoaded = false;
+                function activate(name) {
+                    tabs.forEach((t) => {
+                        const on = t.dataset.utab === name;
+                        t.classList.toggle('is-active', on);
+                        t.style.color = on ? 'var(--web2-primary,#2563eb)' : '#64748b';
+                        t.style.borderBottomColor = on
+                            ? 'var(--web2-primary,#2563eb)'
+                            : 'transparent';
+                    });
+                    if (panU) panU.hidden = name !== 'users';
+                    if (panP) panP.hidden = name !== 'perms';
+                    if (name === 'perms' && !permLoaded && frame) {
+                        frame.src = '../users-permissions/index.html?embed=1';
+                        permLoaded = true;
+                    }
+                }
+                tabs.forEach((t) => t.addEventListener('click', () => activate(t.dataset.utab)));
+                // Deep-link: web2/users/?tab=perms mở thẳng tab Phân quyền.
+                if (new URLSearchParams(location.search).get('tab') === 'perms') activate('perms');
+            })();
         </script>
     </body>
 </html>

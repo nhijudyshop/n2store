@@ -113,6 +113,25 @@
                     gap: 4px 10px;
                 }
             }
+            /* Embed mode (?embed=1) — nhúng trong trang Người dùng (web2/users) qua
+               iframe: ẩn sidebar + chrome, full-width, bỏ tiêu đề lặp. */
+            body.w2-embed .web2-aside,
+            body.w2-embed .w2-mobile-menu-btn,
+            body.w2-embed .web2-aside-scrim {
+                display: none !important;
+            }
+            body.w2-embed .web2-shell {
+                display: block !important;
+            }
+            body.w2-embed .web2-main {
+                margin-left: 0 !important;
+                max-width: 100% !important;
+                padding: 14px 18px !important;
+            }
+            body.w2-embed .perm-main > h1,
+            body.w2-embed .perm-main > p {
+                display: none;
+            }
         </style>
     </head>
     <body class="web2-theme">
@@ -378,8 +397,11 @@
                         btn.textContent = origText;
                     }
                 };
+                const _embed = new URLSearchParams(location.search).get('embed') === '1';
+                if (_embed) document.body.classList.add('w2-embed');
                 document.addEventListener('DOMContentLoaded', async () => {
-                    if (window.Web2Sidebar)
+                    // Embed (nhúng trong trang Người dùng) → KHÔNG mount sidebar.
+                    if (!_embed && window.Web2Sidebar)
                         Web2Sidebar.mount('#web2Aside', { activeRoute: 'users-permissions' });
                     loadUsers();
                     // Matrix render cần registry trang từ server trước.

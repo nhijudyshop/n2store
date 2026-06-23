@@ -103,7 +103,7 @@
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
         // Hồ sơ user + đổi avatar DiceBear (mở từ footer sidebar) — mọi trang.
-        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260623b');
+        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624a');
         // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
         //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
         //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
@@ -420,6 +420,17 @@
             .replace(/\//g, '&#47;');
     }
 
+    // 2026-06-24: bỏ icon emoji ở cuối tên trang trong menu (user yêu cầu menu gọn).
+    // Cắt emoji + khoảng trắng thừa ở cuối label (giữ chữ + dấu tiếng Việt).
+    function cleanLabel(s) {
+        return String(s == null ? '' : s)
+            .replace(
+                /\s*(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}]|️|‍)+\s*$/gu,
+                ''
+            )
+            .trim();
+    }
+
     function isOurRoute(item) {
         return Boolean(item.our);
     }
@@ -537,9 +548,8 @@
             ? ''
             : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(item.label)}')"`;
         const soon = isImpl ? '' : ' <span class="web2-nav-soon">soon</span>';
-        // Đuôi " - WEB 2.0" cho item có code thật trong project (per user request).
-        const w2Tag = isWeb2Item(item) ? ' <span class="web2-nav-w2tag">- WEB 2.0</span>' : '';
-        return `<li><a href="${escapeHtml(href)}" class="${cls}" ${onclick}>${escapeHtml(item.label)}${w2Tag}${soon}</a></li>`;
+        // 2026-06-24 (user request): bỏ badge "- WEB 2.0" + emoji cuối tên trang.
+        return `<li><a href="${escapeHtml(href)}" class="${cls}" ${onclick}>${escapeHtml(cleanLabel(item.label))}${soon}</a></li>`;
     }
 
     function renderGroup(g, activeUrl) {
@@ -555,10 +565,9 @@
             const onclick = isImpl
                 ? ''
                 : `onclick="event.preventDefault();Web2Sidebar.alertSoon('${escapeHtml(g.label)}')"`;
-            const w2Tag = isWeb2Item(g) ? ' <span class="web2-nav-w2tag">- WEB 2.0</span>' : '';
             return `<a href="${escapeHtml(href)}" class="${cls}" ${onclick}>
                 <i data-lucide="${g.icon}" class="icon"></i>
-                <span class="label">${escapeHtml(g.label)}${w2Tag}</span>
+                <span class="label">${escapeHtml(cleanLabel(g.label))}</span>
             </a>`;
         }
         const hasOurChild = (g.children || []).some(isOurRoute);
