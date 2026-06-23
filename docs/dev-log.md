@@ -2,6 +2,24 @@
 
 ## 2026-06-23
 
+### [feat] Trợ lý AI Web 2.0 — chat giống ChatGPT + tạo ảnh, FREE, xoay nhiều key (group AI free hợp pháp)
+
+User muốn build "group AI" có "ChatGPT key free" + xoay nhiều key. **Research/audit GitHub trước**: repo "free ChatGPT API" (popjane/free_chatgpt_api 6.5k⭐, xtekky/gpt4free…) đều reverse-engineer/scrape → vi phạm ToS (OpenAI dọa kiện gpt4free), hay chết, lộ data → **KHÔNG dùng**. Thay bằng **free-tier hợp pháp + xoay key** (mirror pattern web2-elevenlabs 3-key). OpenAI không phát key free thật; "giống ChatGPT" nhất mà free = **GPT-OSS-20B** (model OpenAI mở Apache-2.0, free trên Groq + OpenRouter).
+
+**Backend** (web2-api, prefix `/api/web2-ai` → worker auto-route `startsWith('/api/web2')`, KHỎI sửa worker):
+
+- `services/web2-ai-service.js` — chat engine. Registry **Groq · Gemini · OpenRouter**; OpenAI-compatible (trừ Gemini generateContent). **Xoay nhiều key/provider**: env `<PREFIX>1..10` (vd `GROQ_API_KEY1`, `GROQ_API_KEY2`…) + `<PREFIX>` đơn/phẩy; round-robin + cooldown 401/403 (1h) / 429/402 (5'). `chat()` + `chatStream()` (SSE delta) + `status()` (key MASKED, KHÔNG lộ) + `test()`.
+- `services/web2-ai-image-service.js` — tạo ảnh free 3 nguồn xoay: **Pollinations** (free no-key, trả URL — số 1) · **Cloudflare Workers AI** (Flux-1-schnell/SDXL, env `CLOUDFLARE_ACCOUNT_ID`+`CLOUDFLARE_WORKERS_AI_TOKEN`) · **Gemini Nano Banana** (`gemini-2.5-flash-image`, dùng chung key Gemini, nhận ảnh gốc để sửa/ghép).
+- `routes/web2-ai.js` — `/status /models /chat /chat/stream(SSE) /image /test`; `requireWeb2AuthSoft` + rate-limit 40/phút/IP. Wire `server.js` require + `app.use('/api/web2-ai')`.
+
+**Frontend** `web2/ai-hub/` (menu "Đa dụng Web 2.0 → Trợ lý AI 🤖"): 3 tab.
+
+- **Chat** giống ChatGPT: streaming gõ từng chữ (SSE, fallback non-stream), lịch sử nhiều cuộc (localStorage `web2_ai_chats`), chọn provider/model, system prompt (vai trò), copy/tạo-lại/dừng, gợi ý mẫu. Markdown render AN TOÀN (escape trước, code-fence/inline/bold/list).
+- **Tạo ảnh**: prompt + nguồn + model + size (+ ảnh gốc cho Nano Banana), gallery + tải về.
+- **Quản lý key**: hiện provider + key (MASKED) + cooldown + nút Test; key đặt ở **env Render** (an toàn, không nhập trong UI), gợi ý env var + nơi lấy key free.
+
+Modules nhỏ tách bạch (ai-hub/ai-chat/ai-image/ai-keys.js + ai-hub.css), theme xanh Zalo. **Lưu ý vận hành**: Groq+Gemini chat chạy NGAY sau deploy (tái dùng `GROQ_API_KEY`/`GEMINI_API_KEY` env đã có của web2-translate); OpenRouter cần set `OPENROUTER_API_KEY`, Cloudflare ảnh cần set `CLOUDFLARE_WORKERS_AI_TOKEN`. Browser-test localhost (--start web2/overview): page render OK, 3 tab + empty-state + sidebar item, 0 page-error, worker route `/api/web2-ai` về web2-api đúng (404 pre-deploy). Verify chat/ảnh thật sau deploy.
+
 ### [feat] Group "Quản trị viên" (admin-only) + 2 module mới: Chấm công (DG-600) + Quản lý chi tiêu (Sổ quỹ)
 
 Thêm group menu **Quản trị viên** chỉ admin thấy (gating group-level `adminOnly` trong `web2-sidebar.js` + server gate `requireWeb2Admin` mọi route). 2 module Web 2.0 ĐỘC LẬP hoàn toàn (bảng `web2_*`, route `/api/web2-*`, pool `web2Db`, SSE riêng) — không dùng chung gì với hệ cũ.

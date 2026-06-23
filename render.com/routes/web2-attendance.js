@@ -317,13 +317,17 @@ router.get('/records', requireWeb2Admin, async (req, res) => {
 });
 
 // Upsert 1 batch punch. Trả số dòng thực sự ghi. Dùng chung agent + import + manual.
+// Tự tạo dòng web2_attendance_device_users tối thiểu cho mỗi PIN mới gặp → punch
+// nhập tay/ADMS/import HIỆN ngay trong bảng công (không cần agent đẩy device-users).
 async function insertRecords(db, rows, source) {
     let inserted = 0;
+    const seenUids = new Set();
     const minTs = new Date('2020-01-01').getTime();
     const maxTs = now() + 36 * 60 * 60 * 1000; // không nhận tương lai > 36h
     for (const rec of rows) {
         const uid = String(rec.device_user_id ?? rec.deviceUserId ?? rec.pin ?? '').trim();
         if (!uid || uid === '0') continue;
+        seenUids.add(uid);
         const dt = parsePunchTime(rec.check_time ?? rec.checkTime ?? rec.recordTime ?? rec.time);
         if (!dt) continue;
         const ms = dt.getTime();
@@ -355,6 +359,20 @@ async function insertRecords(db, rows, source) {
             ]
         );
         inserted++;
+    }
+    // Tạo dòng device-user tối thiểu cho PIN mới (idempotent — KHÔNG đè tên/cấu hình
+    // admin đã chỉnh; agent /device-users/bulk sẽ bổ sung tên máy sau).
+    if (inserted && seenUids.size) {
+        const t = now();
+        for (const uid of seenUids) {
+            await db
+                .query(
+                    `INSERT INTO web2_attendance_device_users (device_user_id, uid, created_at, updated_at)
+                     VALUES ($1,$1,$2,$2) ON CONFLICT (device_user_id) DO NOTHING`,
+                    [uid, t]
+                )
+                .catch(() => {});
+        }
     }
     return inserted;
 }
