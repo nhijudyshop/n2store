@@ -190,9 +190,8 @@
             const isSun = wd === 'CN';
             const isToday = dk === today;
             head += `<th class="cc-th-day${isSun ? ' sun' : ''}${isToday ? ' today' : ''}">
-                <span class="cc-d-num">${dnum}</span><span class="cc-d-wd">${wd}</span></th>`;
+                <span class="cc-d-wd">${wd}</span><span class="cc-d-num">${dnum}</span></th>`;
         }
-        head += `<th class="cc-th-sum">Công</th>`;
 
         let rows = '';
         for (const du of dus) {
@@ -210,46 +209,32 @@
                 ),
                 state.holidaySet
             );
-            let cells = `<td class="cc-name" title="${esc(du.device_user_id)}">${esc(empName(du))}</td>`;
+            // Tên + số ngày công (badge) — như mẫu "CÒI 15".
+            let cells = `<td class="cc-name" title="PIN ${esc(du.device_user_id)}">
+                <span class="cc-name-txt">${esc(empName(du))}</span>
+                <span class="cc-name-days" title="Số ngày công">${month.workedDays}</span></td>`;
             for (const dk of days) {
                 const r = month.dayResults[dk] || {};
-                const dd = r.dayData || {};
                 const isFull = isFulldaySet(du.device_user_id, dk);
-                let cls = 'cc-cell';
-                let inner = '';
-                if (isFull && (!dd || dd.status === 'absent')) {
-                    cls += ' full';
-                    inner = '<span class="cc-full">Đủ</span>';
-                } else if (dd.status === 'present' || dd.status === 'incomplete') {
-                    cls += dd.status === 'incomplete' ? ' incomplete' : ' present';
-                    if (r.lateMinutes) cls += ' late';
-                    if (r.otPay) cls += ' ot';
-                    inner = `<span class="cc-io">${S.fmtHM(dd.checkIn)}${dd.checkOut && dd.count > 1 ? '<br>' + S.fmtHM(dd.checkOut) : ''}</span>`;
-                    if (r.lateMinutes)
-                        inner += `<span class="cc-badge late">−${r.lateMinutes}'</span>`;
-                    if (r.otPay)
-                        inner += `<span class="cc-badge ot">OT${Math.round(r.otMinutes / 6) / 10}h</span>`;
-                }
+                const st = S.dayStatus(r, isFull); // ontime|lateearly|missing|absent
                 const wd = weekdayShort(dk);
-                cells += `<td class="${cls}${wd === 'CN' ? ' sun' : ''}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="Bấm xem/sửa">${inner}</td>`;
+                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${S.STATUS_LABEL[st]} — bấm xem chi tiết"><span class="cc-dot cc-dot-${st}"></span></td>`;
             }
-            cells += `<td class="cc-sum">${month.workedDays}</td>`;
             rows += `<tr>${cells}</tr>`;
         }
 
         el.innerHTML = `
             <div class="cc-grid-wrap">
-              <table class="cc-grid">
+              <table class="cc-grid cc-grid-dots">
                 <thead><tr>${head}</tr></thead>
                 <tbody>${rows}</tbody>
               </table>
             </div>
             <div class="cc-legend">
-              <span><i class="lg present"></i> Có công</span>
-              <span><i class="lg late"></i> Đi muộn</span>
-              <span><i class="lg ot"></i> Tăng ca</span>
-              <span><i class="lg incomplete"></i> Thiếu giờ ra</span>
-              <span><i class="lg full"></i> Công đủ (override)</span>
+              <span><i class="cc-dot cc-dot-ontime"></i> Đúng giờ</span>
+              <span><i class="cc-dot cc-dot-lateearly"></i> Đi muộn / Về sớm</span>
+              <span><i class="cc-dot cc-dot-missing"></i> Chấm công thiếu</span>
+              <span><i class="cc-dot cc-dot-absent"></i> Nghỉ làm</span>
             </div>`;
 
         el.querySelectorAll('.cc-cell').forEach((c) => {
@@ -266,45 +251,119 @@
             .sort((a, b) => new Date(a.check_time) - new Date(b.check_time));
         const isFull = state.fulldaySet.has(`${deviceUserId}_${dateKey}`);
         const isHoliday = state.holidaySet.has(dateKey);
-        const mount = document.getElementById('ccModalMount');
-        const rowsHtml = recs.length
+        const cfg = cfgFor(du);
+        // Tính kết quả ngày (status + giờ + OT + về sớm).
+        const dayData = S.processDay(recordsFor(deviceUserId)[dateKey] || []);
+        const day = S.calcDay(dateKey, dayData, cfg, isFull || isHoliday);
+        const st = S.dayStatus({ ...day, dayData }, isFull || isHoliday);
+        const checkIn = recs[0] || null;
+        const checkOut = recs.length > 1 ? recs[recs.length - 1] : null;
+        const inHM = checkIn ? S.fmtHM(new Date(checkIn.check_time)) : '';
+        const outHM = checkOut ? S.fmtHM(new Date(checkOut.check_time)) : '';
+        const otH = Math.floor((day.otMinutes || 0) / 60);
+        const otM = (day.otMinutes || 0) % 60;
+        const earlyH = Math.floor((day.earlyMinutes || 0) / 60);
+        const earlyM = (day.earlyMinutes || 0) % 60;
+        const nvCode = 'NV' + String(deviceUserId).padStart(6, '0');
+        const leaveMode = isFull ? 'paid' : dayData.status === 'absent' ? 'absent' : 'work';
+
+        const histHtml = recs.length
             ? recs
                   .map(
                       (r) => `<div class="cc-prow">
                         <span class="cc-ptime">${S.fmtHM(new Date(r.check_time))}</span>
                         <span class="cc-ptype">${r.type === 1 ? 'Ra' : r.type === 0 ? 'Vào' : 'T' + r.type}</span>
                         <span class="cc-psrc">${esc(r.source || '')}</span>
-                        <button class="cc-pdel" data-id="${esc(r.id)}" title="Xoá punch">✕</button>
+                        <button class="cc-pdel" data-id="${esc(r.id)}" title="Xoá lượt chấm">✕</button>
                       </div>`
                   )
-                  .join('')
-            : '<div class="cc-empty-sm">Chưa có punch ngày này.</div>';
+                  .join('') +
+              `<div class="cc-add-punch">
+                  <input type="time" id="ccPunchTime" value="08:00">
+                  <select id="ccPunchType"><option value="0">Vào</option><option value="1">Ra</option></select>
+                  <button class="cc-btn cc-btn-ghost" id="ccPunchAdd">+ Thêm lượt</button>
+                </div>`
+            : `<div class="cc-empty-sm">Chưa có lượt chấm công ngày này.</div>
+               <div class="cc-add-punch">
+                  <input type="time" id="ccPunchTime" value="08:00">
+                  <select id="ccPunchType"><option value="0">Vào</option><option value="1">Ra</option></select>
+                  <button class="cc-btn cc-btn-ghost" id="ccPunchAdd">+ Thêm lượt</button>
+               </div>`;
+
+        const mount = document.getElementById('ccModalMount');
         mount.innerHTML = `
           <div class="cc-modal-backdrop" id="ccDayBackdrop">
-            <div class="cc-modal">
+            <div class="cc-modal cc-modal-detail">
               <div class="cc-modal-head">
-                <div><b>${esc(empName(du))}</b> · ${esc(dateKey)} ${isHoliday ? '<span class="cc-pill hol">Shop nghỉ</span>' : ''}</div>
+                <div class="cc-dh-title">Chấm công</div>
                 <button class="cc-x" id="ccDayClose">✕</button>
               </div>
               <div class="cc-modal-body">
-                <div class="cc-prows">${rowsHtml}</div>
-                <div class="cc-add-punch">
-                  <input type="time" id="ccPunchTime" value="08:00">
-                  <select id="ccPunchType"><option value="0">Vào</option><option value="1">Ra</option></select>
-                  <button class="cc-btn cc-btn-ghost" id="ccPunchAdd">+ Thêm punch tay</button>
+                <div class="cc-dh-emp">
+                  <b>${esc(empName(du))}</b> <span class="cc-dh-nv">${nvCode}</span>
+                  <span class="cc-status-badge cc-sb-${st}">${S.STATUS_LABEL[st]}</span>
                 </div>
-                <label class="cc-check"><input type="checkbox" id="ccFullday" ${isFull ? 'checked' : ''}> Đánh dấu <b>công đủ</b> ngày này (override máy)</label>
+                <div class="cc-dh-meta">
+                  <div><span class="cc-dh-lbl">Thời gian</span><div>${fmtDayHeader(dateKey)}${isHoliday ? ' <span class="cc-pill hol">Shop nghỉ</span>' : ''}</div></div>
+                  <div><span class="cc-dh-lbl">Ca làm việc</span><div>CA BÌNH THƯỜNG (${esc(cfg.workStart)} - ${esc(cfg.workEnd)})</div></div>
+                </div>
+
+                <div class="cc-detail-tabs">
+                  <button class="cc-dt-tab active" data-dt="cc">Chấm công</button>
+                  <button class="cc-dt-tab" data-dt="hist">Lịch sử chấm công</button>
+                </div>
+
+                <div class="cc-dt-pane" data-pane="cc">
+                  <div class="cc-leave-row">
+                    <span class="cc-dh-lbl">Chấm công</span>
+                    <label class="cc-radio"><input type="radio" name="ccLeave" value="work" ${leaveMode === 'work' ? 'checked' : ''}> Đi làm</label>
+                    <label class="cc-radio"><input type="radio" name="ccLeave" value="paid" ${leaveMode === 'paid' ? 'checked' : ''}> Nghỉ có phép</label>
+                    <label class="cc-radio"><input type="radio" name="ccLeave" value="absent" ${leaveMode === 'absent' ? 'checked' : ''}> Nghỉ không phép</label>
+                  </div>
+                  <div class="cc-io-grid" id="ccIoGrid">
+                    <label class="cc-io-line"><input type="checkbox" id="ccInChk" ${checkIn ? 'checked' : ''}> Vào
+                      <input type="time" id="ccInTime" value="${inHM || '08:00'}"></label>
+                    <div class="cc-io-calc">Làm thêm <b>${otH}</b> giờ <b>${otM}</b> phút</div>
+                    <label class="cc-io-line"><input type="checkbox" id="ccOutChk" ${checkOut ? 'checked' : ''}> Ra
+                      <input type="time" id="ccOutTime" value="${outHM || '20:00'}"></label>
+                    <div class="cc-io-calc">Về sớm <b>${earlyH}</b> giờ <b>${earlyM}</b> phút</div>
+                  </div>
+                </div>
+
+                <div class="cc-dt-pane" data-pane="hist" style="display:none">
+                  <div class="cc-prows">${histHtml}</div>
+                </div>
+              </div>
+              <div class="cc-modal-foot">
+                <button class="cc-btn cc-btn-danger-link" id="ccDayDelete">🗑 Xoá ngày</button>
+                <span class="cc-foot-spacer"></span>
+                <button class="cc-btn cc-btn-ghost" id="ccDayCancel">Bỏ qua</button>
+                <button class="cc-btn cc-btn-primary" id="ccDaySave">Lưu</button>
               </div>
             </div>
           </div>`;
+
         const close = () => (mount.innerHTML = '');
         document.getElementById('ccDayClose').onclick = close;
+        document.getElementById('ccDayCancel').onclick = close;
         document.getElementById('ccDayBackdrop').onclick = (e) => {
             if (e.target.id === 'ccDayBackdrop') close();
         };
+        // tab switch
+        mount.querySelectorAll('.cc-dt-tab').forEach((b) => {
+            b.onclick = () => {
+                mount
+                    .querySelectorAll('.cc-dt-tab')
+                    .forEach((x) => x.classList.toggle('active', x === b));
+                mount.querySelectorAll('.cc-dt-pane').forEach((p) => {
+                    p.style.display = p.dataset.pane === b.dataset.dt ? '' : 'none';
+                });
+            };
+        });
+        // history: delete + add punch
         mount.querySelectorAll('.cc-pdel').forEach((b) => {
             b.onclick = async () => {
-                if (!(await confirmBox('Xoá punch này?'))) return;
+                if (!(await confirmBox('Xoá lượt chấm này?'))) return;
                 try {
                     await Api.deleteRecord(b.dataset.id);
                     await loadAll();
@@ -314,31 +373,98 @@
                 }
             };
         });
-        document.getElementById('ccPunchAdd').onclick = async () => {
-            const t = document.getElementById('ccPunchTime').value;
-            const type = Number(document.getElementById('ccPunchType').value);
-            if (!t) return;
+        const addBtn = document.getElementById('ccPunchAdd');
+        if (addBtn)
+            addBtn.onclick = async () => {
+                const t = document.getElementById('ccPunchTime').value;
+                const type = Number(document.getElementById('ccPunchType').value);
+                if (!t) return;
+                try {
+                    await Api.addRecord({
+                        device_user_id: deviceUserId,
+                        check_time: `${dateKey} ${t}:00`,
+                        type,
+                    });
+                    await loadAll();
+                    openDay(deviceUserId, dateKey);
+                } catch (e) {
+                    toast(e.message, 'error');
+                }
+            };
+        // Xoá cả ngày (mọi lượt chấm)
+        document.getElementById('ccDayDelete').onclick = async () => {
+            if (!recs.length) return toast('Ngày này không có lượt chấm.', 'info');
+            if (!(await confirmBox('Xoá TẤT CẢ lượt chấm ngày này?'))) return;
             try {
-                await Api.addRecord({
-                    device_user_id: deviceUserId,
-                    check_time: `${dateKey} ${t}:00`,
-                    type,
-                });
+                for (const r of recs) await Api.deleteRecord(r.id);
                 await loadAll();
-                openDay(deviceUserId, dateKey);
+                close();
             } catch (e) {
                 toast(e.message, 'error');
             }
         };
-        document.getElementById('ccFullday').onchange = async (e) => {
-            try {
-                if (e.target.checked) await Api.addFullday(deviceUserId, dateKey);
-                else await Api.delFullday(`${deviceUserId}_${dateKey}`);
-                await loadAll();
-            } catch (err) {
-                toast(err.message, 'error');
+        // Lưu: áp dụng nghỉ phép + chỉnh giờ Vào/Ra
+        document.getElementById('ccDaySave').onclick = () =>
+            saveDayDetail(deviceUserId, dateKey, { checkIn, checkOut, inHM, outHM, isFull, close });
+    }
+
+    // Định dạng "Thứ tư, 10/06/2026" theo GMT+7.
+    function fmtDayHeader(dk) {
+        const d = new Date(`${dk}T12:00:00+07:00`);
+        const wd = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'][
+            d.getDay()
+        ];
+        const [y, m, dd] = dk.split('-');
+        return `${wd}, ${dd}/${m}/${y}`;
+    }
+
+    // Lưu chi tiết 1 ngày: nghỉ phép (fullday) + chỉnh giờ Vào/Ra (xoá punch cũ + thêm mới).
+    async function saveDayDetail(deviceUserId, dateKey, ctx) {
+        const mount = document.getElementById('ccModalMount');
+        const leave = (mount.querySelector('input[name="ccLeave"]:checked') || {}).value || 'work';
+        const inChk = document.getElementById('ccInChk')?.checked;
+        const outChk = document.getElementById('ccOutChk')?.checked;
+        const inTime = document.getElementById('ccInTime')?.value;
+        const outTime = document.getElementById('ccOutTime')?.value;
+        try {
+            // 1) Nghỉ có phép = công đủ override; ngược lại bỏ override.
+            if (leave === 'paid') await Api.addFullday(deviceUserId, dateKey);
+            else if (ctx.isFull) await Api.delFullday(`${deviceUserId}_${dateKey}`);
+
+            // 2) Nghỉ không phép → xoá hết lượt chấm (coi như vắng).
+            if (leave === 'absent') {
+                const recs = recordsFor(deviceUserId)[dateKey] || [];
+                for (const r of recs) await Api.deleteRecord(r.id);
+            } else {
+                // 3) Chỉnh giờ Vào (đi làm / nghỉ có phép vẫn cho sửa nếu cần).
+                if (inChk && inTime && inTime !== ctx.inHM) {
+                    if (ctx.checkIn) await Api.deleteRecord(ctx.checkIn.id);
+                    await Api.addRecord({
+                        device_user_id: deviceUserId,
+                        check_time: `${dateKey} ${inTime}:00`,
+                        type: 0,
+                    });
+                } else if (!inChk && ctx.checkIn) {
+                    await Api.deleteRecord(ctx.checkIn.id);
+                }
+                // 4) Chỉnh giờ Ra.
+                if (outChk && outTime && outTime !== ctx.outHM) {
+                    if (ctx.checkOut) await Api.deleteRecord(ctx.checkOut.id);
+                    await Api.addRecord({
+                        device_user_id: deviceUserId,
+                        check_time: `${dateKey} ${outTime}:00`,
+                        type: 1,
+                    });
+                } else if (!outChk && ctx.checkOut) {
+                    await Api.deleteRecord(ctx.checkOut.id);
+                }
             }
-        };
+            toast('Đã lưu chấm công ngày.', 'success');
+            ctx.close();
+            await loadAll();
+        } catch (e) {
+            toast(e.message, 'error');
+        }
     }
 
     // ── Import Excel/TXT ──────────────────────────────────────────────────────

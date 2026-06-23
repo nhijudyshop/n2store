@@ -61,6 +61,7 @@
             baseSalary: 0,
             lateMinutes: 0,
             lateDeduction: 0,
+            earlyMinutes: 0,
             otMinutes: 0,
             otPay: 0,
             worked: false,
@@ -104,9 +105,30 @@
         if (checkOut > endMoment) {
             out.otMinutes = Math.round((checkOut - endMoment) / 60000);
             out.otPay = Math.round((out.otMinutes / 60) * hourlyRate * otMult);
+        } else if (checkOut < endMoment) {
+            // Về sớm: ra trước mốc kết ca (đã loại trừ làm-tròn ≤10').
+            out.earlyMinutes = Math.floor((endMoment - checkOut) / 60000);
         }
         return out;
     }
+
+    // Phân loại trạng thái 1 ngày → 'ontime'|'lateearly'|'missing'|'absent'.
+    //   dayResult = { ...calcDay(), dayData } ; isFull = công đủ override / shop nghỉ.
+    function dayStatus(dayResult, isFull) {
+        const dd = (dayResult && dayResult.dayData) || {};
+        if (isFull) return 'ontime';
+        if (!dd || dd.status === 'absent' || !dd.checkIn) return 'absent';
+        if (dd.status === 'incomplete') return 'missing';
+        if ((dayResult.lateMinutes || 0) > 0 || (dayResult.earlyMinutes || 0) > 0)
+            return 'lateearly';
+        return 'ontime';
+    }
+    const STATUS_LABEL = {
+        ontime: 'Đúng giờ',
+        lateearly: 'Đi muộn / Về sớm',
+        missing: 'Chấm công thiếu',
+        absent: 'Nghỉ làm',
+    };
 
     // Danh sách dateKey 'YYYY-MM-DD' trong 1 tháng 'YYYY-MM'.
     function daysOfMonth(monthKey) {
@@ -230,6 +252,8 @@
         calcMonth,
         daysOfMonth,
         hmToMinutes,
+        dayStatus,
+        STATUS_LABEL,
         fmtVnd,
         fmtHM,
         VN_TZ,

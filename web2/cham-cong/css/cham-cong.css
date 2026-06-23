@@ -682,3 +682,202 @@
         width: 100%;
     }
 }
+
+/* ===== Dots timesheet (giống mẫu) ===== */
+.cc-grid-dots .cc-cell {
+    height: 34px;
+    padding: 0;
+}
+.cc-dot {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    vertical-align: middle;
+    background: var(--web2-text-faded);
+}
+.cc-dot-ontime {
+    background: var(--web2-primary);
+}
+.cc-dot-lateearly {
+    background: var(--web2-warning);
+}
+.cc-dot-missing {
+    background: var(--web2-danger);
+}
+.cc-dot-absent {
+    background: #d7dde5;
+}
+.cc-grid-dots .cc-cell:hover .cc-dot {
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.18);
+}
+.cc-grid-dots .cc-th-day {
+    padding: 6px 0 !important;
+}
+/* legend dùng .cc-dot */
+.cc-legend .cc-dot {
+    width: 12px;
+    height: 12px;
+    margin-right: 2px;
+}
+
+/* tên + số ngày công */
+.cc-name {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.cc-name-txt {
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.2px;
+}
+.cc-name-days {
+    flex: none;
+    min-width: 22px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--web2-primary);
+    background: var(--web2-primary-soft);
+    border-radius: 999px;
+    padding: 1px 7px;
+}
+
+/* ===== Detail popup ===== */
+.cc-modal-detail {
+    width: 520px;
+}
+.cc-dh-title {
+    font-weight: 800;
+    font-size: 16px;
+}
+.cc-dh-emp {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    margin-bottom: 14px;
+}
+.cc-dh-emp b {
+    text-transform: uppercase;
+}
+.cc-dh-nv {
+    color: var(--web2-text-faded);
+    font-size: 13px;
+    font-weight: 600;
+}
+.cc-status-badge {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 999px;
+}
+.cc-sb-ontime {
+    background: var(--web2-primary-soft);
+    color: var(--web2-primary);
+}
+.cc-sb-lateearly {
+    background: var(--web2-warning-soft);
+    color: var(--web2-warning-hover);
+}
+.cc-sb-missing {
+    background: var(--web2-danger-soft);
+    color: var(--web2-danger-hover);
+}
+.cc-sb-absent {
+    background: var(--web2-bg-light);
+    color: var(--web2-text-3);
+}
+.cc-dh-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 12px 0;
+    border-top: 1px solid var(--web2-border);
+    border-bottom: 1px solid var(--web2-border);
+    margin-bottom: 14px;
+}
+.cc-dh-lbl {
+    display: block;
+    font-size: 12px;
+    color: var(--web2-text-faded);
+    margin-bottom: 3px;
+}
+.cc-detail-tabs {
+    display: flex;
+    gap: 18px;
+    border-bottom: 1px solid var(--web2-border);
+    margin-bottom: 14px;
+}
+.cc-dt-tab {
+    border: 0;
+    background: transparent;
+    padding: 8px 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--web2-text-3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.cc-dt-tab.active {
+    color: var(--web2-primary);
+    border-bottom-color: var(--web2-primary);
+}
+.cc-leave-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.cc-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--web2-text-2);
+    cursor: pointer;
+}
+.cc-io-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 18px;
+    align-items: center;
+}
+.cc-io-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--web2-text-2);
+}
+.cc-io-line input[type='time'] {
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.cc-io-calc {
+    font-size: 13px;
+    color: var(--web2-text-3);
+}
+.cc-io-calc b {
+    color: var(--web2-text);
+}
+.cc-btn-danger-link {
+    border: 0;
+    background: transparent;
+    color: var(--web2-danger);
+    font-weight: 600;
+}
+.cc-btn-danger-link:hover {
+    background: var(--web2-danger-soft);
+}
+.cc-foot-spacer {
+    flex: 1;
+}
