@@ -183,12 +183,16 @@
     }
 
     // ── Sync strip ───────────────────────────────────────────────────────────
+    const SYNC_FRESH_MS = 15 * 60 * 1000; // > 15' không đồng bộ → coi như PC tắt
     function renderSyncStrip() {
         const el = document.getElementById('ccSync');
         if (!el) return;
         const s = state.sync;
-        const connected = s && s.connected;
         const last = s && s.last_sync_time ? new Date(s.last_sync_time) : null;
+        // "Đang kết nối" = agent báo connected VÀ vừa đồng bộ gần đây (tránh stale
+        // khi PC chết đột ngột, sync-status còn connected=true cũ).
+        const fresh = last && Date.now() - last.getTime() < SYNC_FRESH_MS;
+        const active = !!(s && s.connected && fresh);
         const lastTxt = last
             ? new Intl.DateTimeFormat('vi-VN', {
                   timeZone: VN_TZ,
@@ -198,13 +202,18 @@
                   month: '2-digit',
               }).format(last)
             : '—';
-        el.className = 'cc-sync ' + (connected ? 'ok' : 'off');
+        el.className = 'cc-sync ' + (active ? 'ok' : 'off');
         el.innerHTML = `
             <span class="cc-sync-dot"></span>
-            <span>Máy chấm công: <b>${connected ? 'Đang kết nối' : 'Chưa kết nối'}</b></span>
+            <span>Máy chấm công: <b>${active ? 'Đang đồng bộ' : 'Chưa đồng bộ'}</b></span>
             <span class="cc-sync-sep">·</span>
-            <span>Đồng bộ gần nhất: <b>${esc(lastTxt)}</b></span>
+            <span>Lần cuối: <b>${esc(lastTxt)}</b></span>
             ${s && s.last_error ? `<span class="cc-sync-err" title="${esc(s.last_error)}">⚠ lỗi</span>` : ''}
+            ${
+                active
+                    ? ''
+                    : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Tới shop (cùng wifi) bấm <b>lay-du-lieu.bat</b> để lấy ngay, hoặc dùng <b>Nhập Excel/TXT</b>.</span>`
+            }
         `;
     }
 

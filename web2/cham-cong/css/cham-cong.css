@@ -881,3 +881,11 @@
 .cc-foot-spacer {
     flex: 1;
 }
+
+.cc-sync-backup {
+    color: var(--web2-warning-hover);
+    font-size: 12px;
+}
+.cc-sync-backup b {
+    color: var(--web2-text-2);
+}
