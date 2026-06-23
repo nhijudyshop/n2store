@@ -73,6 +73,11 @@
             'position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;' +
             'align-items:center;justify-content:center;padding:24px;cursor:zoom-out;' +
             'background:rgba(0,0,0,0.85);opacity:0;transition:opacity 180ms ease;';
+        // BUG FIX (2026-06-24): `display:flex` ở cssText ĐÈ thuộc tính `[hidden]`
+        // (UA `display:none` specificity thấp hơn inline) → overlay vẫn flex khi
+        // hidden=true + opacity:0 = lớp VÔ HÌNH phủ inset:0/z-index 99999 nuốt mọi
+        // click sau khi đóng (stuck/đè layout). Quản display TRỰC TIẾP: ẩn = none.
+        ov.style.display = 'none';
         ov.innerHTML =
             '<button type="button" class="w2-lb-prev" aria-label="Ảnh trước" ' +
             'style="position:absolute;left:16px;top:50%;transform:translateY(-50%);' +
@@ -149,6 +154,7 @@
         var ov = _ensureOverlay();
         _render();
         ov.hidden = false;
+        ov.style.display = 'flex'; // hiện lại (close đặt none)
         // Reflow để transition opacity chạy (compositor-friendly).
         requestAnimationFrame(function () {
             ov.style.opacity = '1';
@@ -165,6 +171,7 @@
         ov.style.opacity = '0';
         setTimeout(function () {
             ov.hidden = true;
+            ov.style.display = 'none'; // gỡ lớp phủ → trả click lại cho trang
         }, 180);
     }
 

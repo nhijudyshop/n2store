@@ -110,7 +110,7 @@
         //  - image-paste: ô NHẬP ẢNH dùng chung (paste/kéo-thả/chọn file + nén + preview).
         //  - effects: HOVER ZOOM ảnh nội dung (+ ripple/confetti…) — cặp với click-phóng-to.
         if (!global.Web2CanvasUtils) inject('web2-canvas-utils.js', '20260619a');
-        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260623a');
+        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260624a');
         if (!global.Web2ImagePaste) inject('web2-image-paste.js', '20260623b');
         if (!global.Web2Effects) inject('web2-effects.js', '20260623a');
         // Dịch thuật dùng chung (LLM free + fallback Google) — mọi trang gọi Web2Translate.translate.
