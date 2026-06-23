@@ -631,6 +631,21 @@
             for (const it of itemsToProcess) {
                 if (it.code) codeByKey.set(it.key, it.code);
             }
+            // SP lỗi upsert (action:'error', vd mã trùng SP khác) → KHÔNG có code →
+            // bị loại khỏi confirm-purchase-partial → tồn KHÔNG được cập nhật. Báo
+            // user (đừng nuốt im) — họ tưởng đã nhận đủ hàng vào kho.
+            const erroredUpsert = upsertItems.filter((ui) => ui && ui.action === 'error');
+            if (erroredUpsert.length) {
+                const names = erroredUpsert.map((ui) => ui.name || ui.code || '?').join(', ');
+                console.warn(
+                    '[so-order-receive] upsert lỗi, bỏ qua khỏi nhận hàng:',
+                    erroredUpsert
+                );
+                SO.notify(
+                    `${erroredUpsert.length} SP không tạo được mã (mã trùng?) — CHƯA cập nhật tồn: ${names}`,
+                    'warning'
+                );
+            }
             if (upsertItems.length === upsertOwners.length) {
                 upsertItems.forEach((ui, i) => {
                     if (!ui.code || ui.action === 'error') return;

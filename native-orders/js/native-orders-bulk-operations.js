@@ -551,6 +551,7 @@
         const isoDate = new Date().toISOString();
         let done = 0,
             fail = 0;
+        const failedOrders = []; // {code, reason} — để báo user đơn nào lỗi + lý do
         // Mỗi PBH = 1 hoá đơn độc lập (số riêng, trừ kho/ví riêng, advisory lock
         // per-đơn ở server) → GIỮ N request độc lập (partial success đúng ngữ
         // nghĩa), nhưng chạy SONG SONG có giới hạn (thay tuần tự) → nhanh ~5×.
@@ -575,6 +576,7 @@
                 done++;
             } catch (e) {
                 fail++;
+                failedOrders.push({ code, reason: e.message });
                 console.warn('[bulkCreatePbhShop]', code, e.message);
             }
         };
@@ -589,6 +591,15 @@
             `PBH SHOP: tạo ${done}/${valid.length} đơn${fail ? `, lỗi ${fail}` : ''}`,
             fail ? 'warning' : 'success'
         );
+        // Báo CHI TIẾT đơn nào lỗi để user retry đúng đơn (không phải audit cả lô).
+        if (failedOrders.length && window.Popup?.alert) {
+            const detail = failedOrders.map((f) => `• ${f.code}: ${f.reason}`).join('\n');
+            window.Popup.alert(detail, {
+                title: `${failedOrders.length} đơn PBH SHOP lỗi`,
+                okText: 'Đã hiểu',
+                type: 'warning',
+            });
+        }
         NO.unselectAllOrders();
         await NO.load();
     };

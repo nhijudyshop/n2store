@@ -2593,19 +2593,32 @@ router.post('/by-source/:nativeOrderCode/cancel', requireWeb2AuthSoft, async (re
         // → không cộng đôi.
         const user = _extractPbhUser(req);
         const byTx = await withTransaction(pool, async (client) => {
+            // BUG FIX (2026-06-24): 1 native-order có thể tách thành NHIỀU PBH
+            // (migration 078, split_index 1,2,3…). Trước đây LIMIT 1 → chỉ huỷ PBH
+            // mới nhất, các split còn lại GIỮ trừ kho + wallet_deducted (không restock)
+            // → tồn kẹt vĩnh viễn. Giờ huỷ HẾT PBH còn sống của đơn web này.
             const found = await client.query(
                 `SELECT number FROM fast_sale_orders
                  WHERE source_code = $1 AND state <> 'cancel'
-                 ORDER BY date_created DESC LIMIT 1
+                 ORDER BY date_created DESC
                  FOR UPDATE`,
                 [code]
             );
             if (found.rows.length === 0) return { notFound: true };
-            return _cancelPbhInTx(
-                client,
-                found.rows[0].number,
-                user.name || user.id || '(huỷ PBH theo đơn web)'
-            );
+            const userLabel = user.name || user.id || '(huỷ PBH theo đơn web)';
+            let last = null;
+            const restockAgg = { restored: 0, items: [] };
+            for (const prow of found.rows) {
+                const one = await _cancelPbhInTx(client, prow.number, userLabel);
+                last = one;
+                if (one && one.restock) {
+                    restockAgg.restored += one.restock.restored || 0;
+                    if (Array.isArray(one.restock.items))
+                        restockAgg.items.push(...one.restock.items);
+                }
+            }
+            // Trả PBH huỷ cuối cho response shape cũ + restock GỘP tất cả split + count.
+            return { ...last, restock: restockAgg, cancelledCount: found.rows.length };
         });
         if (byTx.notFound) {
             return res.status(404).json({ error: 'PBH chưa tồn tại cho đơn web này' });

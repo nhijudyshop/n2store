@@ -154,7 +154,13 @@
                     window.Web2ProductsCache?.pushTickle?.({ action: 'supplier-return' });
                 }
             } catch (e) {
-                console.warn('[supplier-wallet] stock adjust fail:', e.message);
+                // Ví ĐÃ ghi sổ (irreversible) nhưng trừ tồn THẤT BẠI → 2 nguồn lệch.
+                // KHÔNG nuốt im: báo user điều chỉnh tồn tay tại Kho SP.
+                console.warn('[supplier-wallet] stock adjust fail:', e.message, adjustments);
+                notify(
+                    `Đã ghi sổ trả hàng nhưng KHÔNG trừ được tồn kho (${e.message}). Vui lòng điều chỉnh tồn tay tại Kho SP.`,
+                    'warning'
+                );
             }
             notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${SW.activeSupplier}`, 'success');
             document.getElementById('swReturnModal').hidden = true;

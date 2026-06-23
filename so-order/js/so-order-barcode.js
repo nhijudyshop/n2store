@@ -62,6 +62,20 @@
                 for (let i = 0; i < ui.length && i < needCode.length; i++) {
                     if (ui[i].code) codeByKey.set(needCode[i].key, ui[i].code);
                 }
+                // SP lỗi tạo mã (action:'error') → không có code → bị loại khỏi hàng
+                // đợi in tem. Báo user để biết tem nào thiếu (đừng in thiếu im lặng).
+                const erroredTem = ui.filter((x) => x && x.action === 'error');
+                if (erroredTem.length) {
+                    const names = erroredTem.map((x) => x.name || x.code || '?').join(', ');
+                    console.warn(
+                        '[so-order-barcode] không tạo được mã, bỏ khỏi in tem:',
+                        erroredTem
+                    );
+                    SO.notify(
+                        `${erroredTem.length} SP không tạo được mã — KHÔNG in tem: ${names}`,
+                        'warning'
+                    );
+                }
             }
             // openBarcodePrintModal map quantity = it.qtyReceived → đặt đúng field.
             const products = items

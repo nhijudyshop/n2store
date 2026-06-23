@@ -386,7 +386,15 @@
                 });
                 NO.renderRows();
             })
-            .catch(() => {});
+            .catch((e) => {
+                // In tem đã xảy ra THẬT nhưng ghi số-lần-in lên server thất bại →
+                // printCount under-count (reprint-guard sai). KHÔNG nuốt im.
+                console.warn('[pbh-bill] markPrinted fail:', e?.message, arr);
+                NO.notify?.(
+                    'Đã in nhưng chưa ghi được số lần in — tải lại trang để đồng bộ.',
+                    'warning'
+                );
+            });
     };
 
     NO._getDeliveryOpts = async function _getDeliveryOpts() {

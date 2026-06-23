@@ -2,7 +2,21 @@
 
 ## 2026-06-24
 
-### [audit-deep] web2: end-to-end cross-page data-flow verification + fix silent sync failure
+### [fix] web2: 5 silent-failure frontend + 1 HIGH server bug (split-PBH cancel) — từ review 2 agent
+
+2 agent review (silent-failure-hunter + code-reviewer) trên luồng tiền/PBH/tồn. Đã VERIFY từng finding bằng đọc code thật (loại các finding agent tự downgrade: confirm-purchase double-add an toàn READ COMMITTED, idempotency namespacing không collide). Fix các finding xác nhận thật:
+
+**🔴 SERVER (HIGH, cần deploy web2-api)**: `render.com/routes/fast-sale-orders.js` — `POST /by-source/:code/cancel` dùng `LIMIT 1` → khi 1 đơn web tách NHIỀU PBH (migration 078 `split_index`), chỉ huỷ PBH mới nhất; các split còn lại GIỮ trừ kho + `wallet_deducted` → **tồn kẹt vĩnh viễn, ví không hoàn**. Fix: bỏ `LIMIT 1`, loop `_cancelPbhInTx` HẾT PBH còn sống (state≠cancel) của `source_code`, restock GỘP. Single-PBH case không đổi (loop 1 lần).
+
+**🟠 FRONTEND silent-failure (no deploy — GH Pages)**:
+
+1. `web2/supplier-wallet/js/supplier-wallet-actions.js` — trả NCC: ví ĐÃ ghi sổ (irreversible) nhưng `adjustStock` lỗi bị nuốt im → ví↔tồn lệch. Thêm toast cảnh báo "ghi sổ OK nhưng chưa trừ tồn — chỉnh tay tại Kho SP".
+2. `native-orders/js/native-orders-pbh-bill.js` `_markPrintedCodes` — `.catch(()=>{})` nuốt im lỗi ghi số-lần-in (in THẬT nhưng không ghi → reprint-guard sai). Thêm warn + toast.
+3. `native-orders/js/native-orders-bulk-operations.js` `bulkCreatePbhShop` — chỉ báo "lỗi N" không rõ đơn nào → user không retry đúng đơn. Thu `failedOrders[{code,reason}]` → Popup chi tiết.
+4. `so-order/js/so-order-receive.js` — item upsert `action:'error'` bị loại khỏi confirm-purchase im lặng (tồn không cập nhật, user tưởng nhận đủ). Thêm toast liệt kê SP lỗi.
+5. `so-order/js/so-order-barcode.js` — item lỗi tạo mã bị loại khỏi in tem im lặng. Thêm toast.
+
+**⚠ FLAG (chưa fix, cần phân tích thêm)**: `web2-returns.js` `thu_ve_1_phan` — `returned_line_qty` cộng dồn KHÔNG cap theo SL đã bán → 2 partial-return cùng SP/PBH vượt SL bán có thể lệch tồn lúc cancel. Cơ chế stock thu_ve_1_phan phức tạp (ví cộng ngay, tồn reconcile lúc cancel) — cần verify hướng exploit trước khi cap, tránh fix sai luồng đang chạy đúng. Để lại cho review chuyên sâu.
 
 Đào sâu hơn (yêu cầu user "càng sâu càng chi tiết càng tốt") — drive các luồng nghiệp vụ THẬT qua API client trong browser, verify bất biến dữ liệu liên-trang, dọn sạch test data sau mỗi luồng. Dùng codegraph map server contract trước.
 
