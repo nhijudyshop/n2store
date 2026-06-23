@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### [feat] Trợ lý AI — Pollinations xoay tua nhiều token Seed (bỏ giới hạn anonymous 1 req/15s)
+
+User báo Pollinations free (anonymous ~1 req/15s + watermark) hay bị giới hạn → thêm nhiều token. Pollinations giờ có auth (auth.pollinations.ai): Seed (free) ~1 req/5s, Bearer token PHẢI ở server.
+
+- `web2-ai-image-service.js`: `_pollinationsTokens()` đọc env `WEB2_POLLINATIONS_TOKEN{1..10}` (+legacy đơn) — mirror `_cfAccounts()`. `_pollinations(prompt,opts)` giờ async:
+    - **Có token** → proxy server-side `fetch(url, {Authorization: Bearer <token xoay>})`, round-robin `_polRr` + cooldown 60s (401/403/429), trả **dataUrl** (token KHÔNG lộ browser — docs cấm Bearer ở frontend). Hết token khoẻ → fallback URL anonymous.
+    - **Không token** → trả `{url}` như cũ + `&referrer=` (`WEB2_POLLINATIONS_REFERRER` env, default `nhijudy.store`) — nâng tier nhẹ, không bí mật.
+- `status()`: label `Pollinations (N token)` + field `tokens` cho admin keys tab.
+- User đã thêm 5 token vào `serect_dont_push.txt` (`WEB2_POLLINATIONS_TOKEN1..5`) → set Render env web2-api để kích hoạt.
+- Verify: `node --check` PASS + smoke (no-token→URL+referrer, env→status tokens=N) PASS. Frontend `ai-image.js` đã support cả `url` lẫn `dataUrl` (renderCard) → không cần đổi frontend.
+
 ### [feat] web2: footer sidebar bấm xem hồ sơ user + đổi avatar DiceBear (self-service)
 
 Footer sidebar (avatar + tên + @user + role) giờ bấm được → mở modal "Thông tin tài khoản". Avatar đổi qua **DiceBear** (HTTP API 10.x, SVG, `<img>`).

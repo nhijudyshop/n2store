@@ -18,21 +18,92 @@ const { keysOf, runWithKey } = require('./web2-ai-service');
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_PROMPT = 1500;
 
-// ───────────────────────── Pollinations (no key) ─────────────────────────
+// ───────────────────────── Pollinations ─────────────────────────
 const POLLINATIONS_MODELS = [
     { id: 'flux', label: 'Flux (đẹp, mặc định)' },
     { id: 'turbo', label: 'Turbo (nhanh)' },
 ];
-function _pollinations(prompt, { width, height, model, seed }) {
+const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
+// referrer KHÔNG bí mật (browser tự gửi) → nâng tier nhẹ cho path no-token. Override env.
+const POLLINATIONS_REFERRER = (process.env.WEB2_POLLINATIONS_REFERRER || 'nhijudy.store').trim();
+const POL_COOLDOWN_MS = 60 * 1000;
+
+// Nhiều token Seed free (auth.pollinations.ai) → xoay tua cộng dồn quota + bỏ giới hạn
+// anonymous (1 req/15s). Bearer token PHẢI ở server (docs: "Never put Bearer tokens in
+// frontend code") → path có token PROXY ảnh trả dataUrl (token không lộ browser).
+// WEB2_POLLINATIONS_TOKEN{1..10} + legacy đơn. Mirror _cfAccounts().
+function _pollinationsTokens() {
+    const out = [];
+    const push = (t) => {
+        t = (t || '').trim();
+        if (t && !out.includes(t)) out.push(t);
+    };
+    for (let i = 1; i <= 10; i++) push(process.env['WEB2_POLLINATIONS_TOKEN' + i]);
+    push(process.env.WEB2_POLLINATIONS_TOKEN);
+    push(process.env.POLLINATIONS_TOKEN);
+    return out;
+}
+let _polRr = 0;
+const _polCooldown = new Map(); // token → ts hết cooldown (401/403/429)
+
+function _pollinationsUrl(prompt, { width, height, model, seed }) {
     const w = clampInt(width, 256, 1536, 1024);
     const h = clampInt(height, 256, 1536, 1024);
     const mdl = POLLINATIONS_MODELS.some((m) => m.id === model) ? model : 'flux';
     const s = Number.isFinite(+seed) ? +seed : Math.floor((Date.now() % 1e9) + w + h);
-    const url =
-        'https://image.pollinations.ai/prompt/' +
+    return (
+        POLLINATIONS_BASE +
         encodeURIComponent(prompt) +
-        `?width=${w}&height=${h}&model=${mdl}&seed=${s}&nologo=true&safe=false`;
-    return { provider: 'pollinations', url };
+        `?width=${w}&height=${h}&model=${mdl}&seed=${s}&nologo=true&safe=false`
+    );
+}
+
+async function _pollinations(prompt, opts) {
+    const tokens = _pollinationsTokens();
+    const baseUrl = _pollinationsUrl(prompt, opts);
+    const anonUrl = () => ({
+        provider: 'pollinations',
+        url: baseUrl + `&referrer=${encodeURIComponent(POLLINATIONS_REFERRER)}`,
+    });
+    // KHÔNG token → trả URL cho browser tự load (rẻ, không proxy) + referrer.
+    if (!tokens.length) return anonUrl();
+
+    // Có token → proxy server-side với Bearer (giấu token) + xoay tua + cooldown.
+    const now = Date.now();
+    const ready = tokens.filter((t) => (_polCooldown.get(t) || 0) <= now);
+    const pool = ready.length ? ready : tokens; // tất cả đang cooldown → vẫn thử lại hết
+    const start = _polRr % pool.length;
+    _polRr = (_polRr + 1) % pool.length;
+    const ordered = pool.map((_, i) => pool[(start + i) % pool.length]);
+    let lastErr = '';
+    for (const token of ordered) {
+        try {
+            const r = await fetch(baseUrl, { headers: { Authorization: `Bearer ${token}` } });
+            const ct = r.headers.get('content-type') || '';
+            if (!r.ok) {
+                if (r.status === 401 || r.status === 403 || r.status === 429)
+                    _polCooldown.set(token, Date.now() + POL_COOLDOWN_MS);
+                lastErr = `HTTP ${r.status}`;
+                continue;
+            }
+            if (ct.startsWith('image/')) {
+                const buf = Buffer.from(await r.arrayBuffer());
+                const mime = ct.split(';')[0] || 'image/jpeg';
+                return {
+                    provider: 'pollinations',
+                    dataUrl: `data:${mime};base64,${buf.toString('base64')}`,
+                };
+            }
+            lastErr = 'phản hồi không phải ảnh'; // đôi khi trả text lỗi
+            continue;
+        } catch (e) {
+            lastErr = e.message || String(e);
+            continue;
+        }
+    }
+    // Hết token khoẻ → fallback anonymous URL (vẫn có ảnh, tier thấp hơn).
+    console.warn(`[web2-ai-image] pollinations rotation exhausted: ${lastErr} → fallback URL`);
+    return anonUrl();
 }
 
 // ───────────────────────── Cloudflare Workers AI ─────────────────────────
@@ -207,8 +278,9 @@ function status() {
         providers: [
             {
                 id: 'pollinations',
-                label: 'Pollinations',
-                configured: true,
+                label: `Pollinations${_pollinationsTokens().length ? ` (${_pollinationsTokens().length} token)` : ''}`,
+                configured: true, // luôn sẵn (no-token = anonymous + referrer)
+                tokens: _pollinationsTokens().length,
                 models: POLLINATIONS_MODELS,
                 editsImage: false,
             },
