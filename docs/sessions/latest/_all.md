@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f7f6cb5` — feat(web2-ai): provider chips (mặc định OpenRouter) + nút 'AI viết mô tả' tạo ảnh + dán ảnh hiện ở khung
-**Last updated**: 2026-06-23 17:05:02 +07
-**Latest session**: [`RESUME:20260623-170502-f7f6cb5`](../20260623-170502-f7f6cb5.md)
-**Summary**: feat(web2-ai): provider chips (mặc định OpenRouter) + nút 'AI viết mô tả' tạo ảnh + dán ảnh hiện ...
+**Latest commit**: `02b39da` — docs(dev-log): Zalo P3 self-healing primary note
+**Last updated**: 2026-06-23 17:24:58 +07
+**Latest session**: [`RESUME:20260623-172458-02b39da`](../20260623-172458-02b39da.md)
+**Summary**: docs(dev-log): Zalo P3 self-healing primary note
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 17:00
+- [`docs/`](./docs.md) — updated 2026-06-23 17:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -55,7 +57,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 16:57
+- [`render.com/`](./render.com.md) — updated 2026-06-23 17:24
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -77,4 +79,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 17:05
+- [`web2/`](./web2.md) — updated 2026-06-23 17:24
