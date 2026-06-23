@@ -89,6 +89,12 @@
     // (overlay), không redirect (tránh loop). Đợi Web2Auth load tối đa 2.5s.
     function _block(slugLabel) {
         if (document.getElementById('web2PermBlock')) return;
+        // Path tới Tổng quan tuỳ độ sâu trang (mirror resolveOur của sidebar):
+        // trong /web2/<slug>/ → ../overview/; còn lại (native-orders/…) → ../web2/overview/.
+        const pn = (global.location && global.location.pathname) || '';
+        const overviewUrl = /\/web2\/[^/]+\/[^/]*$/.test(pn)
+            ? '../overview/index.html'
+            : '../web2/overview/index.html';
         const ov = document.createElement('div');
         ov.id = 'web2PermBlock';
         ov.style.cssText =
@@ -99,7 +105,9 @@
             '<div style="font-size:46px;">🔒</div>' +
             '<h2 style="margin:0;font-size:20px;">Bạn không có quyền xem trang này</h2>' +
             '<p style="margin:0;color:#cbd5e1;font-size:14px;max-width:420px;">Liên hệ quản trị viên để được cấp quyền truy cập.</p>' +
-            '<a href="../web2/overview/index.html" style="margin-top:6px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">← Về Tổng quan</a>';
+            '<a href="' +
+            overviewUrl +
+            '" style="margin-top:6px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">← Về Tổng quan</a>';
         (document.body || document.documentElement).appendChild(ov);
     }
     function _runGuard() {
