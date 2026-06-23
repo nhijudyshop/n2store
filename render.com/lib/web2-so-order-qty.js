@@ -35,8 +35,36 @@
  *   Rỗng nếu bảng chưa tồn tại / lỗi đọc — caller xử lý "không tra được SL" theo
  *   policy thận trọng (fallback pin/client, hoặc reject nếu không nguồn nào).
  */
-async function loadSoOrderReceivedQtyMap(client) {
-    const map = new Map(); // String(rowId) → receivedQty (Σ)
+// Tỷ giá fallback → VND (mirror frontend SW.FALLBACK_RATES supplier-wallet-state.js).
+// Dùng để quy cost ngoại tệ về VND server-side khi cap amount over-refund.
+const FALLBACK_RATES_VND = {
+    VND: 1,
+    CNY: 3500,
+    USD: 26000,
+    EUR: 28000,
+    JPY: 170,
+    KRW: 18,
+    THB: 720,
+};
+function _rateToVnd(currency, tab) {
+    if (!currency || currency === 'VND') return 1;
+    if (tab && tab.currency === currency)
+        return Number(tab.rate) || FALLBACK_RATES_VND[currency] || 1;
+    return FALLBACK_RATES_VND[currency] || 1;
+}
+
+/**
+ * Build map String(rowId) → { received, costVnd } từ web2_so_order doc 'main'.
+ *
+ * `costVnd` = costPrice × rateToVnd(tab.currency, tab) — đơn giá VND THẬT của dòng
+ * (mirror supplier-wallet-api.js aggregateSuppliers). Dùng làm trần AMOUNT khi hoàn
+ * NCC (audit #2 2026-06-23): amount ≤ Σ(qty × costVnd). KHÔNG tin amount client gửi.
+ *
+ * @param {{query: Function}} client
+ * @returns {Promise<Map<string, {received:number, costVnd:number}>>}
+ */
+async function loadSoOrderReceivedMap(client) {
+    const map = new Map();
     let r;
     try {
         r = await client.query(`SELECT data FROM web2_so_order WHERE doc_id = 'main' LIMIT 1`);
@@ -46,6 +74,7 @@ async function loadSoOrderReceivedQtyMap(client) {
     const data = r.rows[0]?.data;
     const tabs = data && Array.isArray(data.tabs) ? data.tabs : [];
     for (const tab of tabs) {
+        const rate = _rateToVnd(tab && tab.currency, tab);
         const shipments = tab && Array.isArray(tab.shipments) ? tab.shipments : [];
         for (const sh of shipments) {
             const rows = sh && Array.isArray(sh.rows) ? sh.rows : [];
@@ -59,12 +88,22 @@ async function loadSoOrderReceivedQtyMap(client) {
                         ? Math.min(Number(row.qtyReceived) || 0, orderedQty)
                         : orderedQty;
                 if (!(recv > 0)) continue;
+                const costVnd = (Number(row.costPrice) || 0) * rate;
                 const rid = String(row.id);
-                map.set(rid, (map.get(rid) || 0) + recv);
+                const prev = map.get(rid) || { received: 0, costVnd };
+                map.set(rid, { received: prev.received + recv, costVnd: costVnd || prev.costVnd });
             }
         }
     }
     return map;
 }
 
-module.exports = { loadSoOrderReceivedQtyMap };
+// Backward-compat: chỉ trả qty (Σ received) — wrapper quanh loadSoOrderReceivedMap.
+async function loadSoOrderReceivedQtyMap(client) {
+    const full = await loadSoOrderReceivedMap(client);
+    const map = new Map();
+    for (const [rid, v] of full) map.set(rid, v.received);
+    return map;
+}
+
+module.exports = { loadSoOrderReceivedQtyMap, loadSoOrderReceivedMap };

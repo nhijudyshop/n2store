@@ -26,7 +26,7 @@ const router = express.Router();
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 // Trần over-refund SERVER-AUTHORITATIVE — SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với purchase-refund (/quick-refund) — xem lib/web2-so-order-qty.js.
-const { loadSoOrderReceivedQtyMap } = require('../lib/web2-so-order-qty');
+const { loadSoOrderReceivedMap } = require('../lib/web2-so-order-qty');
 const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 let _notifyClients = null;
@@ -215,7 +215,7 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
     const b = req.body || {};
     const supplier = String(b.supplier || '').trim();
     const type = String(b.type || '').trim();
-    const amount = Number(b.amount);
+    let amount = Number(b.amount);
     if (!supplier) return res.status(400).json({ success: false, error: 'supplier required' });
     if (!TX_TYPES.has(type))
         return res.status(400).json({ success: false, error: `type phải là payment|return` });
@@ -249,6 +249,35 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
         if (pre.rows.length) {
             await client.query('COMMIT');
             return res.json({ success: true, alreadyProcessed: true, tx: mapTx(pre.rows[0]) });
+        }
+        // FIX #2 (audit 2026-06-23, browser-test confirmed): cap AMOUNT hoàn NCC theo cost
+        // THẬT từ so-order (server-authoritative). TRƯỚC: amount lấy thẳng body (chỉ check
+        // >0) → client gửi amount phồng cho qty HỢP LỆ → mint ledger NCC (giảm nợ quá tay;
+        // qty-cap bên dưới KHÔNG chặn vì qty đúng). Nay type=return + rowReturns + MỌI rid
+        // tra được costVnd từ so-order → amount ≤ Σ(qty × costVnd) (cho hoàn ÍT hơn: giảm
+        // giá/đối trừ; chỉ chặn phồng). Thiếu cost (so-order wipe / rid lạ) → KHÔNG cap
+        // (giữ flow cũ, tránh chặn nhầm). soMap dùng chung cho qty-cap bên dưới.
+        let soMap = null;
+        if (type === 'return' && b.rowReturns && typeof b.rowReturns === 'object') {
+            soMap = await loadSoOrderReceivedMap(client);
+            let maxAmount = 0;
+            let allHaveCost = true;
+            for (const [rid, v] of Object.entries(b.rowReturns)) {
+                const q = Number(v?.qty) || 0;
+                if (q <= 0) continue;
+                const cv = soMap.get(String(rid))?.costVnd;
+                if (Number.isFinite(cv) && cv > 0) maxAmount += q * cv;
+                else {
+                    allHaveCost = false;
+                    break;
+                }
+            }
+            if (allHaveCost && maxAmount > 0 && amount > maxAmount * 1.01) {
+                console.warn(
+                    `[SUPPLIER-WALLET] /tx ${supplier} ${txId}: client amount=${amount} > computed=${maxAmount} → cap`
+                );
+                amount = maxAmount;
+            }
         }
         // Bút toán: payment không có moveName → sinh từ sequence.
         let moveName = String(b.moveName || '').trim() || null;
@@ -300,9 +329,9 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                 b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
             let mutated = false;
             if (rowReturns) {
-                // Đọc SL đã NHẬN THẬT từ so-order 1 lần (trong transaction) — nguồn sự
-                // thật cho trần over-refund, client không sửa được.
-                const receivedMap = await loadSoOrderReceivedQtyMap(client);
+                // SL đã NHẬN THẬT + cost từ so-order (đã load 1 lần ở amount-cap trên,
+                // tái dùng soMap) — nguồn sự thật cho trần over-refund qty + amount.
+                const receivedMap = soMap || (await loadSoOrderReceivedMap(client));
                 for (const [rid, v] of Object.entries(rowReturns)) {
                     // [11] (2026-06-13): CỘNG DỒN qty/amount thay vì ghi đè. rowReturns
                     // gửi DELTA của lần trả này (xem supplier-wallet-app confirmReturn).
@@ -323,7 +352,8 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                     // nguồn nào → REJECT. Check + pin dưới FOR UPDATE meta nên atomic.
                     const claimedOrdered = Number(v?.ordered);
                     const prevOrdered = Number(prev.ordered);
-                    const serverQty = receivedMap.get(String(rid));
+                    const serverEntry = receivedMap.get(String(rid));
+                    const serverQty = serverEntry?.received;
                     let cap;
                     if (Number.isFinite(serverQty) && serverQty > 0) {
                         cap = serverQty; // authoritative — bỏ qua client/pin
@@ -348,9 +378,18 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                         err.httpStatus = 400;
                         throw err;
                     }
+                    // Cap per-row amount theo cost THẬT (đối xứng amount-cap tổng) để
+                    // returned_row_ids nhất quán với ledger; thiếu cost → giữ client amount.
+                    const rowCostVnd = serverEntry?.costVnd;
+                    const rowQty = Number(v?.qty) || 0;
+                    const claimedRowAmount = Number(v?.amount) || 0;
+                    const cappedRowAmount =
+                        Number.isFinite(rowCostVnd) && rowCostVnd > 0
+                            ? Math.min(claimedRowAmount, rowQty * rowCostVnd)
+                            : claimedRowAmount;
                     cur[rid] = {
                         qty: newQty,
-                        amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
+                        amount: (Number(prev.amount) || 0) + cappedRowAmount,
                         ts,
                         ordered: cap, // pin trần để lần sau enforce khi so-order bị wipe
                     };
