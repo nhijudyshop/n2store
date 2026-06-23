@@ -123,9 +123,17 @@ router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res
             const d = await r.json().catch(() => ({}));
             if (d.error) {
                 lastErr = d.error.message || 'Gemini error';
-                // auth/quota → đổi key; lỗi khác (nội dung) → dừng.
-                if (r.status === 401 || r.status === 403 || r.status === 429 || r.status === 402)
-                    continue;
+                // auth/quota → đổi key; lỗi khác (nội dung) → dừng. Gemini trả 400 cho
+                // key hỏng (API_KEY_INVALID) → cũng phải đổi key, không chỉ 401/403/429/402.
+                const keyBad =
+                    r.status === 401 ||
+                    r.status === 403 ||
+                    r.status === 429 ||
+                    r.status === 402 ||
+                    /api[\s_-]?key (not found|not valid|invalid)|API_KEY_INVALID|quota|exhausted|rate.?limit/i.test(
+                        lastErr
+                    );
+                if (keyBad) continue;
                 return res.status(502).json({ success: false, error: lastErr });
             }
             data = d;

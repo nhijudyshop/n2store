@@ -166,8 +166,15 @@ async function _httpError(r, providerLabel) {
         } catch {}
     }
     const err = new Error(`${providerLabel}: ${String(detail).slice(0, 300)}`);
+    const d = String(detail);
     if (r.status === 401 || r.status === 403) err._auth = true;
     if (r.status === 429 || r.status === 402) err._quota = true;
+    // Gemini trả HTTP 400 cho key hỏng (API_KEY_INVALID / "API key not found") → coi như
+    // auth để XOAY sang key kế (không thì rotation ném ngay ở key đầu, bỏ phí key tốt sau).
+    if (/api[\s_-]?key (not found|not valid|invalid)|API_KEY_INVALID|invalid api key/i.test(d))
+        err._auth = true;
+    if (/quota|rate.?limit|exhausted|resource has been exhausted|too many requests/i.test(d))
+        err._quota = true;
     return err;
 }
 
