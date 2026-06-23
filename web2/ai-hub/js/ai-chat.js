@@ -88,11 +88,15 @@
         if (p.configured) {
             pill.hidden = false;
             pill.className = 'aih-pill';
-            pill.textContent = `🔑 ${p.keyCount} key`;
+            // Admin thấy số nguồn (chẩn đoán); NV chỉ thấy "Sẵn sàng".
+            pill.textContent =
+                global.AiHub && global.AiHub.isAdmin && global.AiHub.isAdmin()
+                    ? `✓ Sẵn sàng (${p.keyCount})`
+                    : '✓ Sẵn sàng';
         } else {
             pill.hidden = false;
             pill.className = 'aih-pill warn';
-            pill.textContent = 'Chưa cấu hình key';
+            pill.textContent = 'Chưa sẵn sàng';
         }
     }
 
@@ -468,8 +472,8 @@
         if (hint) {
             const okN = (st?.providers || []).filter((p) => p.configured).length;
             hint.textContent = okN
-                ? `${okN} nhà cung cấp sẵn sàng · model mặc định giống ChatGPT (GPT-OSS)`
-                : 'Chưa có key nào — vào tab “Quản lý key” để biết cách thêm';
+                ? 'Sẵn sàng — hỏi đáp, soạn nội dung, tạo ảnh sản phẩm'
+                : 'Chưa sẵn sàng — liên hệ admin để bật';
         }
     }
 

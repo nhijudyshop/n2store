@@ -196,7 +196,7 @@ function status() {
         providers: [
             {
                 id: 'pollinations',
-                label: 'Pollinations (free, no-key)',
+                label: 'Pollinations',
                 configured: true,
                 models: POLLINATIONS_MODELS,
                 editsImage: false,

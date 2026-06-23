@@ -29,8 +29,8 @@
                             Trợ lý AI
                         </h1>
                         <p class="aih-sub">
-                            Chat &amp; tạo ảnh <b>miễn phí</b> — xoay nhiều key free (Groq · Gemini
-                            · OpenRouter · Pollinations…). Không dùng key lậu, không lộ data.
+                            Chat &amp; tạo ảnh thông minh cho cửa hàng — soạn nội dung, tư vấn
+                            khách, tạo hình sản phẩm.
                         </p>
                         <nav class="aih-tabs" role="tablist">
                             <button class="aih-tab" data-tab="chat" role="tab" aria-selected="true">
@@ -49,8 +49,9 @@
                                 data-tab="keys"
                                 role="tab"
                                 aria-selected="false"
+                                hidden
                             >
-                                <i data-lucide="key-round"></i> Quản lý key
+                                <i data-lucide="settings-2"></i> Cấu hình
                             </button>
                         </nav>
                     </header>
@@ -116,9 +117,7 @@
                                     ></textarea>
                                 </div>
                                 <div class="aih-field">
-                                    <label class="aih-label" for="aihImgProvider"
-                                        >Nguồn (free)</label
-                                    >
+                                    <label class="aih-label" for="aihImgProvider">Nguồn ảnh</label>
                                     <select
                                         class="aih-select"
                                         id="aihImgProvider"
@@ -169,8 +168,8 @@
                                     <i data-lucide="wand-sparkles"></i> Tạo ảnh
                                 </button>
                                 <p class="aih-keyhint">
-                                    🟢 <b>Pollinations</b> free 100%, không cần key. Cloudflare
-                                    &amp; Gemini cần cấu hình key ở tab Quản lý key.
+                                    🟢 <b>Pollinations</b> dùng được ngay. Các nguồn khác
+                                    (Cloudflare, Gemini) do admin thiết lập sẵn.
                                 </p>
                             </div>
                             <div class="aih-img-gallery" id="aihGallery"></div>
@@ -189,10 +188,10 @@
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
         <script src="../shared/web2-sidebar.js?v=20260623adm2"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
-        <script src="./js/ai-hub.js?v=20260623a"></script>
-        <script src="./js/ai-chat.js?v=20260623b"></script>
-        <script src="./js/ai-image.js?v=20260623a"></script>
-        <script src="./js/ai-keys.js?v=20260623a"></script>
+        <script src="./js/ai-hub.js?v=20260623c"></script>
+        <script src="./js/ai-chat.js?v=20260623c"></script>
+        <script src="./js/ai-image.js?v=20260623c"></script>
+        <script src="./js/ai-keys.js?v=20260623c"></script>
         <script>
             (function () {
                 if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside', { activeRoute: 'ai-hub' });

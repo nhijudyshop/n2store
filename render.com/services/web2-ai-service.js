@@ -67,11 +67,11 @@ const PROVIDERS = {
             'X-Title': 'N2Store Web2 AI',
         },
         models: [
-            { id: 'openai/gpt-oss-20b:free', label: 'GPT-OSS 20B (free · giống ChatGPT)' },
-            { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek V3 (free)' },
-            { id: 'deepseek/deepseek-r1-0528:free', label: 'DeepSeek R1 — suy luận (free)' },
-            { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (free)' },
-            { id: 'qwen/qwen3-235b-a22b:free', label: 'Qwen3 235B (free)' },
+            { id: 'openai/gpt-oss-20b:free', label: 'GPT-OSS 20B (giống ChatGPT)' },
+            { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek V3' },
+            { id: 'deepseek/deepseek-r1-0528:free', label: 'DeepSeek R1 — suy luận' },
+            { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B' },
+            { id: 'qwen/qwen3-235b-a22b:free', label: 'Qwen3 235B' },
         ],
     },
 };
@@ -459,8 +459,10 @@ async function test(providerId) {
     try {
         const res = await chat({
             provider: providerId,
-            messages: [{ role: 'user', content: 'Trả lời đúng 1 từ: OK' }],
-            maxTokens: 16,
+            messages: [{ role: 'user', content: 'Trả lời ngắn: nói "OK" nếu bạn hoạt động.' }],
+            // ⚠ Model suy luận (GPT-OSS, Gemini 2.5) đốt token cho reasoning trước output;
+            // maxTokens quá thấp (16) → output rỗng dù key chạy. Để ≥256 cho có chỗ.
+            maxTokens: 256,
             temperature: 0,
         });
         return { ok: true, ms: Date.now() - t0, model: res.model, sample: res.text.slice(0, 40) };

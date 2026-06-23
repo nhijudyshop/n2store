@@ -20,7 +20,7 @@ const express = require('express');
 const router = express.Router();
 const ai = require('../services/web2-ai-service');
 const img = require('../services/web2-ai-image-service');
-const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 
 // ── Rate-limit theo IP (chống đốt quota free) ──
 const _hits = new Map();
@@ -45,9 +45,22 @@ function rateLimit(req, res, next) {
     next();
 }
 
-// ── Trạng thái + models (public-soft) ──
-router.get('/status', (req, res) => {
-    res.json({ ok: true, chat: ai.status(), image: img.status() });
+// ── Trạng thái + models. Chi tiết key (masked + cooldown + keyCount) CHỈ admin.
+// NV vẫn nhận provider/model (cho dropdown chat) nhưng KHÔNG thấy thông tin key.
+router.get('/status', requireWeb2AuthSoft, (req, res) => {
+    const admin = req.web2User?.role === 'admin';
+    const chat = ai.status();
+    if (!admin) {
+        chat.providers = (chat.providers || []).map((p) => ({
+            id: p.id,
+            label: p.label,
+            kind: p.kind,
+            configured: p.configured,
+            defaultModel: p.defaultModel,
+            models: p.models,
+        }));
+    }
+    res.json({ ok: true, admin, chat, image: img.status() });
 });
 
 router.get('/models', (req, res) => {
@@ -140,10 +153,10 @@ router.post(
     }
 );
 
-// ── Test 1 provider ──
+// ── Test 1 provider (admin-only — quản lý key) ──
 router.post(
     '/test',
-    requireWeb2AuthSoft,
+    requireWeb2Admin,
     rateLimit,
     express.json({ limit: '8kb' }),
     async (req, res) => {

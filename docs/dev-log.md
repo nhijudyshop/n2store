@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### [feat] Trợ lý AI: keys LIVE (12 chat + 3 ảnh) + Render build-filter cắt phút + tab Cấu hình admin-only + bỏ chữ key/free
+
+**Keys lên Render (WEB2\_ prefix) + đã build LIVE:** set 16 env `WEB2_*` qua Render API (merge guard, 43→59) → Gemini 6 + Groq 5 + OpenRouter 1 (xoay tua, ưu tiên Gemini) + Cloudflare 3 account ảnh. Verify /chat thật cả 3 provider trả tiếng Việt ✓, Cloudflare ảnh ✓. Test toàn bộ key serect: Gemini cũ (11) chết "leaked"; Gemini mới (3 AQ+1 AIza) + Groq 5 + OpenRouter + CF 3 đều sống.
+
+**Render build-minutes (root cause cạn phút):** 3 service (web2-api, n2store-fallback, web2-realtime) đều **autoDeploy + KHÔNG buildFilter** → MỖI push rebuild cả 3 bất kể đổi gì (kể cả docs/frontend/session) → cạn 500 free + $5 limit → build fail 3s/no-log. **Fix: set buildFilter** (`render.com/**` cho web2-api+n2store-fallback, `live-chat/server/**` cho web2-realtime) qua API (buildFilter là field TOP-LEVEL, không phải serviceDetails) → commit docs/frontend/session KHÔNG còn kích build. User nâng spend limit $5→$10.
+
+**test() ping rỗng:** maxTokens 16 quá thấp cho model suy luận (GPT-OSS/Gemini 2.5 đốt token reasoning) → nâng 256.
+
+**Tab "Quản lý key" → "Cấu hình", CHỈ admin (canonical `role==='admin'`, khớp web2/users + requireWeb2Admin):** HTML `hidden` mặc định, ai-hub.js `isAdmin()` mới unhide cho admin + chặn switchTab('keys'). Server gate: `/status` strip keys[]/keyCount cho NV (giữ provider/model cho dropdown), `/test` → requireWeb2Admin. **Bỏ chữ "key"/"free"** khỏi UI NV thấy: subtitle, label "Nguồn ảnh", hint ảnh, pill chat ("✓ Sẵn sàng" thay "N key"), status hint, nhãn model OpenRouter + Pollinations. Admin Cấu hình tab giữ thuật ngữ kỹ thuật (env name chứa KEY là bắt buộc).
+
 ### [feat+fix] Nút tự tạo mật khẩu (web2/users) + audit browser-test Chấm công & Quản lý chi tiêu
 
 **1. Nút "Tạo" mật khẩu** (`web2/users/index.html` + `css/users.css` + `js/users-app.js`, bump `?v=20260623pg`):
