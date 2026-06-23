@@ -735,6 +735,13 @@ async function loginWithCredentials(accountKey, credentials, label, opts) {
         const api = await zalo.login(credentials);
         await _afterLogin(accountKey, api, label, opts);
         return { status: 'connected' };
+    } catch (e) {
+        // Login lỗi (cookie hết hạn / sai danh tính) → set 'error' để UI phản ánh đúng
+        // (trước đây kẹt 'connecting'). Ném lại cho caller xử lý (route trả 400, _doReconnect backoff).
+        if (!(e && e.code === 'WRONG_ACCOUNT')) {
+            _setStatus(accountKey, 'error', String((e && e.message) || e).slice(0, 120));
+        }
+        throw e;
     } finally {
         // _afterLogin/_setStatus dùng cùng entry trong _sessions → chỉ xoá cờ, không ghi đè state.
         const cur = _sessions.get(accountKey);

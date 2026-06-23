@@ -708,7 +708,16 @@ router.post('/accounts/:key/reconnect', async (req, res) => {
         );
         res.json({ success: true, ...r });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        // Phiên/cookie đã lưu hết hạn → zalo.login throw "Đăng nhập thất bại". KHÔNG
+        // phải lỗi server (500) → trả 400 + hướng dẫn đăng nhập lại rõ ràng.
+        const wrong = e && e.code === 'WRONG_ACCOUNT';
+        res.status(400).json({
+            success: false,
+            error: wrong
+                ? e.message
+                : 'Phiên Zalo đã lưu hết hạn — hãy đăng nhập lại: mở chat.zalo.me (đăng nhập tài khoản này) rồi bấm "Đăng nhập Zalo", hoặc bấm "QR" để quét mã.',
+            expired: !wrong,
+        });
     }
 });
 
