@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `53ef887` — feat(web2-cham-cong): dải trạng thái nhận biết PC đồng bộ tắt (stale >15') + hướng dẫn dự phòng (lay-du-lieu.bat / Nhập Excel)
-**Last updated**: 2026-06-23 14:14:41 +07
-**Latest session**: [`RESUME:20260623-141441-53ef887`](../20260623-141441-53ef887.md)
-**Summary**: feat(web2-cham-cong): dải trạng thái nhận biết PC đồng bộ tắt (stale >15') + hướng dẫn dự phò...
+**Latest commit**: `2869d0d` — feat(web2-cham-cong): 1 nguồn duy nhất = bat → DB (bỏ nút Đồng bộ máy + Nhập Excel/TXT thủ công); client tự lấy data mới qua smart cache + SSE
+**Last updated**: 2026-06-23 14:38:11 +07
+**Latest session**: [`RESUME:20260623-143811-2869d0d`](../20260623-143811-2869d0d.md)
+**Summary**: Chấm công 1 nguồn = bat → DB + smart cache/SSE tự lấy data mới (bỏ nút thủ công) + fix sync-status PUT
 
 ## Folders affected in this commit
 
 - [`web2/`](./web2.md) — 3 file(s)
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -72,9 +73,9 @@
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
 - [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-22 16:08
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 14:09
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 14:38
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 14:14
+- [`web2/`](./web2.md) — updated 2026-06-23 14:38
