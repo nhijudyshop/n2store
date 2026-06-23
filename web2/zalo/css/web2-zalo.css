@@ -506,8 +506,22 @@
     color: var(--wz-ok);
     border: 1px solid color-mix(in srgb, var(--wz-ok) 24%, transparent);
 }
+.wz-sec-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: var(--wz-radius-sm, 8px);
+    font-size: 12px;
+    line-height: 1.45;
+    background: var(--wz-muted-soft, #f1f5f9);
+    color: var(--wz-muted, #64748b);
+    border: 1px solid var(--wz-border, #e2e8f0);
+}
 .wz-kick-warn i,
-.wz-live-hint i {
+.wz-live-hint i,
+.wz-sec-hint i {
     width: 15px;
     height: 15px;
     flex-shrink: 0;

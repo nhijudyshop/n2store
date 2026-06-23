@@ -111,6 +111,19 @@ async function _loadTracked() {
     }
 }
 
+// Cache account_key của TK cá nhân CHÍNH (is_primary). zca service hỏi qua callback
+// `isPrimary` để biết TK nào được watchdog chăm + tự reconnect (chỉ TK chính). Cache
+// refresh 60s cùng _loadTracked + cập nhật NGAY khi đổi TK chính (route /primary).
+let _primaryKey = null;
+async function _loadPrimaryKey() {
+    if (!_pool) return;
+    try {
+        _primaryKey = await _getPrimaryKey(_pool);
+    } catch (e) {
+        console.warn('[WEB2-ZALO] loadPrimaryKey failed:', e.message);
+    }
+}
+
 // ── Strip dữ liệu nhạy cảm trước khi trả client ─────────────────────────
 // live = object health từ zca.statusAll() (hoặc undefined). Surface health cho UI
 // đèn sức khoẻ + cảnh báo "không bị văng" (reconnecting / kicked / lastEventAt).
@@ -188,6 +201,8 @@ zca.configure({
             })
             .catch((e) => console.warn('[WEB2-ZALO] repairConvNames:', e.message));
     },
+    // zca hỏi TK nào là CHÍNH → chỉ TK chính được watchdog chăm + tự reconnect.
+    isPrimary: (accountKey) => !!_primaryKey && accountKey === _primaryKey,
 });
 
 // TTL refresh tên/avatar khi mở chat (tránh gọi zca mỗi lần mở).
@@ -695,13 +710,15 @@ router.post('/accounts/:key/disconnect', requireWeb2Admin, async (req, res) => {
     }
 });
 
-// Đặt 1 TK cá nhân làm CHÍNH (gửi tin KH 1-1 dùng TK này). 1 dòng is_primary=true.
+// Đặt 1 TK cá nhân làm CHÍNH. is_primary quyết định TK gửi tin KH 1-1 VÀ TK được
+// hệ thống tự kết nối + giữ kết nối (watchdog). "Đặt làm chính thì MỚI kết nối với
+// TK đó": ngắt các TK cá nhân khác đang nối (giữ đúng 1 TK), rồi kết nối TK chính.
 router.post('/accounts/:key/primary', async (req, res) => {
     try {
         const db = getDb(req);
         const key = req.params.key;
         const { rows } = await db.query(
-            `SELECT account_type FROM web2_zalo_accounts WHERE account_key=$1`,
+            `SELECT account_type, session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_key=$1`,
             [key]
         );
         if (!rows[0])
@@ -715,8 +732,50 @@ router.post('/accounts/:key/primary', async (req, res) => {
             `UPDATE web2_zalo_accounts SET is_primary = (account_key=$1), updated_at=$2`,
             [key, now()]
         );
+        _primaryKey = key; // cập nhật cache NGAY → zca callback isPrimary đúng tức thì
+
+        // Ngắt các TK cá nhân KHÁC đang kết nối (chỉ giữ 1 TK chính).
+        try {
+            const others = await db.query(
+                `SELECT account_key FROM web2_zalo_accounts
+                 WHERE account_type='personal' AND account_key<>$1
+                   AND status IN ('connected','connecting','reconnecting')`,
+                [key]
+            );
+            for (const o of others.rows) {
+                try {
+                    zca.disconnect(o.account_key);
+                } catch {}
+                await db
+                    .query(
+                        `UPDATE web2_zalo_accounts SET status='disconnected', updated_at=$1 WHERE account_key=$2`,
+                        [now(), o.account_key]
+                    )
+                    .catch(() => {});
+                _notify('web2:zalo:accounts', 'update', o.account_key);
+            }
+        } catch (e) {
+            console.warn('[WEB2-ZALO] primary: disconnect others:', e.message);
+        }
+
+        // Kết nối TK chính bằng session đã lưu (nền — không chặn response; SSE cập
+        // nhật UI khi connecting→connected). Chưa có session → user tự đăng nhập QR.
+        const willConnect = !!rows[0].session && !zca.isConnected(key);
+        if (willConnect) {
+            zca.loginWithCredentials(
+                key,
+                secretCrypto.decryptJson(rows[0].session),
+                rows[0].label || rows[0].display_name,
+                { expectedUid: rows[0].zalo_uid || null }
+            ).catch((e) => {
+                console.warn('[WEB2-ZALO] primary connect fail:', e.message);
+                _updateAccStatus(key, 'error', 'primary: ' + String(e.message).slice(0, 120)).catch(
+                    () => {}
+                );
+            });
+        }
         _notify('web2:zalo:accounts', 'update', key);
-        res.json({ success: true, accountKey: key });
+        res.json({ success: true, accountKey: key, connecting: willConnect });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -2280,7 +2339,10 @@ async function ensureSchema(pool) {
     await _loadTracked();
     // Refresh cache định kỳ (an toàn khi nhiều instance / thay đổi ngoài luồng).
     if (!ensureSchema._refreshTimer) {
-        ensureSchema._refreshTimer = setInterval(() => _loadTracked(), 60 * 1000);
+        ensureSchema._refreshTimer = setInterval(() => {
+            _loadTracked();
+            _loadPrimaryKey();
+        }, 60 * 1000);
         if (ensureSchema._refreshTimer.unref) ensureSchema._refreshTimer.unref();
     }
 }
@@ -2289,8 +2351,11 @@ async function ensureSchema(pool) {
 async function restoreSessions() {
     if (!_pool || !zca.isAvailable()) return;
     try {
+        await _loadPrimaryKey(); // cache TK chính trước khi zca hỏi callback isPrimary
+        // CHỈ tự kết nối TK CHÍNH lúc boot (is_primary=true). TK phụ để dormant —
+        // user tự đăng nhập/kết nối tay khi cần (tránh "refresh kết nối liên tục").
         const { rows } = await _pool.query(
-            `SELECT account_key, account_type, is_active, session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_type='personal' AND is_active=true AND session IS NOT NULL`
+            `SELECT account_key, account_type, is_active, session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_type='personal' AND is_active=true AND session IS NOT NULL AND is_primary=true`
         );
         // Giải mã session AT-REST trước khi đưa vào zca (no-op nếu chưa bật WEB2_ENC_KEY
         // hoặc data legacy plaintext). Bản copy mới — KHÔNG mutate row gốc.

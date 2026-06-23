@@ -133,6 +133,12 @@
             t === 'personal' && a.status === 'connected'
                 ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Đang nghe realtime trên máy chủ → nhân viên dùng được ở mọi máy. Lưu ý: đừng đăng nhập <b>chat.zalo.me</b> tài khoản này ở nơi khác (sẽ làm rớt; máy chủ tự kết nối lại).</div>`
                 : '';
+        // TK phụ (cá nhân, không phải TK chính): máy chủ KHÔNG tự kết nối / giữ kết nối.
+        // Bấm "Đặt làm chính" để hệ thống tự kết nối + giữ realtime cho TK này.
+        const secondaryHint =
+            t === 'personal' && !a.isPrimary
+                ? `<div class="wz-sec-hint"><i data-lucide="info"></i> TK phụ — máy chủ <b>không tự kết nối / không refresh liên tục</b>. Bấm <b>Đặt làm chính</b> để hệ thống tự kết nối & giữ realtime.</div>`
+                : '';
         return `<div class="wz-acc-card${a.isPrimary ? ' is-primary' : ''}">
             <div class="wz-acc-top">
                 ${avatar}
@@ -144,7 +150,7 @@
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
             <div class="wz-statustxt"><span class="wz-dot ${esc(eff)}"></span>${esc(stLabel)}${a.statusMsg && a.status !== 'kicked' ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
-            ${kickWarn}${liveHint}
+            ${kickWarn}${liveHint}${secondaryHint}
             <div class="wz-acc-actions">${acts.join('')}</div>
         </div>`;
     }
@@ -258,15 +264,20 @@
         return true;
     }
 
-    // Tự gia hạn: khi mở trang, TK cá nhân đang rớt kết nối + có extension + còn phiên Zalo trên
-    // trình duyệt → tự login lại nền (1 lần/lần mở trang). Không có phiên → im lặng, không nag.
+    // Tự gia hạn: khi mở trang, CHỈ TK CHÍNH đang rớt kết nối + có extension + còn phiên Zalo
+    // trên trình duyệt → tự login lại nền (1 lần/lần mở trang). TK phụ KHÔNG tự nối (tránh
+    // "refresh kết nối liên tục") — user bấm tay khi cần. Không có phiên → im lặng, không nag.
     let _autoRenewTried = false;
     async function autoRenewZalo() {
         if (_autoRenewTried) return;
         _autoRenewTried = true;
         if (!window.Web2Ext?.hasExtension?.()) return;
         const stale = (state.accounts || []).filter(
-            (a) => a.accountType === 'personal' && a.isActive && a.status !== 'connected'
+            (a) =>
+                a.accountType === 'personal' &&
+                a.isActive &&
+                a.isPrimary &&
+                a.status !== 'connected'
         );
         for (const a of stale) {
             try {

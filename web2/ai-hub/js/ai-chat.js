@@ -37,7 +37,7 @@
         const c = {
             id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             title: 'Cuộc trò chuyện mới',
-            provider: st?.defaultProvider || 'groq',
+            provider: _pickDefaultProvider(),
             model: '',
             system: '',
             messages: [],
@@ -51,24 +51,44 @@
         renderMessages();
     }
 
-    // ── selects (provider/model) ──
+    // ── provider (chips) + model (select) ──
     function providers() {
         return H().state.status?.chat?.providers || [];
     }
+    // Default provider cho cuộc mới: ưu tiên OpenRouter (nhiều model, GPT-OSS) nếu có key,
+    // không thì provider đầu tiên có cấu hình, cuối cùng fallback defaultProvider của server.
+    function _pickDefaultProvider() {
+        const list = providers();
+        if (list.find((p) => p.id === 'openrouter' && p.configured)) return 'openrouter';
+        const firstOn = list.find((p) => p.configured);
+        return firstOn?.id || H().state.status?.chat?.defaultProvider || 'openrouter';
+    }
+    function renderProviderChips(active) {
+        const box = document.getElementById('aihProviderChips');
+        if (!box) return;
+        box.innerHTML = providers()
+            .map(
+                (p) =>
+                    `<button type="button" class="aih-chip ${p.id === active ? 'active' : ''} ${p.configured ? '' : 'off'}" data-provider="${p.id}"${p.configured ? '' : ' disabled title="Chưa cấu hình key"'}>${H().escapeHtml(p.label)}</button>`
+            )
+            .join('');
+    }
+    function selectProvider(id) {
+        const c = current();
+        const p = providers().find((x) => x.id === id);
+        if (!c || !p || !p.configured) return;
+        c.provider = id;
+        c.model = ''; // dùng model mặc định của provider mới
+        save();
+        renderProviderChips(id);
+        fillModels(id, '');
+        updateKeyPill();
+    }
     function syncBar() {
         const c = current();
-        const provSel = document.getElementById('aihProvider');
-        const modelSel = document.getElementById('aihModel');
-        if (!provSel || !modelSel) return;
-        const list = providers();
-        provSel.innerHTML = list
-            .map((p) => {
-                const off = p.configured ? '' : ' — chưa có key';
-                return `<option value="${p.id}">${p.label}${off}</option>`;
-            })
-            .join('');
-        if (c) provSel.value = c.provider;
-        fillModels(provSel.value, c && c.model);
+        if (!c || !document.getElementById('aihModel')) return;
+        renderProviderChips(c.provider);
+        fillModels(c.provider, c.model);
         updateKeyPill();
     }
     function fillModels(providerId, selModel) {
@@ -83,7 +103,7 @@
     }
     function updateKeyPill() {
         const pill = document.getElementById('aihKeyPill');
-        const p = providers().find((x) => x.id === document.getElementById('aihProvider')?.value);
+        const p = providers().find((x) => x.id === current()?.provider);
         if (!pill || !p) return;
         if (p.configured) {
             pill.hidden = false;
@@ -259,7 +279,7 @@
             newConvo();
             c = current();
         }
-        c.provider = document.getElementById('aihProvider').value;
+        // c.provider đã do chip set; chỉ đồng bộ model đang chọn.
         c.model = document.getElementById('aihModel').value;
         c.messages.push({ role: 'user', content: text });
         if (c.title === 'Cuộc trò chuyện mới') c.title = text.slice(0, 42);
@@ -440,12 +460,9 @@
             .getElementById('aihNewChat')
             .addEventListener('click', () => !streaming && newConvo());
         document.getElementById('aihSysBtn').addEventListener('click', editSystem);
-        document.getElementById('aihProvider').addEventListener('change', (e) => {
-            const c = current();
-            if (c) c.provider = e.target.value;
-            fillModels(e.target.value, '');
-            updateKeyPill();
-            save();
+        document.getElementById('aihProviderChips').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-provider]');
+            if (btn && !btn.disabled) selectProvider(btn.dataset.provider);
         });
         document.getElementById('aihModel').addEventListener('change', (e) => {
             const c = current();
