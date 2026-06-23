@@ -3,14 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `963e7f1` — docs(dev-log): web2-ai 9 verified bugs (SSE abort/upstream cancel, overload key-rotate, gemini-image rotate, vision-guard 422, image-tab recovery, editImage warn, stop-before-token, save quota, rate-limit TTL sweep)
-**Last updated**: 2026-06-23 17:44:06 +07
-**Latest session**: [`RESUME:20260623-174406-963e7f1`](../20260623-174406-963e7f1.md)
-**Summary**: web2-ai 9 verified bugs fixed (SSE abort, overload rotate, gemini-image rotate, vision-guard, UX)
+**Latest commit**: `465bb90` — auto: session update
+**Last updated**: 2026-06-23 18:11:57 +07
+**Latest session**: [`RESUME:20260623-181157-465bb90`](../20260623-181157-465bb90.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`attendance-sync/`](./attendance-sync.md) — 6 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -19,13 +23,14 @@
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
 - [`_root/`](./_root.md) — updated 2026-06-22 09:24
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
+- [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-23 18:11
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
 - [`balance-history/`](./balance-history.md) — updated 2026-06-20 12:07
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 17:44
+- [`docs/`](./docs.md) — updated 2026-06-23 18:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -55,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 17:41
+- [`render.com/`](./render.com.md) — updated 2026-06-23 18:11
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -72,9 +77,9 @@
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
 - [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-22 16:08
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 17:41
+- [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-23 18:11
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 17:41
+- [`web2/`](./web2.md) — updated 2026-06-23 18:11
