@@ -227,6 +227,14 @@ async function ensureTables(pool) {
         ALTER TABLE IF EXISTS web2_returns
             ADD COLUMN IF NOT EXISTS pbh_wallet_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb;
     `);
+    // [2026-06-23] stock_applied: kho CÓ thật sự được cộng lúc tạo phiếu không.
+    // Native order chưa convert PBH = chưa trừ kho → create gate skip _applyStock →
+    // stock_applied=FALSE → DELETE PHẢI skip trừ kho (đối xứng). Default TRUE: phiếu
+    // CŨ đều đã cộng kho thật → huỷ vẫn trừ đúng. (browser-test bắt regression vòng 4)
+    await pool.query(`
+        ALTER TABLE IF EXISTS web2_returns
+            ADD COLUMN IF NOT EXISTS stock_applied BOOLEAN NOT NULL DEFAULT TRUE;
+    `);
     // 3H2 (2026-06-12): backstop chống 2 phiếu "không nhận hàng" active cùng 1
     // đơn nguồn (double-submit/2 user = cộng ví + cộng kho ×2). Pre-check trong
     // transaction là lớp 1; index này là lớp chốt khi race. try/catch riêng:
@@ -963,8 +971,8 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                           (code, phone, customer_name, customer_id, method, sub_type, issue, reason, reason_note,
                            source_order_code, source_order_type, items, total_amount, wallet_credited,
                            wallet_tx_id, stock_status, bill_status, status, note, history, created_at, updated_at,
-                           created_by, created_by_name, pbh_wallet_snapshot)
-                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21,$22::jsonb)
+                           created_by, created_by_name, pbh_wallet_snapshot, stock_applied)
+                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21,$22::jsonb,$23)
                          RETURNING *`,
                         [
                             code,
@@ -989,6 +997,11 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             user.id,
                             user.name,
                             JSON.stringify(pbhWalletSnapshot),
+                            // FIX 2026-06-23 (browser-test bắt regression vòng 4): ghi
+                            // stock CÓ THẬT SỰ được cộng không (sourceDeductedStock).
+                            // Native-only (no PBH) = gate skip _applyStock → FALSE → DELETE
+                            // PHẢI skip trừ kho (nếu không huỷ phiếu sẽ trừ kho ảo = mất hàng).
+                            sourceDeductedStock,
                         ]
                     );
                     // 3H2: đánh dấu PBH nguồn đã quyết toán qua phiếu thu về.
@@ -1068,18 +1081,22 @@ router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
                     throw err;
                 }
                 const items = Array.isArray(row.items) ? row.items : [];
-                // return_qty → stock cho từng SP.
-                for (const it of items) {
-                    const qty = Number(it.quantity) || 0;
-                    if (!it.productCode || qty <= 0) continue;
-                    await client.query(
-                        `UPDATE web2_products
-                         SET return_qty = GREATEST(0, return_qty - $1),
-                             stock = stock + $1,
-                             updated_at = $2
-                         WHERE code = $3`,
-                        [qty, now, it.productCode]
-                    );
+                // return_qty → stock cho từng SP. CHỈ khi create thật sự đã cộng
+                // return_qty (stock_applied). Native-only (gate skip) → return_qty chưa
+                // tăng → duyệt mà cộng stock = bơm tồn ảo → skip. (đối xứng DELETE)
+                if (row.stock_applied !== false) {
+                    for (const it of items) {
+                        const qty = Number(it.quantity) || 0;
+                        if (!it.productCode || qty <= 0) continue;
+                        await client.query(
+                            `UPDATE web2_products
+                             SET return_qty = GREATEST(0, return_qty - $1),
+                                 stock = stock + $1,
+                                 updated_at = $2
+                             WHERE code = $3`,
+                            [qty, now, it.productCode]
+                        );
+                    }
                 }
                 const hist = Array.isArray(row.history) ? row.history : [];
                 hist.push({ ts: now, action: 'approve', userId: user.id, userName: user.name });
@@ -1178,19 +1195,25 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                 }
                 const items = Array.isArray(row.items) ? row.items : [];
                 const now = Date.now();
-                // Rollback tồn kho:
+                // Rollback tồn kho — CHỈ khi lúc tạo phiếu kho ĐÃ thật sự được cộng
+                // (stock_applied). Native order chưa convert PBH = create gate skip
+                // _applyStock (stock_applied=FALSE) → huỷ phiếu KHÔNG trừ kho (nếu trừ
+                // = mất hàng ảo; browser-test bắt: tạo giữ 50 → huỷ rớt 48). Phiếu cũ
+                // stock_applied default TRUE → huỷ vẫn trừ đúng.
                 //  - applied / approved → đã vào stock thật → trừ stock.
                 //  - pending → đang ở return_qty → trừ return_qty.
-                if (row.stock_status === 'pending') {
-                    await _applyStock(client, items, 'shipper_gui', -1);
-                } else {
-                    for (const it of items) {
-                        const qty = Number(it.quantity) || 0;
-                        if (!it.productCode || qty <= 0) continue;
-                        await client.query(
-                            `UPDATE web2_products SET stock = GREATEST(0, stock - $1), updated_at = $2 WHERE code = $3`,
-                            [qty, now, it.productCode]
-                        );
+                if (row.stock_applied !== false) {
+                    if (row.stock_status === 'pending') {
+                        await _applyStock(client, items, 'shipper_gui', -1);
+                    } else {
+                        for (const it of items) {
+                            const qty = Number(it.quantity) || 0;
+                            if (!it.productCode || qty <= 0) continue;
+                            await client.query(
+                                `UPDATE web2_products SET stock = GREATEST(0, stock - $1), updated_at = $2 WHERE code = $3`,
+                                [qty, now, it.productCode]
+                            );
+                        }
                     }
                 }
                 // Rollback ví TRONG transaction: credited>0 (đã cộng) → rút lại;

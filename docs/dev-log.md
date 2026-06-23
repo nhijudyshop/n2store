@@ -2,6 +2,12 @@
 
 ## 2026-06-23
 
+### [fix] Browser-test bắt REGRESSION vòng 4 — DELETE/approve phiếu native-only trừ kho ảo (stock_applied)
+
+Test thật bằng browser (click/nhập như user) trang Thu về phát hiện **bất đối xứng do chính fix vòng 4 (gate `_applyStock`) tạo ra**: tạo phiếu KNH trên đơn native chưa-có-PBH → gate skip restock → kho GIỮ 50 (đúng); NHƯNG huỷ phiếu → nhánh rollback vẫn trừ kho (record `stock_status='applied'`) → **kho rớt 50→48 = mất hàng ảo**. Code-review + agent vòng 4 miss vì chỉ soi create cô lập; chỉ end-to-end create→delete mới lộ.
+
+Fix đối xứng: thêm cột `web2_returns.stock_applied BOOLEAN DEFAULT TRUE` (default TRUE → phiếu cũ huỷ vẫn trừ đúng). Create ghi `stock_applied = sourceDeductedStock`. DELETE + approve CHỈ đụng kho khi `stock_applied !== false`. Verified: tạo→kho 50 giữ 50, huỷ→vẫn 50 (sau deploy). Đã restore HNAO3 48→50 + xoá đơn seed. `node --check` PASS.
+
 ### [audit/fix] Vòng 5 — sweep TOÀN BỘ surface tiền/kho liên quan (5 agent song song): 1 HIGH ví + 2 hardening fix
 
 User "audit tất cả những cái liên quan". Map đủ surface tiền/kho: 5 agent adversarial (find→refute→confirm) chia — (1) ví core `web2-wallet-service` + customer-wallet routes, (2) SePay→ví pipeline, (3) `reconcile.js` full, (4) stock authority `web2-products` + inbound `so-order`, (5) `cart.js` + native-orders money paths. **Hầu hết REFUTED** (hệ guard rất chắc: SePay dedup 3 lớp, reconcile chỉ là state-machine không settle tiền, stock đều atomic + advisory-lock, so-order receive idempotent qua status flip).
