@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e47b0b8` — feat(web2-ai): env prefix WEB2* (phân biệt) + ưu tiên Gemini free trước + Cloudflare xoay nhiều account
-**Last updated**: 2026-06-23 15:02:47 +07
-**Latest session**: [`RESUME:20260623-150247-e47b0b8`](../20260623-150247-e47b0b8.md)
-**Summary**: feat(web2-ai): env prefix WEB2* (phân biệt) + ưu tiên Gemini free trước + Cloudflare xoay nhiều account
+**Latest commit**: `2e264d5` — auto: session update
+**Last updated**: 2026-06-23 15:19:04 +07
+**Latest session**: [`RESUME:20260623-151904-2e264d5`](../20260623-151904-2e264d5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -78,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 15:02
+- [`web2/`](./web2.md) — updated 2026-06-23 15:19
