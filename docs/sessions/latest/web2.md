@@ -3,26 +3,32 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260623-191834-601dace`
-**Session file**: [`./20260623-191834-601dace.md`](../20260623-191834-601dace.md)
-**Commit**: `601dace` — auto: session update
-**Last updated**: 2026-06-23 19:18:34 +07
+**Latest session**: `RESUME:20260623-195339-33b4426`
+**Session file**: [`./20260623-195339-33b4426.md`](../20260623-195339-33b4426.md)
+**Commit**: `33b4426` — auto: session update
+**Last updated**: 2026-06-23 19:53:39 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/cham-cong/index.html`
-- `web2/cham-cong/js/cham-cong-app.js`
-- `web2/cham-cong/js/cham-cong-employees.js`
-- `web2/cham-cong/js/cham-cong-salary.js`
+- `web2/balance-history/index.html`
+- `web2/customers/index.html`
+- `web2/jt-tracking/index.html`
+- `web2/shared/web2-zalo-api.js`
+- `web2/shared/web2-zalo.js`
+- `web2/shared/zalo-chat/realtime.js`
+- `web2/zalo/css/web2-zalo.css`
+- `web2/zalo/index.html`
+- `web2/zalo/js/web2-zalo-accounts.js`
+- `web2/zalo/js/web2-zalo-app.js`
 
 ## Last 5 commits touching `web2/`
 
+- `33b442681` auto: session update _(2026-06-23)_
+- `6dfdad3ab` feat(web2-zalo): per-máy owner-scoped — mỗi máy chỉ thấy/dùng account chat.zalo.me của máy đó _(2026-06-23)_
 - `42fb07988` tweak(web2-cham-cong): dung sai mặc định 5→6 phút (8h06/19h54 vẫn đúng giờ) + migrate _(2026-06-23)_
 - `583ffcaea` fix(web2-cham-cong): lương tháng KHÔNG auto-OT (hourlyRate suy từ lương tháng sai khổng lồ → otPay=0) _(2026-06-23)_
 - `2b159d663` feat(web2-cham-cong): lương theo tháng (cố định) + dung sai ±phút vào/ra _(2026-06-23)_
-- `80cfd2d63` refactor(web2-zalo): bỏ lưu phiên trên server + bỏ QR — chỉ đăng nhập qua chat.zalo.me (browser) _(2026-06-23)_
-- `e01086f60` auto: session update _(2026-06-23)_
 
 ---
 
@@ -30,4 +36,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260623-191834-601dace` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260623-195339-33b4426` cho Claude walk chain theo CLAUDE.md protocol.
