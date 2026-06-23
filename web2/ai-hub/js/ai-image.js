@@ -156,7 +156,9 @@
                 headers: H().authHeaders(true),
                 body: JSON.stringify({
                     providers: ['gemini', 'groq', 'openrouter'],
-                    system: 'Bạn là chuyên gia viết prompt tạo ảnh sản phẩm thời trang. Mở rộng mô tả NGẮN của người dùng thành MỘT prompt chi tiết (1-3 câu) để AI tạo ảnh đẹp: nêu rõ sản phẩm, bối cảnh/nền, ánh sáng, góc chụp, phong cách, chất liệu. CHỈ trả về prompt thuần, KHÔNG giải thích, KHÔNG markdown, KHÔNG xuống dòng dư.',
+                    // 2026-06-24 (user request): user nhập tiếng Việt → trả prompt
+                    // bằng TIẾNG ANH (image model ăn prompt tiếng Anh tốt hơn nhiều).
+                    system: 'You are an expert at writing prompts for AI fashion/product image generation. The user gives a SHORT description (usually in Vietnamese). Expand it into ONE detailed prompt (1-3 sentences) IN ENGLISH: clearly state the product, setting/background, lighting, camera angle, style, and material. Output ONLY the final English prompt — no explanation, no markdown, no extra line breaks, no Vietnamese.',
                     messages: [{ role: 'user', content: seed }],
                     maxTokens: 1024,
                     temperature: 0.8,

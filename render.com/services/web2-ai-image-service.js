@@ -21,7 +21,7 @@ const MAX_PROMPT = 1500;
 // ───────────────────────── Pollinations ─────────────────────────
 const POLLINATIONS_MODELS = [
     { id: 'flux', label: 'Flux (đẹp, mặc định)' },
-    { id: 'turbo', label: 'Turbo (nhanh)' },
+    // 2026-06-24 (user request): bỏ Turbo — chỉ giữ Flux.
 ];
 const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/';
 // referrer KHÔNG bí mật (browser tự gửi) → nâng tier nhẹ cho path no-token. Override env.
@@ -200,8 +200,8 @@ async function _cloudflare(prompt, { model, width, height }) {
 
 // ───────────────────────── Gemini Nano Banana ─────────────────────────
 const GEMINI_IMAGE_MODELS = [
-    { id: 'gemini-2.5-flash-image', label: 'Nano Banana (2.5 Flash Image)' },
-    { id: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash Image' },
+    // 2026-06-24 (user request): Gemini Nano Banana chỉ giữ 1 model Nano Banana.
+    { id: 'gemini-2.5-flash-image', label: 'Nano Banana' },
 ];
 async function _gemini(prompt, { model, image }) {
     if (!keysOf('gemini').length) {
@@ -290,13 +290,8 @@ function status() {
                 models: POLLINATIONS_MODELS,
                 editsImage: false,
             },
-            {
-                id: 'cloudflare',
-                label: `Cloudflare Workers AI${_cfAccounts().length > 1 ? ` (${_cfAccounts().length} account)` : ''}`,
-                configured: _cfAccounts().length > 0,
-                models: CF_MODELS,
-                editsImage: false,
-            },
+            // 2026-06-24 (user request): ẨN Cloudflare Workers AI khỏi danh sách nguồn.
+            // (Hàm _cloudflare + CF_MODELS giữ lại — chỉ không liệt kê trong UI.)
             {
                 id: 'gemini',
                 label: 'Gemini Nano Banana',

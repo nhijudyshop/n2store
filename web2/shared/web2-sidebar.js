@@ -424,6 +424,31 @@
             .replace(/\//g, '&#47;');
     }
 
+    // 2026-06-24: avatar DiceBear inline — footer render TRƯỚC khi web2-user-profile.js
+    // load xong (autoload async) → trước đây fallback chữ cái = "mất avatar" ở 1 số
+    // trang. Tính URL ngay tại sidebar (không phụ thuộc timing Web2UserProfile).
+    function _avatarUrlInline(stored) {
+        try {
+            if (window.Web2UserProfile && window.Web2UserProfile.avatarUrl) {
+                return window.Web2UserProfile.avatarUrl(stored);
+            }
+            if (!stored) return null;
+            let cfg = stored;
+            if (typeof stored === 'string') {
+                if (/^https?:\/\//.test(stored)) return stored;
+                cfg = JSON.parse(stored);
+            }
+            if (!cfg || !cfg.style || !cfg.seed) return null;
+            const p = new URLSearchParams({ seed: String(cfg.seed) });
+            if (cfg.bg && cfg.bg !== 'transparent' && /^[0-9a-fA-F]{3,8}$/.test(cfg.bg)) {
+                p.set('backgroundColor', cfg.bg);
+            }
+            return `https://api.dicebear.com/10.x/${encodeURIComponent(cfg.style)}/svg?${p.toString()}`;
+        } catch (_) {
+            return null;
+        }
+    }
+
     // 2026-06-24: bỏ icon emoji ở cuối tên trang trong menu (user yêu cầu menu gọn).
     // Cắt emoji + khoảng trắng thừa ở cuối label (giữ chữ + dấu tiếng Việt).
     function cleanLabel(s) {
@@ -657,10 +682,9 @@
         const displayName = escapeHtml(user.displayName || user.username || '');
         const role = escapeHtml(user.role || '');
         // Avatar DiceBear nếu user đã đặt; không thì chữ cái đầu.
-        const avUrl =
-            window.Web2UserProfile && user.avatar
-                ? window.Web2UserProfile.avatarUrl(user.avatar)
-                : null;
+        // Tính inline (không chờ Web2UserProfile load) → không bị "mất avatar" trên
+        // trang mà module avatar load trễ hơn lúc render footer.
+        const avUrl = user.avatar ? _avatarUrlInline(user.avatar) : null;
         const avatarInner = avUrl
             ? `<img src="${escapeHtml(avUrl)}" alt="${displayName}" referrerpolicy="no-referrer">`
             : initial;
