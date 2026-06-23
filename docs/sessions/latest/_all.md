@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e84de26` — fix(web2-ai): gỡ OpenRouter vision model chết (free đã hết) — đính ảnh chat dùng Gemini + Groq Llama-4 Scout (đã verify quả táo đỏ)
-**Last updated**: 2026-06-23 17:27:54 +07
-**Latest session**: [`RESUME:20260623-172754-e84de26`](../20260623-172754-e84de26.md)
-**Summary**: fix(web2-ai): gỡ OpenRouter vision model chết (free đã hết) — đính ảnh chat dùng Gemini + Groq Llama-4...
+**Latest commit**: `6c78edc` — fix(web2-zalo): reconnect phiên hết hạn trả 400 + thông báo rõ (không 500); status error; sửa icon user-search→search
+**Last updated**: 2026-06-23 17:30:18 +07
+**Latest session**: [`RESUME:20260623-173018-6c78edc`](../20260623-173018-6c78edc.md)
+**Summary**: fix(web2-zalo): reconnect phiên hết hạn trả 400 + thông báo rõ (không 500); status error; sửa icon user-...
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 17:27
+- [`render.com/`](./render.com.md) — updated 2026-06-23 17:30
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -77,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 17:25
+- [`web2/`](./web2.md) — updated 2026-06-23 17:30
