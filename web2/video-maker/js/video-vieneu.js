@@ -88,19 +88,37 @@
             });
             if (global.lucide) global.lucide.createIcons();
         }
-        async function refreshServers() {
+        // Nhớ "đã từng thấy máy TTS local" → auto-load mới dò localhost. Tránh log
+        // net::ERR_CONNECTION_REFUSED (8123/8124) cho user bình thường KHÔNG chạy
+        // TTS local — lỗi network do browser ghi, try/catch JS không chặn được.
+        const LOCAL_SEEN_KEY = 'web2_vieneu_local_seen';
+        async function refreshServers(opts) {
+            const auto = !!(opts && opts.auto);
+            // Bấm "Làm mới" → luôn dò localhost. Auto-load → chỉ dò nếu đã từng thấy.
+            let allowLocal = !auto;
+            try {
+                allowLocal = allowLocal || localStorage.getItem(LOCAL_SEEN_KEY) === '1';
+            } catch (_) {
+                /* ignore */
+            }
             try {
                 // gộp: máy LOCAL (cùng máy đang xem, không cần tunnel) + registry (máy khác/điện thoại)
                 const [reg, local] = await Promise.all([
                     V.listServers().catch(function () {
                         return [];
                     }),
-                    V.probeLocal
+                    allowLocal && V.probeLocal
                         ? V.probeLocal().catch(function () {
                               return [];
                           })
                         : Promise.resolve([]),
                 ]);
+                // Thấy máy local → nhớ để auto-load lần sau tự dò (1 lần bấm "Làm mới" là đủ).
+                try {
+                    if (local.length) localStorage.setItem(LOCAL_SEEN_KEY, '1');
+                } catch (_) {
+                    /* ignore */
+                }
                 const seen = {};
                 const list = [];
                 local.concat(reg).forEach(function (s) {
@@ -119,14 +137,14 @@
                 /* im lặng */
             }
         }
-        $('#vmVnRefresh')?.addEventListener('click', refreshServers);
+        $('#vmVnRefresh')?.addEventListener('click', () => refreshServers({ auto: false }));
         $('#vmVnInstaller')?.addEventListener('click', () => {
             if (global.Web2PosInstaller) {
                 global.Web2PosInstaller.downloadInstaller();
                 notify('Đã tải bộ cài — bấm đúp chạy trên máy shop (Windows)', 'success');
             } else notify('Chưa tải module cài đặt', 'warning');
         });
-        refreshServers();
+        refreshServers({ auto: true });
         setInterval(refreshServers, 20000);
 
         if (V.getUrl()) connect(); // tự kết nối nếu đã lưu URL
