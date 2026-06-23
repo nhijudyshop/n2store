@@ -28,16 +28,32 @@
     const BASE = WORKER + '/api/web2-zalo';
     const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
+    // Per-máy: owner UUID theo trình duyệt (dùng chung Web2ZaloOwner nếu có).
+    function _zaloOwner() {
+        if (global.Web2ZaloOwner) return global.Web2ZaloOwner();
+        try {
+            let o = localStorage.getItem('web2_zalo_owner');
+            if (!o) {
+                o =
+                    (global.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+                    'own_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem('web2_zalo_owner', o);
+            }
+            return o;
+        } catch {
+            return 'own_anon';
+        }
+    }
     function _authHeaders() {
-        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders();
+        const h = { 'x-web2-zalo-owner': _zaloOwner() };
+        if (global.Web2Auth?.authHeaders) return Object.assign(h, global.Web2Auth.authHeaders());
         try {
             const t =
                 global.Web2Auth?.getStored?.()?.token ||
                 JSON.parse(localStorage.getItem('web2_auth') || '{}')?.token;
-            return t ? { 'x-web2-token': t } : {};
-        } catch {
-            return {};
-        }
+            if (t) h['x-web2-token'] = t;
+        } catch {}
+        return h;
     }
 
     async function _fetch(path, options = {}) {
@@ -270,6 +286,7 @@
                 }).catch(() => ({}));
                 conv = (e && e.data) || null;
                 if (!conv && e && e.error) opts._ensureErr = e.error;
+                if (!conv && e && e.needLogin) opts._needLogin = true;
             }
         }
         if (!conv && opts.convId) {
@@ -277,11 +294,13 @@
             conv = r.conversation || null;
         }
         if (!conv || !conv.id) {
-            el.innerHTML =
-                '<div class="wz-chat-empty">Chưa có hội thoại Zalo' +
-                (opts.phone ? ' với SĐT ' + normPhone(opts.phone) : '') +
-                (opts._ensureErr ? ' — ' + opts._ensureErr : '') +
-                '.</div>';
+            // Per-máy: máy chưa đăng nhập Zalo → hướng dẫn mở chat.zalo.me + Đăng nhập Zalo.
+            el.innerHTML = opts._needLogin
+                ? '<div class="wz-chat-empty"><b>Máy này chưa đăng nhập Zalo.</b><br>Mở <a href="https://chat.zalo.me/" target="_blank" rel="noopener">chat.zalo.me</a> + đăng nhập, rồi vào trang <a href="../web2/zalo/index.html" target="_blank">Zalo</a> bấm <b>Đăng nhập Zalo</b> trên máy này.</div>'
+                : '<div class="wz-chat-empty">Chưa có hội thoại Zalo' +
+                  (opts.phone ? ' với SĐT ' + normPhone(opts.phone) : '') +
+                  (opts._ensureErr ? ' — ' + opts._ensureErr : '') +
+                  '.</div>';
             return null;
         }
         return global.WZChat.mountConversation(el, conv, {

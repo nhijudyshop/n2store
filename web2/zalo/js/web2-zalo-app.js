@@ -147,17 +147,22 @@
 
     function subscribeSse() {
         if (!window.Web2SSE?.subscribe) return;
-        // Luôn refresh accounts (status fetch nhẹ) để đèn sức khoẻ rail + cảnh báo "bị
-        // giành phiên" cập nhật realtime kể cả khi đang ở tab Chat (grid ẩn vẫn render rẻ).
-        window.Web2SSE.subscribe('web2:zalo:accounts', () => WZApp.loadAccounts());
+        // Per-máy: topic owner-scoped (TK cá nhân + tin của MÁY này) + topic global
+        // (OA dùng chung + admin reset). owner = UUID trình duyệt.
+        const own = (window.Web2ZaloOwner && window.Web2ZaloOwner()) || '_none';
+        const refAcc = () => WZApp.loadAccounts();
+        window.Web2SSE.subscribe(`web2:zalo:${own}:accounts`, refAcc);
+        window.Web2SSE.subscribe('web2:zalo:accounts', refAcc); // OA/reset chung
         // CHỈ refresh DANH SÁCH hội thoại ở đây (debounce). Tin của hội thoại
         // đang mở do subscribeRealtime (thread topic) lo → tránh double refetch.
         let _listT;
-        window.Web2SSE.subscribe('web2:zalo:messages', () => {
+        const refList = () => {
             if (state.tab !== 'chat') return;
             clearTimeout(_listT);
             _listT = setTimeout(() => WZApp.loadConversations(), 600);
-        });
+        };
+        window.Web2SSE.subscribe(`web2:zalo:${own}:messages`, refList);
+        window.Web2SSE.subscribe('web2:zalo:messages', refList); // pin/mute/reset chung
     }
 
     function init() {

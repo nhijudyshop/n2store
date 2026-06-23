@@ -99,19 +99,11 @@
                 `<button class="wz-btn wz-btn-sm" data-act="sync" data-key="${esc(a.accountKey)}"><i data-lucide="refresh-cw"></i> Đồng bộ template</button>`
             );
         }
-        // TK cá nhân chưa phải TK chính → cho đặt làm chính (gửi tin KH 1-1 dùng TK này).
-        if (t === 'personal' && !a.isPrimary) {
-            acts.push(
-                `<button class="wz-btn wz-btn-sm" data-act="primary" data-key="${esc(a.accountKey)}" title="Dùng tài khoản này để gửi tin nhắn khách 1-1 (mọi trang)"><i data-lucide="star"></i> Đặt làm chính</button>`
-            );
-        }
+        // (Bỏ nút "Đặt làm chính" 2026-06-23 — per-máy: mỗi máy dùng account của mình,
+        // không có TK chính toàn cục.)
         acts.push(
             `<button class="wz-btn wz-btn-sm" data-act="delete" data-key="${esc(a.accountKey)}" aria-label="Xoá tài khoản ${esc(dn)}" title="Xoá"><i data-lucide="trash-2"></i></button>`
         );
-        const primaryBadge =
-            t === 'personal' && a.isPrimary
-                ? `<span class="wz-acc-primary" title="Tài khoản gửi tin nhắn khách 1-1 cho mọi trang"><i data-lucide="star"></i> TK chính</span>`
-                : '';
         // Health watchdog (Phase 1 "không bị văng"): hiện trạng thái sống/đang kết nối lại,
         // cảnh báo khi bị giành phiên, và nhắc đừng mở Zalo Web TK này ở máy khác.
         const h = a.health || {};
@@ -123,21 +115,20 @@
                 : '';
         const liveHint =
             t === 'personal' && a.status === 'connected'
-                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Đang nghe realtime trên máy chủ → nhân viên dùng được ở mọi máy. Máy chủ <b>không lưu phiên</b> (chỉ giữ trong RAM): rớt nhẹ tự nối lại; nếu rớt hẳn / máy chủ khởi động lại → đăng nhập lại từ trình duyệt.</div>`
+                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Tài khoản của <b>MÁY NÀY</b> — máy khác không thấy/dùng. Đang nghe realtime; máy chủ <b>không lưu phiên</b> (chỉ giữ RAM): rớt nhẹ tự nối lại; máy chủ khởi động lại → đăng nhập lại từ trình duyệt.</div>`
                 : '';
         // Hướng dẫn đăng nhập (TK cá nhân chưa kết nối): mở chat.zalo.me rồi Đăng nhập Zalo.
         const loginGuide =
             t === 'personal' && a.status !== 'connected'
-                ? `<div class="wz-login-guide"><i data-lucide="info"></i> <span>Đăng nhập <a href="https://chat.zalo.me/" target="_blank" rel="noopener"><b>chat.zalo.me</b></a> trên trình duyệt máy này (đúng tài khoản), rồi bấm <b>Đăng nhập Zalo</b>. Máy chủ không lưu mật khẩu/phiên.</span></div>`
+                ? `<div class="wz-login-guide"><i data-lucide="info"></i> <span>Tài khoản của <b>MÁY NÀY</b>. Đăng nhập <a href="https://chat.zalo.me/" target="_blank" rel="noopener"><b>chat.zalo.me</b></a> trên trình duyệt máy này (đúng tài khoản), rồi bấm <b>Đăng nhập Zalo</b>. Máy chủ không lưu mật khẩu/phiên.</span></div>`
                 : '';
-        return `<div class="wz-acc-card${a.isPrimary ? ' is-primary' : ''}">
+        return `<div class="wz-acc-card">
             <div class="wz-acc-top">
                 ${avatar}
                 <div style="min-width:0;flex:1">
                     <div class="wz-acc-name">${esc(dn)}</div>
                     <div class="wz-acc-sub">${sub}</div>
                 </div>
-                ${primaryBadge}
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
             <div class="wz-statustxt"><span class="wz-dot ${esc(eff)}"></span>${esc(stLabel)}${a.statusMsg && a.status !== 'kicked' ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
@@ -200,11 +191,6 @@
                 setBusy(btn, true);
                 const r = await window.ZaloApi.syncTemplates(key);
                 notify(`Đã đồng bộ ${r.synced || 0} template`, 'success');
-            } else if (act === 'primary') {
-                setBusy(btn, true);
-                await window.ZaloApi.setPrimary(key);
-                notify(`Đã đặt "${a?.displayName || key}" làm TK chính gửi tin khách`, 'success');
-                loadAccounts();
             } else if (act === 'chat') {
                 state.conv.accountKey = key;
                 WZApp.switchTab('chat');
@@ -257,20 +243,16 @@
         return true;
     }
 
-    // Tự gia hạn: khi mở trang, CHỈ TK CHÍNH đang rớt kết nối + có extension + còn phiên Zalo
-    // trên trình duyệt → tự login lại nền (1 lần/lần mở trang). TK phụ KHÔNG tự nối (tránh
-    // "refresh kết nối liên tục") — user bấm tay khi cần. Không có phiên → im lặng, không nag.
+    // Tự gia hạn: khi mở trang, TK cá nhân CỦA MÁY NÀY đang rớt + có extension + còn
+    // phiên chat.zalo.me trên trình duyệt → tự login lại nền (1 lần/lần mở trang).
+    // (state.accounts đã owner-scoped = chỉ TK của máy này.) Không có phiên → im lặng.
     let _autoRenewTried = false;
     async function autoRenewZalo() {
         if (_autoRenewTried) return;
         _autoRenewTried = true;
         if (!window.Web2Ext?.hasExtension?.()) return;
         const stale = (state.accounts || []).filter(
-            (a) =>
-                a.accountType === 'personal' &&
-                a.isActive &&
-                a.isPrimary &&
-                a.status !== 'connected'
+            (a) => a.accountType === 'personal' && a.isActive && a.status !== 'connected'
         );
         for (const a of stale) {
             try {

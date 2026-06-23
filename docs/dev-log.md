@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### [feat] Zalo PER-MÁY (owner-scoped): mỗi máy chỉ thấy/dùng account chat.zalo.me của máy đó
+
+User: máy nào đăng nhập chat.zalo.me thì máy đó dùng account đó, KHÔNG share máy khác (local theo chat.zalo.me). Sau research (zca-js Node-only, extension polyfill rủi ro cao) + plan-mode duyệt: chọn **Option B owner-scoped** (server giữ socket RAM nhưng gắn chủ sở hữu = máy; máy khác không đọc/gửi được) + **tin KH 1-1 cũng per-máy** (chấp nhận phân mảnh). Xây trên nền no-persist/no-QR đợt trước.
+
+- **Machine id**: UUID per-browser `localStorage['web2_zalo_owner']` (helper `Web2ZaloOwner`) → header `x-web2-zalo-owner` trên MỌI request Zalo (thêm vào `_authHeaders` của cả `web2-zalo-api.js` + `web2-zalo.js` cross-page).
+- **Schema**: cột `owner_id` + index trên `web2_zalo_accounts` (conv/msg scope qua account_key).
+- **Routes**: `_owner(req)` + cache `_ownerByAccount`; stamp owner lúc `/login-cookie` + `POST /accounts`; scope reads `/status` `/accounts` `/conversations` (personal theo owner, OA chung) + guard `/conversations/:id/messages` (id serial đoán được); customer-1-1 `conversation/ensure`+`:phone` dùng `_ownerConnectedAccount` (máy chưa login → 400 `needLogin`); SSE `_notify` → `_ownerTopic` (`web2:zalo:<owner>:accounts/messages/thread`). GỠ toàn bộ máy móc primary (`_getPrimaryKey/_loadPrimaryKey/_primaryKey/isPrimary callback/route /primary`). zca: bỏ gate `isPrimary` ở watchdog/reconnect (giữ MỌI phiên RAM).
+- **Frontend** (bump `?v=20260623own`): SSE subscribe owner topic + global (OA/reset); GỠ nút "Đặt làm chính" + badge "TK chính" + `setPrimary` + CSS; hint "Tài khoản của MÁY NÀY — máy khác không thấy"; customer-chat empty-state `needLogin` → link chat.zalo.me + Đăng nhập Zalo.
+
+Verified local: owner UUID minted, header `x-web2-zalo-owner` gửi, 0 nút QR/Kết-nối-lại/Đặt-làm-chính, 0 console error, node -c toàn bộ pass. Cô lập per-máy thật + customer-1-1 verify bằng curl 2 owner header SAU deploy. Account cũ thành vô chủ (ẩn) — mỗi máy tự "Thêm tài khoản". (web2 beta.)
+
 ### [tweak] cham-cong: dung sai mặc định 5→6 phút (8h06 / 19h54 vẫn đúng giờ)
 
 User muốn nới dung sai lên 6'. Đổi mặc định 5→6 ở: backend column DEFAULT + manual create + `cfgFor` + `calcDay` + employees row + hint. Migration idempotent trong `ensureTables`: `ALTER COLUMN grace_minutes SET DEFAULT 6` + `UPDATE ... SET 6 WHERE grace_minutes = 5` (bump các dòng còn ở default cũ; beta nên retire giá trị 5, muốn chặt hơn đặt 0-5 ở UI sau). Bump js salary i/employees j/app k. ⚠ Cần Render deploy để migrate dòng cũ; frontend default 6 đã có hiệu lực ngay sau hard reload.

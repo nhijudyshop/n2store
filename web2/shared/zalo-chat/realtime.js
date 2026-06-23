@@ -34,11 +34,11 @@
         };
 
         // CHỈ subscribe thread topic — đã cover message/reaction/recall/seen/typing.
-        // (Conv-id topic redundant → bỏ để tránh double refetch; tin mới broadcast
-        //  qua web2:zalo:thread:<id> từ _persistIncoming.)
+        // Per-máy: topic owner-scoped web2:zalo:<owner>:thread:<id>.
         if (threadId) {
             try {
-                subs.push(window.Web2SSE.subscribe(`web2:zalo:thread:${threadId}`, handle));
+                const own = (window.Web2ZaloOwner && window.Web2ZaloOwner()) || '_none';
+                subs.push(window.Web2SSE.subscribe(`web2:zalo:${own}:thread:${threadId}`, handle));
             } catch {}
         }
 

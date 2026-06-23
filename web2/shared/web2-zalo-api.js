@@ -13,16 +13,34 @@
     const BASE = WORKER + '/api/web2-zalo';
     const DIRECT = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
+    // Per-máy (2026-06-23): UUID ổn định theo TRÌNH DUYỆT máy này (localStorage). Gửi
+    // kèm header x-web2-zalo-owner → server chỉ cho máy này thấy/dùng account của mình.
+    function _zaloOwner() {
+        try {
+            let o = localStorage.getItem('web2_zalo_owner');
+            if (!o) {
+                o =
+                    (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+                    'own_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+                localStorage.setItem('web2_zalo_owner', o);
+            }
+            return o;
+        } catch {
+            return 'own_anon';
+        }
+    }
+    if (!window.Web2ZaloOwner) window.Web2ZaloOwner = _zaloOwner; // dùng chung (SSE topic)
+
     function _authHeaders() {
-        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders();
+        const h = { 'x-web2-zalo-owner': _zaloOwner() };
+        if (window.Web2Auth?.authHeaders) return Object.assign(h, window.Web2Auth.authHeaders());
         try {
             const t =
                 window.Web2Auth?.getStored?.()?.token ||
                 JSON.parse(localStorage.getItem('web2_auth') || '{}')?.token;
-            return t ? { 'x-web2-token': t } : {};
-        } catch {
-            return {};
-        }
+            if (t) h['x-web2-token'] = t;
+        } catch {}
+        return h;
     }
 
     async function _fetch(path, options) {
@@ -85,10 +103,7 @@
         deleteAccount(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}`, { method: 'DELETE' });
         },
-        // Đặt TK cá nhân làm CHÍNH (gửi tin KH 1-1 dùng TK này, mọi trang).
-        setPrimary(key) {
-            return _fetch(`/accounts/${encodeURIComponent(key)}/primary`, { method: 'POST' });
-        },
+        // (setPrimary đã GỠ 2026-06-23 — per-máy: không có TK chính toàn cục.)
         // Đăng nhập Zalo bằng phiên chat.zalo.me (cookie+imei+userAgent từ extension) — không cần QR.
         loginCookie(key, creds) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/login-cookie`, {

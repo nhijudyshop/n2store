@@ -85,6 +85,41 @@ function _notify(topic, action, code) {
     }
 }
 
+// ── Per-máy isolation (owner-scoped, 2026-06-23) ────────────────────────────
+// owner = MÁY/trình duyệt (header x-web2-zalo-owner = UUID localStorage). Mỗi máy
+// chỉ thấy/dùng account của mình. SSE topic ghép owner → tin của máy A không tới máy B.
+function _owner(req) {
+    const o = req.headers['x-web2-zalo-owner'];
+    return o && String(o).trim() ? String(o).trim().slice(0, 80) : null;
+}
+// Cache accountKey → owner_id (cho _notify firehose khỏi query mỗi tin). Refresh 60s
+// + cập nhật ngay khi login/tạo slot.
+const _ownerByAccount = new Map();
+async function _loadOwners() {
+    if (!_pool) return;
+    try {
+        const { rows } = await _pool.query(`SELECT account_key, owner_id FROM web2_zalo_accounts`);
+        _ownerByAccount.clear();
+        for (const r of rows) _ownerByAccount.set(r.account_key, r.owner_id || null);
+    } catch (e) {
+        console.warn('[WEB2-ZALO] loadOwners failed:', e.message);
+    }
+}
+// Topic SSE owner-scoped: web2:zalo:<owner>:<suffix>. owner NULL → '_none' (không máy nào nghe).
+function _ownerTopic(accountKey, suffix) {
+    const o = _ownerByAccount.get(accountKey) || '_none';
+    return `web2:zalo:${o}:${suffix}`;
+}
+// account_key thuộc owner này? (gate read/send per-máy). Trả true nếu khớp.
+async function _ownsAccount(db, ownerId, accountKey) {
+    if (!ownerId || !accountKey) return false;
+    const { rows } = await db.query(
+        `SELECT 1 FROM web2_zalo_accounts WHERE account_key=$1 AND owner_id=$2`,
+        [accountKey, ownerId]
+    );
+    return rows.length > 0;
+}
+
 // ── Nhóm được THEO DÕI (allowlist) — opt-in, MẶC ĐỊNH TẮT ──────────────
 // Cache in-memory để _persistIncoming (firehose) khỏi query DB mỗi tin.
 // ⚠ 2026-06-22 (user "bỏ giới hạn hiện group"): allowlist MẶC ĐỊNH TẮT →
@@ -110,42 +145,24 @@ async function _loadTracked() {
     }
 }
 
-// Cache account_key của TK cá nhân CHÍNH (is_primary). zca service hỏi qua callback
-// `isPrimary` để biết TK nào được watchdog chăm + tự reconnect (chỉ TK chính). Cache
-// refresh 60s cùng _loadTracked + cập nhật NGAY khi đổi TK chính (route /primary).
-let _primaryKey = null;
+// (Bỏ máy móc _primaryKey/_loadPrimaryKey/_getPrimaryKey 2026-06-23 — per-máy
+// owner-scoped: không có TK chính toàn cục. Tin KH 1-1 dùng account của chính MÁY
+// gửi: _ownerConnectedAccount(db, ownerId).)
 
-// Cập nhật cache TK chính. KHÔNG lưu phiên trên server nên KHÔNG tự kết nối — chỉ
-// đảm bảo LUÔN có 1 TK mang cờ is_primary (để gửi tin KH 1-1 + gate watchdog). User
-// tự kết nối TK chính bằng "Đăng nhập Zalo" (phiên chat.zalo.me trên trình duyệt).
-async function _loadPrimaryKey() {
-    if (!_pool) return;
+// account_key cá nhân ĐANG KẾT NỐI của MÁY (owner) — để gửi tin KH 1-1 per-máy.
+// null nếu máy chưa đăng nhập Zalo → caller trả lỗi hướng dẫn đăng nhập.
+async function _ownerConnectedAccount(db, ownerId) {
+    if (!ownerId) return null;
     try {
-        let key = await _getPrimaryKey(_pool);
-        if (!key) {
-            // TỰ LÀNH cờ: chưa có TK chính (vd bị xoá) nhưng còn TK cá nhân active →
-            // tự phong CỜ is_primary cho 1 TK (ưu tiên đang connected → mới nối → cũ nhất).
-            const { rows } = await _pool.query(
-                `UPDATE web2_zalo_accounts SET is_primary=true, updated_at=$1
-                   WHERE account_key = (
-                     SELECT account_key FROM web2_zalo_accounts
-                      WHERE account_type='personal' AND is_active=true
-                      ORDER BY (status='connected') DESC, last_connected_at DESC NULLS LAST, created_at ASC
-                      LIMIT 1)
-                   AND NOT EXISTS (
-                     SELECT 1 FROM web2_zalo_accounts WHERE is_primary=true AND account_type='personal')
-                 RETURNING account_key`,
-                [now()]
-            );
-            key = rows[0]?.account_key || null;
-            if (key) {
-                console.log('[WEB2-ZALO] auto-promoted primary (flag only):', key);
-                _notify('web2:zalo:accounts', 'update', key);
-            }
-        }
-        _primaryKey = key;
-    } catch (e) {
-        console.warn('[WEB2-ZALO] loadPrimaryKey failed:', e.message);
+        const { rows } = await db.query(
+            `SELECT account_key FROM web2_zalo_accounts
+              WHERE owner_id=$1 AND account_type='personal' AND is_active=true AND status='connected'
+              ORDER BY last_connected_at DESC NULLS LAST LIMIT 1`,
+            [ownerId]
+        );
+        return rows[0]?.account_key || null;
+    } catch {
+        return null;
     }
 }
 
@@ -169,7 +186,7 @@ function _safeAccount(a, live) {
         status: live?.status || a.status,
         statusMsg: live?.error || a.status_msg,
         isActive: a.is_active,
-        isPrimary: !!a.is_primary, // TK cá nhân CHÍNH gửi tin KH 1-1
+        ownerId: a.owner_id || null, // MÁY sở hữu (per-máy isolation)
         lastConnectedAt: a.last_connected_at,
         // Health watchdog (chỉ personal có live): cho UI hiện đèn + cảnh báo.
         health: live
@@ -185,18 +202,6 @@ function _safeAccount(a, live) {
         createdAt: a.created_at,
         updatedAt: a.updated_at,
     };
-}
-
-// account_key của TK cá nhân CHÍNH (gửi tin KH 1-1). null nếu chưa đặt → caller fallback hành vi cũ.
-async function _getPrimaryKey(db) {
-    try {
-        const { rows } = await db.query(
-            `SELECT account_key FROM web2_zalo_accounts WHERE is_primary=true AND account_type='personal' LIMIT 1`
-        );
-        return rows[0]?.account_key || null;
-    } catch {
-        return null;
-    }
 }
 
 // =====================================================================
@@ -226,8 +231,6 @@ zca.configure({
             })
             .catch((e) => console.warn('[WEB2-ZALO] repairConvNames:', e.message));
     },
-    // zca hỏi TK nào là CHÍNH → chỉ TK chính được watchdog chăm + tự reconnect.
-    isPrimary: (accountKey) => !!_primaryKey && accountKey === _primaryKey,
 });
 
 // TTL refresh tên/avatar khi mở chat (tránh gọi zca mỗi lần mở).
@@ -344,7 +347,7 @@ async function _repairConvNames(accountKey) {
         if (nm) fixed++;
     }
 
-    if (fixed) _notify('web2:zalo:messages', 'update', accountKey);
+    if (fixed) _notify(_ownerTopic(accountKey, 'messages'), 'update', accountKey);
     return fixed;
 }
 
@@ -438,10 +441,16 @@ async function _persistIncoming(msg) {
             lastSenderUid,
         ]
     );
-    // Chỉ broadcast khi tin mới (tránh refetch thừa khi tin lặp).
+    // Chỉ broadcast khi tin mới (tránh refetch thừa khi tin lặp). Owner-scoped →
+    // chỉ máy sở hữu account mới được đánh thức refetch (giảm nhiễu cross-máy).
     if (isNew) {
-        _notify('web2:zalo:messages', msg.direction === 'in' ? 'create' : 'update', msg.msgId);
-        if (msg.threadId) _notify(`web2:zalo:thread:${msg.threadId}`, 'message', msg.msgId);
+        _notify(
+            _ownerTopic(msg.accountKey, 'messages'),
+            msg.direction === 'in' ? 'create' : 'update',
+            msg.msgId
+        );
+        if (msg.threadId)
+            _notify(_ownerTopic(msg.accountKey, `thread:${msg.threadId}`), 'message', msg.msgId);
         // Auto-ingest mã vận đơn J&T (12 số) trong tin nhóm → trang Tra cứu vận đơn
         // tự thêm + cập nhật realtime (không cần Quét/refresh). Fire-and-forget.
         if (msg.threadType === 'group') {
@@ -456,10 +465,9 @@ async function _persistIncoming(msg) {
     }
 }
 
-// Thread-keyed topic cho realtime conv-level (typing/reaction/recall/seen) —
-// không cần lookup conv id từ threadId.
+// Thread-keyed topic owner-scoped (typing/reaction/recall/seen) — chỉ máy sở hữu nghe.
 function _notifyThread(accountKey, threadId, action, code) {
-    if (threadId) _notify(`web2:zalo:thread:${threadId}`, action, code);
+    if (threadId) _notify(_ownerTopic(accountKey, `thread:${threadId}`), action, code);
 }
 
 // zca reaction VALUE (vd '/-heart') → emoji, để client render chip nhất quán
@@ -545,7 +553,7 @@ async function _updateAccStatus(accountKey, status, txt) {
           WHERE account_key=$4`,
         [status, txt || null, now(), accountKey]
     );
-    _notify('web2:zalo:accounts', 'update', accountKey);
+    _notify(_ownerTopic(accountKey, 'accounts'), 'update', accountKey);
 }
 
 // Sau khi đăng nhập (cookie từ trình duyệt) → CHỈ cập nhật DANH TÍNH TK (uid/tên/
@@ -562,7 +570,7 @@ async function _saveSession(accountKey, _creds, info, label) {
           WHERE account_key=$5`,
         [info?.uid || null, info?.name || label || null, info?.avatar || null, now(), accountKey]
     );
-    _notify('web2:zalo:accounts', 'update', accountKey);
+    _notify(_ownerTopic(accountKey, 'accounts'), 'update', accountKey);
 }
 
 // =====================================================================
@@ -571,8 +579,14 @@ async function _saveSession(accountKey, _creds, info, label) {
 router.get('/status', async (req, res) => {
     try {
         const db = getDb(req);
+        // Per-máy: TK cá nhân chỉ thấy của MÁY này (owner). OA (chính thức, ZNS) dùng
+        // chung mọi máy (không có phiên chat.zalo.me).
+        const ownerId = _owner(req);
         const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_accounts WHERE is_active=true ORDER BY account_type, updated_at DESC`
+            `SELECT * FROM web2_zalo_accounts
+              WHERE is_active=true AND (account_type='oa' OR owner_id=$1)
+              ORDER BY account_type, updated_at DESC`,
+            [ownerId]
         );
         const live = Object.fromEntries(zca.statusAll().map((s) => [s.accountKey, s]));
         const accounts = rows.map((a) => _safeAccount(a, live[a.account_key]));
@@ -594,8 +608,12 @@ router.get('/status', async (req, res) => {
 router.get('/accounts', async (req, res) => {
     try {
         const db = getDb(req);
+        const ownerId = _owner(req);
         const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_accounts ORDER BY account_type, updated_at DESC`
+            `SELECT * FROM web2_zalo_accounts
+              WHERE account_type='oa' OR owner_id=$1
+              ORDER BY account_type, updated_at DESC`,
+            [ownerId]
         );
         const live = Object.fromEntries(zca.statusAll().map((s) => [s.accountKey, s]));
         res.json({
@@ -607,19 +625,21 @@ router.get('/accounts', async (req, res) => {
     }
 });
 
-// Tạo shell tài khoản personal (chưa đăng nhập)
+// Tạo shell tài khoản personal (chưa đăng nhập) — gắn CHỦ SỞ HỮU = máy tạo (owner).
 router.post('/accounts', async (req, res) => {
     try {
         const db = getDb(req);
         const { label } = req.body || {};
+        const ownerId = _owner(req);
         const key = 'zca_' + crypto.randomUUID();
         const ts = now();
         const { rows } = await db.query(
-            `INSERT INTO web2_zalo_accounts (account_key, account_type, label, status, is_active, created_at, updated_at)
-             VALUES ($1,'personal',$2,'disconnected',true,$3,$3) RETURNING *`,
-            [key, (label || 'Tài khoản Zalo').slice(0, 200), ts]
+            `INSERT INTO web2_zalo_accounts (account_key, account_type, label, status, is_active, owner_id, created_at, updated_at)
+             VALUES ($1,'personal',$2,'disconnected',true,$3,$4,$4) RETURNING *`,
+            [key, (label || 'Tài khoản Zalo').slice(0, 200), ownerId, ts]
         );
-        _notify('web2:zalo:accounts', 'create', key);
+        _ownerByAccount.set(key, ownerId);
+        _notify(_ownerTopic(key, 'accounts'), 'create', key);
         res.json({ success: true, data: _safeAccount(rows[0]) });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -650,16 +670,18 @@ router.post('/accounts/:key/login-cookie', async (req, res) => {
             return res
                 .status(400)
                 .json({ success: false, error: 'Chỉ tài khoản cá nhân mới đăng nhập kiểu này' });
-        // Tự gia hạn NỀN (silent) chỉ cho TK CHÍNH — chặn frontend (kể cả bản cache cũ)
-        // tự kết nối lại TK phụ "refresh liên tục". Đăng nhập TAY (silent=false) vẫn nối được.
-        if (silent && req.params.key !== _primaryKey) {
-            return res.json({
-                success: true,
-                skipped: true,
-                reason: 'not_primary',
-                message: 'TK phụ — không tự kết nối nền (đặt làm chính nếu muốn giữ kết nối)',
-            });
-        }
+        // Per-máy: gắn CHỦ SỞ HỮU = máy đang đăng nhập (header owner). Account này từ
+        // giờ thuộc máy này; máy khác không thấy/dùng. Re-login từ máy khác → re-stamp.
+        const ownerId = _owner(req);
+        if (silent && !ownerId)
+            return res.json({ success: true, skipped: true, reason: 'no_owner' });
+        await db
+            .query(
+                `UPDATE web2_zalo_accounts SET owner_id=$1, updated_at=$2 WHERE account_key=$3`,
+                [ownerId, now(), req.params.key]
+            )
+            .catch(() => {});
+        _ownerByAccount.set(req.params.key, ownerId);
         const creds = { cookie, imei, userAgent, language: 'vi' };
         const r = await zca.loginWithCredentials(
             req.params.key,
@@ -684,84 +706,24 @@ router.post('/accounts/:key/disconnect', requireWeb2Admin, async (req, res) => {
             `UPDATE web2_zalo_accounts SET status='disconnected', updated_at=$1 WHERE account_key=$2`,
             [now(), req.params.key]
         );
-        _notify('web2:zalo:accounts', 'update', req.params.key);
+        _notify(_ownerTopic(req.params.key, 'accounts'), 'update', req.params.key);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
-// Đặt 1 TK cá nhân làm CHÍNH. is_primary quyết định TK gửi tin KH 1-1 VÀ TK được
-// hệ thống tự kết nối + giữ kết nối (watchdog). "Đặt làm chính thì MỚI kết nối với
-// TK đó": ngắt các TK cá nhân khác đang nối (giữ đúng 1 TK), rồi kết nối TK chính.
-router.post('/accounts/:key/primary', async (req, res) => {
-    try {
-        const db = getDb(req);
-        const key = req.params.key;
-        const { rows } = await db.query(
-            `SELECT account_type, session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_key=$1`,
-            [key]
-        );
-        if (!rows[0])
-            return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản' });
-        if (rows[0].account_type !== 'personal')
-            return res
-                .status(400)
-                .json({ success: false, error: 'Chỉ tài khoản cá nhân mới làm TK chính được' });
-        // Atomic: bỏ cờ mọi TK rồi set cờ TK này.
-        await db.query(
-            `UPDATE web2_zalo_accounts SET is_primary = (account_key=$1), updated_at=$2`,
-            [key, now()]
-        );
-        _primaryKey = key; // cập nhật cache NGAY → zca callback isPrimary đúng tức thì
-
-        // Ngắt các TK cá nhân KHÁC đang kết nối (chỉ giữ 1 TK chính).
-        try {
-            const others = await db.query(
-                `SELECT account_key FROM web2_zalo_accounts
-                 WHERE account_type='personal' AND account_key<>$1
-                   AND status IN ('connected','connecting','reconnecting')`,
-                [key]
-            );
-            for (const o of others.rows) {
-                try {
-                    zca.disconnect(o.account_key);
-                } catch {}
-                await db
-                    .query(
-                        `UPDATE web2_zalo_accounts SET status='disconnected', updated_at=$1 WHERE account_key=$2`,
-                        [now(), o.account_key]
-                    )
-                    .catch(() => {});
-                _notify('web2:zalo:accounts', 'update', o.account_key);
-            }
-        } catch (e) {
-            console.warn('[WEB2-ZALO] primary: disconnect others:', e.message);
-        }
-
-        // KHÔNG lưu phiên trên server → không tự kết nối được. User bấm "Đăng nhập
-        // Zalo" trên TK chính (phiên chat.zalo.me trên trình duyệt) để nối realtime.
-        _notify('web2:zalo:accounts', 'update', key);
-        res.json({ success: true, accountKey: key, connecting: false });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
+// (Route /primary đã GỠ 2026-06-23 — per-máy owner-scoped: không có TK chính toàn
+// cục. Mỗi máy dùng account của chính mình; tin KH 1-1 = account đang connected của máy.)
 
 router.delete('/accounts/:key', requireWeb2Admin, async (req, res) => {
     try {
-        const wasPrimary = req.params.key === _primaryKey;
         zca.disconnect(req.params.key);
         await getDb(req).query(`DELETE FROM web2_zalo_accounts WHERE account_key=$1`, [
             req.params.key,
         ]);
-        _notify('web2:zalo:accounts', 'deleted', req.params.key);
-        // Xoá TK chính → tự phong CỜ TK chính mới cho TK cá nhân còn lại (để gửi 1-1).
-        // KHÔNG tự kết nối (không lưu phiên) — user "Đăng nhập Zalo" để nối.
-        if (wasPrimary) {
-            _primaryKey = null;
-            await _loadPrimaryKey();
-        }
+        _ownerByAccount.delete(req.params.key);
+        _notify(_ownerTopic(req.params.key, 'accounts'), 'deleted', req.params.key);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -834,7 +796,7 @@ router.post('/accounts/:key/sync-conversations', async (req, res) => {
             );
             n++;
         }
-        _notify('web2:zalo:messages', 'update', key);
+        _notify(_ownerTopic(key, 'messages'), 'update', key);
         res.json({
             success: true,
             synced: n,
@@ -894,6 +856,11 @@ router.get('/conversations', async (req, res) => {
         const off = (Math.max(parseInt(page, 10) || 1, 1) - 1) * lim;
         const where = [];
         const params = [];
+        // Per-máy: CHỈ hội thoại thuộc account của MÁY này (owner). Chặn đọc chéo máy.
+        params.push(_owner(req));
+        where.push(
+            `c.account_key IN (SELECT account_key FROM web2_zalo_accounts WHERE owner_id=$${params.length})`
+        );
         if (accountKey) {
             params.push(accountKey);
             where.push(`c.account_key=$${params.length}`);
@@ -1053,6 +1020,9 @@ router.get('/conversations/:id/messages', async (req, res) => {
         ).rows[0];
         if (!conv)
             return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        // Per-máy: id hội thoại là serial (đoán được) → chặn đọc tin của account máy khác.
+        if (!(await _ownsAccount(db, _owner(req), conv.account_key)))
+            return res.status(403).json({ success: false, error: 'Hội thoại không thuộc máy này' });
         // User: heal tên + avatar KHÁCH (bug cũ: shop nhắn cuối → tên hội thoại thành
         // tên SHOP) — lazy, gate TTL. Force ghi đè, timeout 2s, chỉ stamp khi resolve.
         // ⚠ Resolve theo THREAD_ID (uid KHÁCH), KHÔNG zalo_uid (có thể bị nhiễm uid SHOP).
@@ -1084,7 +1054,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
                     );
                     if (av) conv.avatar_url = av;
                     if (nm) conv.display_name = nm;
-                    _notify('web2:zalo:messages', 'update', conv.account_key);
+                    _notify(_ownerTopic(conv.account_key, 'messages'), 'update', conv.account_key);
                 }
             } catch (e) {
                 /* best-effort — lỗi/timeout: không chặn xem tin, không stamp → thử lại lần sau */
@@ -1117,7 +1087,8 @@ router.get('/conversations/:id/messages', async (req, res) => {
                 if (nm) conv.display_name = nm;
                 if (av) conv.avatar_url = av;
                 // Tên vừa heal → báo list các tab refresh (header tab này tự cập nhật qua res.conversation).
-                if (nm || av) _notify('web2:zalo:messages', 'update', conv.account_key);
+                if (nm || av)
+                    _notify(_ownerTopic(conv.account_key, 'messages'), 'update', conv.account_key);
             } catch (e) {
                 /* best-effort — lỗi/timeout: không chặn xem tin, không stamp → thử lại lần sau */
             }
@@ -1239,7 +1210,7 @@ router.post('/conversations/:id/backfill', async (req, res) => {
             } catch (e) {
                 /* module chưa sẵn sàng — bỏ qua */
             }
-            _notify('web2:zalo:messages', 'update', conv.account_key);
+            _notify(_ownerTopic(conv.account_key, 'messages'), 'update', conv.account_key);
         }
         res.json({
             success: true,
@@ -1329,27 +1300,24 @@ router.get('/conversation/:phone', async (req, res) => {
     try {
         const db = getDb(req);
         const p = String(req.params.phone).replace(/\D/g, '');
-        // 2026-06-20: ?account=<key> → ưu tiên hội thoại dưới TK cookie (TK đang đăng
-        // nhập chat.zalo.me). Không truyền → TK CHÍNH (is_primary). Chưa có cả 2 →
-        // hành vi cũ (hội thoại mới nhất bất kỳ TK).
+        // Per-máy: ?account=<key> ưu tiên; không truyền → TK đang connected CỦA MÁY này
+        // (owner). Chỉ trả hội thoại thuộc account của máy này.
+        const ownerId = _owner(req);
         const prefer = String(req.query.account || '').trim() || null;
-        const acct = prefer || (await _getPrimaryKey(db));
+        const acct = prefer || (await _ownerConnectedAccount(db, ownerId));
         const { rows } = acct
             ? await db.query(
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
                   [p, acct]
               )
-            : // Chưa có prefer & chưa đặt TK chính: KHÔNG trả TK bất kỳ (most-recent có
-              // thể sai danh tính). Ưu tiên hội thoại thuộc TK is_primary rồi TK đang
-              // connected, mới tới last_msg_at. (audit MEDIUM 2026-06-20)
+            : // Máy chưa có TK connected: chỉ tìm trong hội thoại thuộc account của máy này.
               await db.query(
                   `SELECT c.* FROM web2_zalo_conversations c
-                   LEFT JOIN web2_zalo_accounts a ON a.account_key = c.account_key
+                   JOIN web2_zalo_accounts a ON a.account_key = c.account_key AND a.owner_id=$2
                    WHERE c.phone=$1
-                   ORDER BY (a.is_primary IS TRUE) DESC, (a.status='connected') DESC,
-                            c.last_msg_at DESC NULLS LAST
+                   ORDER BY (a.status='connected') DESC, c.last_msg_at DESC NULLS LAST
                    LIMIT 1`,
-                  [p]
+                  [p, ownerId]
               );
         res.json({ success: true, data: rows[0] || null });
     } catch (e) {
@@ -1364,30 +1332,32 @@ router.post('/conversation/ensure', async (req, res) => {
         const db = getDb(req);
         const phone = String(req.body?.phone || '').replace(/\D/g, '');
         if (!phone) return res.status(400).json({ success: false, error: 'Thiếu phone' });
-        // 2026-06-20: accountKey (TK cookie) ưu tiên cho CẢ existing-check + tạo mới →
-        // hội thoại 1-1 đi đúng TK đang đăng nhập chat.zalo.me. Không truyền → TK CHÍNH.
+        // Per-máy: accountKey ưu tiên; không truyền → TK đang connected CỦA MÁY này (owner).
+        const ownerId = _owner(req);
         const prefer = String(req.body?.accountKey || '').trim() || null;
-        const checkAcct = prefer || (await _getPrimaryKey(db));
+        const checkAcct = prefer || (await _ownerConnectedAccount(db, ownerId));
         const ex = checkAcct
             ? await db.query(
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
                   [phone, checkAcct]
               )
             : await db.query(
-                  `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
-                  [phone]
+                  `SELECT c.* FROM web2_zalo_conversations c
+                   JOIN web2_zalo_accounts a ON a.account_key=c.account_key AND a.owner_id=$2
+                   WHERE c.phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+                  [phone, ownerId]
               );
         if (ex.rows[0]) return res.json({ success: true, data: ex.rows[0], created: false });
-        // Chọn tài khoản personal đang KẾT NỐI — ƯU TIÊN TK cookie (prefer) rồi TK CHÍNH.
-        let accountKey = prefer;
-        if (!accountKey) {
-            const accs = await db.query(
-                `SELECT account_key FROM web2_zalo_accounts WHERE is_active=true AND account_type='personal' ORDER BY is_primary DESC, updated_at DESC`
-            );
-            accountKey = accs.rows.map((r) => r.account_key).find((k) => zca.isConnected(k));
-        }
+        // Tạo mới: dùng TK đang KẾT NỐI của MÁY này. Máy chưa đăng nhập Zalo → báo lỗi rõ.
+        let accountKey = prefer && (await _ownsAccount(db, ownerId, prefer)) ? prefer : null;
+        if (!accountKey) accountKey = await _ownerConnectedAccount(db, ownerId);
+        if (accountKey && !zca.isConnected(accountKey)) accountKey = null;
         if (!accountKey)
-            return res.json({ success: false, error: 'Chưa có tài khoản Zalo cá nhân kết nối' });
+            return res.status(400).json({
+                success: false,
+                error: 'Máy này chưa đăng nhập Zalo — mở chat.zalo.me + bấm "Đăng nhập Zalo" trước khi nhắn khách.',
+                needLogin: true,
+            });
         // Tìm user Zalo theo SĐT.
         let u = null;
         try {
@@ -1453,8 +1423,8 @@ async function _persistOut(db, p) {
         `UPDATE web2_zalo_conversations SET last_msg_at=$1, last_msg_text=$2, last_msg_sender_uid='me', updated_at=$1 WHERE account_key=$3 AND thread_id=$4`,
         [ts, _outPreview(p).slice(0, 500), p.accountKey, p.threadId]
     );
-    _notify('web2:zalo:messages', 'update', p.msgId);
-    if (p.threadId) _notify(`web2:zalo:thread:${p.threadId}`, 'message', p.msgId);
+    _notify(_ownerTopic(p.accountKey, 'messages'), 'update', p.msgId);
+    if (p.threadId) _notify(_ownerTopic(p.accountKey, `thread:${p.threadId}`), 'message', p.msgId);
     return { id: rows[0]?.id, sentAt: ts };
 }
 function _outPreview(p) {
@@ -2311,12 +2281,12 @@ async function ensureSchema(pool) {
     _pool = pool;
     await ensureWeb2ZaloSchema(pool);
     await _loadTracked();
-    await _loadPrimaryKey(); // nạp cache TK chính lúc boot (KHÔNG boot-restore phiên)
+    await _loadOwners(); // nạp cache accountKey→owner_id (per-máy SSE topic)
     // Refresh cache định kỳ (an toàn khi nhiều instance / thay đổi ngoài luồng).
     if (!ensureSchema._refreshTimer) {
         ensureSchema._refreshTimer = setInterval(() => {
             _loadTracked();
-            _loadPrimaryKey();
+            _loadOwners();
         }, 60 * 1000);
         if (ensureSchema._refreshTimer.unref) ensureSchema._refreshTimer.unref();
     }
