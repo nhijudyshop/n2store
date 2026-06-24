@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8fe9774` — feat(web2): new 'Sửa ảnh AI' page in AI group (replaces photo-editor) + Web2BgScene in-browser bg removal
-**Last updated**: 2026-06-24 17:13:41 +07
-**Latest session**: [`RESUME:20260624-171341-8fe9774`](../20260624-171341-8fe9774.md)
-**Summary**: Trang Sửa ảnh AI mới (group AI, RMBG-1.4 bg + watermark + beauty), xóa photo-editor; audit AI Web2; compact MEMORY.md
+**Latest commit**: `cd77b95` — feat(web2/system): tab Module + tab Bên thứ 3 (audit 5 vòng, 70 bên thứ 3) + sửa tab Dịch vụ cho chính xác
+**Last updated**: 2026-06-24 17:25:39 +07
+**Latest session**: [`RESUME:20260624-172539-cd77b95`](../20260624-172539-cd77b95.md)
+**Summary**: Cấu hình & Hệ thống: +tab Module +tab Bên thứ 3 (audit 5 vòng, 70 bên thứ 3) + sửa tab Dịch vụ
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 8 file(s)
+- [`docs/`](./docs.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-24 17:13
+- [`docs/`](./docs.md) — updated 2026-06-24 17:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -58,9 +60,9 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-24 16:53
+- [`render.com/`](./render.com.md) — updated 2026-06-24 17:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-24 01:35
+- [`scripts/`](./scripts.md) — updated 2026-06-24 17:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
@@ -80,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-24 17:13
+- [`web2/`](./web2.md) — updated 2026-06-24 17:25
