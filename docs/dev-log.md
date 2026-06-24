@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [fix] Chấm công — nhóm 1/3: sửa lỗi tính lương (B3/B6/B7/B9/B10/B11) sau audit
+
+Files: `cham-cong-salary.js`, `cham-cong-employees.js`, `cham-cong-payroll.js`, `index.html`. Theo audit [`docs/web2/CHAM-CONG-AUDIT.md`](web2/CHAM-CONG-AUDIT.md).
+
+- **B7 số công nguyên**: `calcMonth` đếm `workedDays += 1` (bỏ cộng phân số → hết 14.8/20.54). Đi muộn/về sớm phạt riêng, không trừ số công.
+- **B9 punch thiếu = 0**: `calcDay` chặn `incomplete` (1 lượt quẹt) → baseSalary=0 + cờ (trạng thái vẫn "missing"). Trước tính vài phút vô nghĩa.
+- **B10 override công reset phạt**: `salary_days_override` set → `lateDeduction=0` (chốt cứng số ngày).
+- **B11 validate giờ ca**: chặn lưu nếu giờ ra ≤ giờ vào (chưa hỗ trợ ca qua đêm).
+- **B3 chống gán trùng NV**: cảnh báo khi 1 NV gán ≥2 PIN; Bảng lương banner đỏ + "⚠ PIN xxx" dòng trùng.
+- **B6 lương tháng 0 công**: "⚠ 0 công" nhắc kiểm tra giảm trừ.
+- Bump j/k/l. Verified unit-test: incomplete→0, workedDays=2 (không 1.95), override→late=0.
+
 ### [feat] inventory-tracking — Quick-pick SP từ kho: popup canh giữa + multi-select + chèn nhiều dòng dưới
 
 User (3 ý): (1) chỉnh vị trí input khi bấm nút bút-chì ở ô STT; (2) nhập tìm → SP có **checkbox chọn nhiều** + nút **Xác nhận**; (3) Xác nhận **chèn các SP đã chọn thành dòng mới NẰM DƯỚI** dòng được bấm.

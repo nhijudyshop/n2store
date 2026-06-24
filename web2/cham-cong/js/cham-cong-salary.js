@@ -72,6 +72,12 @@
             return out;
         }
         if (!dayData || dayData.status === 'absent' || !dayData.checkIn) return out;
+        // Punch THIẾU (chỉ 1 lượt — quên bấm vào/ra): KHÔNG tính tiền (vài phút vô nghĩa).
+        // Trạng thái vẫn 'missing' (chấm thiếu) để admin chỉnh tay hoặc đánh nghỉ có phép.
+        if (dayData.status === 'incomplete') {
+            out.incomplete = true;
+            return out;
+        }
 
         const startMoment = vnMoment(dateKey, cfg.workStart || '08:00');
         const endMoment = vnMoment(dateKey, cfg.workEnd || '20:00');
@@ -174,10 +180,10 @@
             const day = calcDay(dk, dayData, cfg, isFull);
             dayResults[dk] = { ...day, dayData };
             if (day.worked) {
-                workedDays +=
-                    day.baseSalary >= (Number(cfg.dailyRate) || 0)
-                        ? 1
-                        : day.baseSalary / (Number(cfg.dailyRate) || 1);
+                // Số công đếm theo NGÀY (nguyên): đi làm = 1 công. Đi muộn/về sớm bị
+                // phạt riêng (lateDeduction) + lương cơ bản tính theo giờ thực — KHÔNG
+                // trừ vào "số công" (trước đây cộng phân số → ra 14.8, 20.54 khó hiểu).
+                workedDays += 1;
                 luongChinh += day.baseSalary;
             }
             if (day.otPay) {
@@ -200,8 +206,13 @@
         if (isMonthly) {
             luongChinh = Number(cfg.dailyRate) || 0;
         } else if (pr.salary_days_override != null && pr.salary_days_override !== '') {
-            workedDays = Number(pr.salary_days_override);
+            workedDays = Math.max(0, Number(pr.salary_days_override) || 0);
             luongChinh = workedDays * (Number(cfg.dailyRate) || 0);
+            // Override công = admin CHỐT CỨNG số ngày → bỏ phạt muộn auto của punch ngày
+            // thực (muốn phạt thì dùng "Giảm trừ thủ công" / override phạt muộn). OT giữ
+            // nguyên (là khoản cộng riêng; admin chỉnh qua override OT nếu cần).
+            lateDeduction = 0;
+            lateDays.length = 0;
         }
         if (pr.ot_hours_override != null && pr.ot_hours_override !== '') {
             const hr =

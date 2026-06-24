@@ -48,10 +48,27 @@
             el.innerHTML = `<div class="cc-empty"><p>Chưa có PIN máy nào được gán nhân viên. Vào tab <b>Nhân viên</b> để gán.</p></div>`;
             return;
         }
+        // B3: phát hiện 1 NV gán cho nhiều PIN → cảnh báo + kèm PIN để phân biệt 2 dòng.
+        const empIdCount = {};
+        for (const d of dus)
+            if (d.employee_id) empIdCount[d.employee_id] = (empIdCount[d.employee_id] || 0) + 1;
+        const dupEmpIds = new Set(Object.keys(empIdCount).filter((k) => empIdCount[k] > 1));
+
         let rows = '';
         let tot = { luong: 0, ot: 0, pc: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
         for (const du of dus) {
             const m = computeRow(du);
+            const isDup = du.employee_id && dupEmpIds.has(String(du.employee_id));
+            // B6: NV lương THÁNG chưa chấm công ngày nào → nhắc admin kiểm tra (vẫn trả full).
+            const lowMonthly = du.salary_type === 'monthly' && m.workedDays === 0;
+            const warnStyle = 'color:#dc2626;font-size:11px;font-weight:600;white-space:nowrap';
+            const nameExtra =
+                (isDup
+                    ? ` <span style="${warnStyle}" title="Gán trùng NV — lương tính 2 lần">⚠ PIN ${cc.esc(du.device_user_id)}</span>`
+                    : '') +
+                (lowMonthly
+                    ? ` <span style="${warnStyle}" title="Lương tháng nhưng 0 ngày công — kiểm tra giảm trừ">⚠ 0 công</span>`
+                    : '');
             tot.luong += m.luongChinh;
             tot.ot += m.lamThem;
             tot.pc += m.phuCap;
@@ -61,7 +78,7 @@
             tot.datra += m.daTra;
             tot.con += m.conCanTra;
             rows += `<tr>
-                <td class="cc-pl-name">${cc.esc(cc.empName(du))}</td>
+                <td class="cc-pl-name">${cc.esc(cc.empName(du))}${nameExtra}</td>
                 <td class="num">${m.workedDays}</td>
                 <td class="num">${fmt(m.luongChinh)}</td>
                 <td class="num ot">${m.lamThem ? '+' + fmt(m.lamThem) : '—'}</td>
@@ -78,7 +95,11 @@
                 </td>
             </tr>`;
         }
+        const dupBanner = dupEmpIds.size
+            ? `<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-size:12.5px;"><b>⚠ Có nhân viên được gán cho NHIỀU PIN máy</b> — lương người đó đang tính TRÙNG (cộng 2 lần vào TỔNG). Vào tab <b>Nhân viên</b> sửa lại để mỗi người chỉ 1 PIN.</div>`
+            : '';
         el.innerHTML = `
+          ${dupBanner}
           <div class="cc-grid-wrap">
             <table class="cc-payroll">
               <thead><tr>

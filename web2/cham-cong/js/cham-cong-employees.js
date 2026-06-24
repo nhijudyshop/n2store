@@ -198,10 +198,32 @@
         };
     }
 
+    // B3: cảnh báo gán 1 NV cho 2 PIN (Bảng lương sẽ tính lương người đó 2 lần).
+    async function checkDupEmp(uid, employeeId) {
+        if (!employeeId) return true;
+        const cc = CC();
+        const dup = cc.state.deviceUsers.find(
+            (d) => d.device_user_id !== uid && String(d.employee_id) === String(employeeId)
+        );
+        if (!dup) return true;
+        const e = cc.state.employees.find((x) => String(x.id) === String(employeeId));
+        const ename = e ? e.displayName || e.username : 'NV này';
+        return await cc.confirmBox(
+            `"${ename}" đã gán cho PIN ${dup.device_user_id}. Gán thêm cho PIN ${uid} sẽ tính lương 2 LẦN cho cùng người. Vẫn gán?`
+        );
+    }
+    // B11: giờ ra phải sau giờ vào (chưa hỗ trợ ca qua nửa đêm).
+    function validHours(body) {
+        return CC().S.hmToMinutes(body.work_end) > CC().S.hmToMinutes(body.work_start);
+    }
+
     async function saveRow(tr) {
         const cc = CC();
         const uid = tr.dataset.uid;
         const body = rowBody(tr);
+        if (!validHours(body))
+            return cc.toast('Giờ ra phải sau giờ vào (chưa hỗ trợ ca qua nửa đêm).', 'error');
+        if (!(await checkDupEmp(uid, body.employee_id))) return;
         const btn = tr.querySelector('.cc-emp-save');
         btn.disabled = true;
         btn.textContent = '…';
@@ -224,6 +246,25 @@
         const cc = CC();
         const trs = Array.from(document.querySelectorAll('.cc-emp tbody tr'));
         if (!trs.length) return;
+        // B3: phát hiện 1 NV gán cho nhiều PIN → cảnh báo 1 lần (lương tính trùng).
+        const empCount = {};
+        for (const tr of trs) {
+            const eid = tr.querySelector('.cc-emp-emp')?.value;
+            if (eid) empCount[eid] = (empCount[eid] || 0) + 1;
+        }
+        const dups = Object.keys(empCount).filter((k) => empCount[k] > 1);
+        if (dups.length) {
+            const names = dups.map((id) => {
+                const e = cc.state.employees.find((x) => String(x.id) === id);
+                return e ? e.displayName || e.username : id;
+            });
+            if (
+                !(await cc.confirmBox(
+                    `Có NV gán cho NHIỀU PIN (${names.join(', ')}) → Bảng lương tính trùng. Vẫn lưu tất cả?`
+                ))
+            )
+                return;
+        }
         const orig = btn.innerHTML;
         btn.disabled = true;
         let ok = 0;
@@ -234,6 +275,10 @@
             btn.textContent = `Đang lưu ${i + 1}/${trs.length}…`;
             try {
                 const body = rowBody(tr);
+                if (!validHours(body)) {
+                    fails.push(uid + ' (giờ)');
+                    continue;
+                }
                 await cc.Api.patchDeviceUser(uid, body);
                 const idx = cc.state.deviceUsers.findIndex((d) => d.device_user_id === uid);
                 if (idx >= 0) cc.state.deviceUsers[idx] = { ...cc.state.deviceUsers[idx], ...body };
