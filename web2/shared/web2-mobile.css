@@ -516,6 +516,17 @@ body.w2-embed .w2-acct-sheet {
         padding-bottom: calc(72px + env(safe-area-inset-bottom));
     }
 
+    /* Trợ lý AI (FAB ✨ + panel) đang ghim bottom:12px → ĐÈ lên thanh menu
+       dưới (nút Tài khoản). Khi có bottom bar → nâng FAB/panel lên TRÊN thanh.
+       :has() + !important để thắng style inject sẵn của web2-ai-assistant.js. */
+    body:has(.w2-mobile-bottombar) .w2aa-fab {
+        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    }
+    body:has(.w2-mobile-bottombar) .w2aa-panel {
+        bottom: calc(140px + env(safe-area-inset-bottom)) !important;
+        height: min(560px, calc(100dvh - 210px)) !important;
+    }
+
     /* ── Bottom sheet "Tài khoản" (Hồ sơ + Đăng xuất) ── */
     .w2-acct-sheet.show {
         display: block;
