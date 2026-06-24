@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `hyperframes-render/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,18 @@
 **Last updated**: 2026-06-24 18:48:18 +07
 **Summary**: auto: session update
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`hyperframes-render/`)
 
-- `docs/dev-log.md`
+- `hyperframes-render/.gitignore`
+- `hyperframes-render/README.md`
+- `hyperframes-render/package.json`
+- `hyperframes-render/run-mac.command`
+- `hyperframes-render/run-windows.bat`
+- `hyperframes-render/server.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `hyperframes-render/`
 
 - `153802443` feat(web2): A — HyperFrames render HTML→MP4 self-host máy shop (như VieNeu) + nối B→A _(2026-06-24)_
-- `bf3c41208` feat(web2): HTML Studio — sinh HTML đẹp từ data bằng AI free (skill + anti-AI-slop) + product-card Layout AI _(2026-06-24)_
-- `5d02e7e4d` chore(session): RESUME:20260624-173811-fcebc6e _(2026-06-24)_
-- `fcebc6ea2` feat(web2/system): thống kê trang↔module + 2 doc agent-reference (PAGE-MODULES + THIRD-PARTIES) _(2026-06-24)_
-- `ec450f204` chore(session): RESUME:20260624-172539-cd77b95 _(2026-06-24)_
 
 ---
 
