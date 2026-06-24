@@ -194,6 +194,20 @@
                     renderGarments();
                 });
         });
+        // 📋 Mẫu phong cảnh / cách mặc → điền vào ô "đổi phong cảnh / chi tiết".
+        el('aihTryPresets')?.addEventListener('click', () => {
+            if (!global.AiPresets) return H().toast('Thư viện mẫu chưa sẵn sàng', 'warning');
+            global.AiPresets.pickImage(
+                (prompt) => {
+                    const ta = el('aihTryPrompt');
+                    if (ta) {
+                        ta.value = prompt;
+                        ta.focus();
+                    }
+                },
+                { onlyCats: ['scene'], title: 'Mẫu phong cảnh / chi tiết' }
+            );
+        });
         el('aihTryGo')?.addEventListener('click', run);
         renderPerson();
         renderGarments();
@@ -201,11 +215,35 @@
 
     async function onShow() {
         if (!inited) init();
-        // Cần Gemini đã cấu hình key.
+        // Cần Gemini (Nano Banana) đã cấu hình key + user có QUYỀN dùng (ảnh trả phí).
         const provs = H().state.status?.image?.providers || [];
         const gem = provs.find((p) => p.id === 'gemini');
         const warn = el('aihTryWarn');
-        if (warn) warn.hidden = !!(gem && gem.configured);
+        if (warn) {
+            if (!(gem && gem.configured)) {
+                warn.hidden = false;
+                warn.textContent =
+                    '⚠️ Ghép đồ dùng Nano Banana — admin cần cấu hình key ở tab Cấu hình.';
+            } else {
+                // Kiểm tra quyền qua /quota (canUse) — không có quyền thì báo sớm.
+                warn.hidden = true;
+                try {
+                    const r = await fetch(H().API() + '/quota', {
+                        headers: H().authHeaders(false),
+                    });
+                    const j = await r.json();
+                    if (j.ok && j.canUse === false) {
+                        warn.hidden = false;
+                        warn.textContent =
+                            '🔒 Bạn chưa được cấp quyền dùng Nano Banana (ảnh AI trả phí) — liên hệ admin.';
+                    } else if (j.ok && !j.unlimited && typeof j.remaining === 'number') {
+                        warn.hidden = false;
+                        warn.style.color = 'var(--web2-text-2, #64748b)';
+                        warn.textContent = `🍌 Ghép đồ dùng Nano Banana — còn ${j.remaining}/${j.limit} lượt hôm nay.`;
+                    }
+                } catch {}
+            }
+        }
         if (global.lucide) global.lucide.createIcons();
     }
 

@@ -20,7 +20,19 @@ const express = require('express');
 const router = express.Router();
 const ai = require('../services/web2-ai-service');
 const img = require('../services/web2-ai-image-service');
+const store = require('../services/web2-ai-store');
+const web2Users = require('./web2-users'); // userCan (gate quyền nanobanana — KHÔNG drift)
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+
+// Pool web2Db (lưu ảnh/prompt/hội thoại). Web 2.0 → web2Db || chatDb (KHÔNG chatDb trần).
+const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
+
+// Giới hạn ảnh Nano Banana (TRẢ PHÍ) / user / ngày (GMT+7). Override env. Admin KHÔNG giới hạn.
+const NANOBANANA_DAILY_LIMIT = Math.max(
+    0,
+    parseInt(process.env.WEB2_NANOBANANA_DAILY_LIMIT, 10) || 50
+);
+const isAdminReq = (req) => req.web2User?.role === 'admin';
 
 // ── Rate-limit theo IP (chống đốt quota free) ──
 const _hits = new Map();
@@ -182,6 +194,9 @@ router.post(
 );
 
 // ── Tạo ảnh ──
+// Nano Banana (provider 'gemini') = model TRẢ PHÍ → GATE QUYỀN ('ai-hub'/'nanobanana') +
+// QUOTA/ngày/user. Pollinations/Cloudflare (free) không gate. Mọi ảnh tạo thành công →
+// LƯU server (web2_ai_images: prompt + bytes) best-effort để xem/tải lại + đếm quota.
 router.post(
     '/image',
     requireWeb2AuthSoft,
@@ -190,6 +205,47 @@ router.post(
     async (req, res) => {
         try {
             const { prompt, provider, model, width, height, image, images, seed } = req.body || {};
+            const isPaid = provider === 'gemini'; // Nano Banana
+            const user = req.web2User || null;
+            const admin = isAdminReq(req);
+
+            if (isPaid) {
+                // Ảnh trả phí BẮT BUỘC có danh tính (để gate quyền + đếm quota).
+                if (!user) {
+                    return res.status(401).json({
+                        ok: false,
+                        error: 'Cần đăng nhập để dùng Nano Banana (ảnh AI trả phí)',
+                    });
+                }
+                // Quyền: admin luôn pass; user khác phải được cấp 'nanobanana'.
+                if (!web2Users.userCan(user, 'ai-hub', 'nanobanana')) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Bạn chưa được cấp quyền dùng Nano Banana (ảnh AI trả phí). Liên hệ admin.',
+                        code: 'no_nanobanana_perm',
+                    });
+                }
+                // Quota/ngày (GMT+7) — admin miễn.
+                if (!admin && NANOBANANA_DAILY_LIMIT > 0) {
+                    const db = getDb(req);
+                    let used = 0;
+                    try {
+                        used = await store.countPaidToday(db, user.id, Date.now());
+                    } catch (e) {
+                        console.warn('[web2-ai] quota count failed:', e.message);
+                    }
+                    if (used >= NANOBANANA_DAILY_LIMIT) {
+                        return res.status(429).json({
+                            ok: false,
+                            error: `Hết lượt tạo ảnh Nano Banana hôm nay (${used}/${NANOBANANA_DAILY_LIMIT}). Thử lại ngày mai hoặc nhờ admin nâng giới hạn.`,
+                            code: 'nanobanana_quota',
+                            used,
+                            limit: NANOBANANA_DAILY_LIMIT,
+                        });
+                    }
+                }
+            }
+
             const out = await img.generate({
                 prompt,
                 provider,
@@ -200,13 +256,170 @@ router.post(
                 images, // GHÉP ĐỒ: [ảnh người, ảnh quần áo…] → Gemini multi-image
                 seed,
             });
-            res.json({ ok: true, ...out });
+
+            // Lưu lịch sử (best-effort — KHÔNG chặn response nếu DB lỗi).
+            let savedId = null;
+            try {
+                const saved = await store.saveImage(getDb(req), {
+                    userId: user?.id || null,
+                    username: user?.username || null,
+                    provider: out.provider || provider,
+                    model,
+                    kind: Array.isArray(images) && images.length ? 'tryon' : 'image',
+                    prompt,
+                    out,
+                    width,
+                    height,
+                });
+                savedId = saved?.id || null;
+            } catch (e) {
+                console.warn('[web2-ai] saveImage failed:', e.message);
+            }
+            res.json({ ok: true, ...out, savedId });
         } catch (e) {
             console.error('[web2-ai] image', e.message);
             res.status(e._noKey ? 503 : 500).json({ ok: false, error: String(e.message || e) });
         }
     }
 );
+
+// ── Quota Nano Banana còn lại của user hiện tại (cho UI hiển thị) ──
+router.get('/quota', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    const admin = isAdminReq(req);
+    if (!user) return res.json({ ok: true, unlimited: false, used: 0, limit: 0, remaining: 0 });
+    if (admin || NANOBANANA_DAILY_LIMIT === 0) {
+        return res.json({ ok: true, unlimited: true, used: 0, limit: 0, remaining: Infinity });
+    }
+    let used = 0;
+    try {
+        used = await store.countPaidToday(getDb(req), user.id, Date.now());
+    } catch (e) {
+        console.warn('[web2-ai] quota get failed:', e.message);
+    }
+    res.json({
+        ok: true,
+        unlimited: false,
+        used,
+        limit: NANOBANANA_DAILY_LIMIT,
+        remaining: Math.max(0, NANOBANANA_DAILY_LIMIT - used),
+        canUse: web2Users.userCan(user, 'ai-hub', 'nanobanana'),
+    });
+});
+
+// ── Lịch sử ảnh đã tạo (metadata, KHÔNG bytes). Non-admin chỉ thấy của mình. ──
+router.get('/images', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.json({ ok: true, images: [] });
+    try {
+        const rows = await store.listImages(getDb(req), {
+            userId: user.id,
+            isAdmin: isAdminReq(req),
+            all: req.query.all === '1',
+            limit: req.query.limit,
+            offset: req.query.offset,
+        });
+        res.json({ ok: true, images: rows });
+    } catch (e) {
+        console.error('[web2-ai] list images', e.message);
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
+
+// ── Serve bytes 1 ảnh (auth qua ?token= để <img src> gửi được). Chủ sở hữu / admin. ──
+router.get('/images/:id(\\d+)', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.status(401).send('unauthorized');
+    try {
+        const row = await store.getImage(getDb(req), req.params.id);
+        if (!row) return res.status(404).send('not found');
+        if (!isAdminReq(req) && row.user_id && row.user_id !== user.id)
+            return res.status(403).send('forbidden');
+        if (row.bytes) {
+            res.setHeader('Content-Type', row.mime || 'image/png');
+            res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+            return res.end(row.bytes);
+        }
+        if (row.url) return res.redirect(row.url); // ảnh lưu dạng URL (pollinations)
+        return res.status(404).send('no image data');
+    } catch (e) {
+        console.error('[web2-ai] get image', e.message);
+        res.status(500).send('error');
+    }
+});
+
+router.delete('/images/:id(\\d+)', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.status(401).json({ ok: false, error: 'Cần đăng nhập' });
+    try {
+        const ok = await store.deleteImage(getDb(req), req.params.id, user.id, isAdminReq(req));
+        res.json({ ok });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
+
+// ── Hội thoại (chat) lưu server — backup + đồng bộ đa máy ──
+router.put('/chats/:id', requireWeb2AuthSoft, express.json({ limit: '2mb' }), async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.json({ ok: false, error: 'Cần đăng nhập', skipped: true });
+    try {
+        const { title, provider, model, messages } = req.body || {};
+        const saved = await store.upsertChat(getDb(req), {
+            id: req.params.id,
+            userId: user.id,
+            username: user.username,
+            title,
+            provider,
+            model,
+            messages,
+        });
+        res.json({ ok: true, saved });
+    } catch (e) {
+        console.error('[web2-ai] upsert chat', e.message);
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
+
+router.get('/chats', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.json({ ok: true, chats: [] });
+    try {
+        const rows = await store.listChats(getDb(req), {
+            userId: user.id,
+            isAdmin: isAdminReq(req),
+            all: req.query.all === '1',
+            limit: req.query.limit,
+        });
+        res.json({ ok: true, chats: rows });
+    } catch (e) {
+        console.error('[web2-ai] list chats', e.message);
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
+
+router.get('/chats/:id', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.status(401).json({ ok: false, error: 'Cần đăng nhập' });
+    try {
+        const row = await store.getChat(getDb(req), req.params.id, user.id, isAdminReq(req));
+        if (!row) return res.status(404).json({ ok: false, error: 'Không tìm thấy' });
+        res.json({ ok: true, chat: row });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
+
+router.delete('/chats/:id', requireWeb2AuthSoft, async (req, res) => {
+    const user = req.web2User || null;
+    if (!user) return res.json({ ok: true }); // không đăng nhập → coi như đã xoá (chỉ local)
+    try {
+        const ok = await store.deleteChat(getDb(req), req.params.id, user.id, isAdminReq(req));
+        res.json({ ok });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
 
 // ── Test 1 provider (admin-only — quản lý key) ──
 router.post(

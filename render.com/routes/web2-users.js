@@ -308,7 +308,12 @@ const WEB2_PAGES = [
     // mà thiếu ở registry (chỉ 'view') → trang mới auto hiện để admin chặn.
     // ════════════════════════════════════════════════════════════════
     // ─── AI ────────────────────────────────────────────────────────
-    { slug: 'ai-hub', label: 'Trợ lý AI', group: 'AI', actions: ['view', 'generate'] },
+    {
+        slug: 'ai-hub',
+        label: 'Trợ lý AI',
+        group: 'AI',
+        actions: ['view', 'generate', 'nanobanana'],
+    },
     {
         slug: 'video-maker',
         label: 'Xưởng Video AI',
@@ -450,12 +455,19 @@ const ACTION_LABELS = {
     changePermissions: 'Đổi phân quyền',
     // 2026-06-24 thêm
     generate: 'Tạo nội dung (AI)',
+    nanobanana: 'Dùng Nano Banana (ảnh AI trả phí)',
     scan: 'Quét đóng gói',
     pack: 'Xác nhận đóng gói',
     returnFailed: 'Giao thất bại / trả kho',
     publish: 'Đăng / lên lịch',
     confirm: 'Xác nhận',
 };
+
+// Hành động "đắt"/nhạy cảm KHÔNG cấp mặc định cho non-admin (admin luôn pass qua userCan;
+// admin có thể cấp thủ công cho từng user ở trang Phân quyền). 'nanobanana' = model tạo ảnh
+// TRẢ PHÍ → mặc định CHẶN để kiểm soát chi phí (2026-06-24, user request).
+const RESTRICTED_ACTIONS = new Set(['nanobanana']);
+const _allow = (actions) => actions.filter((a) => !RESTRICTED_ACTIONS.has(a));
 
 // Role-based default permissions.
 const ROLE_DEFAULTS = {
@@ -466,13 +478,15 @@ const ROLE_DEFAULTS = {
         return out;
     },
     manager: () => {
-        // All pages, all actions EXCEPT user delete + changePermissions
+        // All pages, all actions EXCEPT user delete + changePermissions + restricted (paid) actions
         const out = {};
         for (const p of WEB2_PAGES) {
             if (p.slug === 'users') {
-                out[p.slug] = p.actions.filter((a) => a !== 'delete' && a !== 'changePermissions');
+                out[p.slug] = _allow(
+                    p.actions.filter((a) => a !== 'delete' && a !== 'changePermissions')
+                );
             } else {
-                out[p.slug] = [...p.actions];
+                out[p.slug] = _allow([...p.actions]);
             }
         }
         return out;
@@ -484,7 +498,7 @@ const ROLE_DEFAULTS = {
             if (p.slug === 'users') {
                 out[p.slug] = []; // no access
             } else {
-                out[p.slug] = p.actions.filter((a) => a !== 'delete' && a !== 'cancel');
+                out[p.slug] = _allow(p.actions.filter((a) => a !== 'delete' && a !== 'cancel'));
             }
         }
         return out;

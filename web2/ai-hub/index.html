@@ -139,14 +139,24 @@
                                         <label class="aih-label" for="aihImgPrompt"
                                             >Mô tả ảnh</label
                                         >
-                                        <button
-                                            type="button"
-                                            class="aih-enhance"
-                                            id="aihImgEnhance"
-                                            title="Nhập ngắn (vd: áo trắng) → AI tự viết mô tả chi tiết để tạo ảnh đẹp hơn"
-                                        >
-                                            <i data-lucide="sparkles"></i> AI viết mô tả
-                                        </button>
+                                        <span style="display: flex; gap: 6px">
+                                            <button
+                                                type="button"
+                                                class="aih-enhance"
+                                                id="aihImgPresets"
+                                                title="Chọn mẫu câu lệnh có sẵn (sản phẩm, người mẫu, đổi nền, poster…)"
+                                            >
+                                                <i data-lucide="layout-template"></i> Mẫu
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="aih-enhance"
+                                                id="aihImgEnhance"
+                                                title="Nhập ngắn (vd: áo trắng) → AI tự viết mô tả chi tiết để tạo ảnh đẹp hơn"
+                                            >
+                                                <i data-lucide="sparkles"></i> AI viết mô tả
+                                            </button>
+                                        </span>
                                     </div>
                                     <textarea
                                         class="aih-img-prompt"
@@ -214,9 +224,25 @@
                                 >
                                     <i data-lucide="folder-open"></i> Kho ảnh free (làm ảnh gốc)
                                 </button>
+                                <button
+                                    type="button"
+                                    class="aih-gen"
+                                    id="aihImgHistory"
+                                    style="background: #0f766e; margin-top: 8px"
+                                    title="Xem lại ảnh AI đã tạo (lưu trên server)"
+                                >
+                                    <i data-lucide="history"></i> Ảnh đã lưu
+                                </button>
+                                <p
+                                    class="aih-keyhint"
+                                    id="aihQuotaHint"
+                                    hidden
+                                    style="color: #b45309"
+                                ></p>
                                 <p class="aih-keyhint">
-                                    🟢 <b>Pollinations</b> dùng được ngay. Các nguồn khác
-                                    (Cloudflare, Gemini) do admin thiết lập sẵn.
+                                    🟢 <b>Pollinations</b> miễn phí dùng ngay.
+                                    <b>Nano Banana</b> (Gemini) là ảnh AI <b>trả phí</b> — cần quyền
+                                    + có giới hạn lượt/ngày.
                                 </p>
                             </div>
                             <div class="aih-img-gallery" id="aihGallery"></div>
@@ -278,9 +304,19 @@
                                     </button>
                                 </div>
                                 <div class="aih-field">
-                                    <label class="aih-label" for="aihTryPrompt"
-                                        >3) Đổi phong cảnh / chi tiết (tuỳ chọn)</label
-                                    >
+                                    <div class="aih-label-row">
+                                        <label class="aih-label" for="aihTryPrompt"
+                                            >3) Đổi phong cảnh / chi tiết (tuỳ chọn)</label
+                                        >
+                                        <button
+                                            type="button"
+                                            class="aih-enhance"
+                                            id="aihTryPresets"
+                                            title="Chọn mẫu phong cảnh / cách mặc lên người"
+                                        >
+                                            <i data-lucide="layout-template"></i> Mẫu
+                                        </button>
+                                    </div>
                                     <textarea
                                         class="aih-img-prompt"
                                         id="aihTryPrompt"
@@ -311,13 +347,15 @@
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
-        <script src="./js/ai-hub.js?v=20260624a"></script>
-        <script src="./js/ai-chat.js?v=20260623g"></script>
+        <script src="./js/ai-hub.js?v=20260624c"></script>
+        <!-- Thư viện mẫu câu lệnh (ảnh + vai trò chat) — nano-banana-pro-prompts + system-prompts. -->
+        <script src="./js/ai-presets.js?v=20260624c"></script>
+        <script src="./js/ai-chat.js?v=20260624c"></script>
         <!-- Kho ảnh/video miễn phí dùng chung (từ video-maker) — picker stock cho
              tab Tạo ảnh + Ghép đồ (onPick callback). -->
         <script src="../video-maker/js/video-stock.js?v=20260624b"></script>
-        <script src="./js/ai-image.js?v=20260624b"></script>
-        <script src="./js/ai-tryon.js?v=20260624b"></script>
+        <script src="./js/ai-image.js?v=20260624c"></script>
+        <script src="./js/ai-tryon.js?v=20260624c"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
         <script>
             (function () {

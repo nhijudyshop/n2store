@@ -88,30 +88,70 @@ const PROVIDERS = {
             // "no image input"). Đính ảnh dùng Gemini (👁 mọi model) hoặc Groq Llama-4 Scout.
         ],
     },
+    // ───────── Nano Banana (ẢNH) — pool key RIÊNG, TÁCH CHI PHÍ (2026-06-24) ─────────
+    // internal:true → KHÔNG hiện trong chat UI / defaultProvider / listModels. Chỉ
+    // image-service dùng (qua keysOf('nanobanana') + runWithKey('nanobanana', …)).
+    // Vì sao tách: Nano Banana là model TẠO ẢNH có TÍNH PHÍ → dùng key TRẢ PHÍ riêng,
+    // KHÔNG lẫn với key Gemini FREE dùng cho chat (kẻo đốt quota/credit chéo).
+    nanobanana: {
+        label: 'Nano Banana (ảnh)',
+        kind: 'gemini-image',
+        internal: true,
+        envPrefixes: ['WEB2_NANOBANANA_API_KEY'],
+    },
 };
 
 // ───────────────────────── Đọc + xoay key ─────────────────────────
 // Gom key từ MỌI prefix (WEB2_* ưu tiên trước → legacy), mỗi prefix quét `<prefix>1..10`
 // + `<prefix>` (đơn/phẩy). Dedup. Thứ tự đảm bảo key WEB2_ free được thử trước.
+function _splitCsvInto(raw, into) {
+    String(raw)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((k) => {
+            if (!into.includes(k)) into.push(k);
+        });
+}
+
+// Pool key TRẢ PHÍ chuyên cho Nano Banana (tạo/ghép ảnh). Nguồn (ưu tiên trên xuống):
+//   1) WEB2_NANOBANANA_API_KEY{1..10} / WEB2_NANOBANANA_API_KEY  (tên rõ nghĩa — nên dùng)
+//   2) fallback WEB2_GEMINI_API_KEY5  (layout hiện tại của user: key1..4 FREE=chat, key5 PAID=ảnh)
+// Mọi key trong pool này được TRỪ khỏi pool chat 'gemini' (xem _keys) để key trả phí
+// không bị đốt cho chat free.
+function _nanoBananaKeys() {
+    const arr = [];
+    for (let i = 1; i <= MAX_KEYS; i++) {
+        const v = (process.env['WEB2_NANOBANANA_API_KEY' + i] || '').trim();
+        if (v) _splitCsvInto(v, arr);
+    }
+    const single = (process.env.WEB2_NANOBANANA_API_KEY || '').trim();
+    if (single) _splitCsvInto(single, arr);
+    if (!arr.length) {
+        const k5 = (process.env.WEB2_GEMINI_API_KEY5 || '').trim();
+        if (k5) _splitCsvInto(k5, arr);
+    }
+    return arr;
+}
+
 function _keys(providerId) {
+    if (providerId === 'nanobanana') return _nanoBananaKeys();
     const p = PROVIDERS[providerId];
     if (!p) return [];
     const arr = [];
-    const add = (raw) =>
-        String(raw)
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .forEach((k) => {
-                if (!arr.includes(k)) arr.push(k);
-            });
     for (const prefix of p.envPrefixes || []) {
         for (let i = 1; i <= MAX_KEYS; i++) {
             const v = (process.env[prefix + i] || '').trim();
-            if (v) add(v);
+            if (v) _splitCsvInto(v, arr);
         }
         const single = (process.env[prefix] || '').trim();
-        if (single) add(single);
+        if (single) _splitCsvInto(single, arr);
+    }
+    // Chat 'gemini' (FREE): loại bỏ key thuộc pool Nano Banana trả phí (vd WEB2_GEMINI_API_KEY5)
+    // → chat chỉ xoay key free (1..4), không chạm key trả phí.
+    if (providerId === 'gemini') {
+        const nano = new Set(_nanoBananaKeys());
+        return arr.filter((k) => !nano.has(k));
     }
     return arr;
 }
@@ -492,44 +532,49 @@ function clampNum(v, min, max, dflt) {
 }
 
 function defaultProvider() {
-    for (const id of Object.keys(PROVIDERS)) if (_keys(id).length) return id;
+    // Bỏ qua provider internal (vd nanobanana — chỉ dùng cho ảnh, không phải chat).
+    for (const id of Object.keys(PROVIDERS))
+        if (!PROVIDERS[id].internal && _keys(id).length) return id;
     return 'groq';
 }
 
 function configured() {
-    return Object.keys(PROVIDERS).some((id) => _keys(id).length > 0);
+    return Object.keys(PROVIDERS).some((id) => !PROVIDERS[id].internal && _keys(id).length > 0);
 }
 
 // status() → providers + số key + trạng thái cooldown (MASKED) + models. KHÔNG lộ key.
 function status() {
     const now = Date.now();
-    const providers = Object.keys(PROVIDERS).map((id) => {
-        const p = PROVIDERS[id];
-        const keys = _keys(id);
-        return {
-            id,
-            label: p.label,
-            kind: p.kind,
-            configured: keys.length > 0,
-            keyCount: keys.length,
-            defaultModel: p.defaultModel,
-            models: p.models,
-            keys: keys.map((k) => {
-                const cd = _cooldown.get(k) || 0;
-                return {
-                    masked: maskKey(k),
-                    cooling: cd > now,
-                    cooldownMs: cd > now ? cd - now : 0,
-                };
-            }),
-        };
-    });
+    const providers = Object.keys(PROVIDERS)
+        .filter((id) => !PROVIDERS[id].internal)
+        .map((id) => {
+            const p = PROVIDERS[id];
+            const keys = _keys(id);
+            return {
+                id,
+                label: p.label,
+                kind: p.kind,
+                configured: keys.length > 0,
+                keyCount: keys.length,
+                defaultModel: p.defaultModel,
+                models: p.models,
+                keys: keys.map((k) => {
+                    const cd = _cooldown.get(k) || 0;
+                    return {
+                        masked: maskKey(k),
+                        cooling: cd > now,
+                        cooldownMs: cd > now ? cd - now : 0,
+                    };
+                }),
+            };
+        });
     return { providers, defaultProvider: defaultProvider(), configured: configured() };
 }
 
 function listModels() {
     const out = {};
-    for (const id of Object.keys(PROVIDERS)) out[id] = PROVIDERS[id].models;
+    for (const id of Object.keys(PROVIDERS))
+        if (!PROVIDERS[id].internal) out[id] = PROVIDERS[id].models;
     return out;
 }
 

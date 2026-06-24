@@ -68,6 +68,77 @@
     function current() {
         return convos.find((c) => c.id === currentId) || null;
     }
+
+    // ── Đồng bộ server (backup + xem đa máy) — best-effort, KHÔNG chặn UX nếu lỗi ──
+    let _syncTimer = null;
+    function _scheduleSync(c) {
+        if (!c || !c.messages || !c.messages.length) return; // chỉ sync khi đã có nội dung
+        clearTimeout(_syncTimer);
+        const id = c.id;
+        _syncTimer = setTimeout(() => _syncNow(id), 1500);
+    }
+    async function _syncNow(id) {
+        const c = convos.find((x) => x.id === id);
+        if (!c || !c.messages.length) return;
+        // Bỏ base64 ảnh khỏi payload (chỉ giữ content) → nhẹ + không lưu PII ảnh.
+        const slim = c.messages.map((m) =>
+            m.images && m.images.length
+                ? { role: m.role, content: m.content, hadImages: m.images.length }
+                : { role: m.role, content: m.content }
+        );
+        try {
+            await fetch(H().API() + '/chats/' + encodeURIComponent(c.id), {
+                method: 'PUT',
+                headers: H().authHeaders(true),
+                body: JSON.stringify({
+                    title: c.title,
+                    provider: c.provider,
+                    model: c.model,
+                    messages: slim,
+                }),
+            });
+        } catch {}
+    }
+    // Gộp các cuộc trò chuyện lưu trên server (máy khác) vào danh sách dưới dạng stub
+    // (_serverOnly) → mở mới hydrate nội dung. Best-effort.
+    async function _mergeServerChats() {
+        try {
+            const r = await fetch(H().API() + '/chats?limit=50', {
+                headers: H().authHeaders(false),
+            });
+            const j = await r.json();
+            if (!j.ok || !Array.isArray(j.chats)) return;
+            let added = false;
+            for (const sc of j.chats) {
+                if (convos.some((c) => c.id === sc.id)) continue;
+                convos.push({
+                    id: sc.id,
+                    title: sc.title || '(không tên)',
+                    provider: sc.provider || _pickDefaultProvider(),
+                    model: sc.model || '',
+                    system: '',
+                    messages: [],
+                    updatedAt: sc.updated_at || Date.now(),
+                    _serverOnly: true,
+                });
+                added = true;
+            }
+            if (added) renderList();
+        } catch {}
+    }
+    async function _hydrateServer(c) {
+        try {
+            const r = await fetch(H().API() + '/chats/' + encodeURIComponent(c.id), {
+                headers: H().authHeaders(false),
+            });
+            const j = await r.json();
+            if (j.ok && j.chat) {
+                c.messages = Array.isArray(j.chat.messages) ? j.chat.messages : [];
+                delete c._serverOnly;
+                save();
+            }
+        } catch {}
+    }
     function newConvo() {
         const st = H().state.status?.chat;
         const c = {
@@ -75,7 +146,8 @@
             title: 'Cuộc trò chuyện mới',
             provider: _pickDefaultProvider(),
             model: '',
-            system: '',
+            // Vai trò mặc định = trợ lý bán hàng shop (system-prompts-and-models integration).
+            system: (global.AiPresets && global.AiPresets.DEFAULT_ROLE) || '',
             messages: [],
             updatedAt: Date.now(),
         };
@@ -251,9 +323,11 @@
         });
         if (global.lucide) global.lucide.createIcons();
     }
-    function selectConvo(id) {
+    async function selectConvo(id) {
         if (streaming) return;
         currentId = id;
+        const c = current();
+        if (c && c._serverOnly) await _hydrateServer(c); // lazy nạp nội dung từ server (máy khác)
         syncBar();
         renderList();
         renderMessages();
@@ -266,6 +340,11 @@
         convos = convos.filter((c) => c.id !== id);
         if (currentId === id) currentId = convos[0]?.id || null;
         save();
+        // Xoá cả bản lưu server (best-effort).
+        fetch(H().API() + '/chats/' + encodeURIComponent(id), {
+            method: 'DELETE',
+            headers: H().authHeaders(false),
+        }).catch(() => {});
         if (!currentId) newConvo();
         else {
             syncBar();
@@ -449,6 +528,7 @@
         }
         c.updatedAt = Date.now();
         save();
+        _scheduleSync(c); // backup hội thoại lên server (đa máy)
         setStreaming(false);
         abortCtrl = null;
         userStopped = false;
@@ -542,11 +622,10 @@
         await streamAssistant(c);
     }
 
-    // ── system prompt ──
-    async function editSystem() {
+    // ── system prompt (Vai trò) — thư viện vai trò (system-prompts) + tự nhập ──
+    async function customSystem() {
         const c = current();
-        if (!c) return;
-        if (!global.Popup) return;
+        if (!c || !global.Popup) return;
         const v = await global.Popup.prompt(
             'Vai trò / định hướng cho AI (system prompt):',
             c.system || '',
@@ -559,6 +638,20 @@
         c.system = String(v).trim();
         save();
         H().toast(c.system ? 'Đã đặt vai trò AI' : 'Đã xoá vai trò', 'success');
+    }
+    async function editSystem() {
+        const c = current();
+        if (!c) return;
+        if (global.AiPresets && global.AiPresets.pickRole) {
+            global.AiPresets.pickRole((sys, role) => {
+                if (role.id === 'custom') return customSystem(); // ô nhập tự do
+                c.system = sys;
+                save();
+                H().toast('Đã đặt vai trò: ' + role.title.replace(/^\S+\s/, ''), 'success');
+            });
+            return;
+        }
+        return customSystem();
     }
 
     function autoSize(ta) {
@@ -573,6 +666,7 @@
         syncBar();
         renderList();
         renderMessages();
+        _mergeServerChats(); // best-effort: gộp hội thoại đã lưu trên server (máy khác)
 
         const ta = document.getElementById('aihInput');
         const sendBtn = document.getElementById('aihSend');

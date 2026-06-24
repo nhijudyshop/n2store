@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### [feat] web2 ai-hub: tách key chat/Nano Banana + gate quyền + quota + lưu ảnh/prompt/chat + thư viện mẫu
+
+User 5 việc (key paid Nano Banana, giải thích 2 repo, tích hợp 2 repo prompt/system, tối ưu chi phí).
+
+- **Tách pool key Gemini** (`web2-ai-service.js`): chat dùng key FREE (`WEB2_GEMINI_API_KEY1..4`), Nano Banana (ảnh, TRẢ PHÍ) dùng pool RIÊNG `nanobanana` = `WEB2_NANOBANANA_API_KEY*` → fallback `WEB2_GEMINI_API_KEY5`. Key nano bị TRỪ khỏi pool chat (key5 không đốt cho chat free). Provider `nanobanana` `internal:true` (ẩn khỏi chat UI/defaultProvider/listModels). `image-service._gemini` đổi sang `keysOf/runWithKey('nanobanana')`. Unit-test: chat=4 free, nano=key5; dedicated env override OK.
+- **Gate quyền + quota** (`web2-ai.js` `/image`): provider `gemini` = ảnh trả phí → BẮT BUỘC đăng nhập + quyền `ai-hub`/`nanobanana` (action MỚI, `RESTRICTED_ACTIONS` → default-DENY non-admin, admin cấp tay) + quota `WEB2_NANOBANANA_DAILY_LIMIT`/user/ngày (GMT+7, default 50, admin miễn). `GET /quota` cho UI.
+- **Lưu server** (`web2-ai-store.js` + bảng `web2_ai_images`/`web2_ai_chats`, web2Db): mọi ảnh tạo → lưu prompt+BYTEA (best-effort); hội thoại chat upsert (đa máy). Endpoints `/images`(list)`/images/:id`(serve ?token)`/chats`(CRUD). Scope chủ-sở-hữu/admin. Integration-test trên PG test DB (create→test→drop): quota đếm, ownership guard (chống hijack chat / xoá nhầm chủ) PASS.
+- **Tích hợp prompt repos** (`ai-presets.js`): 23 mẫu câu lệnh ảnh (nano-banana-pro-prompts + Awesome-Nano-Banana-images, chọn lọc shop: sản phẩm/người mẫu/mặc-lên-người/đổi nền/avatar/flat-lay/poster) + 7 vai trò chat (cảm hứng x1xhlol/system-prompts: bán hàng/caption/CSKH/mô tả SP/khiếu nại/ý tưởng + tự nhập). Modal picker tự chứa. Nút "📋 Mẫu" ở Tạo ảnh + Ghép đồ; "Vai trò" chat → picker; convo mới có system mặc định shop.
+- **Frontend** (`ai-image.js`/`ai-tryon.js`/`ai-chat.js`): nút "📁 Ảnh đã lưu" (load lịch sử server), pill quota Nano Banana, try-on báo thiếu-quyền sớm; chat backup lên server + gộp hội thoại máy khác. Bump v20260624c.
+- **Cần**: deploy web2-api (env `WEB2_GEMINI_API_KEY5` paid đã có) + redeploy để nạp pool tách. Tuỳ chọn env `WEB2_NANOBANANA_API_KEY*`, `WEB2_NANOBANANA_DAILY_LIMIT`.
+
 ### [feat] web2: phân quyền HOÀN CHỈNH — registry đủ 50 trang + auto-discover + enforcement an toàn
 
 User "Làm đi": vá lỗ hổng #2 (registry stale 18/50 + không enforce).

@@ -204,8 +204,10 @@ const GEMINI_IMAGE_MODELS = [
     { id: 'gemini-2.5-flash-image', label: 'Nano Banana' },
 ];
 async function _gemini(prompt, { model, image, images }) {
-    if (!keysOf('gemini').length) {
-        const e = new Error('Gemini chưa cấu hình key (GEMINI_API_KEY)');
+    // Pool key RIÊNG cho Nano Banana (trả phí) — TÁCH khỏi key Gemini free dùng cho chat.
+    // Nguồn: WEB2_NANOBANANA_API_KEY* → fallback WEB2_GEMINI_API_KEY5 (xem web2-ai-service).
+    if (!keysOf('nanobanana').length) {
+        const e = new Error('Nano Banana chưa cấu hình key trả phí (WEB2_NANOBANANA_API_KEY)');
         e._noKey = true;
         throw e;
     }
@@ -225,9 +227,9 @@ async function _gemini(prompt, { model, image, images }) {
         const data = m ? m[2] : String(img).replace(/^data:[^,]*,/, '');
         if (data) parts.push({ inlineData: { mimeType: mime, data } });
     }
-    // Xoay TOÀN BỘ pool key Gemini + cooldown CHUNG (qua runWithKey) — 1 key 401/429/503 thì
-    // thử key kế thay vì fail oan dù pool còn key tốt.
-    return runWithKey('gemini', async (key) => {
+    // Xoay TOÀN BỘ pool key Nano Banana (trả phí) + cooldown CHUNG (qua runWithKey) — 1 key
+    // 401/429/503 thì thử key kế thay vì fail oan dù pool còn key tốt.
+    return runWithKey('nanobanana', async (key) => {
         const r = await fetch(`${GEMINI_BASE}/models/${mdl}:generateContent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -302,9 +304,11 @@ function status() {
             {
                 id: 'gemini',
                 label: 'Gemini Nano Banana',
-                configured: keysOf('gemini').length > 0,
+                // Pool key TRẢ PHÍ riêng (WEB2_NANOBANANA_API_KEY* / fallback WEB2_GEMINI_API_KEY5).
+                configured: keysOf('nanobanana').length > 0,
                 models: GEMINI_IMAGE_MODELS,
                 editsImage: true, // nhận input image để sửa/ghép
+                paid: true, // model có TÍNH PHÍ → gate quyền + quota ở route /image
             },
         ],
         defaultProvider: 'pollinations',
