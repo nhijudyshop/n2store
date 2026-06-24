@@ -1,13 +1,16 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // PRODUCT QUICK-PICK — INVENTORY TRACKING (Web 1.0)
-// Cây bút ở ô STT → mở ô tìm nhanh sản phẩm từ kho (WarehouseAPI,
-// GET /api/v2/web-warehouse/search — Web 1.0-safe) → chọn 1 SP →
-// điền TÊN sản phẩm vào ô "Mã hàng" (product.maSP) + lưu qua shipmentsApi.
+// Cây bút ở ô STT → mở POPUP tìm SP từ kho (WarehouseAPI,
+// GET /api/v2/web-warehouse/search — Web 1.0-safe). Chọn NHIỀU SP bằng
+// checkbox → "Xác nhận" → chèn các SP đã chọn thành dòng mới NẰM DƯỚI
+// dòng được bấm (window.insertProductRowsBelow → crud-operations.js).
+//
+// Popup canh giữa màn hình (overlay) cho dễ thao tác trên iPad — không còn
+// dropdown nhỏ bám theo ô dễ lệch vị trí.
 //
 // Lưu ý layer: trang inventory-tracking là Web 1.0 → KHÔNG import web2/.
-// Dùng window.WarehouseAPI (đã load sẵn trong index.html) — không phải
-// Web2ProductsCache của so-order (Web 2.0).
+// Dùng window.WarehouseAPI (đã load sẵn trong index.html).
 // =====================================================
 
 (function () {
@@ -17,12 +20,13 @@
     const MIN_CHARS = 1;
     const MAX_RESULTS = 20;
 
-    let _panel = null; // floating panel element (in <body>)
+    let _overlay = null; // overlay element (in <body>)
+    let _panel = null; // dialog card inside overlay
     let _ctx = null; // { invoiceId, productIdx }
     let _timer = null; // debounce timer for search
     let _activeIdx = -1; // keyboard-highlighted result index
+    let _selected = new Map(); // key -> { key, name } (persists across searches)
     let _outsideHandler = null;
-    let _scrollHandler = null;
     let _keyHandler = null;
 
     // ---- escape helpers ----
@@ -49,27 +53,36 @@
         const raw = r.name_get || r.product_name || '';
         return raw.replace(/^\s*\[[^\]]*\]\s*/, '').trim() || raw;
     }
+    // Khóa duy nhất cho 1 kết quả (ưu tiên mã SP, fallback tên).
+    function _key(r) {
+        return r.product_code || _normName(r) || '';
+    }
 
     // ---- open / close ----
-    function openProductPicker(invoiceId, productIdx, btnEl) {
-        close(); // chỉ 1 panel tại 1 thời điểm
+    function openProductPicker(invoiceId, productIdx, _btnEl) {
+        close(); // chỉ 1 popup tại 1 thời điểm
         if (!window.WarehouseAPI || typeof window.WarehouseAPI.search !== 'function') {
             window.notificationManager?.error('Kho sản phẩm chưa sẵn sàng');
             return;
         }
         _ctx = { invoiceId: String(invoiceId), productIdx: parseInt(productIdx, 10) };
+        _selected = new Map();
+        _activeIdx = -1;
 
-        _panel = document.createElement('div');
-        _panel.className = 'iqp-panel';
-        _panel.innerHTML =
+        _overlay = document.createElement('div');
+        _overlay.className = 'iqp-overlay';
+        _overlay.innerHTML =
+            '<div class="iqp-panel" role="dialog" aria-modal="true">' +
+            '<div class="iqp-header"><span class="iqp-title">Thêm SP từ kho → chèn dưới dòng này</span>' +
+            '<button type="button" class="iqp-x" aria-label="Đóng">✕</button></div>' +
             '<input type="text" class="iqp-input" placeholder="Tìm SP từ kho (mã / tên)…" autocomplete="off" spellcheck="false">' +
-            '<div class="iqp-results"><div class="iqp-hint">Gõ để tìm sản phẩm trong kho…</div></div>';
-        document.body.appendChild(_panel);
-
-        // Anchor dưới ô "Mã hàng" của chính dòng đó (fallback: nút bút / dòng).
-        const tr = btnEl && btnEl.closest ? btnEl.closest('tr') : null;
-        const anchorEl = (tr && tr.querySelector('td.col-sku')) || btnEl || tr || document.body;
-        _position(anchorEl);
+            '<div class="iqp-results"><div class="iqp-hint">Gõ để tìm sản phẩm trong kho…</div></div>' +
+            '<div class="iqp-footer">' +
+            '<button type="button" class="iqp-cancel">Hủy</button>' +
+            '<button type="button" class="iqp-confirm" disabled>Xác nhận (0)</button>' +
+            '</div></div>';
+        document.body.appendChild(_overlay);
+        _panel = _overlay.querySelector('.iqp-panel');
 
         const input = _panel.querySelector('.iqp-input');
         const results = _panel.querySelector('.iqp-results');
@@ -87,24 +100,27 @@
         });
         input.addEventListener('keydown', _onInputKeydown);
 
-        // Chọn 1 kết quả (event delegation)
-        results.addEventListener('click', (e) => {
-            const item = e.target.closest('.iqp-item');
-            if (item) _pick(item.dataset.name || '');
+        // Toggle checkbox (event delegation) — click bất kỳ đâu trên item.
+        results.addEventListener('change', (e) => {
+            const cb = e.target.closest('.iqp-check');
+            if (!cb) return;
+            const item = cb.closest('.iqp-item');
+            if (!item) return;
+            _toggleSelect(item.dataset.key || '', item.dataset.name || '', cb.checked);
+            item.classList.toggle('iqp-item--checked', cb.checked);
         });
 
-        // Click ra ngoài → đóng
+        _panel.querySelector('.iqp-x').onclick = () => close();
+        _panel.querySelector('.iqp-cancel').onclick = () => close();
+        _panel.querySelector('.iqp-confirm').onclick = () => _confirm();
+
+        // Click ra ngoài card → đóng
         _outsideHandler = (e) => {
-            if (_panel && !_panel.contains(e.target)) close();
+            if (_overlay && e.target === _overlay) close();
         };
-        // defer 1 tick để không bắt chính cú click mở panel
-        setTimeout(() => document.addEventListener('mousedown', _outsideHandler, true), 0);
+        setTimeout(() => _overlay.addEventListener('mousedown', _outsideHandler), 0);
 
-        // Panel fixed → scroll sẽ lệch vị trí ⇒ đóng khi scroll. {passive} theo anti-lag.
-        _scrollHandler = () => close();
-        window.addEventListener('scroll', _scrollHandler, { passive: true, capture: true });
-
-        // Escape toàn cục (kể cả khi focus rời input)
+        // Escape toàn cục
         _keyHandler = (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
@@ -114,6 +130,22 @@
         document.addEventListener('keydown', _keyHandler, true);
 
         input.focus();
+    }
+
+    function _toggleSelect(key, name, checked) {
+        if (!key) return;
+        if (checked) _selected.set(key, { key, name });
+        else _selected.delete(key);
+        _updateConfirmBtn();
+    }
+
+    function _updateConfirmBtn() {
+        if (!_panel) return;
+        const btn = _panel.querySelector('.iqp-confirm');
+        if (!btn) return;
+        const n = _selected.size;
+        btn.textContent = `Xác nhận (${n})`;
+        btn.disabled = n === 0;
     }
 
     function _onInputKeydown(e) {
@@ -133,8 +165,15 @@
             _highlight(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (_activeIdx >= 0 && items[_activeIdx]) _pick(items[_activeIdx].dataset.name || '');
-            else if (items.length === 1) _pick(items[0].dataset.name || '');
+            // Enter trên item đang highlight → tick/bỏ tick (không đóng popup).
+            const target =
+                _activeIdx >= 0 ? items[_activeIdx] : items.length === 1 ? items[0] : null;
+            const cb = target && target.querySelector('.iqp-check');
+            if (cb) {
+                cb.checked = !cb.checked;
+                _toggleSelect(target.dataset.key || '', target.dataset.name || '', cb.checked);
+                target.classList.toggle('iqp-item--checked', cb.checked);
+            }
         }
     }
 
@@ -163,6 +202,8 @@
     function _renderItem(r) {
         const code = r.product_code || '';
         const name = _normName(r);
+        const key = _key(r);
+        const checked = _selected.has(key);
         const price = parseFloat(r.selling_price) || 0;
         const qty = parseFloat(r.tpos_qty_available) || 0;
         const img = window.WarehouseAPI.proxyImageUrl(r);
@@ -170,143 +211,51 @@
             ? `<img class="iqp-img" src="${_escAttr(img)}" alt="" loading="lazy">`
             : '<span class="iqp-img iqp-img--empty"></span>';
         return (
-            `<button type="button" class="iqp-item" data-name="${_escAttr(name)}" data-code="${_escAttr(code)}">` +
+            `<label class="iqp-item${checked ? ' iqp-item--checked' : ''}" data-key="${_escAttr(key)}" data-name="${_escAttr(name)}" data-code="${_escAttr(code)}">` +
+            `<input type="checkbox" class="iqp-check"${checked ? ' checked' : ''}>` +
             imgHtml +
             '<span class="iqp-info">' +
             `<span class="iqp-line1"><strong>${_escHtml(code)}</strong> — ${_escHtml(name)}</span>` +
             '<span class="iqp-line2">' +
             `<span class="iqp-price">${_fmtVnd(price)} đ</span>` +
             `<span class="iqp-qty${qty <= 0 ? ' iqp-qty--zero' : ''}">Tồn: ${_escHtml(qty)}</span>` +
-            '</span></span></button>'
+            '</span></span></label>'
         );
     }
 
-    // ---- pick → fill TÊN sản phẩm vào ô "Mã hàng" (maSP) + lưu ----
-    async function _pick(name) {
+    // ---- confirm → chèn các SP đã chọn thành dòng mới dưới dòng hiện tại ----
+    async function _confirm() {
         if (!_ctx) {
             close();
             return;
         }
-        const chosen = (name || '').trim();
+        const names = [..._selected.values()].map((s) => (s.name || '').trim()).filter(Boolean);
         const { invoiceId, productIdx } = _ctx;
         close(); // đóng UI ngay cho mượt
+        if (!names.length) return;
 
-        if (!chosen) return;
-
-        const dot = _findDot(invoiceId);
-        if (!dot || !Array.isArray(dot.sanPham) || !dot.sanPham[productIdx]) {
-            window.notificationManager?.error('Không tìm thấy sản phẩm để cập nhật');
-            return;
-        }
-
-        const product = dot.sanPham[productIdx];
-        const prev = product.maSP;
-        if (chosen === prev) return; // không đổi
-
-        // UI-first: cập nhật model + ô hiển thị ngay, rồi lưu nền, lỗi thì rollback.
-        product.maSP = chosen;
-        _updateSkuCell(invoiceId, productIdx, chosen);
-
-        try {
-            const api = typeof shipmentsApi !== 'undefined' ? shipmentsApi : window.shipmentsApi;
-            await api.update(invoiceId, {
-                sanPham: dot.sanPham,
-                tongMon: dot.tongMon,
-                tongTienHD: dot.tongTienHD,
-            });
-            if (typeof flattenNCCData === 'function') flattenNCCData();
-            window.notificationManager?.success('Đã điền tên SP vào Mã hàng');
-        } catch (err) {
-            console.error('[INV-QUICK-PICK] save error:', err);
-            product.maSP = prev; // rollback model
-            _updateSkuCell(invoiceId, productIdx, prev || '');
-            window.notificationManager?.error(
-                'Không thể lưu: ' + ((err && err.message) || err)
-            );
-        }
-    }
-
-    function _findDot(invoiceId) {
-        const gs = typeof globalState !== 'undefined' ? globalState : window.globalState;
-        if (!gs || !Array.isArray(gs.nccList)) return null;
-        for (const ncc of gs.nccList) {
-            const dot = (ncc.dotHang || []).find((d) => String(d.id) === String(invoiceId));
-            if (dot) return dot;
-        }
-        return null;
-    }
-
-    // Cập nhật text ô "Mã hàng" tại chỗ, GIỮ lại nút bút sửa / badge PO-draft.
-    function _updateSkuCell(invoiceId, productIdx, value) {
-        let td = null;
-        try {
-            const sel = `td.col-sku[data-invoice-id="${CSS.escape(String(invoiceId))}"][data-product-idx="${productIdx}"]`;
-            td = document.querySelector(sel);
-        } catch (_) {
-            /* CSS.escape không hỗ trợ → fallback dưới */
-        }
-        if (!td) {
-            td = Array.from(document.querySelectorAll('td.col-sku')).find(
-                (c) =>
-                    String(c.dataset.invoiceId) === String(invoiceId) &&
-                    String(c.dataset.productIdx) === String(productIdx)
-            );
-        }
-        if (!td) return;
-        const deco = Array.from(
-            td.querySelectorAll(':scope > .btn-edit-cell, :scope > .po-draft-badge')
-        )
-            .map((el) => el.outerHTML)
-            .join('');
-        td.innerHTML = (value === '' ? '-' : _escHtml(value)) + deco;
-        if (window.lucide?.createIcons) window.lucide.createIcons();
-    }
-
-    // ---- positioning (fixed; tránh overflow:auto của bảng cắt) ----
-    function _position(anchorEl) {
-        if (!_panel || !anchorEl) return;
-        const rect = anchorEl.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const width = Math.min(Math.max(rect.width, 360), vw - 24);
-        let left = rect.left;
-        if (left + width > vw - 12) left = Math.max(12, vw - 12 - width);
-
-        _panel.style.position = 'fixed';
-        _panel.style.left = left + 'px';
-        _panel.style.width = width + 'px';
-        _panel.style.zIndex = '10050';
-
-        const spaceBelow = vh - rect.bottom;
-        const spaceAbove = rect.top;
-        if (spaceBelow >= 240 || spaceBelow >= spaceAbove) {
-            _panel.style.top = rect.bottom + 4 + 'px';
-            _panel.style.bottom = '';
-            _panel.style.maxHeight = Math.max(200, spaceBelow - 16) + 'px';
+        if (typeof window.insertProductRowsBelow === 'function') {
+            await window.insertProductRowsBelow(invoiceId, productIdx, names);
         } else {
-            _panel.style.top = '';
-            _panel.style.bottom = vh - rect.top + 4 + 'px';
-            _panel.style.maxHeight = Math.max(200, spaceAbove - 16) + 'px';
+            window.notificationManager?.error('Không thể thêm sản phẩm (thiếu hàm chèn dòng)');
         }
     }
 
     function close() {
         clearTimeout(_timer);
-        if (_outsideHandler) {
-            document.removeEventListener('mousedown', _outsideHandler, true);
-            _outsideHandler = null;
+        if (_outsideHandler && _overlay) {
+            _overlay.removeEventListener('mousedown', _outsideHandler);
         }
-        if (_scrollHandler) {
-            window.removeEventListener('scroll', _scrollHandler, { capture: true });
-            _scrollHandler = null;
-        }
+        _outsideHandler = null;
         if (_keyHandler) {
             document.removeEventListener('keydown', _keyHandler, true);
             _keyHandler = null;
         }
-        if (_panel && _panel.parentNode) _panel.parentNode.removeChild(_panel);
+        if (_overlay && _overlay.parentNode) _overlay.parentNode.removeChild(_overlay);
+        _overlay = null;
         _panel = null;
         _ctx = null;
+        _selected = new Map();
         _activeIdx = -1;
     }
 
@@ -314,5 +263,5 @@
     window.openProductPicker = openProductPicker;
     window.closeProductPicker = close;
 
-    console.log('[INV-QUICK-PICK] Product quick-pick loaded');
+    console.log('[INV-QUICK-PICK] Product quick-pick (multi-select) loaded');
 })();

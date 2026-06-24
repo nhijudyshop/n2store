@@ -601,11 +601,59 @@ async function reorderProductRow(invoiceId, srcIdx, destIdx) {
     }
 }
 
+/**
+ * Insert one or more NEW product rows right below `afterIdx`. Each name becomes
+ * a new row's "Mã hàng" (maSP); other fields start empty. Used by the warehouse
+ * quick-pick (multi-select → chèn nhiều SP dưới dòng được bấm).
+ *
+ * @param {string} invoiceId
+ * @param {number} afterIdx - insert after this index (0-based); out-of-range → append
+ * @param {string[]} names  - product names to add (each = one new row)
+ */
+async function insertProductRowsBelow(invoiceId, afterIdx, names) {
+    const list = Array.isArray(names)
+        ? names.map((n) => String(n == null ? '' : n).trim()).filter(Boolean)
+        : [];
+    if (!list.length) return;
+
+    const targetDot = _findDotHangByInvoiceId(invoiceId);
+    if (!targetDot) {
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
+        return;
+    }
+
+    const products = Array.isArray(targetDot.sanPham) ? [...targetDot.sanPham] : [];
+    const newRows = list.map((name) => ({
+        maSP: name,
+        moTa: '',
+        tongSoLuong: 0,
+        soLuong: 0,
+        giaDonVi: 0,
+        mauSac: [],
+        ghiChu: '',
+        thanhTien: 0,
+    }));
+    const pos =
+        Number.isInteger(afterIdx) && afterIdx >= 0 && afterIdx < products.length
+            ? afterIdx + 1
+            : products.length;
+    products.splice(pos, 0, ...newRows);
+
+    try {
+        await _persistSanPham(targetDot, products);
+        window.notificationManager?.success(`Đã thêm ${newRows.length} sản phẩm vào bảng`);
+    } catch (error) {
+        console.error('[CRUD] Error inserting product rows:', error);
+        window.notificationManager?.error('Không thể thêm: ' + error.message);
+    }
+}
+
 // Expose functions globally for inline onclick handlers
 window.deleteNccInvoice = deleteNccInvoice;
 window.deleteProductRow = deleteProductRow;
 window.addProductRow = addProductRow;
 window.copyProductRow = copyProductRow;
 window.reorderProductRow = reorderProductRow;
+window.insertProductRowsBelow = insertProductRowsBelow;
 
 console.log('[CRUD] CRUD operations initialized (API mode)');
