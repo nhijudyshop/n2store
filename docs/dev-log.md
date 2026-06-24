@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [feat] Trợ lý AI theo trang (floating, đọc dữ liệu hiển thị → AI free) + trang quản lý
+
+User: mỗi trang Web 2.0 có AI assistant đọc số liệu/hội thoại/đơn ĐANG HIỂN THỊ để rà soát phép tính, phân tích cảm xúc khách (Pancake), soát đơn — dùng AI FREE, có trang riêng chọn/đổi AI. Chỉ dùng dữ liệu có sẵn ở browser.
+
+Files: **NEW** `web2/shared/web2-ai-assistant.js` (`Web2AiAssistant`), `web2/ai-assistant/index.html` + `js/ai-assistant.js`, sửa `web2/shared/web2-sidebar.js` (menu AI + autoload).
+
+- **Widget nổi** (✨ góc phải-dưới mọi trang, autoload qua sidebar): panel chat + 5 quick-action (rà soát số liệu / kiểm tra phép tính / phân tích cảm xúc khách / soát đơn / giải thích trang). `pageContext()` gom CHỈ DOM hiển thị (tiêu đề + bảng structured + nội dung main + vùng bôi đen, cap 7000 ký tự) — KHÔNG gửi localStorage/token (tránh lộ secret). Gọi `/api/web2-ai` (provider chọn → `/chat`, hoặc rỗng → `/complete` auto-failover). System prompt ép "chỉ dùng dữ liệu trang, tự tính lại phép cộng/trừ". 401 → toast + requireAuth.
+- **Trang quản lý** `web2/ai-assistant`: bật/tắt widget + chọn AI free (4 provider từ /status: Gemini/Groq/OpenRouter/ChatAnywhere, hoặc "Tự động xoay tua") + model + thử nhanh. Lưu localStorage `web2_ai_assistant` → `Web2AiAssistant.reloadConfig()`.
+- **Verify browser** (login phuocnho): widget load + FAB hiện + context capture (bảng users); hỏi "trang này hiển thị gì" trên overview → AI trả lời ĐÚNG nội dung trang ("13 trang Web 2.0… chức năng, API, luồng dữ liệu"); trang quản lý liệt kê 4 AI ✓ all ready. Pancake mood / soát đơn dùng chung cơ chế (hội thoại/đơn đã nằm trong DOM → context). v1; iterate thêm.
+
+## 2026-06-24
+
 ### [feat] Biến thể / inventory-tracking — bỏ inline edit, dùng POPUP INPUT (dễ thao tác iPad)
 
 User: "lúc bấm 2 lần vào dữ liệu cần chỉnh thì mở modal hay 1 popup input đi đừng inline nữa vì tôi tương tác trên iPad bị khó."

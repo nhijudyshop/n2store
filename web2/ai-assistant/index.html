@@ -1,0 +1,240 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Trợ lý AI theo trang — Web 2.0</title>
+        <meta name="theme-color" content="#0068ff" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t5" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <style>
+            .aam {
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 8px 4px 40px;
+            }
+            .aam-head h1 {
+                margin: 0 0 4px;
+                font-size: 1.3rem;
+                font-weight: 800;
+                color: var(--web2-text, #0f172a);
+                display: flex;
+                align-items: center;
+                gap: 9px;
+            }
+            .aam-head p {
+                margin: 0 0 18px;
+                color: var(--web2-text-2, #64748b);
+                font-size: 0.9rem;
+            }
+            .aam-card {
+                background: var(--web2-surface, #fff);
+                border: 1px solid var(--web2-border, #e2e8f0);
+                border-radius: 14px;
+                padding: 16px 18px;
+                margin-bottom: 14px;
+            }
+            .aam-card h2 {
+                margin: 0 0 4px;
+                font-size: 0.98rem;
+                font-weight: 700;
+                color: var(--web2-text, #0f172a);
+            }
+            .aam-card .hint {
+                margin: 0 0 12px;
+                font-size: 0.8rem;
+                color: var(--web2-text-2, #64748b);
+            }
+            .aam-toggle {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                cursor: pointer;
+                font-weight: 600;
+                color: #0f172a;
+            }
+            .aam-switch {
+                width: 46px;
+                height: 26px;
+                border-radius: 999px;
+                background: #cbd5e1;
+                position: relative;
+                transition: background 0.15s;
+                flex: 0 0 auto;
+            }
+            .aam-switch::after {
+                content: '';
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: #fff;
+                transition: transform 0.15s;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+            }
+            .aam-toggle.on .aam-switch {
+                background: #6366f1;
+            }
+            .aam-toggle.on .aam-switch::after {
+                transform: translateX(20px);
+            }
+            .aam-row {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .aam-field {
+                flex: 1;
+                min-width: 180px;
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            .aam-field label {
+                font-size: 0.76rem;
+                font-weight: 600;
+                color: #64748b;
+            }
+            .aam-field select,
+            .aam-test textarea {
+                border: 1px solid #d6dee2;
+                border-radius: 10px;
+                padding: 9px 11px;
+                font: inherit;
+                font-size: 0.88rem;
+                background: #fff;
+                color: #0f172a;
+            }
+            .aam-prov {
+                font-size: 0.78rem;
+                color: #64748b;
+                margin-top: 10px;
+            }
+            .aam-prov .ok {
+                color: #059669;
+                font-weight: 600;
+            }
+            .aam-prov .no {
+                color: #dc2626;
+            }
+            .aam-btn {
+                border: none;
+                border-radius: 10px;
+                background: #6366f1;
+                color: #fff;
+                font-weight: 700;
+                padding: 10px 16px;
+                cursor: pointer;
+                font-size: 0.88rem;
+            }
+            .aam-btn:hover {
+                filter: brightness(1.08);
+            }
+            .aam-btn.ghost {
+                background: #f1f5f9;
+                color: #334155;
+            }
+            .aam-test textarea {
+                width: 100%;
+                resize: vertical;
+                min-height: 64px;
+            }
+            .aam-test-out {
+                margin-top: 10px;
+                background: #f8fafc;
+                border: 1px solid #eef2f7;
+                border-radius: 10px;
+                padding: 11px 13px;
+                font-size: 0.86rem;
+                line-height: 1.55;
+                white-space: pre-wrap;
+                color: #0f172a;
+                min-height: 20px;
+            }
+            .aam-test-out[hidden] {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="aam">
+                    <div class="aam-head">
+                        <h1><i data-lucide="sparkles"></i> Trợ lý AI theo trang</h1>
+                        <p>
+                            Bật trợ lý nổi ✨ ở mọi trang Web 2.0 — đọc số liệu / hội thoại / đơn
+                            hàng đang hiển thị để rà soát phép tính, phân tích cảm xúc khách, soát
+                            đơn… bằng AI miễn phí. Chọn AI mạnh bên dưới.
+                        </p>
+                    </div>
+
+                    <div class="aam-card">
+                        <h2>Bật trợ lý nổi</h2>
+                        <p class="hint">
+                            Nút ✨ góc phải-dưới ở mọi trang. Tắt nếu không muốn hiện.
+                        </p>
+                        <div class="aam-toggle on" id="aamEnable">
+                            <span class="aam-switch"></span>
+                            <span id="aamEnableLbl">Đang bật</span>
+                        </div>
+                    </div>
+
+                    <div class="aam-card">
+                        <h2>Chọn AI miễn phí</h2>
+                        <p class="hint">
+                            “Tự động” = xoay tua nhiều AI mạnh, tự chuyển khi 1 cái lỗi/hết hạn mức
+                            (ổn định nhất). Hoặc cố định 1 AI cụ thể.
+                        </p>
+                        <div class="aam-row">
+                            <div class="aam-field">
+                                <label for="aamProvider">Nhà cung cấp</label>
+                                <select id="aamProvider"></select>
+                            </div>
+                            <div class="aam-field">
+                                <label for="aamModel">Model</label>
+                                <select id="aamModel"></select>
+                            </div>
+                        </div>
+                        <div class="aam-prov" id="aamProvStatus">Đang tải danh sách AI…</div>
+                    </div>
+
+                    <div class="aam-card aam-test">
+                        <h2>Thử nhanh</h2>
+                        <p class="hint">Gửi 1 câu để kiểm tra AI đang chọn có chạy không.</p>
+                        <textarea
+                            id="aamTestIn"
+                            placeholder="VD: Viết 1 câu chào khách mua áo thun nữ"
+                        ></textarea>
+                        <div style="margin-top: 10px; display: flex; gap: 8px">
+                            <button class="aam-btn" id="aamTestBtn">Gửi thử</button>
+                            <button class="aam-btn ghost" id="aamSaveBtn">Lưu cấu hình</button>
+                        </div>
+                        <div class="aam-test-out" id="aamTestOut" hidden></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
+        <script src="../shared/popup.js?v=20260617a"></script>
+        <script src="./js/ai-assistant.js?v=20260624a"></script>
+        <script>
+            (function () {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'ai-assistant' });
+                if (window.lucide) lucide.createIcons();
+                if (window.AiAssistantAdmin) AiAssistantAdmin.init();
+            })();
+        </script>
+    </body>
+</html>
