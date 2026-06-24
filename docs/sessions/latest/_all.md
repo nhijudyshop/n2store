@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d2f11af` — feat(web2/users): hard-delete (purge) + restore for deactivated users
-**Last updated**: 2026-06-24 12:16:42 +07
-**Latest session**: [`RESUME:20260624-121642-d2f11af`](../20260624-121642-d2f11af.md)
-**Summary**: web2/users: revive-on-create, audit fixes, hard-delete/restore user vô hiệu
+**Latest commit**: `1edf731` — change(web2/users): lower min password length 8 -> 6 (MIN_PWD_LEN, FE+BE synced)
+**Last updated**: 2026-06-24 12:26:35 +07
+**Latest session**: [`RESUME:20260624-122635-1edf731`](../20260624-122635-1edf731.md)
+**Summary**: web2/users: hạ min mật khẩu 8->6 ký tự (FE+BE), verified 6-char OK
 
 ## Folders affected in this commit
 
@@ -29,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-24 12:16
+- [`docs/`](./docs.md) — updated 2026-06-24 12:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -59,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-24 12:16
+- [`render.com/`](./render.com.md) — updated 2026-06-24 12:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-24 01:35
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -81,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-24 12:16
+- [`web2/`](./web2.md) — updated 2026-06-24 12:26
