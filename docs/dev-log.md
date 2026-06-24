@@ -2,6 +2,20 @@
 
 ## 2026-06-24
 
+### [fix] Biến thể (inventory-tracking) — Màu/Size load KHÁC NHAU giữa các máy (client chưa dùng endpoint chung)
+
+User: "Audit -> debug biến thể... hình như đang bị 2 cái đè lên lẫn nhau" → làm rõ: "Nó load không đúng dữ liệu ở các máy". Không phải lỗi CSS — là lỗi **dữ liệu load khác nhau giữa các máy**.
+
+**Root cause (verified browser)**: Modal `#modalVariant` ([modal-variant.js](../inventory-tracking/js/modal-variant.js)) build list Màu/Size từ **localStorage CỦA RIÊNG TỪNG MÁY** (`tpos_attribute_values_cache`) + fallback cứng 10 màu. Máy A (có cache TPOS) thấy **80 màu**, máy B (thiếu cache / không có token TPOS) tụt về **10 màu** → "load không đúng dữ liệu ở các máy". Và khi nạp lại biến thể đã lưu, code bucket từng phần theo membership của list (incomplete) → size lọt vào cột Màu = **"2 cái đè lên lẫn nhau"**. Endpoint server chung `GET /api/v2/inventory-tracking/product-attributes` ĐÃ tồn tại + deploy từ phiên trước (`b0bc79fb5`, trả đúng 80/22/6) **NHƯNG client chưa bao giờ gọi nó** (vẫn fetch TPOS trực tiếp từng máy).
+
+Files: `inventory-tracking/js/api-client.js`, `inventory-tracking/js/modal-variant.js`, `render.com/routes/v2/inventory-tracking.js` (hardening bucket), `inventory-tracking/index.html` (bump version).
+
+- **Client → endpoint chung (fix chính)**: thêm `productAttributesApi.get()` (api-client.js) gọi endpoint server-cache. `_loadTposAttributes()` giờ: fast-paint từ localStorage (tránh modal trống) rồi nạp list CHUNG từ server (bỏ fetch TPOS trực tiếp + token per-máy). Mọi máy hội tụ về cùng 1 list → hết lệch.
+- **Bucket đúng cột + giá trị ngoài list vẫn hiện**: parse combo "Màu / Size" theo VỊ TRÍ (phần đầu=Màu, phần sau=Size; số→Size Số, chữ→Size Chữ) + fallback shape khi giá trị không có trong list (đã ngừng/legacy). `_renderVariantOptions` tự thêm giá trị đã chọn vào **BẢN SAO** khi vẽ → biến thể đã lưu luôn hiển thị & tick đúng cột, **KHÔNG mutate** mảng VARIANT\_\* dùng chung (tránh giá trị SP này lẫn sang SP khác — code-review HIGH).
+- **Server (hardening)**: bucket theo AttributeId (3=Màu,4=Size Số,1=Size Chữ) + fallback theo AttributeName + **de-dup** tên. Endpoint dùng `ProductAttributeValue/OdataService.GetView?$top=5000&$orderby=AttributeName,Name,Id` (user cung cấp; `$top` cao để lấy **đủ 108** — UI gốc dùng $top=80 chỉ lấy 80 màu, mất sạch size).
+- **Verified live**: (a) curl TPOS GetView → 108 item (Màu 80 / Size Số 22 / Size Chữ 6). (b) Xoá cache → reload → modal nạp **80/22/6 từ server** (không còn fallback 10). (c) Bucket: `Xanh Đậm/44`→Màu+Size Số, `Đen/S`→Màu+Size Chữ, `Đen/999` (ngoài list)→**Size Số** (không lọt Màu). (d) Mở SP khác → list KHÔNG dính "999" (không lẫn). Code-review (typescript-reviewer) HIGH pollution đã fix.
+- Bump version: `api-client.js`/`modal-variant.js` 20260622c→20260624a.
+
 ### [fix/refactor] Chấm công DG-600 — sửa lỗi không cài được + gom 1 folder + 1 NÚT cài/gỡ
 
 User: "tại sao attendance-sync cài không được? quá khó cài vì quá nhiều file, đơn giản hóa 1 nút tự xóa tự cài làm hết kiểm tra, báo lỗi nếu có" + "xóa hết file không cần thiết trong attendance-sync, thêm hướng dẫn chi tiết".

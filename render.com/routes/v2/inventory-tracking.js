@@ -141,12 +141,25 @@ router.get('/product-attributes', async (req, res) => {
         const colors = [];
         const sizeNum = [];
         const sizeChar = [];
+        const seen = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
+        const push = (bucket, arr, name) => {
+            if (seen[bucket].has(name)) return; // de-dup
+            seen[bucket].add(name);
+            arr.push(name);
+        };
         for (const v of values) {
             const name = v && v.Name;
             if (!name) continue;
-            if (v.AttributeId === TPOS_ATTR.COLOR) colors.push(name);
-            else if (v.AttributeId === TPOS_ATTR.SIZE_NUM) sizeNum.push(name);
-            else if (v.AttributeId === TPOS_ATTR.SIZE_CHAR) sizeChar.push(name);
+            const aName = String(v.AttributeName || '').toLowerCase();
+            // Classify by AttributeId first (stable); fall back to AttributeName
+            // for the three categories we care about. Other attributes are skipped.
+            if (v.AttributeId === TPOS_ATTR.COLOR || /\bmàu\b|\bmau\b/.test(aName)) {
+                push('color', colors, name);
+            } else if (v.AttributeId === TPOS_ATTR.SIZE_NUM || /size\s*s[ốo]/.test(aName)) {
+                push('sizeNum', sizeNum, name);
+            } else if (v.AttributeId === TPOS_ATTR.SIZE_CHAR || /size\s*ch[ữu]/.test(aName)) {
+                push('sizeChar', sizeChar, name);
+            }
         }
 
         const data = {

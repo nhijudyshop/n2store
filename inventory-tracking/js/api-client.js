@@ -51,6 +51,19 @@ async function apiFetch(path, options = {}) {
 }
 
 // =====================================================
+// PRODUCT ATTRIBUTES API (màu / size — shared across machines)
+// =====================================================
+// The server fetches TPOS ProductAttributeValue once and caches it, so EVERY
+// machine gets the SAME list. Fixes "biến thể load khác nhau ở các máy" where
+// each machine built its own list from a per-machine localStorage cache.
+const productAttributesApi = {
+    async get({ refresh = false } = {}) {
+        const result = await apiFetch(`/product-attributes${refresh ? '?refresh=1' : ''}`);
+        return result.data; // { colors, sizeNum, sizeChar }
+    },
+};
+
+// =====================================================
 // SUPPLIERS API
 // =====================================================
 

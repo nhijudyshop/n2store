@@ -4,11 +4,12 @@
 // Creates product variants from color/size attributes
 // =====================================================
 
-// TPOS attribute IDs — from GET /odata/ProductAttribute
-// 1 = Size Chữ, 3 = Màu, 4 = Size Số
-const TPOS_ATTR_COLOR = 3;
-const TPOS_ATTR_SIZE_CHAR = 1;
-const TPOS_ATTR_SIZE_NUM = 4;
+// Màu / Size lists now come from the SERVER (one shared source for ALL machines):
+//   GET /api/v2/inventory-tracking/product-attributes  (server caches TPOS values)
+// Trước đây mỗi máy tự fetch TPOS + cache riêng trong localStorage → máy A thấy 80
+// màu, máy B thấy 10 màu (fallback) → "biến thể load không đúng dữ liệu ở các máy".
+// localStorage giờ CHỈ là cache để vẽ nhanh (tránh modal trống lúc mới mở); server
+// mới là nguồn sự thật, nên các máy hội tụ về cùng 1 danh sách.
 const TPOS_ATTR_CACHE_KEY = 'tpos_attribute_values_cache';
 const TPOS_ATTR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -33,59 +34,40 @@ let VARIANT_SIZE_NUM = [
 let VARIANT_SIZE_CHAR = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
 /**
- * Fetch attribute values from TPOS — cached 24h
+ * Load the shared Màu/Size lists from the server (same for every machine).
+ * localStorage is used only as a fast-paint cache so the modal isn't empty on
+ * first open; the server endpoint is the source of truth.
  */
 async function _loadTposAttributes(forceRefresh = false) {
-    // Check cache first
+    // 1. Fast-paint from localStorage so the modal renders instantly. We still
+    //    revalidate against the server below unless the cache is fresh.
+    let cacheFresh = false;
     if (!forceRefresh) {
         try {
             const cached = JSON.parse(localStorage.getItem(TPOS_ATTR_CACHE_KEY) || 'null');
-            if (cached && cached.timestamp && Date.now() - cached.timestamp < TPOS_ATTR_CACHE_TTL) {
+            if (cached) {
                 if (cached.colors) VARIANT_COLORS = cached.colors;
                 if (cached.sizeNum) VARIANT_SIZE_NUM = cached.sizeNum;
                 if (cached.sizeChar) VARIANT_SIZE_CHAR = cached.sizeChar;
-                return;
+                cacheFresh =
+                    cached.timestamp && Date.now() - cached.timestamp < TPOS_ATTR_CACHE_TTL;
             }
         } catch (_) {
             /* ignore */
         }
+        if (cacheFresh) return; // server list changes rarely → skip network
     }
 
+    // 2. Fetch the SHARED list from the server. All machines get the same data,
+    //    so the variant modal can no longer diverge across computers.
     try {
-        // Use TokenManager if available, else fall back to direct auth
-        let token = null;
-        if (window.tokenManager?.getToken) {
-            token = await window.tokenManager.getToken();
-        }
-        if (!token) {
-            console.warn('[VARIANT] No TPOS token, using defaults');
-            return;
-        }
+        if (typeof productAttributesApi === 'undefined') return;
+        const data = await productAttributesApi.get({ refresh: forceRefresh });
+        if (!data) return;
 
-        const res = await fetch(
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductAttributeValue?$top=500&$orderby=AttributeId,Sequence',
-            {
-                headers: { Authorization: 'Bearer ' + token },
-            }
-        );
-        if (!res.ok) throw new Error('TPOS fetch failed: ' + res.status);
-        const data = await res.json();
-        const values = data.value || [];
-
-        const colors = [];
-        const sizeNum = [];
-        const sizeChar = [];
-        for (const v of values) {
-            const name = v.Name;
-            if (!name) continue;
-            if (v.AttributeId === TPOS_ATTR_COLOR) colors.push(name);
-            else if (v.AttributeId === TPOS_ATTR_SIZE_NUM) sizeNum.push(name);
-            else if (v.AttributeId === TPOS_ATTR_SIZE_CHAR) sizeChar.push(name);
-        }
-
-        if (colors.length) VARIANT_COLORS = colors;
-        if (sizeNum.length) VARIANT_SIZE_NUM = sizeNum;
-        if (sizeChar.length) VARIANT_SIZE_CHAR = sizeChar;
+        if (Array.isArray(data.colors) && data.colors.length) VARIANT_COLORS = data.colors;
+        if (Array.isArray(data.sizeNum) && data.sizeNum.length) VARIANT_SIZE_NUM = data.sizeNum;
+        if (Array.isArray(data.sizeChar) && data.sizeChar.length) VARIANT_SIZE_CHAR = data.sizeChar;
 
         localStorage.setItem(
             TPOS_ATTR_CACHE_KEY,
@@ -97,16 +79,19 @@ async function _loadTposAttributes(forceRefresh = false) {
             })
         );
         console.log(
-            '[VARIANT] Loaded TPOS attributes:',
-            colors.length,
+            '[VARIANT] Loaded shared attributes:',
+            VARIANT_COLORS.length,
             'colors,',
-            sizeNum.length,
-            'sizes nums,',
-            sizeChar.length,
+            VARIANT_SIZE_NUM.length,
+            'size nums,',
+            VARIANT_SIZE_CHAR.length,
             'size chars'
         );
     } catch (err) {
-        console.warn('[VARIANT] Failed to load TPOS attributes, using defaults:', err.message);
+        console.warn(
+            '[VARIANT] Failed to load shared attributes, using cache/defaults:',
+            err.message
+        );
     }
 }
 
@@ -167,25 +152,35 @@ async function openVariantModal(td) {
     _variantQuantities = new Map();
     _variantUnchecked = new Set();
 
-    // Pre-populate from existing (combination strings like "Trắng / 4 / S")
+    // Pre-populate from existing (combination strings like "Trắng / 4 / S").
+    // Combos are always generated as "Màu / Size" (color first, size last), so we
+    // bucket by list membership first, then fall back to SHAPE + POSITION for any
+    // value not in the current list (discontinued/legacy). This stops a size value
+    // from being dumped into the Màu column ("2 cái đè lên lẫn nhau").
     for (const item of existingMauSac) {
         const comboKey = item.mau || '';
         const qty = item.soLuong || 0;
         _variantQuantities.set(comboKey, qty);
-        // Parse parts and add to corresponding selection sets
         const parts = comboKey
             .split(/\s*\/\s*/)
             .map((s) => s.trim())
             .filter(Boolean);
-        for (const part of parts) {
+        parts.forEach((part, idx) => {
             if (VARIANT_COLORS.includes(part)) _variantSelections.color.add(part);
             else if (VARIANT_SIZE_NUM.includes(part)) _variantSelections.sizeNum.add(part);
             else if (VARIANT_SIZE_CHAR.includes(part)) _variantSelections.sizeChar.add(part);
-            else _variantSelections.color.add(part);
-        }
+            else if (/^\d+$/.test(part))
+                _variantSelections.sizeNum.add(part); // numeric → Size Số
+            else if (parts.length >= 2 && idx > 0)
+                _variantSelections.sizeChar.add(part); // part sau dấu "/" của "Màu / Size" → Size Chữ
+            else _variantSelections.color.add(part); // còn lại → Màu
+        });
     }
 
-    // Render all three lists
+    // Render all three lists. _renderVariantOptions tự thêm các giá trị đã chọn
+    // mà không có trong list (giá trị cũ/đã ngừng) vào BẢN SAO khi vẽ — nên biến
+    // thể đã lưu luôn hiển thị & được tick đúng cột, KHÔNG mutate list dùng chung
+    // (tránh giá trị của SP này lẫn sang SP khác).
     _renderVariantOptions('variantColorList', VARIANT_COLORS, _variantSelections.color);
     _renderVariantOptions('variantSizeNumList', VARIANT_SIZE_NUM, _variantSelections.sizeNum);
     _renderVariantOptions('variantSizeCharList', VARIANT_SIZE_CHAR, _variantSelections.sizeChar);
@@ -232,7 +227,17 @@ function _renderVariantOptions(containerId, items, selectedSet) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    container.innerHTML = items
+    // Vẽ trên BẢN SAO: thêm mọi giá trị đã chọn nhưng không có trong `items`
+    // (giá trị cũ/đã ngừng từ data đã lưu) để chúng luôn hiển thị & được tick.
+    // KHÔNG mutate `items` (mảng dùng chung VARIANT_*) → tránh lẫn giữa các SP.
+    const list = Array.isArray(items) ? items.slice() : [];
+    if (selectedSet) {
+        selectedSet.forEach((v) => {
+            if (!list.includes(v)) list.push(v);
+        });
+    }
+
+    container.innerHTML = list
         .map((item) => {
             const checked = selectedSet.has(item);
             return `
