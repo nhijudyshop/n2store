@@ -2,11 +2,23 @@
 
 ## 2026-06-24
 
+### [feat] HTML Studio — sinh HTML đẹp từ data bằng AI free (mượn ý html-anything) + product-card "Layout AI"
+
+User: nghiên cứu hyperframes/html-anything → chọn làm **B** (port pattern "skill + anti-AI-slop" vào product-card/ai-hub dùng AI free sinh card/bài đăng HTML đẹp). (A = HyperFrames render service self-host máy shop — làm tiếp sau.)
+
+Files: **NEW** `web2/shared/web2-html-skill.js` (`Web2HtmlSkill`), `web2/ai-hub/js/ai-html.js` (`AiHtml`); sửa `web2/ai-hub/index.html` (tab "HTML Studio" + pane + scripts DOMPurify/html2canvas), `web2/ai-hub/js/ai-hub.js` (switchTab/init hook), `web2/ai-hub/ai-hub.css` (`.aihh-*`), `web2/product-card/index.html` (nút "Layout AI" + scripts), `web2/product-card/js/product-card.js` (`openAiLayout` modal), `web2/product-card/product-card.css` (`.pcard-ai-*`).
+
+- **Web2HtmlSkill** (1 nguồn dùng chung): 5 skill drop-in (`fb-sale-post`, `product-card-rich`, `price-list`, `voucher-card`, `data-report`) + preamble **chống "AI slop"** (font Be Vietnam Pro, lưới 8px, contrast ≥4.5, không #000/#fff, **data thật cấm lorem**, khung canvas theo skill). `generate()` **reuse `/api/web2-ai/chat/stream`** (KHÔNG cần backend mới / Render deploy) → stream HTML vào `iframe[sandbox=allow-same-origin]` (no allow-scripts = chặn XSS) → export PNG (html2canvas) / HTML.
+- **Resilience**: failover provider trên STREAM `gemini→groq→openrouter` (mỗi attempt 1 provider) + auto-retry khi `bodyIsEmpty`. KHÔNG dùng `/chat` non-stream (worker timeout 15s với HTML dài). Bug đã gặp khi test: Gemini overload → fix bằng failover; non-stream fallback timeout → bỏ.
+- **HTML Studio** (ai-hub tab mới): picker skill + textarea data + "Tạo lại/PNG/HTML/Mở tab" + iframe preview scale-to-fit.
+- **product-card "Layout AI"**: nút mở modal, gom field SP (name/price/badge/note/shop) → skill `product-card-rich`, ảnh SP chèn qua placeholder `__PRODUCT_IMAGE__` (không gửi base64 cho AI) → export.
+- **Verify browser** (localhost): price-list + fb-sale-post (real data, render đẹp, 0 console error), product-card "Túi tote canvas" → Xong ✓. Screenshot OK.
+
 ### [feat] Cấu hình & Hệ thống — 2 tab mới "Module" + "Bên thứ 3" (audit 5 vòng) + sửa tab Dịch vụ cho chính xác
 
 User: audit lại Web 2.0 → trang `web2/system/?tab=services`: (1) tab Dịch vụ đã chính xác chưa khi có code/feature/trang mới; (2) thêm 1 tab tổng hợp toàn bộ module + 1 tab tổng hợp toàn bộ bên thứ 3 (vd github) — rà soát 5 vòng.
 
-Files: **NEW** `web2/system/js/system-modules.js`, `web2/system/js/system-thirdparty.js`, `scripts/gen-web2-system-data.js`, `web2/system/data/{web2-modules.json,web2-third-parties.json,_module-categories.json}`; sửa `web2/system/index.html` (2 tab + 2 panel + cross-link), `web2/system/js/system-app.js` (VALID_TABS + lazy-init + reload), `web2/system/css/system.css` (mod-_ / tp-_), `render.com/routes/services-overview.js` (SERVICES_INVENTORY).
+Files: **NEW** `web2/system/js/system-modules.js`, `web2/system/js/system-thirdparty.js`, `scripts/gen-web2-system-data.js`, `web2/system/data/{web2-modules.json,web2-third-parties.json,_module-categories.json}`; sửa `web2/system/index.html` (2 tab + 2 panel + cross-link), `web2/system/js/system-app.js` (VALID*TABS + lazy-init + reload), `web2/system/css/system.css` (mod-* / tp-\_), `render.com/routes/services-overview.js` (SERVICES_INVENTORY).
 
 - **Audit bên thứ 3 = workflow 5 vòng** (13 agent, ~1.1M tok): discover 6 góc (CDN libs, frontend API, backend+ENV, OSS/GitHub ports, infra, services-accuracy) → 5 vòng rà soát lăng kính riêng (AI/LLM/TTS → nhắn tin/TPOS/payment → CDN lib/on-device model → OSS+infra → cross-check) → synthesize. Ra **70 bên thứ 3** (mỗi mục có `usedIn` = file thật, đã spot-verify grep KHÔNG hallucination). Registry: `web2-third-parties.json` (category/provider/cost/license/layer/usedIn/envKeys[chỉ TÊN biến]/githubUrl/status). Tab UI: filter category + layer (web2/web1) + cost + search.
 - **Tab Module**: `web2-modules.json` sinh bởi `gen-web2-system-data.js` (đọc codemap + quét render.com) — 126 shared (20 nhóm category) + 43 trang + 57 route + 35 service backend. 3 view (Dùng chung / Trang / Backend), search, category chips. (10 shared module mới chưa categorize → "Khác", chạy lại categorize sau.)

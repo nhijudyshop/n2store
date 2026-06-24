@@ -295,6 +295,118 @@
         );
     }
 
+    // ── Layout AI: AI free tự dàn card HTML đẹp từ thông tin SP (skill
+    // product-card-rich, module dùng chung Web2HtmlSkill). Ảnh SP chèn qua
+    // placeholder __PRODUCT_IMAGE__ (client thay sau khi AI sinh, tránh gửi base64).
+    function openAiLayout() {
+        const o = state.opts;
+        if (!global.Web2HtmlSkill)
+            return notify('Chưa tải module Layout AI (tải lại trang)', 'error');
+        if (!o.name && !o.price) return notify('Nhập tên hoặc giá SP trước đã', 'warning');
+
+        const HS = global.Web2HtmlSkill;
+        const fields = {
+            name: o.name || '',
+            price: o.price ? o.price + (o.currency || '') : '',
+            badge: o.badge || '',
+            note: o.note || '',
+            shop: o.shop || '',
+        };
+        const extra =
+            'Ảnh sản phẩm: dùng ĐÚNG 1 thẻ <img src="__PRODUCT_IMAGE__" style="width:100%;height:100%;object-fit:cover"> trong khối ảnh lớn.';
+        const injectImg = (h) =>
+            String(h)
+                .split('__PRODUCT_IMAGE__')
+                .join(o._imgSrc || '');
+
+        const ov = document.createElement('div');
+        ov.className = 'pcard-ai-overlay';
+        ov.innerHTML = `
+            <div class="pcard-ai-modal">
+                <div class="pcard-ai-head">
+                    <strong><i data-lucide="sparkles"></i> Layout AI — card sản phẩm</strong>
+                    <div class="pcard-ai-tools">
+                        <button data-act="regen" class="pcard-btn">Tạo lại</button>
+                        <button data-act="png" class="pcard-btn primary" disabled>Tải PNG</button>
+                        <button data-act="html" class="pcard-btn" disabled>HTML</button>
+                        <button data-act="close" class="pcard-btn">Đóng</button>
+                    </div>
+                </div>
+                <div class="pcard-ai-stage"><iframe class="pcard-ai-frame" title="AI card"></iframe></div>
+                <div class="pcard-ai-status">Đang tạo…</div>
+            </div>`;
+        document.body.appendChild(ov);
+        if (global.lucide) global.lucide.createIcons();
+        const frame = ov.querySelector('.pcard-ai-frame');
+        const stage = ov.querySelector('.pcard-ai-stage');
+        const status = ov.querySelector('.pcard-ai-status');
+        const setReady = (on) =>
+            ov
+                .querySelectorAll('[data-act=png],[data-act=html]')
+                .forEach((b) => (b.disabled = !on));
+        let html = '';
+        let abort = null;
+
+        function fit() {
+            const sz = HS.SIZES.card;
+            frame.style.width = sz.w + 'px';
+            frame.style.height = sz.h + 'px';
+            const scale = Math.min(
+                (stage.clientWidth - 24) / sz.w,
+                (stage.clientHeight - 24) / sz.h,
+                1
+            );
+            frame.style.transform = `scale(${scale})`;
+            frame.style.transformOrigin = 'top center';
+        }
+
+        async function run() {
+            if (abort) abort.abort();
+            abort = new AbortController();
+            setReady(false);
+            status.textContent = 'Đang tạo… (xem trực tiếp)';
+            try {
+                html = injectImg(
+                    await HS.generate({
+                        skillId: 'product-card-rich',
+                        data: fields,
+                        extra,
+                        signal: abort.signal,
+                        onDelta: (full) => {
+                            HS.renderToIframe(frame, injectImg(HS.cleanHtml(full)));
+                            fit();
+                        },
+                    })
+                );
+                HS.renderToIframe(frame, html);
+                fit();
+                status.textContent = 'Xong ✓ — tải PNG/HTML hoặc “Tạo lại”.';
+                setReady(true);
+            } catch (e) {
+                if (e?.name !== 'AbortError') {
+                    status.textContent = 'Lỗi: ' + (e.message || e);
+                    notify('Layout AI lỗi: ' + (e.message || e), 'error');
+                }
+            }
+        }
+
+        function close() {
+            if (abort) abort.abort();
+            window.removeEventListener('resize', fit);
+            ov.remove();
+        }
+        ov.addEventListener('click', (e) => {
+            if (e.target === ov) return close();
+            const act = e.target.closest('[data-act]')?.dataset.act;
+            if (act === 'close') close();
+            else if (act === 'regen') run();
+            else if (act === 'png') HS.exportPng(frame, 'card-' + (o.name || 'sp'));
+            else if (act === 'html') HS.exportHtml(html, 'card-' + (o.name || 'sp'));
+        });
+        window.addEventListener('resize', fit);
+        run();
+    }
+
     function init() {
         canvas = $('#pcardCanvas');
         if (!canvas) return;
@@ -343,6 +455,7 @@
         $('#pcardExport')?.addEventListener('click', exportPng);
         $('#pcardCopy')?.addEventListener('click', copyPng);
         $('#pcardShareFb')?.addEventListener('click', shareToFb);
+        $('#pcardAiLayout')?.addEventListener('click', openAiLayout);
         // Xoá logo/watermark trên ảnh SP (tool dùng chung Web2LogoEraser)
         $('#pcardEraseLogo')?.addEventListener('click', async () => {
             if (!state.opts._imgSrc) return notify('Hãy chọn/tải ảnh SP trước', 'warning');

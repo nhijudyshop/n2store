@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t6" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./product-card.css?v=20260619a" />
+        <link rel="stylesheet" href="./product-card.css?v=20260624a" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -127,6 +127,13 @@
                         </div>
 
                         <div class="pcard-actions">
+                            <button
+                                class="pcard-btn"
+                                id="pcardAiLayout"
+                                title="AI tự dàn layout card đẹp từ thông tin SP (HTML)"
+                            >
+                                <i data-lucide="sparkles"></i> Layout AI
+                            </button>
                             <button class="pcard-btn" id="pcardCopy">
                                 <i data-lucide="copy"></i> Copy
                             </button>
@@ -159,8 +166,12 @@
         <script src="../shared/web2-qr.js?v=20260619a"></script>
         <script src="../shared/web2-logo-eraser.js?v=20260619a"></script>
         <script src="../shared/web2-image-editor.js?v=20260619d"></script>
+        <!-- Layout AI: sinh card HTML đẹp từ AI free (skill product-card-rich). -->
+        <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+        <script src="../shared/web2-html-skill.js?v=20260624d"></script>
         <script src="./js/product-card-render.js?v=20260619b"></script>
-        <script src="./js/product-card.js?v=20260619e"></script>
+        <script src="./js/product-card.js?v=20260619f"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)

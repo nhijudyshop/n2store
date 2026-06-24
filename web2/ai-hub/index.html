@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t5" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./ai-hub.css?v=20260623f" />
+        <link rel="stylesheet" href="./ai-hub.css?v=20260624i" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -51,6 +51,14 @@
                                 aria-selected="false"
                             >
                                 <i data-lucide="shirt"></i> Ghép đồ
+                            </button>
+                            <button
+                                class="aih-tab"
+                                data-tab="html"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                <i data-lucide="layout-template"></i> HTML Studio
                             </button>
                             <button
                                 class="aih-tab"
@@ -335,6 +343,11 @@
                     </section>
 
                     <!-- ════════ QUẢN LÝ KEY ════════ -->
+                    <!-- ════════ HTML STUDIO ════════ -->
+                    <section class="aih-pane" data-pane="html" hidden>
+                        <div class="aih-html-wrap" id="aihHtml"></div>
+                    </section>
+
                     <section class="aih-pane" data-pane="keys" hidden>
                         <div class="aih-keys-wrap" id="aihKeys"></div>
                     </section>
@@ -350,7 +363,7 @@
         <script src="../shared/web2-ai-presets.js?v=20260624h"></script>
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
-        <script src="./js/ai-hub.js?v=20260624d"></script>
+        <script src="./js/ai-hub.js?v=20260624h"></script>
         <script src="./js/ai-chat.js?v=20260624e"></script>
         <!-- Kho ảnh/video miễn phí dùng chung (từ video-maker) — picker stock cho
              tab Tạo ảnh + Ghép đồ (onPick callback). -->
@@ -358,6 +371,11 @@
         <script src="./js/ai-image.js?v=20260624f"></script>
         <script src="./js/ai-tryon.js?v=20260624d"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
+        <!-- HTML Studio: sinh HTML đẹp từ data (skill + anti-slop) bằng AI free. -->
+        <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+        <script src="../shared/web2-html-skill.js?v=20260624d"></script>
+        <script src="./js/ai-html.js?v=20260624a"></script>
         <script>
             (function () {
                 if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside', { activeRoute: 'ai-hub' });
