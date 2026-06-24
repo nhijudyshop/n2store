@@ -261,6 +261,70 @@
         const d = new Date(`${dateKey}T12:00:00+07:00`);
         return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()];
     }
+
+    // Widget "Hôm nay" (chỉ khi xem THÁNG hiện tại): ai chưa vào / quên bấm ra / vắng.
+    // Tính theo giờ GMT+7 hiện tại + cấu hình ca từng NV. Frontend thuần từ records.
+    function renderTodayHtml() {
+        const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: VN_TZ }).format(new Date());
+        if (todayKey.slice(0, 7) !== state.monthKey) return ''; // không phải tháng hiện tại
+        const nowHM = new Intl.DateTimeFormat('en-GB', {
+            timeZone: VN_TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(new Date());
+        const [nh, nm] = nowHM.split(':').map(Number);
+        const nowMin = nh * 60 + nm;
+        const dus = state.deviceUsers.filter((d) => d.active !== false && isVisibleEmp(d));
+        const chuaVao = [];
+        const quenRa = [];
+        const vang = [];
+        let dangLam = 0;
+        let daDu = 0;
+        for (const du of dus) {
+            const cfg = cfgFor(du);
+            const startMin = S.hmToMinutes(cfg.workStart);
+            const endMin = S.hmToMinutes(cfg.workEnd);
+            const grace = cfg.graceMinutes || 6;
+            const recs = recordsFor(du.device_user_id)[todayKey] || [];
+            const name = empName(du);
+            if (isFulldaySet(du.device_user_id, todayKey)) {
+                daDu++;
+                continue; // nghỉ có phép / shop nghỉ → bỏ qua
+            }
+            if (recs.length === 0) {
+                if (nowMin > endMin) vang.push(name);
+                else if (nowMin > startMin + grace) chuaVao.push(name);
+                // chưa tới giờ vào → bỏ qua
+            } else if (recs.length === 1) {
+                if (nowMin > endMin) quenRa.push(name);
+                else dangLam++;
+            } else {
+                daDu++;
+            }
+        }
+        const need = chuaVao.length + quenRa.length + vang.length;
+        const chip = (n, label, color) =>
+            `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:${color}1a;color:${color}">${n} ${label}</span>`;
+        const listLine = (arr, label, color) =>
+            arr.length
+                ? `<div style="font-size:12px;color:#475569;margin-top:3px"><b style="color:${color}">${label}:</b> ${arr.map(esc).join(', ')}</div>`
+                : '';
+        return `<div class="cc-today" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <b style="font-size:13px">📅 Hôm nay (${todayKey.slice(8)}/${todayKey.slice(5, 7)}, ${nowHM})</b>
+              ${chip(daDu, 'đủ', '#16a34a')}
+              ${chip(dangLam, 'đang làm', '#0068ff')}
+              ${chip(chuaVao.length, 'chưa vào', '#d97706')}
+              ${chip(quenRa.length, 'quên bấm ra', '#dc2626')}
+              ${chip(vang.length, 'vắng', '#dc2626')}
+              ${need === 0 ? '<span style="font-size:12px;color:#16a34a">✓ ổn</span>' : ''}
+            </div>
+            ${listLine(chuaVao, '⏰ Chưa vào', '#d97706')}
+            ${listLine(quenRa, '🚪 Quên bấm ra', '#dc2626')}
+            ${listLine(vang, '✗ Vắng', '#dc2626')}
+          </div>`;
+    }
     function renderTimesheet() {
         const el = document.getElementById('ccBody');
         if (!el) return;
@@ -332,6 +396,7 @@
         }
 
         el.innerHTML = `
+            ${renderTodayHtml()}
             <div class="cc-grid-wrap">
               <table class="cc-grid cc-grid-dots">
                 <thead><tr>${head}</tr></thead>
