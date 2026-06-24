@@ -2,7 +2,16 @@
 
 ## 2026-06-24
 
-### [feat] Trợ lý AI theo trang (floating, đọc dữ liệu hiển thị → AI free) + trang quản lý
+### [feat/fix] Chấm công — nhúng token vào bộ cài (admin-only, KHÔNG vào repo) + hiện "Đang kết nối" cho ADMS
+
+User: "cai-cham-cong.bat chưa để token vào" + "không được để token ở folder github".
+
+Files: `web2/shared/web2-attendance-installer.js`, `web2/printer-settings/index.html`, `render.com/routes/web2-attendance.js`, `render.com/routes/web2-attendance-adms.js`.
+
+- **Token KHÔNG ở repo**: secret nằm env Render. Thêm endpoint **admin-only** `GET /api/web2-attendance/agent-secret` (requireWeb2Admin) → trả secret. Nút "Tải file cài" giờ `downloadInstallerWithSecret()`: fetch secret (header Web2Auth) → **nhúng thẳng vào `config.json`** mà `.bat` tạo. Không phải admin / chưa cấu hình → bat tạo config từ example (máy vân tay ADMS vẫn chạy không cần token). Verified: secret CHỈ xuất hiện trong bat khi truyền opts.secret; `git grep <secret>` toàn repo = rỗng (chỉ ở serect_dont_push.txt gitignored + config.json gitignored).
+- **Lý do quan trọng**: ADMS `/iclock/*` KHÔNG bắt buộc secret → thiếu token KHÔNG phải lỗi khiến không chạy.
+- **Fix feedback "Chưa đồng bộ" cho ADMS**: trước đây chỉ ZK-pull PUT /sync-status, ADMS proxy không cập nhật → trang Chấm công luôn hiện "Chưa đồng bộ / Lần cuối: —" dù máy đang đẩy. Thêm `touchAdmsStatus(db)` (export từ web2-attendance.js) gọi fire-and-forget từ ADMS GET /iclock/cdata (heartbeat ~10s) + POST ATTLOG → set connected=TRUE + last_sync_time=now → trang hiện "Đang kết nối".
+- Bump installer `?v=20260624a→b`. Backend cần Render redeploy để có agent-secret endpoint + touchAdmsStatus.
 
 User: mỗi trang Web 2.0 có AI assistant đọc số liệu/hội thoại/đơn ĐANG HIỂN THỊ để rà soát phép tính, phân tích cảm xúc khách (Pancake), soát đơn — dùng AI FREE, có trang riêng chọn/đổi AI. Chỉ dùng dữ liệu có sẵn ở browser.
 
