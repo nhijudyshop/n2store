@@ -2,6 +2,12 @@
 
 ## 2026-06-24
 
+### [change] web2/users: hạ mật khẩu tối thiểu 8 → 6 ký tự
+
+User: "có thể đặt mật khẩu 6 ký tự" (vd `181015`). Đổi min length 8→6 đồng bộ FE+BE.
+
+Files: `web2/users/js/users-app.js` (`MIN_PWD_LEN=6`, 3 chỗ validate create/edit/đổi-MK + hint), `web2/users/index.html` (2 hint modal), `render.com/routes/web2-users.js` (`MIN_PWD_LEN=6` + `validatePassword`). **Cần deploy web2-api** (backend validate là chốt cuối). Nút "Tạo" vẫn sinh từ 9 ký tự (≥6 OK).
+
 ### [feat] web2/users: xoá VĨNH VIỄN + khôi phục user đã vô hiệu (hard delete/purge + restore)
 
 User: "xóa các users đã bị vô hiệu đi làm sao?" — DELETE chỉ soft-delete (is_active=FALSE), nút thùng rác disabled cho user inactive → không có cách purge.

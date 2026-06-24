@@ -9,6 +9,8 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = `${WORKER}/api/web2-users`;
 
+    const MIN_PWD_LEN = 6; // độ dài mật khẩu tối thiểu (đồng bộ với backend validatePassword)
+
     const ROLE_LABELS = {
         admin: 'Admin',
         manager: 'Quản lý',
@@ -444,8 +446,8 @@
         if (pwLabel) pwLabel.innerHTML = user ? 'Đổi mật khẩu' : 'Mật khẩu <em>*</em>';
         if (pwHint)
             pwHint.textContent = user
-                ? 'Để trống nếu giữ mật khẩu hiện tại. Đặt mới: tối thiểu 8 ký tự (sẽ hiện ở cột Mật khẩu).'
-                : 'Tối thiểu 8 ký tự. Bấm "Tạo" để sinh 1 từ tiếng Anh dễ nhớ.';
+                ? `Để trống nếu giữ mật khẩu hiện tại. Đặt mới: tối thiểu ${MIN_PWD_LEN} ký tự (sẽ hiện ở cột Mật khẩu).`
+                : `Tối thiểu ${MIN_PWD_LEN} ký tự. Bấm "Tạo" để sinh 1 từ tiếng Anh dễ nhớ.`;
         document.getElementById('uFormUsername').value = user?.username || '';
         document.getElementById('uFormUsername').disabled = !!user; // không cho đổi username
         document.getElementById('uFormPassword').value = '';
@@ -483,14 +485,14 @@
             notify('Username + Họ tên bắt buộc', 'warning');
             return;
         }
-        if (!isEdit && (!body.password || body.password.length < 8)) {
-            notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
+        if (!isEdit && (!body.password || body.password.length < MIN_PWD_LEN)) {
+            notify(`Mật khẩu phải ≥ ${MIN_PWD_LEN} ký tự`, 'warning');
             return;
         }
-        // Edit: mật khẩu tùy chọn — nếu admin nhập thì phải ≥ 8 ký tự.
+        // Edit: mật khẩu tùy chọn — nếu admin nhập thì phải đủ độ dài tối thiểu.
         const pwdToChange = isEdit && pwdInput ? pwdInput : '';
-        if (isEdit && pwdInput && pwdInput.length < 8) {
-            notify('Mật khẩu mới phải ≥ 8 ký tự (để trống nếu không đổi)', 'warning');
+        if (isEdit && pwdInput && pwdInput.length < MIN_PWD_LEN) {
+            notify(`Mật khẩu mới phải ≥ ${MIN_PWD_LEN} ký tự (để trống nếu không đổi)`, 'warning');
             return;
         }
         // Không cho tự hạ quyền admin của CHÍNH MÌNH → tránh tự khoá quyền quản trị
@@ -565,8 +567,8 @@
         const user = STATE.pwdUser;
         if (!user) return;
         const pwd = document.getElementById('uPwdNew').value;
-        if (!pwd || pwd.length < 8) {
-            notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
+        if (!pwd || pwd.length < MIN_PWD_LEN) {
+            notify(`Mật khẩu phải ≥ ${MIN_PWD_LEN} ký tự`, 'warning');
             return;
         }
         const isSelf = Number(user.id) === Number(_currentSessionUserId());

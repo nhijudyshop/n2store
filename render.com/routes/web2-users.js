@@ -720,9 +720,10 @@ function validateUsername(u) {
     return s;
 }
 
+const MIN_PWD_LEN = 6; // đồng bộ với frontend web2/users/js/users-app.js
 function validatePassword(p) {
-    if (!p || String(p).length < 8) {
-        throw Object.assign(new Error('Mật khẩu phải >= 8 ký tự'), { status: 400 });
+    if (!p || String(p).length < MIN_PWD_LEN) {
+        throw Object.assign(new Error(`Mật khẩu phải >= ${MIN_PWD_LEN} ký tự`), { status: 400 });
     }
     return String(p);
 }
