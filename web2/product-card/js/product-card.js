@@ -27,7 +27,9 @@
             _img: null,
             _qr: null,
             _qrText: '',
+            _origSrc: '', // ảnh gốc (trước xóa nền) — để bật/tắt auto-bg revert được
         },
+        autoBg: true, // tự động xóa nền SP khi tải ảnh (user yêu cầu 2026-06-24)
         _renderTimer: null,
     };
 
@@ -78,6 +80,28 @@
         if (!img) notify('Không tải được ảnh (thử tải ảnh từ máy)', 'warning');
         state.opts._img = img;
         doRender();
+    }
+
+    // Tải ảnh SP → TỰ ĐỘNG xóa nền (nếu bật) TRƯỚC khi vẽ card (user yêu cầu 2026-06-24).
+    // Giữ ảnh gốc (_origSrc) để bật/tắt auto-bg revert được. Lỗi xóa nền → dùng ảnh gốc.
+    async function loadProductImage(src) {
+        if (!src) return setImage('', { cutout: false });
+        state.opts._origSrc = src;
+        if (state.autoBg && global.Web2BgScene?.cutout) {
+            notify('Đang tự động xóa nền sản phẩm…', 'info');
+            try {
+                const out = await global.Web2BgScene.cutout(src, { prefer: 'auto' });
+                if (out && out.dataUrl) {
+                    await setImage(out.dataUrl, { cutout: true });
+                    notify('Đã xóa nền ✓ (' + (out.engine || 'AI') + ')', 'success');
+                    return;
+                }
+            } catch (e) {
+                console.warn('[product-card] auto cutout fail:', e);
+                notify('Xóa nền tự động lỗi — dùng ảnh gốc', 'warning');
+            }
+        }
+        await setImage(src, { cutout: false });
     }
 
     async function setQr(text) {
@@ -154,7 +178,7 @@
         $('#pcardPrice').value = state.opts.price;
         $('#pcardProdSearch').value = p.name || '';
         const img = global.Web2ProductsCache?.getAll ? p.imageUrl : p.imageUrl;
-        if (img) setImage(img, { cutout: false });
+        if (img) loadProductImage(img);
         else doRender();
         notify('Đã chọn: ' + (p.name || p.code), 'success');
     }
@@ -422,10 +446,17 @@
         bindField('pcardShop', 'shop');
         // defaults vào input
         $('#pcardShop').value = state.opts.shop;
-        // cutout toggle
+        // cutout toggle (chế độ vẽ — ảnh đã tách nền hay chưa)
         $('#pcardCutout')?.addEventListener('change', (e) => {
             state.opts.cutout = e.target.checked;
             doRender();
+        });
+        // auto-xóa-nền toggle: đổi → xử lý lại từ ẢNH GỐC (bật = cutout, tắt = ảnh gốc)
+        const autoEl = $('#pcardAutoBg');
+        if (autoEl) state.autoBg = autoEl.checked;
+        autoEl?.addEventListener('change', (e) => {
+            state.autoBg = e.target.checked;
+            if (state.opts._origSrc) loadProductImage(state.opts._origSrc);
         });
         // QR field
         $('#pcardQr')?.addEventListener('input', (e) => {
@@ -437,7 +468,7 @@
             const f = e.target.files && e.target.files[0];
             if (!f) return;
             const r = new FileReader();
-            r.onload = () => setImage(r.result, { cutout: state.opts.cutout });
+            r.onload = () => loadProductImage(r.result);
             r.readAsDataURL(f);
         });
         // paste ảnh
@@ -448,7 +479,7 @@
             if (!item) return;
             const f = item.getAsFile();
             const r = new FileReader();
-            r.onload = () => setImage(r.result, { cutout: state.opts.cutout });
+            r.onload = () => loadProductImage(r.result);
             r.readAsDataURL(f);
         });
         wireProductPicker();

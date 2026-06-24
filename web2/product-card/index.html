@@ -67,6 +67,10 @@
                                 </button>
                             </div>
                             <label class="pcard-toggle">
+                                <input type="checkbox" id="pcardAutoBg" checked /> ✨ Tự động xóa
+                                nền khi tải ảnh (AI)
+                            </label>
+                            <label class="pcard-toggle">
                                 <input type="checkbox" id="pcardCutout" /> Ảnh tách nền (giữ nguyên
                                 SP, nền trong suốt)
                             </label>
@@ -166,12 +170,15 @@
         <script src="../shared/web2-qr.js?v=20260619a"></script>
         <script src="../shared/web2-logo-eraser.js?v=20260619a"></script>
         <script src="../shared/web2-image-editor.js?v=20260619d"></script>
+        <!-- Tự động xóa nền SP khi tải ảnh (in-browser RMBG / máy shop rembg) — dùng chung. -->
+        <script src="../shared/web2-bgremover.js?v=20260624a"></script>
+        <script src="../shared/web2-bg-scene.js?v=20260624c"></script>
         <!-- Layout AI: sinh card HTML đẹp từ AI free (skill product-card-rich). -->
         <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
         <script src="../shared/web2-html-skill.js?v=20260624e"></script>
         <script src="./js/product-card-render.js?v=20260619b"></script>
-        <script src="./js/product-card.js?v=20260619f"></script>
+        <script src="./js/product-card.js?v=20260624a"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)
