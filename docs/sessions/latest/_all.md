@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8d229d4` — auto: session update
-**Last updated**: 2026-06-24 14:45:43 +07
-**Latest session**: [`RESUME:20260624-144543-8d229d4`](../20260624-144543-8d229d4.md)
-**Summary**: auto: session update
+**Latest commit**: `d8476f0` — docs(dev-log): chấm công — nhúng token bộ cài (admin-only, không vào repo) + ADMS hiện Đang kết nối
+**Last updated**: 2026-06-24 14:48:51 +07
+**Latest session**: [`RESUME:20260624-144851-d8476f0`](../20260624-144851-d8476f0.md)
+**Summary**: docs(dev-log): chấm công — nhúng token bộ cài (admin-only, không vào repo) + ADMS hiện Đang kết nối
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-24 14:45
+- [`docs/`](./docs.md) — updated 2026-06-24 14:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
