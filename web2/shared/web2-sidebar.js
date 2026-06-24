@@ -738,6 +738,66 @@
         if (window.lucide) lucide.createIcons();
     }
 
+    // 2026-06-24: Bottom sheet "Tài khoản" cho ĐIỆN THOẠI — mở từ thanh menu dưới
+    // cùng (w2-mobile-bottombar). Có Hồ sơ + Đăng xuất → fix "điện thoại không có
+    // nút đăng xuất" (footer drawer hay khuất sau thanh trình duyệt). Chưa đăng
+    // nhập → chuyển trang login.
+    function openAccountSheet() {
+        const stored = window.Web2Auth ? window.Web2Auth.getStored() : null;
+        const user = stored?.user || null;
+        if (!user) {
+            const loginPath = window.Web2Auth?.loginUrl?.() || '../web2/login/index.html';
+            const next = location.pathname + location.search;
+            location.href = `${loginPath}?next=${encodeURIComponent(next)}`;
+            return;
+        }
+        document.querySelector('.w2-acct-sheet')?.remove(); // rebuild với user mới nhất
+        const displayName = escapeHtml(user.displayName || user.username || '');
+        const username = escapeHtml(user.username || '');
+        const role = escapeHtml(user.role || '');
+        const defStyle =
+            (window.Web2UserProfile && window.Web2UserProfile.DEFAULT_STYLE) || 'lorelei';
+        const avUrl =
+            _avatarUrlInline(user.avatar) ||
+            (user.username
+                ? _avatarUrlInline({ style: defStyle, seed: user.username, bg: 'transparent' })
+                : null);
+        const avatarInner = avUrl
+            ? `<img src="${escapeHtml(avUrl)}" alt="" referrerpolicy="no-referrer">`
+            : escapeHtml((displayName || '?').slice(0, 1).toUpperCase());
+        const sheet = document.createElement('div');
+        sheet.className = 'w2-acct-sheet show';
+        sheet.innerHTML = `
+            <div class="w2-acct-scrim"></div>
+            <div class="w2-acct-panel" role="dialog" aria-label="Tài khoản">
+                <div class="w2-acct-grip"></div>
+                <div class="w2-acct-head">
+                    <div class="w2-acct-av${avUrl ? ' has-img' : ''}">${avatarInner}</div>
+                    <div class="w2-acct-id">
+                        <div class="w2-acct-name">${displayName}</div>
+                        <div class="w2-acct-sub">@${username}${role ? ' · ' + role : ''}</div>
+                    </div>
+                </div>
+                <button class="w2-acct-row" data-act="profile" type="button">
+                    <i data-lucide="user-cog"></i><span>Hồ sơ tài khoản</span>
+                </button>
+                <button class="w2-acct-row w2-acct-logout" data-act="logout" type="button">
+                    <i data-lucide="log-out"></i><span>Đăng xuất</span>
+                </button>
+            </div>`;
+        document.body.appendChild(sheet);
+        const close = () => sheet.remove();
+        sheet.querySelector('.w2-acct-scrim').addEventListener('click', close);
+        sheet.querySelector('[data-act="profile"]').addEventListener('click', () => {
+            close();
+            window.Web2UserProfile?.open();
+        });
+        sheet.querySelector('[data-act="logout"]').addEventListener('click', () => {
+            if (window.Web2Auth?.logout) window.Web2Auth.logout({ redirect: true });
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
     const Web2Sidebar = {
         NAV,
         mount(selector, opts = {}) {
@@ -804,6 +864,34 @@
                         scrim.classList.remove('show');
                     }
                 });
+            }
+            // F04b mobile (2026-06-24): thanh menu DƯỚI CÙNG cho điện thoại (≤600px).
+            // Tổng quan · Menu (mở drawer) · Thông báo · Tài khoản (sheet Hồ sơ +
+            // Đăng xuất). Thay nút ☰ nổi (ẩn ở phone) → điều hướng 1 chạm + luôn có
+            // Đăng xuất. CSS ở web2-mobile.css (.w2-mobile-bottombar / .w2-acct-sheet).
+            if (!document.querySelector('.w2-mobile-bottombar')) {
+                const here2 = window.location.pathname || '';
+                const homeHref = resolveOur('../web2/overview/index.html');
+                const notiHref = resolveOur('../web2/notifications/index.html');
+                const bar = document.createElement('nav');
+                bar.className = 'w2-mobile-bottombar';
+                bar.setAttribute('aria-label', 'Điều hướng nhanh');
+                bar.innerHTML = `
+                    <a class="w2-bb-item${here2.endsWith('web2/overview/index.html') ? ' is-active' : ''}" href="${escapeHtml(homeHref)}">
+                        <i data-lucide="home"></i><span>Tổng quan</span></a>
+                    <button class="w2-bb-item" data-act="menu" type="button">
+                        <i data-lucide="menu"></i><span>Menu</span></button>
+                    <a class="w2-bb-item${here2.endsWith('web2/notifications/index.html') ? ' is-active' : ''}" href="${escapeHtml(notiHref)}">
+                        <i data-lucide="bell"></i><span>Thông báo</span></a>
+                    <button class="w2-bb-item" data-act="acct" type="button">
+                        <i data-lucide="user"></i><span>Tài khoản</span></button>`;
+                document.body.appendChild(bar);
+                bar.querySelector('[data-act="menu"]').addEventListener('click', () => {
+                    el.classList.add('w2-aside-open');
+                    document.querySelector('.web2-aside-scrim')?.classList.add('show');
+                });
+                bar.querySelector('[data-act="acct"]').addEventListener('click', openAccountSheet);
+                if (window.lucide) lucide.createIcons();
             }
         },
         renderUserFooter,
