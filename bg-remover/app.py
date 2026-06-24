@@ -26,7 +26,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL = os.environ.get("BGR_MODEL", "u2net")  # u2net | u2netp (nhẹ) | isnet-general-use
+# Mặc định BiRefNet (SOTA — cạnh/tóc rối nét hơn HẲN u2net; audit 2026-06-24 verified).
+# birefnet-general-lite: CPU vài giây/ảnh. Chọn khác qua env BGR_MODEL:
+#   birefnet-general (đẹp nhất, cần GPU ~3.5GB) | u2net | u2netp (nhẹ) | isnet-general-use
+MODEL = os.environ.get("BGR_MODEL", "birefnet-general-lite")
 _session = None
 
 
