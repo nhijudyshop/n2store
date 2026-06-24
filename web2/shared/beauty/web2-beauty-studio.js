@@ -16,7 +16,9 @@
     if (global.Web2BeautyStudio) return;
 
     const FACE_TOOLS = ['eyes', 'nose', 'face', 'lips'];
-    const MAX_WORK = 1800; // cạnh dài tối đa của canvas xử lý (cân bằng tốc độ/chất lượng)
+    // 2026-06-24: 1800→1440. Lọc làm đẹp (smooth/warp) chạy SYNC trên main-thread → ảnh
+    // to freeze UI lâu = "stuck". 1440px vẫn nét đẹp cho FB/Zalo/in card, nhanh hơn ~35%.
+    const MAX_WORK = 1440; // cạnh dài tối đa canvas xử lý (cân bằng tốc độ/chất lượng)
     const MAX_HISTORY = 6;
 
     const TOOLS = {
