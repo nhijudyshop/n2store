@@ -2,6 +2,15 @@
 
 ## 2026-06-24
 
+### [feat] Chấm công — nhóm 3a (widget Hôm nay) + nhóm 2 (Chốt lương + khoá kỳ)
+
+Files: `cham-cong-app.js`, `cham-cong-payroll.js`, `cham-cong-api.js`, `render.com/routes/web2-attendance.js`, `index.html`.
+
+- **Widget "Hôm nay"** (`renderTodayHtml`, app.js): trên đầu Bảng công (chỉ tháng hiện tại) — chip đếm + danh sách ai **chưa vào / quên bấm ra / vắng / đang làm / đủ**, tính theo giờ GMT+7 + ca từng NV. Frontend thuần từ records.
+- **Chốt lương + khoá kỳ (B-roadmap #1)**: backend table `web2_attendance_period_lock` (month_key PK, locked_by/at, snapshot JSONB) + routes `GET/POST /period-lock`, `DELETE /period-lock/:mk` (requireWeb2Admin). Frontend: nút "🔒 Chốt lương tháng này" → gửi snapshot (rows: du+pr+m mỗi NV + total) → khoá. Tháng đã khoá → `entriesForRender`/`resolveRow` **render từ snapshot (đóng băng)**, banner 🔒 + "Mở khoá", ẩn Sửa/Chốt, Chi tiết/In/Excel dùng snapshot. Guard chặn sửa punch khi khoá (saveDayDetail + add/del). SSE `period-lock` → reload.
+- Bump api/payroll/app `?v=` h/l/n. **Verified browser**: LIVE→có nút Chốt+Sửa+tổng live; LOCKED→render snapshot đóng băng (9.999.000đ thay 190.000đ), banner+Mở khoá, ẩn Sửa/Chốt, 0 error. Salary unit-test (nhóm 1) pass. Backend cần Render redeploy để có endpoint period-lock.
+- **Còn lại** (user chọn nhưng chưa làm): Lịch sử thay đổi/audit (nhóm 2) + Nghỉ phép có loại (nhóm 3b) — đều cần table backend mới.
+
 ### [feat] Thêm logo / watermark (Web2Watermark) vào photo-editor — phần DUY NHẤT còn thiếu
 
 User yêu cầu 5 chức năng sửa ảnh (xóa nền, đổi nền, xóa logo, xóa watermark, thêm logo/watermark) + "license kệ vì làm kho nội bộ". **Audit phát hiện 4/5 ĐÃ CÓ** (tránh build trùng — bài học đọc-existing-trước):
