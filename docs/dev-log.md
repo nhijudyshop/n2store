@@ -2,6 +2,16 @@
 
 ## 2026-06-24
 
+### [fix] Phân quyền: nhãn trang sidebar bị cụt ("Trợ lý AI…"→"Tr", "Sửa ảnh AI…"→"S")
+
+User: "https://nhijudy.store/web2/users/index.html lỗi ai-assistant và ai-photo" (nhãn 2 trang AI hiển thị cụt còn "Tr" / "S").
+
+Files: `web2/users-permissions/index.html` (regex làm sạch nhãn auto-discover).
+
+- **Nguyên nhân**: ma trận phân quyền tự bổ sung trang có trong sidebar NAV mà thiếu ở `WEB2_PAGES` (auto-discover, view-only). Regex cắt emoji trang trí cuối nhãn dùng `\s*[^\w\s].*$` — nhưng `\w` trong JS là **ASCII-only**, coi dấu tiếng Việt (ợ, ý, ử…) là ký tự "lạ" → nuốt từ chữ có dấu đầu tiên tới hết: `"Trợ lý AI theo trang ✨"`→`"Tr"`, `"Sửa ảnh AI 🪄"`→`"S"`. (2 trang này lấy nhãn từ sidebar vì chưa có trong registry backend; ai-hub/video-maker không dính vì lấy nhãn từ `WEB2_PAGES`.)
+- **Fix**: thay bằng strip emoji/biểu tượng ở ĐẦU/CUỐI qua Unicode property escape `^[\s\p{Extended_Pictographic}️‍]+|[…]+$/gu` — chỉ ăn emoji + VS16 + ZWJ + khoảng trắng, **giữ nguyên dấu tiếng Việt**.
+- **Verify**: Node test 7 case (Trợ lý/Sửa ảnh/Xưởng Video + emoji đầu/cuối + nhãn thường) → ALL PASS, diacritics giữ nguyên. Iframe đã cache-bust `&t=Date.now()` nên không cần bump version.
+
 ### [fix] Xóa logo dùng OpenCV inpaint THẬT (trước chỉ làm mờ) + product-card tự động xóa nền
 
 User: (1) "xóa logo không hoạt động đúng, chỉ làm mờ đi"; (2) "tạo card sản phẩm sẽ tự động xóa nền SP trước khi tạo card".

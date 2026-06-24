@@ -254,7 +254,14 @@
                                         slug,
                                         label:
                                             (it.label || slug)
-                                                .replace(/\s*[^\w\s].*$/, '')
+                                                // Bỏ emoji/biểu tượng trang trí ở ĐẦU/CUỐI (✨🪄🎬).
+                                                // KHÔNG dùng \w (ASCII-only) vì nó coi dấu tiếng Việt
+                                                // (ợ, ý, ử…) là ký tự "lạ" → nuốt cụt nhãn
+                                                // ("Trợ lý AI…"→"Tr", "Sửa ảnh AI…"→"S").
+                                                .replace(
+                                                    /^[\s\p{Extended_Pictographic}\uFE0F\u200D]+|[\s\p{Extended_Pictographic}\uFE0F\u200D]+$/gu,
+                                                    ''
+                                                )
                                                 .trim() || slug,
                                         group: group || 'Khác',
                                         actions: ['view'],
