@@ -2,6 +2,16 @@
 
 ## 2026-06-24
 
+### [perf] Làm đẹp khuôn mặt bớt "đứng/stuck" — giảm res xử lý (DETECT_MAX 640, MAX_WORK 1440)
+
+User: ai-photo "tải model xong stuck". Chẩn đoán (browser-test ảnh thật): mọi modal MỞ OK; engine load OK (opencv là Promise resolve ra Mat+inpaint; MediaPipe XNNPACK CPU; transformers RMBG). "Stuck" = **xử lý ĐỒNG BỘ chặn main-thread** trên ảnh lớn (detect MediaPipe + lọc smoothSkin/warp). Code lọc O(N) chuẩn (box-blur running-sum) + đã có `setBusy`+double-rAF; KHÔNG bug — chỉ nặng CPU. ⚠ Headless Chromium (software WASM, không SIMD) phóng đại freeze tới 60s+ → KHÔNG đại diện Chrome thật (ở đó ~dưới giây–vài giây).
+
+Files: `web2/shared/beauty/web2-beauty-face.js` (DETECT_MAX 1024→640), `web2/shared/beauty/web2-beauty-studio.js` (MAX_WORK 1800→1440); bump version (ai-photo, video-beauty).
+
+- **DETECT_MAX 640**: FaceLandmarker.detect chạy sync; detect không cần res cao → 640px nhanh ~2.5×, landmark normalize 0..1 scale lại W,H gốc (không giảm chất lượng output).
+- **MAX_WORK 1440**: canvas xử lý lọc; 1440 vẫn nét cho FB/Zalo/in, lọc nhanh hơn ~35%.
+- Verify: logo eraser opencv inpaint OK trên ảnh thật (turn trước); beauty engine load + detect OK; freeze duration không đo được chính xác trong headless. **Fix triệt để nếu real-Chrome vẫn lag = chuyển lọc sang Web Worker** (đề xuất follow-up).
+
 ### [fix] Phân quyền: nhãn trang sidebar bị cụt ("Trợ lý AI…"→"Tr", "Sửa ảnh AI…"→"S")
 
 User: "https://nhijudy.store/web2/users/index.html lỗi ai-assistant và ai-photo" (nhãn 2 trang AI hiển thị cụt còn "Tr" / "S").
