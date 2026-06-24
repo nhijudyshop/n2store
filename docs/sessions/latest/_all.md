@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9449ec3` — auto: session update
-**Last updated**: 2026-06-24 19:43:47 +07
-**Latest session**: [`RESUME:20260624-194347-9449ec3`](../20260624-194347-9449ec3.md)
-**Summary**: auto: session update
+**Latest commit**: `8597eb6` — perf(web2/beauty): giảm res xử lý chống 'đứng/stuck' (DETECT_MAX 1024→640, MAX_WORK 1800→1440)
+**Last updated**: 2026-06-24 19:45:29 +07
+**Latest session**: [`RESUME:20260624-194529-8597eb6`](../20260624-194529-8597eb6.md)
+**Summary**: perf(web2/beauty): giảm res xử lý chống 'đứng/stuck' (DETECT_MAX 1024→640, MAX_WORK 1800→1440)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-24 19:43
+- [`docs/`](./docs.md) — updated 2026-06-24 19:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
