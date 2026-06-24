@@ -35,6 +35,23 @@
         return location.origin + (m ? m[1] : '');
     }
 
+    // Lấy secret agent (ADMIN-ONLY) từ backend để NHÚNG vào config.json của bộ cài.
+    // Secret nằm trong env Render — KHÔNG có trong repo/GitHub. Không phải admin / chưa
+    // cấu hình secret → trả rỗng (máy vân tay ADMS vẫn chạy không cần secret).
+    async function _fetchSecret() {
+        try {
+            const base = (global.API_CONFIG && global.API_CONFIG.WORKER_URL) || '';
+            const hdrs =
+                global.Web2Auth && global.Web2Auth.authHeaders ? global.Web2Auth.authHeaders() : {};
+            const r = await fetch(base + '/api/web2-attendance/agent-secret', { headers: hdrs });
+            if (!r.ok) return { secret: '', base };
+            const j = await r.json();
+            return { secret: (j && j.secret) || '', base };
+        } catch (e) {
+            return { secret: '', base: '' };
+        }
+    }
+
     function _download(filename, content) {
         const blob = new Blob([content], { type: 'application/octet-stream' });
         const a = document.createElement('a');
@@ -49,8 +66,17 @@
     }
 
     // bat: tải folder agent về %LOCALAPPDATA%\N2StoreChamCong rồi node setup.js.
-    function batContent() {
+    // opts.secret (nếu có) → ghi thẳng vào config.json (admin lấy runtime, KHÔNG ở repo).
+    function batContent(opts) {
+        opts = opts || {};
         const base = siteRoot() + '/attendance-sync';
+        // chỉ ký tự an toàn cho batch echo (secret = hex; URL = chữ/số/:/._-).
+        const secret = String(opts.secret || '').replace(/[^A-Za-z0-9_-]/g, '');
+        const renderBase = String(
+            opts.renderBase || 'https://chatomni-proxy.nhijudyshop.workers.dev'
+        )
+            .replace(/[^A-Za-z0-9:/._-]/g, '')
+            .replace(/\/$/, '');
         const lines = [
             '@echo off',
             'chcp 65001 >nul',
@@ -91,9 +117,23 @@
             );
             lines.push('echo   [OK] ' + f);
         }
+        // [3] config.json: có secret (admin) → ghi thẳng kèm token; không thì tạo từ
+        // example (máy vân tay ADMS vẫn chạy không cần token).
+        if (secret) {
+            lines.push(
+                '> "%DIR%\\config.json" echo {',
+                '>>"%DIR%\\config.json" echo   "renderBase": "' + renderBase + '",',
+                '>>"%DIR%\\config.json" echo   "attendanceSecret": "' + secret + '",',
+                '>>"%DIR%\\config.json" echo   "proxyPort": 8081',
+                '>>"%DIR%\\config.json" echo }',
+                'echo   [OK] config.json (da nhung token)'
+            );
+        } else {
+            lines.push(
+                'if not exist "%DIR%\\config.json" copy /Y "%DIR%\\config.example.json" "%DIR%\\config.json" >nul'
+            );
+        }
         lines.push(
-            // [3] config.json: tao tu example neu chua co (KHONG ghi de — giu secret cu)
-            'if not exist "%DIR%\\config.json" copy /Y "%DIR%\\config.example.json" "%DIR%\\config.json" >nul',
             // [4] chay setup.js (lo het: tu go ban cu + test + autostart + chay nen)
             'echo.',
             'echo Dang cai dat (setup.js)...',
@@ -130,9 +170,16 @@
         ].join('\r\n');
     }
 
-    function downloadInstaller() {
-        _download('cai-cham-cong.bat', batContent());
+    // opts.secret/opts.renderBase (tuỳ chọn) → nhúng token vào config.json của bộ cài.
+    function downloadInstaller(opts) {
+        _download('cai-cham-cong.bat', batContent(opts));
         return true;
+    }
+    // Tải bộ cài có NHÚNG SẴN token (tự lấy secret admin-only từ backend trước).
+    async function downloadInstallerWithSecret() {
+        const info = await _fetchSecret();
+        downloadInstaller({ secret: info.secret, renderBase: info.base });
+        return { embeddedSecret: !!info.secret };
     }
     function downloadUninstaller() {
         _download('go-cham-cong.bat', uninstallBatContent());
@@ -166,11 +213,13 @@
             (opts.showUninstall
                 ? '<button type="button" class="w2att-btn w2att-danger" data-w2att="uninstall"><i data-lucide="power-off"></i> Tải file gỡ</button>'
                 : '');
-        el.querySelector('[data-w2att="install"]')?.addEventListener('click', () => {
-            downloadInstaller();
+        el.querySelector('[data-w2att="install"]')?.addEventListener('click', async () => {
+            const r = await downloadInstallerWithSecret();
             if (global.notificationManager?.show)
                 global.notificationManager.show(
-                    'Đã tải file cài Chấm công — chép sang máy POS, bấm đúp để chạy',
+                    r.embeddedSecret
+                        ? 'Đã tải file cài (đã nhúng sẵn token) — chép sang máy POS, bấm đúp để chạy'
+                        : 'Đã tải file cài — chép sang máy POS, bấm đúp (máy vân tay không cần token)',
                     'success'
                 );
             opts.onInstall && opts.onInstall();
@@ -188,6 +237,7 @@
         batContent,
         uninstallBatContent,
         downloadInstaller,
+        downloadInstallerWithSecret,
         downloadUninstaller,
         renderButtons,
     };
