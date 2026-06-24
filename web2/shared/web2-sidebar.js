@@ -124,6 +124,9 @@
         // Default-open: admin/không-có-dữ-liệu/trang-mới → cho phép; chỉ chặn khi
         // admin chủ động bỏ 'view'. Có mặt MỌI trang Web 2.0.
         if (!global.Web2Perm) inject('web2-perm.js', '20260624a');
+        // Thư viện mẫu câu lệnh AI (ảnh + vai trò chat) — Web2AiPresets.pickImage/pickRole.
+        // Dùng chung: ai-hub, fb-posts (caption), video-maker (kịch bản)… gọi được luôn.
+        if (!global.Web2AiPresets) inject('web2-ai-presets.js', '20260624d');
     })();
 
     // Group definitions matching WEB2 sidebar structure.

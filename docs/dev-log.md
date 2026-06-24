@@ -2,6 +2,15 @@
 
 ## 2026-06-24
 
+### [refactor+feat] web2: promote thư viện mẫu AI → shared module + thêm vai trò chat + rename env Nano Banana
+
+User: (1) đổi env paid sang `WEB2_NANOBANANA_API_KEY`, (2) thêm prompt mẫu chat, (3) modular hoá.
+
+- **Modular**: `ai-hub/js/ai-presets.js` → **`web2/shared/web2-ai-presets.js`** (shared, autoload qua sidebar `Web2AiPresets`, alias `AiPresets`). Trang khác (fb-posts caption, video-maker kịch bản) gọi `Web2AiPresets.pickImage/pickRole` được luôn. Nạp TRƯỚC sidebar ở ai-hub → autoload skip (1 lần).
+- **Vai trò chat 7 → 13** (thêm từ awesome-chatgpt-prompts, Việt hoá shop): quảng cáo/Ads, content MXH, đặt tên SP, upsell/bán kèm, sửa chính tả, dịch Việt↔Anh.
+- **Env**: `WEB2_GEMINI_API_KEY5` (paid AQ) → **rename `WEB2_NANOBANANA_API_KEY`** trên Render web2-api (qua API, không lộ value). Giờ key1-4 free=chat, `WEB2_NANOBANANA_API_KEY` paid=Nano Banana (code đã ưu tiên prefix này).
+- **Audit 9 repo** (trả lời user): chỉ awesome-chatgpt-prompts tích hợp (đã làm); gpt4free/free-llm-api-keys/GPT_API_free = NO (ToS/non-commercial/shared-key rủi ro); 9router/OmniRoute = dev-tooling router (đã có failover); magic-resume = không liên quan; backgroundremover/video-subtitle-remover = cần Python+GPU server (roadmap như VieNeu); gemini-watermark-remover = ảnh API không có watermark hiển thị → chưa cần.
+
 ### [feat] web2 ai-hub: tách key chat/Nano Banana + gate quyền + quota + lưu ảnh/prompt/chat + thư viện mẫu
 
 User 5 việc (key paid Nano Banana, giải thích 2 repo, tích hợp 2 repo prompt/system, tối ưu chi phí).

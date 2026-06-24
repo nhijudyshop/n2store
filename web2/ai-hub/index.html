@@ -345,12 +345,14 @@
 
         <script src="../../shared/js/notification-system.js?v=20260613a"></script>
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <!-- Thư viện mẫu câu lệnh AI (ảnh + vai trò chat) — SHARED module (web2/shared). Nạp TRƯỚC
+             sidebar để autoLoadSharedModules skip (tránh nạp 2 lần). Dùng được mọi trang Web 2.0.
+             Nguồn: nano-banana-pro-prompts + awesome-chatgpt-prompts + system-prompts. -->
+        <script src="../shared/web2-ai-presets.js?v=20260624d"></script>
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
         <script src="./js/ai-hub.js?v=20260624c"></script>
-        <!-- Thư viện mẫu câu lệnh (ảnh + vai trò chat) — nano-banana-pro-prompts + system-prompts. -->
-        <script src="./js/ai-presets.js?v=20260624c"></script>
-        <script src="./js/ai-chat.js?v=20260624c"></script>
+        <script src="./js/ai-chat.js?v=20260624d"></script>
         <!-- Kho ảnh/video miễn phí dùng chung (từ video-maker) — picker stock cho
              tab Tạo ảnh + Ghép đồ (onPick callback). -->
         <script src="../video-maker/js/video-stock.js?v=20260624b"></script>
