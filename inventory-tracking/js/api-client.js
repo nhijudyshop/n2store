@@ -61,6 +61,13 @@ const productAttributesApi = {
         const result = await apiFetch(`/product-attributes${refresh ? '?refresh=1' : ''}`);
         return result.data; // { colors, sizeNum, sizeChar }
     },
+    // Save the shared custom display order (drag-to-reorder) — loads on all machines.
+    async saveOrder({ colors, sizeNum, sizeChar }) {
+        return apiFetch('/product-attributes/order', {
+            method: 'PUT',
+            body: JSON.stringify({ colors, sizeNum, sizeChar }),
+        });
+    },
 };
 
 // =====================================================

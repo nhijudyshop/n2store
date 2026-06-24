@@ -32,6 +32,7 @@
  *   DELETE /other-expenses/:id           - Delete
  *
  *   GET    /product-attributes           - Shared TPOS màu/size lists (server-cached, same for all machines)
+ *   PUT    /product-attributes/order     - Save custom màu/size display order (drag-to-reorder, shared)
  *   GET    /product-images               - List all product images
  *   PUT    /product-images               - Bulk replace all product images
  *   DELETE /product-images/:id           - Delete one
@@ -108,69 +109,152 @@ const PRODUCT_ATTR_FALLBACK = {
 };
 let _productAttrCache = { ts: 0, data: null };
 
+// Fetch + bucket the RAW TPOS attribute values (TPOS natural order). Cached 24h —
+// the custom display order is applied separately per-request so reordering never
+// forces a TPOS refetch.
+async function _getRawAttrBuckets(force) {
+    const now = Date.now();
+    if (!force && _productAttrCache.data && now - _productAttrCache.ts < PRODUCT_ATTR_TTL_MS) {
+        return { data: _productAttrCache.data, cached: true };
+    }
+    if (!tposService?.getProductAttributeValues) {
+        return {
+            data: _productAttrCache.data || PRODUCT_ATTR_FALLBACK,
+            fallback: !_productAttrCache.data,
+        };
+    }
+    let values;
+    try {
+        values = await tposService.getProductAttributeValues();
+    } catch (err) {
+        console.warn('[inventory] product-attributes TPOS fetch failed:', err.message);
+        // TPOS down → serve last good cache (stale) or fallback. Never break.
+        return {
+            data: _productAttrCache.data || PRODUCT_ATTR_FALLBACK,
+            stale: !!_productAttrCache.data,
+            fallback: !_productAttrCache.data,
+        };
+    }
+
+    const colors = [];
+    const sizeNum = [];
+    const sizeChar = [];
+    const seen = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
+    const push = (bucket, arr, name) => {
+        if (seen[bucket].has(name)) return; // de-dup
+        seen[bucket].add(name);
+        arr.push(name);
+    };
+    for (const v of values) {
+        const name = v && v.Name;
+        if (!name) continue;
+        const aName = String(v.AttributeName || '').toLowerCase();
+        // Classify by AttributeId first (stable); fall back to AttributeName
+        // for the three categories we care about. Other attributes are skipped.
+        if (v.AttributeId === TPOS_ATTR.COLOR || /\bmàu\b|\bmau\b/.test(aName)) {
+            push('color', colors, name);
+        } else if (v.AttributeId === TPOS_ATTR.SIZE_NUM || /size\s*s[ốo]/.test(aName)) {
+            push('sizeNum', sizeNum, name);
+        } else if (v.AttributeId === TPOS_ATTR.SIZE_CHAR || /size\s*ch[ữu]/.test(aName)) {
+            push('sizeChar', sizeChar, name);
+        }
+    }
+
+    const data = {
+        colors: colors.length ? colors : PRODUCT_ATTR_FALLBACK.colors,
+        sizeNum: sizeNum.length ? sizeNum : PRODUCT_ATTR_FALLBACK.sizeNum,
+        sizeChar: sizeChar.length ? sizeChar : PRODUCT_ATTR_FALLBACK.sizeChar,
+    };
+    _productAttrCache = { ts: now, data };
+    return { data, cached: false };
+}
+
+// Reorder `list` by the saved order: saved values (still present in TPOS) first
+// in saved order, then any new/un-ordered TPOS values appended (original order).
+function _applyAttrOrder(list, savedOrder) {
+    if (!Array.isArray(savedOrder) || !savedOrder.length) return list;
+    const inList = new Set(list);
+    const ordered = savedOrder.filter((n) => inList.has(n));
+    const orderedSet = new Set(ordered);
+    const leftovers = list.filter((n) => !orderedSet.has(n));
+    return [...ordered, ...leftovers];
+}
+
+// Read the single shared custom-order row. JSONB columns come back parsed.
+async function _loadAttrOrder(db) {
+    if (!db) return null;
+    try {
+        const r = await db.query(
+            'SELECT colors, size_num, size_char FROM inventory_attr_order WHERE id = 1'
+        );
+        if (!r.rows[0]) return null;
+        const row = r.rows[0];
+        const arr = (v) =>
+            Array.isArray(v) ? v : typeof v === 'string' ? JSON.parse(v || '[]') : [];
+        return {
+            colors: arr(row.colors),
+            sizeNum: arr(row.size_num),
+            sizeChar: arr(row.size_char),
+        };
+    } catch (e) {
+        console.warn('[inventory] load attr order failed:', e.message);
+        return null;
+    }
+}
+
 router.get('/product-attributes', async (req, res) => {
     try {
         const force = req.query.refresh === '1' || req.query.refresh === 'true';
-        const now = Date.now();
-
-        // Serve warm cache (same list for every machine).
-        if (!force && _productAttrCache.data && now - _productAttrCache.ts < PRODUCT_ATTR_TTL_MS) {
-            return res.json({ success: true, data: _productAttrCache.data, cached: true });
-        }
-
-        if (!tposService?.getProductAttributeValues) {
-            const data = _productAttrCache.data || PRODUCT_ATTR_FALLBACK;
-            return res.json({ success: true, data, fallback: !_productAttrCache.data });
-        }
-
-        let values;
-        try {
-            values = await tposService.getProductAttributeValues();
-        } catch (err) {
-            console.warn('[inventory] product-attributes TPOS fetch failed:', err.message);
-            // TPOS down → serve last good cache (stale) or fallback. Never break.
-            const data = _productAttrCache.data || PRODUCT_ATTR_FALLBACK;
-            return res.json({
-                success: true,
-                data,
-                stale: !!_productAttrCache.data,
-                fallback: !_productAttrCache.data,
-            });
-        }
-
-        const colors = [];
-        const sizeNum = [];
-        const sizeChar = [];
-        const seen = { color: new Set(), sizeNum: new Set(), sizeChar: new Set() };
-        const push = (bucket, arr, name) => {
-            if (seen[bucket].has(name)) return; // de-dup
-            seen[bucket].add(name);
-            arr.push(name);
-        };
-        for (const v of values) {
-            const name = v && v.Name;
-            if (!name) continue;
-            const aName = String(v.AttributeName || '').toLowerCase();
-            // Classify by AttributeId first (stable); fall back to AttributeName
-            // for the three categories we care about. Other attributes are skipped.
-            if (v.AttributeId === TPOS_ATTR.COLOR || /\bmàu\b|\bmau\b/.test(aName)) {
-                push('color', colors, name);
-            } else if (v.AttributeId === TPOS_ATTR.SIZE_NUM || /size\s*s[ốo]/.test(aName)) {
-                push('sizeNum', sizeNum, name);
-            } else if (v.AttributeId === TPOS_ATTR.SIZE_CHAR || /size\s*ch[ữu]/.test(aName)) {
-                push('sizeChar', sizeChar, name);
-            }
-        }
-
+        const raw = await _getRawAttrBuckets(force);
+        const order = await _loadAttrOrder(getDb(req));
         const data = {
-            colors: colors.length ? colors : PRODUCT_ATTR_FALLBACK.colors,
-            sizeNum: sizeNum.length ? sizeNum : PRODUCT_ATTR_FALLBACK.sizeNum,
-            sizeChar: sizeChar.length ? sizeChar : PRODUCT_ATTR_FALLBACK.sizeChar,
+            colors: _applyAttrOrder(raw.data.colors, order && order.colors),
+            sizeNum: _applyAttrOrder(raw.data.sizeNum, order && order.sizeNum),
+            sizeChar: _applyAttrOrder(raw.data.sizeChar, order && order.sizeChar),
         };
-        _productAttrCache = { ts: now, data };
-        res.json({ success: true, data, cached: false });
+        res.json({
+            success: true,
+            data,
+            cached: raw.cached,
+            stale: raw.stale,
+            fallback: raw.fallback,
+        });
     } catch (err) {
         console.error('[inventory] product-attributes error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Save the shared custom display order for màu/size (drag-to-reorder). One row
+// for the whole shop → every machine loads it on next modal open.
+router.put('/product-attributes/order', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const user = getUserFromHeaders(req);
+        const clean = (a) =>
+            Array.isArray(a)
+                ? [...new Set(a.filter((x) => typeof x === 'string' && x.trim()))].slice(0, 2000)
+                : [];
+        const colors = clean(req.body && req.body.colors);
+        const sizeNum = clean(req.body && req.body.sizeNum);
+        const sizeChar = clean(req.body && req.body.sizeChar);
+
+        await db.query(
+            `INSERT INTO inventory_attr_order (id, colors, size_num, size_char, updated_by, updated_at)
+             VALUES (1, $1::jsonb, $2::jsonb, $3::jsonb, $4, NOW())
+             ON CONFLICT (id) DO UPDATE SET
+                 colors = EXCLUDED.colors,
+                 size_num = EXCLUDED.size_num,
+                 size_char = EXCLUDED.size_char,
+                 updated_by = EXCLUDED.updated_by,
+                 updated_at = NOW()`,
+            [JSON.stringify(colors), JSON.stringify(sizeNum), JSON.stringify(sizeChar), user]
+        );
+
+        notify('inventory_attr_order', 'update', { by: user });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[inventory] save attr order error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -351,6 +435,17 @@ async function ensureInventorySchema(db) {
         CREATE TABLE IF NOT EXISTS inventory_hidden_nccs (
             stt_ncc INTEGER PRIMARY KEY,
             hidden_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        -- Custom display order for variant attributes (màu / size). One shared
+        -- row (id=1) for the whole shop → kéo sắp xếp lưu lên đây, mọi máy load về.
+        CREATE TABLE IF NOT EXISTS inventory_attr_order (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            colors JSONB NOT NULL DEFAULT '[]'::jsonb,
+            size_num JSONB NOT NULL DEFAULT '[]'::jsonb,
+            size_char JSONB NOT NULL DEFAULT '[]'::jsonb,
+            updated_by TEXT,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT inventory_attr_order_singleton CHECK (id = 1)
         );
     `);
     _invSchemaReady = true;

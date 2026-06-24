@@ -11,7 +11,6 @@
 // localStorage giờ CHỈ là cache để vẽ nhanh (tránh modal trống lúc mới mở); server
 // mới là nguồn sự thật, nên các máy hội tụ về cùng 1 danh sách.
 const TPOS_ATTR_CACHE_KEY = 'tpos_attribute_values_cache';
-const TPOS_ATTR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // Fallback defaults (shown while TPOS loads, or if TPOS fails)
 let VARIANT_COLORS = ['Trắng', 'Đen', 'Xám', 'Xanh', 'Vàng', 'Hồng', 'Cam', 'Tím', 'Đỏ', 'Nâu'];
@@ -33,15 +32,20 @@ let VARIANT_SIZE_NUM = [
 ];
 let VARIANT_SIZE_CHAR = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
+// SWR throttle: fast-paint from cache instantly, but ALWAYS revalidate against
+// the server (throttled) so a custom order saved on another machine shows up on
+// the next modal open. Without this, a fresh 24h cache would hide the new order.
+let _lastAttrFetchTs = 0;
+const _ATTR_REVALIDATE_MS = 10 * 1000;
+
 /**
  * Load the shared Màu/Size lists from the server (same for every machine).
- * localStorage is used only as a fast-paint cache so the modal isn't empty on
- * first open; the server endpoint is the source of truth.
+ * localStorage is only a fast-paint cache; the server endpoint is the source of
+ * truth (including the saved drag-to-reorder order).
  */
 async function _loadTposAttributes(forceRefresh = false) {
-    // 1. Fast-paint from localStorage so the modal renders instantly. We still
-    //    revalidate against the server below unless the cache is fresh.
-    let cacheFresh = false;
+    // 1. Fast-paint from localStorage so the modal renders instantly. This does
+    //    NOT short-circuit revalidation — order changes must still propagate.
     if (!forceRefresh) {
         try {
             const cached = JSON.parse(localStorage.getItem(TPOS_ATTR_CACHE_KEY) || 'null');
@@ -49,17 +53,18 @@ async function _loadTposAttributes(forceRefresh = false) {
                 if (cached.colors) VARIANT_COLORS = cached.colors;
                 if (cached.sizeNum) VARIANT_SIZE_NUM = cached.sizeNum;
                 if (cached.sizeChar) VARIANT_SIZE_CHAR = cached.sizeChar;
-                cacheFresh =
-                    cached.timestamp && Date.now() - cached.timestamp < TPOS_ATTR_CACHE_TTL;
             }
         } catch (_) {
             /* ignore */
         }
-        if (cacheFresh) return; // server list changes rarely → skip network
+        // Throttle the network call (avoid double-fetch on preload + open) but
+        // still revalidate on each genuinely-new open.
+        if (Date.now() - _lastAttrFetchTs < _ATTR_REVALIDATE_MS) return;
     }
+    _lastAttrFetchTs = Date.now();
 
-    // 2. Fetch the SHARED list from the server. All machines get the same data,
-    //    so the variant modal can no longer diverge across computers.
+    // 2. Fetch the SHARED list from the server. All machines get the same data
+    //    + the same custom order, so the variant modal can't diverge.
     try {
         if (typeof productAttributesApi === 'undefined') return;
         const data = await productAttributesApi.get({ refresh: forceRefresh });
@@ -193,6 +198,9 @@ async function openVariantModal(td) {
         input.oninput = (e) => _filterVariantOptions(e.target.dataset.target, e.target.value);
     });
 
+    // Drag-to-reorder màu/size (saved order, shared across machines)
+    _setupVariantDnd();
+
     // Setup create button
     document.getElementById('btnCreateVariants').onclick = _saveVariants;
 
@@ -242,12 +250,164 @@ function _renderVariantOptions(containerId, items, selectedSet) {
             const checked = selectedSet.has(item);
             return `
             <label class="variant-option" data-value="${_escAttr(item)}">
+                <span class="variant-drag" draggable="true" title="Kéo để sắp xếp thứ tự" aria-hidden="true" onclick="event.preventDefault();event.stopPropagation();">⠿</span>
                 <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._toggleVariant('${containerId}', '${_escAttr(item)}', this.checked)">
-                <span>${item}</span>
+                <span class="variant-opt-label">${item}</span>
             </label>
         `;
         })
         .join('');
+}
+
+// ── Drag-to-reorder màu/size (saved order shared across machines) ──────────────
+let _variantDrag = null;
+let _saveOrderTimer = null;
+
+const _VARIANT_COLS = [
+    { id: 'variantColorList', key: 'color' },
+    { id: 'variantSizeNumList', key: 'sizeNum' },
+    { id: 'variantSizeCharList', key: 'sizeChar' },
+];
+
+function _variantArr(key) {
+    return key === 'color'
+        ? VARIANT_COLORS
+        : key === 'sizeNum'
+          ? VARIANT_SIZE_NUM
+          : VARIANT_SIZE_CHAR;
+}
+function _setVariantArr(key, arr) {
+    if (key === 'color') VARIANT_COLORS = arr;
+    else if (key === 'sizeNum') VARIANT_SIZE_NUM = arr;
+    else VARIANT_SIZE_CHAR = arr;
+}
+function _variantSelSet(key) {
+    return key === 'color'
+        ? _variantSelections.color
+        : key === 'sizeNum'
+          ? _variantSelections.sizeNum
+          : _variantSelections.sizeChar;
+}
+function _clearDropMarkers(container) {
+    container
+        .querySelectorAll('.drop-before, .drop-after')
+        .forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+}
+
+/**
+ * Wire HTML5 drag-and-drop on each column container. Handlers live on the
+ * container (not per item) so they survive innerHTML re-renders; assignment is
+ * idempotent. Drag is restricted to the same column (can't drop màu into size).
+ */
+function _setupVariantDnd() {
+    for (const { id, key } of _VARIANT_COLS) {
+        const container = document.getElementById(id);
+        if (!container) continue;
+
+        container.ondragstart = (e) => {
+            // Only the grip (.variant-drag) starts a drag.
+            if (!e.target.closest('.variant-drag')) {
+                e.preventDefault();
+                return;
+            }
+            const opt = e.target.closest('.variant-option');
+            if (!opt) return;
+            _variantDrag = { id, key, value: opt.dataset.value };
+            opt.classList.add('variant-dragging');
+            try {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', opt.dataset.value);
+            } catch (_) {
+                /* ignore */
+            }
+        };
+
+        container.ondragover = (e) => {
+            if (!_variantDrag || _variantDrag.id !== id) return; // same column only
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            _clearDropMarkers(container);
+            const over = e.target.closest('.variant-option');
+            if (over && over.dataset.value !== _variantDrag.value) {
+                const rect = over.getBoundingClientRect();
+                const after = e.clientY - rect.top > rect.height / 2;
+                over.classList.add(after ? 'drop-after' : 'drop-before');
+            }
+        };
+
+        container.ondrop = (e) => {
+            if (!_variantDrag || _variantDrag.id !== id) return;
+            e.preventDefault();
+            _clearDropMarkers(container);
+            const over = e.target.closest('.variant-option');
+            let after = true;
+            if (over) {
+                const rect = over.getBoundingClientRect();
+                after = e.clientY - rect.top > rect.height / 2;
+            }
+            _reorderVariant(key, _variantDrag.value, over ? over.dataset.value : null, after);
+            _variantDrag = null;
+        };
+
+        container.ondragend = () => {
+            _clearDropMarkers(container);
+            container
+                .querySelectorAll('.variant-dragging')
+                .forEach((el) => el.classList.remove('variant-dragging'));
+            _variantDrag = null;
+        };
+    }
+}
+
+function _reorderVariant(key, dragged, target, after) {
+    const arr = _variantArr(key);
+    const from = arr.indexOf(dragged);
+    if (from < 0) return; // out-of-list (discontinued) values aren't reorderable
+    const copy = arr.slice();
+    copy.splice(from, 1);
+    let to = copy.length;
+    if (target != null) {
+        const ti = copy.indexOf(target);
+        to = ti < 0 ? copy.length : after ? ti + 1 : ti;
+    }
+    copy.splice(to, 0, dragged);
+    _setVariantArr(key, copy);
+
+    const col = _VARIANT_COLS.find((c) => c.key === key);
+    _renderVariantOptions(col.id, copy, _variantSelSet(key));
+    _saveVariantOrderDebounced();
+}
+
+// Persist the shared order (debounced) so all machines load it on next open.
+function _saveVariantOrderDebounced() {
+    clearTimeout(_saveOrderTimer);
+    _saveOrderTimer = setTimeout(async () => {
+        try {
+            if (typeof productAttributesApi === 'undefined') return;
+            await productAttributesApi.saveOrder({
+                colors: VARIANT_COLORS,
+                sizeNum: VARIANT_SIZE_NUM,
+                sizeChar: VARIANT_SIZE_CHAR,
+            });
+            try {
+                localStorage.setItem(
+                    TPOS_ATTR_CACHE_KEY,
+                    JSON.stringify({
+                        timestamp: Date.now(),
+                        colors: VARIANT_COLORS,
+                        sizeNum: VARIANT_SIZE_NUM,
+                        sizeChar: VARIANT_SIZE_CHAR,
+                    })
+                );
+            } catch (_) {
+                /* ignore */
+            }
+            window.notificationManager?.success('Đã lưu thứ tự màu/size');
+        } catch (err) {
+            console.error('[VARIANT] save order failed:', err);
+            window.notificationManager?.error('Không lưu được thứ tự màu/size');
+        }
+    }, 800);
 }
 
 function _filterVariantOptions(containerId, query) {

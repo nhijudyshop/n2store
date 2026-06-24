@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [feat] Biến thể (inventory-tracking) — kéo sắp xếp thứ tự Màu/Size, lưu DB, load về các máy
+
+User: "Vị trí màu, size cho kéo lưu vị trí lại cho dễ dùng -> lưu lên db load về các máy."
+
+Files: `render.com/routes/v2/inventory-tracking.js`, `inventory-tracking/js/api-client.js`, `inventory-tracking/js/modal-variant.js`, `inventory-tracking/css/modern.css`, `inventory-tracking/index.html`.
+
+- **Server**: bảng mới `inventory_attr_order` (1 dòng id=1, JSONB `colors/size_num/size_char` — thứ tự CHUNG cho cả shop). `GET /product-attributes` tách 2 lớp: cache RAW buckets TPOS (24h) + áp thứ tự đã lưu **mỗi request** (`_applyAttrOrder`: value đã lưu lên trước theo thứ tự, value TPOS mới nối đuôi) → đổi thứ tự KHÔNG refetch TPOS. Endpoint mới `PUT /product-attributes/order` upsert dòng singleton + notify SSE `inventory_attr_order`.
+- **Client**: grip `⠿` (draggable) đầu mỗi ô Màu/Size số/Size chữ; HTML5 DnD gắn ở **container** (sống qua re-render, idempotent), **chỉ cùng cột** (không kéo màu sang size). Thả → `_reorderVariant` cập nhật mảng VARIANT\_\* + re-render + `_saveVariantOrderDebounced` (800ms) PUT server + cập nhật localStorage + toast.
+- **SWR**: `_loadTposAttributes` bỏ early-return theo TTL → luôn revalidate server (throttle 10s) → thứ tự lưu ở máy khác hiện ra lần mở modal kế tiếp ("load về các máy"). localStorage chỉ vẽ nhanh.
+- **Verified browser (client)**: 80 grip render, `draggable=true`, 3 handler container đúng; `_reorderVariant("color","Cam","Bạc",false)` → `["Cam","Bạc","Beo",…]`; save PUT fire đúng path (404 vì server chưa deploy lúc test → OK sau deploy). Server verify sau Render deploy.
+- Bump version css/modern.css + api-client.js + modal-variant.js → 20260624c.
+
 ### [fix] Biến thể (inventory-tracking) — Màu/Size load KHÁC NHAU giữa các máy (client chưa dùng endpoint chung)
 
 User: "Audit -> debug biến thể... hình như đang bị 2 cái đè lên lẫn nhau" → làm rõ: "Nó load không đúng dữ liệu ở các máy". Không phải lỗi CSS — là lỗi **dữ liệu load khác nhau giữa các máy**.

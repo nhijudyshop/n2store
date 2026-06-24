@@ -1562,6 +1562,40 @@ tr.ncc-row-hidden {
 .variant-option:hover {
     background: var(--gray-100);
 }
+.variant-opt-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Drag handle — kéo để sắp xếp thứ tự màu/size (lưu lên DB, load về các máy) */
+.variant-drag {
+    cursor: grab;
+    color: var(--gray-400);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 2px;
+    user-select: none;
+    flex: 0 0 auto;
+    touch-action: none;
+}
+.variant-drag:hover {
+    color: var(--gray-600);
+}
+.variant-drag:active {
+    cursor: grabbing;
+}
+.variant-option.variant-dragging {
+    opacity: 0.45;
+    background: var(--gray-100);
+}
+.variant-option.drop-before {
+    box-shadow: inset 0 2px 0 var(--primary, #4a7cff);
+}
+.variant-option.drop-after {
+    box-shadow: inset 0 -2px 0 var(--primary, #4a7cff);
+}
 
 /* Locked group — grayed out and non-interactive */
 .variant-group-locked {
