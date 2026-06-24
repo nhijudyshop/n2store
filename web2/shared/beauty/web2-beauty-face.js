@@ -222,9 +222,11 @@
     }
 
     // Trả về điểm mốc theo PIXEL của khuôn mặt đầu tiên (hoặc null nếu không thấy).
-    // Nhận diện trên BẢN THU NHỎ (≤1024px) cho nhanh — điểm mốc normalize 0..1 nên
-    // map ngược về W,H gốc vẫn đúng. (infer chậm chủ yếu do ảnh lớn + lần đầu.)
-    const DETECT_MAX = 1024;
+    // Nhận diện trên BẢN THU NHỎ cho nhanh — điểm mốc normalize 0..1 nên map ngược về
+    // W,H gốc vẫn đúng. 2026-06-24: 1024→640. FaceLandmarker.detect chạy SYNC chặn
+    // main-thread → ảnh to = UI "đứng/stuck" (nặng nhất trên máy yếu / browser không SIMD).
+    // 640px đủ chính xác landmark, nhanh ~2.5× → giảm freeze.
+    const DETECT_MAX = 640;
     async function detect(srcEl) {
         const fl = await getLandmarker();
         const W = srcEl.naturalWidth || srcEl.videoWidth || srcEl.width;
