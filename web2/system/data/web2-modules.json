@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-06-24T10:23:36.889Z",
+    "generatedAt": "2026-06-24T10:30:55.979Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
         "sharedModules": 126,
@@ -40,6 +40,7 @@
             "api": [],
             "lines": 365,
             "consumerCount": 4,
+            "consumerPages": ["web2/video-beauty"],
             "category": "beauty"
         },
         {
@@ -50,6 +51,7 @@
             "api": [],
             "lines": 397,
             "consumerCount": 4,
+            "consumerPages": ["web2/video-beauty"],
             "category": "beauty"
         },
         {
@@ -60,6 +62,7 @@
             "api": [],
             "lines": 524,
             "consumerCount": 1,
+            "consumerPages": ["web2/ai-photo"],
             "category": "beauty"
         },
         {
@@ -70,6 +73,7 @@
             "api": [],
             "lines": 212,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -80,6 +84,7 @@
             "api": [],
             "lines": 116,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -90,6 +95,7 @@
             "api": [],
             "lines": 475,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -100,6 +106,7 @@
             "api": [],
             "lines": 415,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -110,6 +117,7 @@
             "api": [],
             "lines": 194,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -120,6 +128,7 @@
             "api": [],
             "lines": 120,
             "consumerCount": 13,
+            "consumerPages": ["live-chat", "native-orders"],
             "category": "chat"
         },
         {
@@ -130,6 +139,7 @@
             "api": [],
             "lines": 33,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -140,6 +150,7 @@
             "api": [],
             "lines": 617,
             "consumerCount": 4,
+            "consumerPages": ["native-orders"],
             "category": "other"
         },
         {
@@ -150,6 +161,7 @@
             "api": [],
             "lines": 763,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "popup-ui"
         },
         {
@@ -160,6 +172,34 @@
             "api": [],
             "lines": 481,
             "consumerCount": 55,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "so-order",
+                "web2/ai-hub",
+                "web2/balance-history",
+                "web2/cham-cong",
+                "web2/chi-tieu",
+                "web2/customer-wallet",
+                "web2/customers",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-invoice",
+                "web2/fastsaleorder-refund",
+                "web2/fb-ads-stats",
+                "web2/fb-posts",
+                "web2/live-control",
+                "web2/order-tags",
+                "web2/pancake-settings",
+                "web2/payment-confirm",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/reconcile",
+                "web2/returns",
+                "web2/system",
+                "web2/users",
+                "web2/variants",
+                "web2/zalo"
+            ],
             "category": "popup-ui"
         },
         {
@@ -170,6 +210,7 @@
             "api": [],
             "lines": 395,
             "consumerCount": 2,
+            "consumerPages": ["web2/ai-assistant"],
             "category": "other"
         },
         {
@@ -180,6 +221,7 @@
             "api": [],
             "lines": 659,
             "consumerCount": 4,
+            "consumerPages": ["web2/ai-hub"],
             "category": "other"
         },
         {
@@ -190,6 +232,7 @@
             "api": [],
             "lines": 82,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "format-util"
         },
         {
@@ -200,6 +243,7 @@
             "api": [],
             "lines": 94,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "format-util"
         },
         {
@@ -210,6 +254,7 @@
             "api": [],
             "lines": 245,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -220,6 +265,24 @@
             "api": [],
             "lines": 380,
             "consumerCount": 19,
+            "consumerPages": [
+                "native-orders",
+                "so-order",
+                "web2/balance-history",
+                "web2/customers",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-refund",
+                "web2/fb-posts",
+                "web2/jt-tracking",
+                "web2/kpi",
+                "web2/live-control",
+                "web2/order-tags",
+                "web2/reconcile",
+                "web2/returns",
+                "web2/supplier-debt",
+                "web2/supplier-wallet",
+                "web2/users"
+            ],
             "category": "format-util"
         },
         {
@@ -230,6 +293,41 @@
             "api": [],
             "lines": 246,
             "consumerCount": 127,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "so-order",
+                "web2/ai-assistant",
+                "web2/ai-hub",
+                "web2/balance-history",
+                "web2/cham-cong",
+                "web2/chi-tieu",
+                "web2/ck-dashboard",
+                "web2/customer-wallet",
+                "web2/customers",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-invoice",
+                "web2/fastsaleorder-refund",
+                "web2/fb-ads-stats",
+                "web2/fb-posts",
+                "web2/jt-tracking",
+                "web2/kpi",
+                "web2/multi-tool",
+                "web2/order-tags",
+                "web2/pancake-settings",
+                "web2/payment-confirm",
+                "web2/photo-studio",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/reconcile",
+                "web2/returns",
+                "web2/supplier-debt",
+                "web2/supplier-wallet",
+                "web2/system",
+                "web2/users",
+                "web2/variants",
+                "web2/video-maker"
+            ],
             "category": "format-util"
         },
         {
@@ -240,6 +338,7 @@
             "api": [],
             "lines": 140,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "format-util"
         },
         {
@@ -250,6 +349,7 @@
             "api": [],
             "lines": 443,
             "consumerCount": 3,
+            "consumerPages": ["web2/reconcile"],
             "category": "qr-barcode"
         },
         {
@@ -260,6 +360,7 @@
             "api": [],
             "lines": 325,
             "consumerCount": 1,
+            "consumerPages": ["web2/ai-photo"],
             "category": "other"
         },
         {
@@ -274,6 +375,7 @@
             ],
             "lines": 86,
             "consumerCount": 3,
+            "consumerPages": ["web2/ai-hub"],
             "category": "other"
         },
         {
@@ -284,6 +386,7 @@
             "api": [],
             "lines": 753,
             "consumerCount": 3,
+            "consumerPages": ["native-orders", "web2/fastsaleorder-invoice"],
             "category": "other"
         },
         {
@@ -294,6 +397,7 @@
             "api": [],
             "lines": 187,
             "consumerCount": 4,
+            "consumerPages": ["live-chat", "native-orders", "web2/live-control", "web2/live-tv"],
             "category": "campaign"
         },
         {
@@ -304,6 +408,7 @@
             "api": [],
             "lines": 139,
             "consumerCount": 2,
+            "consumerPages": [],
             "category": "image"
         },
         {
@@ -314,6 +419,7 @@
             "api": [],
             "lines": 403,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -324,6 +430,15 @@
             "api": [],
             "lines": 107,
             "consumerCount": 41,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "web2/balance-history",
+                "web2/customers",
+                "web2/jt-tracking",
+                "web2/multi-tool",
+                "web2/pancake-settings"
+            ],
             "category": "chat"
         },
         {
@@ -334,6 +449,7 @@
             "api": [],
             "lines": 274,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -344,6 +460,7 @@
             "api": [],
             "lines": 140,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -354,6 +471,7 @@
             "api": [],
             "lines": 156,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -364,6 +482,7 @@
             "api": [],
             "lines": 268,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -374,6 +493,7 @@
             "api": [],
             "lines": 128,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -384,6 +504,7 @@
             "api": [],
             "lines": 269,
             "consumerCount": 1,
+            "consumerPages": ["native-orders"],
             "category": "other"
         },
         {
@@ -394,6 +515,7 @@
             "api": [],
             "lines": 494,
             "consumerCount": 2,
+            "consumerPages": ["native-orders", "web2/ck-dashboard"],
             "category": "other"
         },
         {
@@ -404,6 +526,7 @@
             "api": [],
             "lines": 269,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "sidebar-nav"
         },
         {
@@ -414,6 +537,7 @@
             "api": [],
             "lines": 544,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -424,6 +548,7 @@
             "api": [],
             "lines": 228,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -434,6 +559,7 @@
             "api": [],
             "lines": 214,
             "consumerCount": 12,
+            "consumerPages": ["native-orders", "web2/balance-history", "web2/jt-tracking"],
             "category": "chat"
         },
         {
@@ -444,6 +570,7 @@
             "api": [],
             "lines": 417,
             "consumerCount": 3,
+            "consumerPages": ["web2/balance-history", "web2/customers"],
             "category": "customers"
         },
         {
@@ -454,6 +581,7 @@
             "api": [],
             "lines": 66,
             "consumerCount": 7,
+            "consumerPages": ["web2/balance-history", "web2/customer-wallet"],
             "category": "customers"
         },
         {
@@ -464,6 +592,7 @@
             "api": [],
             "lines": 521,
             "consumerCount": 12,
+            "consumerPages": ["live-chat", "web2/balance-history"],
             "category": "customers"
         },
         {
@@ -474,6 +603,7 @@
             "api": [],
             "lines": 145,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -484,6 +614,12 @@
             "api": [],
             "lines": 101,
             "consumerCount": 7,
+            "consumerPages": [
+                "so-order",
+                "web2/products",
+                "web2/supplier-debt",
+                "web2/supplier-wallet"
+            ],
             "category": "other"
         },
         {
@@ -494,6 +630,7 @@
             "api": [],
             "lines": 313,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -504,6 +641,7 @@
             "api": [],
             "lines": 794,
             "consumerCount": 8,
+            "consumerPages": ["native-orders", "so-order", "web2/products"],
             "category": "video"
         },
         {
@@ -514,6 +652,31 @@
             "api": [],
             "lines": 64,
             "consumerCount": 48,
+            "consumerPages": [
+                "native-orders",
+                "so-order",
+                "web2/balance-history",
+                "web2/ck-dashboard",
+                "web2/customer-wallet",
+                "web2/customers",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-refund",
+                "web2/kpi",
+                "web2/live-control",
+                "web2/live-tv",
+                "web2/multi-tool",
+                "web2/order-tags",
+                "web2/payment-confirm",
+                "web2/product-card",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/reconcile",
+                "web2/supplier-debt",
+                "web2/supplier-wallet",
+                "web2/users",
+                "web2/variants",
+                "web2/video-maker"
+            ],
             "category": "format-util"
         },
         {
@@ -524,6 +687,7 @@
             "api": [],
             "lines": 160,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -534,6 +698,7 @@
             "api": [],
             "lines": 91,
             "consumerCount": 5,
+            "consumerPages": ["live-chat", "web2/zalo"],
             "category": "other"
         },
         {
@@ -544,6 +709,7 @@
             "api": [],
             "lines": 120,
             "consumerCount": 8,
+            "consumerPages": ["web2/fb-ads-stats", "web2/fb-insights", "web2/fb-posts"],
             "category": "other"
         },
         {
@@ -554,6 +720,7 @@
             "api": [],
             "lines": 147,
             "consumerCount": 1,
+            "consumerPages": ["web2/fb-posts"],
             "category": "other"
         },
         {
@@ -564,6 +731,7 @@
             "api": [],
             "lines": 100,
             "consumerCount": 3,
+            "consumerPages": ["web2/fb-posts", "web2/photo-studio", "web2/product-card"],
             "category": "other"
         },
         {
@@ -574,6 +742,18 @@
             "api": [],
             "lines": 92,
             "consumerCount": 20,
+            "consumerPages": [
+                "so-order",
+                "web2/balance-history",
+                "web2/ck-dashboard",
+                "web2/customer-wallet",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-refund",
+                "web2/kpi",
+                "web2/payment-confirm",
+                "web2/supplier-debt",
+                "web2/supplier-wallet"
+            ],
             "category": "format-util"
         },
         {
@@ -584,6 +764,13 @@
             "api": [],
             "lines": 238,
             "consumerCount": 8,
+            "consumerPages": [
+                "web2/ck-dashboard",
+                "web2/customers",
+                "web2/payment-confirm",
+                "web2/purchase-refund",
+                "web2/reconcile"
+            ],
             "category": "format-util"
         },
         {
@@ -594,6 +781,12 @@
             "api": [],
             "lines": 183,
             "consumerCount": 5,
+            "consumerPages": [
+                "so-order",
+                "web2/cham-cong",
+                "web2/purchase-refund",
+                "web2/supplier-wallet"
+            ],
             "category": "cache"
         },
         {
@@ -604,6 +797,7 @@
             "api": [],
             "lines": 295,
             "consumerCount": 2,
+            "consumerPages": ["web2/ai-photo", "web2/product-card"],
             "category": "image"
         },
         {
@@ -614,6 +808,7 @@
             "api": [],
             "lines": 353,
             "consumerCount": 5,
+            "consumerPages": ["web2/live-tv", "web2/purchase-refund"],
             "category": "image"
         },
         {
@@ -624,6 +819,12 @@
             "api": [],
             "lines": 595,
             "consumerCount": 6,
+            "consumerPages": [
+                "web2/chi-tieu",
+                "web2/fb-posts",
+                "web2/photo-studio",
+                "web2/video-maker"
+            ],
             "category": "image"
         },
         {
@@ -634,6 +835,7 @@
             "api": [],
             "lines": 565,
             "consumerCount": 4,
+            "consumerPages": ["so-order", "web2/products"],
             "category": "other"
         },
         {
@@ -644,6 +846,7 @@
             "api": [],
             "lines": 96,
             "consumerCount": 3,
+            "consumerPages": [],
             "category": "format-util"
         },
         {
@@ -654,6 +857,7 @@
             "api": [],
             "lines": 97,
             "consumerCount": 4,
+            "consumerPages": ["native-orders", "web2/kpi"],
             "category": "kpi"
         },
         {
@@ -664,6 +868,7 @@
             "api": [],
             "lines": 433,
             "consumerCount": 2,
+            "consumerPages": ["web2/reconcile"],
             "category": "scanner-count"
         },
         {
@@ -674,6 +879,7 @@
             "api": [],
             "lines": 379,
             "consumerCount": 3,
+            "consumerPages": ["web2/ai-photo", "web2/product-card"],
             "category": "image"
         },
         {
@@ -684,6 +890,7 @@
             "api": [],
             "lines": 391,
             "consumerCount": 8,
+            "consumerPages": [],
             "category": "video"
         },
         {
@@ -694,6 +901,7 @@
             "api": [],
             "lines": 98,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "video"
         },
         {
@@ -704,6 +912,7 @@
             "api": [],
             "lines": 265,
             "consumerCount": 3,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -714,6 +923,7 @@
             "api": [],
             "lines": 500,
             "consumerCount": 3,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -724,6 +934,7 @@
             "api": [],
             "lines": 264,
             "consumerCount": 3,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -734,6 +945,7 @@
             "api": [],
             "lines": 99,
             "consumerCount": 5,
+            "consumerPages": ["native-orders"],
             "category": "chat"
         },
         {
@@ -744,6 +956,7 @@
             "api": [],
             "lines": 305,
             "consumerCount": 1,
+            "consumerPages": ["native-orders"],
             "category": "chat"
         },
         {
@@ -754,6 +967,7 @@
             "api": [],
             "lines": 188,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "popup-ui"
         },
         {
@@ -764,6 +978,7 @@
             "api": [],
             "lines": 49,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "popup-ui"
         },
         {
@@ -774,6 +989,23 @@
             "api": [],
             "lines": 110,
             "consumerCount": 24,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "so-order",
+                "web2/ck-dashboard",
+                "web2/customers",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-invoice",
+                "web2/fastsaleorder-refund",
+                "web2/jt-tracking",
+                "web2/pancake-settings",
+                "web2/payment-confirm",
+                "web2/products",
+                "web2/users",
+                "web2/variants",
+                "web2/zalo"
+            ],
             "category": "optimistic"
         },
         {
@@ -784,6 +1016,7 @@
             "api": [],
             "lines": 389,
             "consumerCount": 2,
+            "consumerPages": ["native-orders"],
             "category": "popup-ui"
         },
         {
@@ -794,6 +1027,7 @@
             "api": [],
             "lines": 93,
             "consumerCount": 2,
+            "consumerPages": ["native-orders", "web2/order-tags"],
             "category": "popup-ui"
         },
         {
@@ -804,6 +1038,7 @@
             "api": [],
             "lines": 427,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "scanner-count"
         },
         {
@@ -814,6 +1049,7 @@
             "api": [],
             "lines": 300,
             "consumerCount": 4,
+            "consumerPages": ["live-chat", "web2/pancake-settings"],
             "category": "suppliers"
         },
         {
@@ -824,6 +1060,7 @@
             "api": [],
             "lines": 150,
             "consumerCount": 1,
+            "consumerPages": ["web2/balance-history"],
             "category": "suppliers"
         },
         {
@@ -834,6 +1071,7 @@
             "api": [],
             "lines": 207,
             "consumerCount": 2,
+            "consumerPages": ["web2/pancake-settings"],
             "category": "suppliers"
         },
         {
@@ -844,6 +1082,7 @@
             "api": [],
             "lines": 142,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -854,6 +1093,7 @@
             "api": [],
             "lines": 38,
             "consumerCount": 5,
+            "consumerPages": [],
             "category": "format-util"
         },
         {
@@ -864,6 +1104,7 @@
             "api": [],
             "lines": 220,
             "consumerCount": 1,
+            "consumerPages": ["web2/video-maker"],
             "category": "other"
         },
         {
@@ -874,6 +1115,7 @@
             "api": [],
             "lines": 740,
             "consumerCount": 3,
+            "consumerPages": ["web2/products"],
             "category": "other"
         },
         {
@@ -884,6 +1126,7 @@
             "api": [],
             "lines": 594,
             "consumerCount": 5,
+            "consumerPages": ["so-order", "web2/products"],
             "category": "products"
         },
         {
@@ -894,6 +1137,7 @@
             "api": [],
             "lines": 570,
             "consumerCount": 4,
+            "consumerPages": ["web2/product-counter"],
             "category": "scanner-count"
         },
         {
@@ -904,6 +1148,7 @@
             "api": [],
             "lines": 168,
             "consumerCount": 1,
+            "consumerPages": ["web2/fb-posts"],
             "category": "products"
         },
         {
@@ -914,6 +1159,12 @@
             "api": [],
             "lines": 150,
             "consumerCount": 12,
+            "consumerPages": [
+                "so-order",
+                "web2/live-control",
+                "web2/products",
+                "web2/supplier-wallet"
+            ],
             "category": "products"
         },
         {
@@ -924,6 +1175,15 @@
             "api": [],
             "lines": 324,
             "consumerCount": 22,
+            "consumerPages": [
+                "so-order",
+                "web2/fb-posts",
+                "web2/product-card",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/supplier-wallet",
+                "web2/video-maker"
+            ],
             "category": "products"
         },
         {
@@ -934,6 +1194,7 @@
             "api": [],
             "lines": 80,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -944,6 +1205,7 @@
             "api": [],
             "lines": 301,
             "consumerCount": 1,
+            "consumerPages": ["web2/customers"],
             "category": "qr-barcode"
         },
         {
@@ -954,6 +1216,7 @@
             "api": [],
             "lines": 348,
             "consumerCount": 4,
+            "consumerPages": ["web2/product-card", "web2/products"],
             "category": "qr-barcode"
         },
         {
@@ -964,6 +1227,7 @@
             "api": [],
             "lines": 657,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "chat"
         },
         {
@@ -974,6 +1238,7 @@
             "api": [],
             "lines": 599,
             "consumerCount": 5,
+            "consumerPages": ["live-chat", "native-orders"],
             "category": "sse-realtime"
         },
         {
@@ -984,6 +1249,7 @@
             "api": [],
             "lines": 59,
             "consumerCount": 1,
+            "consumerPages": ["native-orders"],
             "category": "other"
         },
         {
@@ -994,6 +1260,23 @@
             "api": [],
             "lines": 853,
             "consumerCount": 16,
+            "consumerPages": [
+                "web2/cham-cong",
+                "web2/chi-tieu",
+                "web2/ck-dashboard",
+                "web2/fb-ads-stats",
+                "web2/fb-insights",
+                "web2/fb-posts",
+                "web2/jt-tracking",
+                "web2/live-control",
+                "web2/multi-tool",
+                "web2/order-tags",
+                "web2/pancake-settings",
+                "web2/payment-confirm",
+                "web2/purchase-refund",
+                "web2/returns",
+                "web2/system"
+            ],
             "category": "sidebar-nav"
         },
         {
@@ -1004,6 +1287,7 @@
             "api": [],
             "lines": 605,
             "consumerCount": 5,
+            "consumerPages": [],
             "category": "other"
         },
         {
@@ -1014,6 +1298,12 @@
             "api": [],
             "lines": 53,
             "consumerCount": 5,
+            "consumerPages": [
+                "live-chat",
+                "web2/purchase-refund",
+                "web2/supplier-debt",
+                "web2/supplier-wallet"
+            ],
             "category": "other"
         },
         {
@@ -1024,6 +1314,7 @@
             "api": [],
             "lines": 129,
             "consumerCount": 1,
+            "consumerPages": ["web2/purchase-refund"],
             "category": "other"
         },
         {
@@ -1034,6 +1325,37 @@
             "api": [],
             "lines": 289,
             "consumerCount": 58,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "so-order",
+                "web2/balance-history",
+                "web2/cham-cong",
+                "web2/chi-tieu",
+                "web2/ck-dashboard",
+                "web2/customer-wallet",
+                "web2/customers",
+                "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-invoice",
+                "web2/fastsaleorder-refund",
+                "web2/fb-posts",
+                "web2/jt-tracking",
+                "web2/kpi",
+                "web2/live-control",
+                "web2/live-tv",
+                "web2/multi-tool",
+                "web2/order-tags",
+                "web2/payment-confirm",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/reconcile",
+                "web2/returns",
+                "web2/supplier-debt",
+                "web2/supplier-wallet",
+                "web2/users",
+                "web2/variants",
+                "web2/zalo"
+            ],
             "category": "sse-realtime"
         },
         {
@@ -1044,6 +1366,7 @@
             "api": [],
             "lines": 28,
             "consumerCount": 0,
+            "consumerPages": [],
             "category": "sse-realtime"
         },
         {
@@ -1054,6 +1377,14 @@
             "api": [],
             "lines": 280,
             "consumerCount": 9,
+            "consumerPages": [
+                "so-order",
+                "web2/balance-history",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/supplier-debt",
+                "web2/supplier-wallet"
+            ],
             "category": "suppliers"
         },
         {
@@ -1064,6 +1395,7 @@
             "api": [],
             "lines": 41,
             "consumerCount": 1,
+            "consumerPages": [],
             "category": "format-util"
         },
         {
@@ -1074,6 +1406,7 @@
             "api": [],
             "lines": 74,
             "consumerCount": 2,
+            "consumerPages": ["web2/video-maker"],
             "category": "format-util"
         },
         {
@@ -1084,6 +1417,7 @@
             "api": [],
             "lines": 151,
             "consumerCount": 1,
+            "consumerPages": ["web2/ck-dashboard"],
             "category": "other"
         },
         {
@@ -1094,6 +1428,22 @@
             "api": [],
             "lines": 154,
             "consumerCount": 24,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "web2/ck-dashboard",
+                "web2/customers",
+                "web2/fastsaleorder-refund",
+                "web2/kpi",
+                "web2/payment-confirm",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/reconcile",
+                "web2/returns",
+                "web2/supplier-debt",
+                "web2/supplier-wallet",
+                "web2/zalo"
+            ],
             "category": "format-util"
         },
         {
@@ -1104,6 +1454,7 @@
             "api": [],
             "lines": 479,
             "consumerCount": 2,
+            "consumerPages": ["web2/users"],
             "category": "other"
         },
         {
@@ -1114,6 +1465,7 @@
             "api": [],
             "lines": 158,
             "consumerCount": 2,
+            "consumerPages": ["web2/live-control", "web2/live-tv"],
             "category": "products"
         },
         {
@@ -1124,6 +1476,7 @@
             "api": [],
             "lines": 192,
             "consumerCount": 5,
+            "consumerPages": ["so-order", "web2/products"],
             "category": "products"
         },
         {
@@ -1134,6 +1487,7 @@
             "api": [],
             "lines": 253,
             "consumerCount": 12,
+            "consumerPages": ["so-order", "web2/products", "web2/variants"],
             "category": "products"
         },
         {
@@ -1144,6 +1498,7 @@
             "api": [],
             "lines": 205,
             "consumerCount": 2,
+            "consumerPages": ["web2/video-maker"],
             "category": "voice-tts"
         },
         {
@@ -1154,6 +1509,7 @@
             "api": [],
             "lines": 227,
             "consumerCount": 4,
+            "consumerPages": ["web2/customer-wallet"],
             "category": "wallet"
         },
         {
@@ -1164,6 +1520,15 @@
             "api": [],
             "lines": 335,
             "consumerCount": 19,
+            "consumerPages": [
+                "live-chat",
+                "native-orders",
+                "web2/balance-history",
+                "web2/ck-dashboard",
+                "web2/customers",
+                "web2/payment-confirm",
+                "web2/returns"
+            ],
             "category": "wallet"
         },
         {
@@ -1174,6 +1539,7 @@
             "api": [],
             "lines": 212,
             "consumerCount": 1,
+            "consumerPages": ["web2/ai-photo"],
             "category": "other"
         },
         {
@@ -1184,6 +1550,7 @@
             "api": [],
             "lines": 250,
             "consumerCount": 10,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1194,6 +1561,7 @@
             "api": [],
             "lines": 388,
             "consumerCount": 4,
+            "consumerPages": ["web2/jt-tracking", "web2/zalo"],
             "category": "chat"
         },
         {
@@ -1204,6 +1572,7 @@
             "api": [],
             "lines": 269,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1214,6 +1583,7 @@
             "api": [],
             "lines": 104,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1224,6 +1594,7 @@
             "api": [],
             "lines": 214,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1234,6 +1605,7 @@
             "api": [],
             "lines": 810,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1244,6 +1616,7 @@
             "api": [],
             "lines": 597,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1254,6 +1627,7 @@
             "api": [],
             "lines": 105,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1264,6 +1638,7 @@
             "api": [],
             "lines": 86,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1274,6 +1649,7 @@
             "api": [],
             "lines": 68,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1284,6 +1660,7 @@
             "api": [],
             "lines": 56,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         },
         {
@@ -1294,6 +1671,7 @@
             "api": [],
             "lines": 113,
             "consumerCount": 11,
+            "consumerPages": ["web2/zalo"],
             "category": "chat"
         }
     ],
@@ -1324,7 +1702,66 @@
                 "NativeOrdersApi",
                 "LiveOrderHistory"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Campaign",
+                    "category": "campaign"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2ChatPanel",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2CustomerStore",
+                    "category": "customers"
+                },
+                {
+                    "name": "Web2Ext",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2PancakeAccounts",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2Realtime",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SoOrder",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 14
         },
         {
             "page": "native-orders",
@@ -1347,35 +1784,258 @@
                     "file": "native-orders/js/native-orders-render.js",
                     "lines": 915
                 }
-            ]
+            ],
+            "usesShared": [
+                {
+                    "name": "DeliveryMethodPicker",
+                    "category": "other"
+                },
+                {
+                    "name": "NativeReturnBill",
+                    "category": "other"
+                },
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "W2MT",
+                    "category": "chat"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Bill",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Campaign",
+                    "category": "campaign"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2ChatPanel",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2CkAssignPicker",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2CkReview",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2CustomerChat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2Effects",
+                    "category": "video"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Kpi",
+                    "category": "kpi"
+                },
+                {
+                    "name": "Web2NewMsgBadge",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2OrderTagDetail",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "Web2OrderTagPill",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "Web2Realtime",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 24
         },
         {
             "page": "so-order",
             "fileCount": 25,
             "totalLines": 7236,
             "globals": ["SoOrder", "SoOrderStorage"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Deeplink",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Effects",
+                    "category": "video"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2IdbStore",
+                    "category": "cache"
+                },
+                {
+                    "name": "Web2Import",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2ProductCode",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2ProductsApi",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SuppliersCache",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2VariantMulti",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2VariantsCache",
+                    "category": "products"
+                }
+            ],
+            "usesSharedCount": 17
         },
         {
             "page": "web2/ai-assistant",
             "fileCount": 1,
             "totalLines": 204,
             "globals": ["AiAssistantAdmin"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AiAssistant",
+                    "category": "other"
+                }
+            ],
+            "usesSharedCount": 2
         },
         {
             "page": "web2/ai-hub",
             "fileCount": 5,
             "totalLines": 1873,
             "globals": ["AiChat", "AiHub", "AiImage", "AiKeys", "AiTryon"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AiPresets",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2BgRemover",
+                    "category": "other"
+                }
+            ],
+            "usesSharedCount": 4
         },
         {
             "page": "web2/ai-photo",
             "fileCount": 1,
             "totalLines": 124,
             "globals": ["AiPhoto"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2BeautyStudio",
+                    "category": "beauty"
+                },
+                {
+                    "name": "Web2BgScene",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2ImageEditor",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2LogoEraser",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2Watermark",
+                    "category": "other"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/balance-history",
@@ -1390,7 +2050,66 @@
                 "W2PM",
                 "Web2PendingMatch"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "PartnerCustomerApi",
+                    "category": "customers"
+                },
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2CustomerChat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2CustomerDetailModal",
+                    "category": "customers"
+                },
+                {
+                    "name": "Web2CustomerStore",
+                    "category": "customers"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2PancakeImport",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SuppliersCache",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 14
         },
         {
             "page": "web2/cham-cong",
@@ -1403,70 +2122,364 @@
                 "ChamCongPayroll",
                 "ChamCongSalary"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2IdbStore",
+                    "category": "cache"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/chi-tieu",
             "fileCount": 3,
             "totalLines": 801,
             "globals": ["ChiTieuApi", "ChiTieu", "ChiTieuReport"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2ImagePaste",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/ck-dashboard",
             "fileCount": 1,
             "totalLines": 469,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2CkReview",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2HistoryTimeline",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UnreadPanel",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 11
         },
         {
             "page": "web2/customer-wallet",
             "fileCount": 5,
             "totalLines": 1493,
             "globals": ["W2CW", "Web2CustomerWalletApp"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "PartnerCustomerApi",
+                    "category": "customers"
+                },
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2WalletApi",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/customers",
             "fileCount": 6,
             "totalLines": 1165,
             "globals": ["CustomersApi"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2CustomerDetailModal",
+                    "category": "customers"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2HistoryTimeline",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2QrModal",
+                    "category": "qr-barcode"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 12
         },
         {
             "page": "web2/fastsaleorder-delivery",
             "fileCount": 1,
             "totalLines": 276,
             "globals": ["DlvApp"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/fastsaleorder-invoice",
             "fileCount": 6,
             "totalLines": 1136,
             "globals": ["PbhActions", "PbhApi", "PbhApp", "PbhFilters", "PbhRender", "PbhState"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Bill",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/fastsaleorder-refund",
             "fileCount": 1,
             "totalLines": 281,
             "globals": ["RfApp"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                }
+            ],
+            "usesSharedCount": 8
         },
         {
             "page": "web2/fb-ads-stats",
             "fileCount": 2,
             "totalLines": 637,
             "globals": ["FBAdsManual"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2FbClient",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                }
+            ],
+            "usesSharedCount": 4
         },
         {
             "page": "web2/fb-insights",
             "fileCount": 1,
             "totalLines": 339,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2FbClient",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                }
+            ],
+            "usesSharedCount": 2
         },
         {
             "page": "web2/fb-posts",
@@ -1479,7 +2492,54 @@
                 "FBPostsList",
                 "FBPostsMedia"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2FbClient",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2FbPostPreview",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2FbShare",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2ImagePaste",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2ProductPicker",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 11
         },
         {
             "page": "web2/jt-tracking",
@@ -1494,63 +2554,317 @@
                 "JtTrackingRender",
                 "JtTrackingState"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2CustomerChat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2Zalo",
+                    "category": "chat"
+                }
+            ],
+            "usesSharedCount": 8
         },
         {
             "page": "web2/kpi",
             "fileCount": 2,
             "totalLines": 661,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Kpi",
+                    "category": "kpi"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/live-control",
             "fileCount": 1,
             "totalLines": 480,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Campaign",
+                    "category": "campaign"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2ProductsApi",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2VariantGroup",
+                    "category": "products"
+                }
+            ],
+            "usesSharedCount": 8
         },
         {
             "page": "web2/live-tv",
             "fileCount": 1,
             "totalLines": 300,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2Campaign",
+                    "category": "campaign"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2ImageLightbox",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2VariantGroup",
+                    "category": "products"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/modules-manifest.js",
             "fileCount": 1,
             "totalLines": 26,
             "globals": ["WEB2_MODULES_MANIFEST"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [],
+            "usesSharedCount": 0
         },
         {
             "page": "web2/multi-tool",
             "fileCount": 1,
             "totalLines": 671,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/order-tags",
             "fileCount": 1,
             "totalLines": 596,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2OrderTagPill",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/pancake-settings",
             "fileCount": 5,
             "totalLines": 1449,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Chat",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2PancakeAccounts",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2PancakeToken",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/payment-confirm",
             "fileCount": 1,
             "totalLines": 403,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2HistoryTimeline",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 10
         },
         {
             "page": "web2/photo-studio",
@@ -1562,21 +2876,70 @@
                     "file": "web2/photo-studio/photo-studio-edit.js",
                     "lines": 806
                 }
-            ]
+            ],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2FbShare",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2ImagePaste",
+                    "category": "image"
+                }
+            ],
+            "usesSharedCount": 3
         },
         {
             "page": "web2/product-card",
             "fileCount": 2,
             "totalLines": 811,
             "globals": ["Web2ProductCard", "ProductCardPage"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2FbShare",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2ImageEditor",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2LogoEraser",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2QR",
+                    "category": "qr-barcode"
+                }
+            ],
+            "usesSharedCount": 6
         },
         {
             "page": "web2/product-counter",
             "fileCount": 1,
             "totalLines": 63,
             "globals": ["ProductCounterPage"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2ProductCounter",
+                    "category": "scanner-count"
+                }
+            ],
+            "usesSharedCount": 1
         },
         {
             "page": "web2/products",
@@ -1589,21 +2952,186 @@
                 "W2PP",
                 "Web2ProductsPrint"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Deeplink",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Effects",
+                    "category": "video"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Import",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2Printer",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2ProductCode",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2ProductsApi",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2QR",
+                    "category": "qr-barcode"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SuppliersCache",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2VariantMulti",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2VariantsCache",
+                    "category": "products"
+                }
+            ],
+            "usesSharedCount": 17
         },
         {
             "page": "web2/purchase-refund",
             "fileCount": 6,
             "totalLines": 1834,
             "globals": ["PurchaseRefund"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2HistoryTimeline",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2IdbStore",
+                    "category": "cache"
+                },
+                {
+                    "name": "Web2ImageLightbox",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SoOrder",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SoOrderUtils",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SuppliersCache",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                }
+            ],
+            "usesSharedCount": 13
         },
         {
             "page": "web2/reconcile",
             "fileCount": 5,
             "totalLines": 1302,
             "globals": ["RC"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2BarcodeScanner",
+                    "category": "qr-barcode"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2HistoryTimeline",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2LabelOcr",
+                    "category": "scanner-count"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                }
+            ],
+            "usesSharedCount": 9
         },
         {
             "page": "web2/returns",
@@ -1619,7 +3147,38 @@
                 "ReturnsItems",
                 "ReturnsTabs"
             ],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2WalletBalance",
+                    "category": "wallet"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/shared",
@@ -1656,28 +3215,135 @@
                     "file": "web2/shared/zalo-chat/chat-view.js",
                     "lines": 810
                 }
-            ]
+            ],
+            "usesShared": [],
+            "usesSharedCount": 0
         },
         {
             "page": "web2/supplier-debt",
             "fileCount": 6,
             "totalLines": 1557,
             "globals": [],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Deeplink",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2SoOrder",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SuppliersCache",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                }
+            ],
+            "usesSharedCount": 9
         },
         {
             "page": "web2/supplier-wallet",
             "fileCount": 6,
             "totalLines": 1477,
             "globals": ["SW_DEBUG", "SupplierWalletStorage"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Deeplink",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2IdbStore",
+                    "category": "cache"
+                },
+                {
+                    "name": "Web2ProductsApi",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2SoOrder",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2SuppliersCache",
+                    "category": "suppliers"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                }
+            ],
+            "usesSharedCount": 12
         },
         {
             "page": "web2/system",
             "fileCount": 5,
             "totalLines": 1447,
             "globals": ["SystemModules", "SystemServices", "SystemSSE", "SystemThirdParty"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                }
+            ],
+            "usesSharedCount": 3
         },
         {
             "page": "web2/users",
@@ -1689,21 +3355,90 @@
                     "file": "web2/users/js/users-app.js",
                     "lines": 974
                 }
-            ]
+            ],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2AuditLog",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserProfile",
+                    "category": "other"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/variants",
             "fileCount": 2,
             "totalLines": 587,
             "globals": ["Web2VariantsApi", "Web2VariantsApp"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2VariantsCache",
+                    "category": "products"
+                }
+            ],
+            "usesSharedCount": 6
         },
         {
             "page": "web2/video-beauty",
             "fileCount": 3,
             "totalLines": 658,
             "globals": ["Web2VideoBeautyExport", "Web2VideoBeautyRender", "VideoBeautyPage"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2BeautyFace",
+                    "category": "beauty"
+                },
+                {
+                    "name": "Web2BeautyFilters",
+                    "category": "beauty"
+                }
+            ],
+            "usesSharedCount": 2
         },
         {
             "page": "web2/video-maker",
@@ -1727,14 +3462,80 @@
                     "file": "web2/video-maker/js/video-maker.js",
                     "lines": 1616
                 }
-            ]
+            ],
+            "usesShared": [
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2ImagePaste",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2PosInstaller",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2ProductsCache",
+                    "category": "products"
+                },
+                {
+                    "name": "Web2Translate",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Vieneu",
+                    "category": "voice-tts"
+                }
+            ],
+            "usesSharedCount": 7
         },
         {
             "page": "web2/zalo",
             "fileCount": 6,
             "totalLines": 1425,
             "globals": ["WZApp"],
-            "oversized": []
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "Web2Ext",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                },
+                {
+                    "name": "Web2UserInfo",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Zalo",
+                    "category": "chat"
+                },
+                {
+                    "name": "Web2ZaloOwner",
+                    "category": "chat"
+                },
+                {
+                    "name": "WZChat",
+                    "category": "chat"
+                }
+            ],
+            "usesSharedCount": 8
         }
     ],
     "backend": {

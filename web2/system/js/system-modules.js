@@ -191,6 +191,13 @@
                     .map((m) => {
                         const big = m.lines > 800;
                         const apiPreview = (m.api || []).slice(0, 6).join(', ');
+                        const pages = m.consumerPages || [];
+                        const pagesTitle = pages.length
+                            ? esc(pages.join(', '))
+                            : 'Chưa trang nào dùng (mồ côi / mới)';
+                        const usedTag = pages.length
+                            ? `<span class="mod-tag" title="${pagesTitle}">🔌 ${pages.length} trang dùng</span>`
+                            : `<span class="mod-tag warn" title="Chưa có trang nào import">🔌 mồ côi</span>`;
                         return `<div class="mod-card">
                             <div class="mod-card-head">
                                 <span class="mod-name">${esc(m.name)}</span>
@@ -199,9 +206,19 @@
                             <div class="mod-file"><code>${esc(m.file)}</code></div>
                             ${m.purpose ? `<div class="mod-purpose">${esc(m.purpose)}</div>` : ''}
                             <div class="mod-meta">
-                                <span class="mod-tag" title="Số trang/file đang dùng">🔌 ${m.consumerCount} nơi dùng</span>
+                                ${usedTag}
                                 ${apiPreview ? `<span class="mod-tag api" title="API public">⚙️ ${esc(apiPreview)}${(m.api || []).length > 6 ? '…' : ''}</span>` : ''}
                             </div>
+                            ${
+                                pages.length
+                                    ? `<div class="mod-used" title="${pagesTitle}"><span class="mod-used-label">Trang:</span> ${pages
+                                          .slice(0, 8)
+                                          .map((p) => `<code>${esc(p)}</code>`)
+                                          .join(
+                                              ' '
+                                          )}${pages.length > 8 ? ` <span class="mod-more">+${pages.length - 8}</span>` : ''}</div>`
+                                    : ''
+                            }
                         </div>`;
                     })
                     .join('');
@@ -214,28 +231,44 @@
     }
 
     function renderPages() {
-        let items = (_data.pages || []).filter((p) => matchQ(p.page, (p.globals || []).join(' ')));
+        let items = (_data.pages || []).filter((p) =>
+            matchQ(
+                p.page,
+                (p.globals || []).join(' '),
+                (p.usesShared || []).map((u) => u.name).join(' ')
+            )
+        );
         if (!items.length) return `<div class="sd-loading">Không có trang khớp.</div>`;
         const cards = items
-            .sort((a, b) => b.totalLines - a.totalLines)
+            .sort((a, b) => (b.usesSharedCount || 0) - (a.usesSharedCount || 0))
             .map((p) => {
                 const warn = (p.oversized || []).length
                     ? `<span class="mod-tag warn" title="${esc((p.oversized || []).map((o) => `${o.file} (${o.lines}d)`).join(', '))}">⚠️ ${p.oversized.length} file >800d</span>`
                     : '';
-                return `<div class="mod-card">
+                const uses = p.usesShared || [];
+                const usesHtml = uses.length
+                    ? `<div class="mod-uses"><span class="mod-uses-label">🧩 Dùng ${uses.length} module shared:</span> ${uses
+                          .map(
+                              (u) =>
+                                  `<code class="mod-usechip mod-uc-${esc(u.category)}">${esc(u.name)}</code>`
+                          )
+                          .join(' ')}</div>`
+                    : `<div class="mod-uses"><span class="mod-uses-label" style="color:var(--web2-text-faded)">Không import module shared nào (độc lập)</span></div>`;
+                return `<div class="mod-card mod-card-wide">
                     <div class="mod-card-head">
                         <span class="mod-name">${esc(p.page)}</span>
                         <span class="mod-lines">${p.totalLines.toLocaleString('vi-VN')}d</span>
                     </div>
                     <div class="mod-meta">
                         <span class="mod-tag">📄 ${p.fileCount} file</span>
+                        <span class="mod-tag" title="Số module dùng chung trang này import">🧩 ${p.usesSharedCount || 0} module</span>
                         ${warn}
                     </div>
-                    ${(p.globals || []).length ? `<div class="mod-purpose"><small>${esc((p.globals || []).slice(0, 10).join(', '))}</small></div>` : ''}
+                    ${usesHtml}
                 </div>`;
             })
             .join('');
-        return `<div class="mod-group"><div class="mod-grid">${cards}</div></div>`;
+        return `<div class="mod-group"><div class="mod-grid mod-grid-wide">${cards}</div></div>`;
     }
 
     function renderBackend() {

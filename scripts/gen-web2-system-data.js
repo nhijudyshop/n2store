@@ -23,6 +23,9 @@ const ROOT = path.resolve(__dirname, '..');
 const CODEMAP = path.join(ROOT, 'docs/web2/web2-codemap.json');
 const CAT_FILE = path.join(ROOT, 'web2/system/data/_module-categories.json');
 const OUT = path.join(ROOT, 'web2/system/data/web2-modules.json');
+const TP_JSON = path.join(ROOT, 'web2/system/data/web2-third-parties.json');
+const OUT_PAGEMOD_MD = path.join(ROOT, 'docs/web2/WEB2-PAGE-MODULES.md');
+const OUT_TP_MD = path.join(ROOT, 'docs/web2/WEB2-THIRD-PARTIES.md');
 
 function readJson(p, fallback) {
     try {
@@ -30,6 +33,14 @@ function readJson(p, fallback) {
     } catch (_) {
         return fallback;
     }
+}
+
+// Đường dẫn file → khoá "trang" (khớp codemap.pages): web2/<x>, hoặc top folder.
+function pageKeyOf(filePath) {
+    const p = String(filePath || '').split('/');
+    if (p[0] === 'web2' && p[1] === 'shared') return 'web2/shared';
+    if (p[0] === 'web2') return 'web2/' + p[1];
+    return p[0];
 }
 
 function countLines(abs) {
@@ -128,10 +139,19 @@ function main() {
             catMap.set(c.file, { category: c.category || 'other', oneLine: c.oneLine || '' });
     }
 
-    // ---- Shared modules ----
+    // ---- Shared modules + page↔module inversion ----
+    // pageUses[pageKey] = Set(moduleName) ; module name lấy từ global đầu / basename.
+    const pageUses = {};
     const shared = (codemap.sharedModules || []).map((m) => {
         const cat = catMap.get(m.file) || {};
         const name = (m.globals && m.globals[0]) || path.basename(m.file).replace(/\.js$/, '');
+        // consumers → trang dùng module này (loại self web2/shared).
+        const consumerPages = Array.from(
+            new Set((m.consumers || []).map(pageKeyOf).filter((k) => k !== 'web2/shared'))
+        ).sort();
+        for (const pk of consumerPages) {
+            (pageUses[pk] = pageUses[pk] || new Set()).add(name);
+        }
         return {
             file: m.file,
             name,
@@ -140,11 +160,13 @@ function main() {
             api: (m.api || []).slice(0, 14),
             lines: m.lines || 0,
             consumerCount: (m.consumers || []).length,
+            consumerPages,
             category: cat.category || 'other',
         };
     });
+    const sharedByName = new Map(shared.map((m) => [m.name, m]));
 
-    // ---- Pages ----
+    // ---- Pages (kèm shared modules đang dùng) ----
     const pages = (codemap.pages || []).map((p) => {
         const files = p.files || [];
         const totalLines = files.reduce((s, f) => s + (f.lines || 0), 0);
@@ -152,12 +174,20 @@ function main() {
         const oversized = files
             .filter((f) => (f.lines || 0) > 800)
             .map((f) => ({ file: f.file, lines: f.lines }));
+        const usesShared = Array.from(pageUses[p.page] || [])
+            .map((nm) => {
+                const sm = sharedByName.get(nm);
+                return { name: nm, category: sm ? sm.category : 'other' };
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
         return {
             page: p.page,
             fileCount: files.length,
             totalLines,
             globals,
             oversized,
+            usesShared,
+            usesSharedCount: usesShared.length,
         };
     });
 
@@ -202,6 +232,157 @@ function main() {
     console.log(
         `   shared categories: ${catKeys}${catKeys ? '' : ' (chưa có _module-categories.json → tất cả "other")'}`
     );
+
+    // ---- Agent docs ----
+    writePageModulesMd(manifest);
+    writeThirdPartiesMd();
+}
+
+// =====================================================================
+// DOC 1: WEB2-PAGE-MODULES.md — trang nào dùng module shared nào (2 chiều)
+// =====================================================================
+function writePageModulesMd(manifest) {
+    const L = [];
+    L.push('<!-- AUTO-GENERATED bởi scripts/gen-web2-system-data.js — KHÔNG sửa tay. -->');
+    L.push('# WEB2 — Trang ↔ Module dùng chung (thống kê)');
+    L.push('');
+    L.push(
+        `> Sinh tự động • ${manifest.generatedAt} • ${manifest.totals.sharedModules} shared · ${manifest.totals.pages} trang.`
+    );
+    L.push(
+        '> Nguồn: `docs/web2/web2-codemap.json` (field `consumers`). Live dashboard: **web2/system → tab Module**.'
+    );
+    L.push(
+        '> Cấu trúc/hàm chi tiết: [WEB2-CODEMAP.md](WEB2-CODEMAP.md). Bên thứ 3: [WEB2-THIRD-PARTIES.md](WEB2-THIRD-PARTIES.md).'
+    );
+    L.push('');
+
+    // --- Chiều 1: TRANG → module ---
+    L.push('## 1. Mỗi TRANG dùng những module shared nào');
+    L.push('');
+    L.push('| Trang | Số module | Module shared đang dùng |');
+    L.push('| --- | ---: | --- |');
+    const pagesSorted = manifest.pages
+        .filter((p) => p.page !== 'web2/shared')
+        .slice()
+        .sort((a, b) => (b.usesSharedCount || 0) - (a.usesSharedCount || 0));
+    for (const p of pagesSorted) {
+        const mods = (p.usesShared || []).map((m) => `\`${m.name}\``).join(', ') || '—';
+        L.push(`| ${p.page} | ${p.usesSharedCount || 0} | ${mods} |`);
+    }
+    L.push('');
+
+    // --- Chiều 2: MODULE → trang (nhiều nơi dùng nhất trước) ---
+    L.push('## 2. Mỗi MODULE shared được trang nào dùng (giảm dần theo độ phổ biến)');
+    L.push('');
+    L.push('| Module | Nhóm | # trang | Dùng ở các trang |');
+    L.push('| --- | --- | ---: | --- |');
+    const sharedSorted = manifest.shared
+        .slice()
+        .sort((a, b) => (b.consumerPages || []).length - (a.consumerPages || []).length);
+    for (const m of sharedSorted) {
+        const pgs = m.consumerPages || [];
+        if (!pgs.length) continue;
+        L.push(`| \`${m.name}\` | ${m.category} | ${pgs.length} | ${pgs.join(', ')} |`);
+    }
+    L.push('');
+    L.push(
+        '> Module không xuất hiện ở bảng 2 = chưa trang nào dùng (mồ côi / mới tạo / chỉ shared gọi shared).'
+    );
+    L.push('');
+
+    fs.writeFileSync(OUT_PAGEMOD_MD, L.join('\n'));
+    console.log(`✅ ${OUT_PAGEMOD_MD}`);
+}
+
+// =====================================================================
+// DOC 2: WEB2-THIRD-PARTIES.md — bảng bên thứ 3 (từ registry audit 5 vòng)
+// =====================================================================
+function writeThirdPartiesMd() {
+    const reg = readJson(TP_JSON, null);
+    if (!reg || !Array.isArray(reg.thirdParties)) {
+        console.log(`⚠️  bỏ qua WEB2-THIRD-PARTIES.md (thiếu ${TP_JSON})`);
+        return;
+    }
+    const CAT_LABEL = {
+        'ai-llm': 'AI / LLM',
+        'tts-voice': 'Giọng nói / TTS',
+        'media-gen': 'Tạo media AI',
+        'stock-media': 'Kho ảnh/video',
+        'messaging-social': 'Nhắn tin / MXH',
+        'commerce-tpos': 'Bán hàng / TPOS',
+        payment: 'Thanh toán',
+        'browser-lib': 'Thư viện CDN',
+        'ml-model-ondevice': 'Model ML on-device',
+        'opensource-port': 'Open-source / GitHub',
+        'infra-platform': 'Hạ tầng / Platform',
+        font: 'Font',
+        other: 'Khác',
+    };
+    const esc = (s) =>
+        String(s == null ? '' : s)
+            .replace(/\|/g, '\\|')
+            .replace(/\n/g, ' ');
+    const items = reg.thirdParties.slice();
+    const byCat = {};
+    for (const x of items) (byCat[x.category] = byCat[x.category] || []).push(x);
+
+    const L = [];
+    L.push(
+        '<!-- AUTO-GENERATED bởi scripts/gen-web2-system-data.js từ web2/system/data/web2-third-parties.json — KHÔNG sửa tay. -->'
+    );
+    L.push('# WEB2 — Bên thứ 3 đang dùng (registry audit)');
+    L.push('');
+    L.push(`> Sinh tự động • ${reg.generatedAt || ''} • ${items.length} bên thứ 3.`);
+    L.push(
+        `> Nguồn curated: \`web2/system/data/web2-third-parties.json\` (${esc(reg.source || '')}).`
+    );
+    L.push('> Live dashboard: **web2/system → tab Bên thứ 3** (lọc category/layer/cost/search).');
+    L.push(
+        '> Module/cấu trúc: [WEB2-CODEMAP.md](WEB2-CODEMAP.md) · Trang↔module: [WEB2-PAGE-MODULES.md](WEB2-PAGE-MODULES.md).'
+    );
+    L.push('');
+    L.push(
+        '⚠️ **envKeys = chỉ TÊN biến môi trường** (giá trị thật ở `serect_dont_push.txt`, KHÔNG commit).'
+    );
+    L.push('');
+    if (reg.summary) {
+        const s = reg.summary;
+        L.push(
+            `**Tổng:** ${s.total} · Web 2.0: ${s.web2Count} · Web 1.0: ${s.web1Count} · Free: ${s.free} · Trả phí/freemium: ${s.paidOrFreemium}`
+        );
+        L.push('');
+    }
+
+    const catOrder = Object.keys(CAT_LABEL).filter((c) => byCat[c]);
+    for (const c of catOrder) {
+        L.push(`## ${CAT_LABEL[c]} (${byCat[c].length})`);
+        L.push('');
+        L.push(
+            '| Tên | Provider | Loại | Chi phí | Layer | Trạng thái | License | Dùng ở | ENV keys | GitHub |'
+        );
+        L.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+        for (const x of byCat[c].sort((a, b) => a.name.localeCompare(b.name))) {
+            const used =
+                (x.usedIn || [])
+                    .slice(0, 4)
+                    .map((u) => `\`${esc(u)}\``)
+                    .join('<br>') || '—';
+            const env =
+                (x.envKeys || [])
+                    .slice(0, 6)
+                    .map((k) => `\`${esc(k)}\``)
+                    .join(' ') || '—';
+            const gh = x.githubUrl ? `[repo](${x.githubUrl})` : '—';
+            const cost = x.cost + (x.costDetail ? ` — ${esc(x.costDetail).slice(0, 60)}` : '');
+            L.push(
+                `| **${esc(x.name)}** | ${esc(x.provider)} | ${esc(x.type)} | ${esc(cost)} | ${esc(x.layer)} | ${esc(x.status)} | ${esc(x.license || '—')} | ${used} | ${env} | ${gh} |`
+            );
+        }
+        L.push('');
+    }
+    fs.writeFileSync(OUT_TP_MD, L.join('\n'));
+    console.log(`✅ ${OUT_TP_MD}`);
 }
 
 main();
