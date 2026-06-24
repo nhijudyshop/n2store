@@ -73,6 +73,7 @@
                 <td class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</td>
                 <td class="cc-pl-acts">
                     <button class="cc-btn cc-btn-ghost cc-pl-detail" data-uid="${cc.esc(du.device_user_id)}">Chi tiết</button>
+                    <button class="cc-btn cc-btn-ghost cc-pl-print" data-uid="${cc.esc(du.device_user_id)}" title="In phiếu lương">🖨 In</button>
                     <button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(du.device_user_id)}">Sửa</button>
                 </td>
             </tr>`;
@@ -103,6 +104,9 @@
         });
         el.querySelectorAll('.cc-pl-detail').forEach((b) => {
             b.addEventListener('click', () => openDetail(b.dataset.uid));
+        });
+        el.querySelectorAll('.cc-pl-print').forEach((b) => {
+            b.addEventListener('click', () => printPayslip(b.dataset.uid));
         });
         document.getElementById('ccExportPayroll')?.addEventListener('click', exportPayroll);
         if (global.lucide) global.lucide.createIcons();
@@ -225,6 +229,7 @@
               </div>
               <div class="cc-modal-foot">
                 <button class="cc-btn cc-btn-ghost" id="ccDtEdit">Sửa điều chỉnh</button>
+                <button class="cc-btn cc-btn-ghost" id="ccDtPrint">🖨 In phiếu lương</button>
                 <span class="cc-foot-spacer"></span>
                 <button class="cc-btn cc-btn-primary" id="ccDtOk">Đóng</button>
               </div>
@@ -240,6 +245,157 @@
             close();
             openEdit(deviceUserId);
         };
+        document.getElementById('ccDtPrint').onclick = () => printPayslip(deviceUserId);
+    }
+
+    // ── In phiếu lương tháng (payslip A4) ────────────────────────────────────
+    // Mở cửa sổ in với phiếu lương chi tiết 1 NV/tháng (lương chính, OT, phụ cấp,
+    // thưởng, giảm trừ, đã trả, còn lại + ghi chú). KHÔNG phụ thuộc thư viện.
+    const SHOP_NAME = 'NHI JUDY STORE';
+    function printPayslip(deviceUserId) {
+        const cc = CC();
+        const du = cc.state.deviceUsers.find((d) => d.device_user_id === deviceUserId);
+        if (!du) return;
+        const cfg = cc.cfgFor(du);
+        const m = computeRow(du);
+        const pr = cc.payrollFor(deviceUserId) || {};
+        const monthKey = cc.state.monthKey;
+        const [yy, mm] = monthKey.split('-');
+        const isMonthly = cfg.salaryType === 'monthly';
+        const nvCode = 'NV' + String(deviceUserId).padStart(6, '0');
+
+        // Dòng lương chính
+        const luongChinhDesc = isMonthly
+            ? `Lương tháng cố định (đi làm ${m.workedDays} ngày)`
+            : `${m.workedDays} công × ${fmt(cfg.dailyRate)}/ngày`;
+
+        const itemRows = (items, sign, cls) =>
+            (Array.isArray(items) ? items : [])
+                .filter((it) => it && (it.label || it.amount))
+                .map(
+                    (it) =>
+                        `<tr><td class="ps-sub">${cc.esc(it.label || '(không nhãn)')}</td><td class="ps-amt ${cls || ''}">${sign}${fmt(Math.abs(Number(it.amount) || 0))}</td></tr>`
+                )
+                .join('');
+
+        // OT từng ngày
+        const otRows =
+            pr.ot_hours_override != null && pr.ot_hours_override !== ''
+                ? `<tr><td class="ps-sub">Override OT thủ công: ${cc.esc(String(pr.ot_hours_override))} giờ</td><td class="ps-amt ot">+${fmt(m.lamThem)}</td></tr>`
+                : (m.otDays || [])
+                      .map(
+                          (d) =>
+                              `<tr><td class="ps-sub">${dmy(d.dateKey)} · tăng ca ${hm(d.minutes)}</td><td class="ps-amt ot">+${fmt(d.pay)}</td></tr>`
+                      )
+                      .join('');
+        // Phạt muộn từng ngày
+        const lateRows =
+            pr.giam_tru_late_override != null && pr.giam_tru_late_override !== ''
+                ? `<tr><td class="ps-sub">Override phạt muộn: </td><td class="ps-amt giam">−${fmt(pr.giam_tru_late_override)}</td></tr>`
+                : (m.lateDays || [])
+                      .map(
+                          (d) =>
+                              `<tr><td class="ps-sub">${dmy(d.dateKey)} · đi muộn ${hm(d.minutes)}</td><td class="ps-amt giam">−${fmt(d.amount)}</td></tr>`
+                      )
+                      .join('');
+
+        // Ghi chú theo ngày
+        const prefix = `${deviceUserId}_${monthKey}`;
+        const noteEntries = Object.keys(cc.state.dayNotes || {})
+            .filter((k) => k.startsWith(prefix))
+            .map((k) => ({ dk: k.slice(deviceUserId.length + 1), note: cc.state.dayNotes[k] }))
+            .filter((x) => x.note)
+            .sort((a, b) => a.dk.localeCompare(b.dk));
+        const notesHtml = noteEntries.length
+            ? `<div class="ps-notes"><div class="ps-notes-h">Ghi chú theo ngày</div>${noteEntries
+                  .map((n) => `<div class="ps-note"><b>${dmy(n.dk)}</b> ${cc.esc(n.note)}</div>`)
+                  .join('')}</div>`
+            : '';
+
+        const sectionHead = (t, total, cls) =>
+            `<tr class="ps-sec"><td>${t}</td><td class="ps-amt ${cls || ''}">${total}</td></tr>`;
+
+        const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8">
+        <title>Phiếu lương ${cc.esc(cc.empName(du))} ${mm}/${yy}</title>
+        <style>
+          *{box-sizing:border-box} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:0;padding:24px;font-size:13px}
+          .ps-wrap{max-width:720px;margin:0 auto}
+          .ps-top{text-align:center;border-bottom:2px solid #1e293b;padding-bottom:10px;margin-bottom:14px}
+          .ps-shop{font-size:18px;font-weight:800;letter-spacing:.04em}
+          .ps-title{font-size:15px;font-weight:700;margin-top:6px;text-transform:uppercase}
+          .ps-period{color:#64748b;margin-top:2px}
+          .ps-info{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:14px}
+          .ps-info div{padding:3px 0;border-bottom:1px dashed #e2e8f0}
+          .ps-info b{display:inline-block;min-width:120px;color:#475569;font-weight:600}
+          table{width:100%;border-collapse:collapse}
+          td{padding:5px 8px;vertical-align:top}
+          .ps-sec td{font-weight:700;background:#f1f5f9;border-top:1px solid #cbd5e1}
+          .ps-sub{padding-left:22px;color:#475569}
+          .ps-amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+          .ot{color:#2563eb}.giam{color:#dc2626}.thuong{color:#16a34a}.tong{color:#0f172a;font-weight:800}
+          .ps-totals{margin-top:10px;border-top:2px solid #1e293b}
+          .ps-totals td{font-size:14px;font-weight:700;padding:8px}
+          .ps-con td{font-size:16px;color:#dc2626;font-weight:800}
+          .ps-notes{margin-top:14px;font-size:12px}
+          .ps-notes-h{font-weight:700;margin-bottom:4px}
+          .ps-note{padding:2px 0;color:#475569}
+          .ps-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:34px;text-align:center}
+          .ps-sign div{font-size:12px}.ps-sign .ps-role{font-weight:700;margin-bottom:50px}
+          .ps-foot{margin-top:20px;text-align:center;color:#94a3b8;font-size:11px}
+          @media print{ body{padding:0} .ps-wrap{max-width:100%} button{display:none} }
+        </style></head>
+        <body><div class="ps-wrap">
+          <div class="ps-top">
+            <div class="ps-shop">${SHOP_NAME}</div>
+            <div class="ps-title">Phiếu lương nhân viên</div>
+            <div class="ps-period">Kỳ lương tháng ${mm}/${yy}</div>
+          </div>
+          <div class="ps-info">
+            <div><b>Nhân viên:</b> ${cc.esc(cc.empName(du))}</div>
+            <div><b>Mã NV:</b> ${nvCode}</div>
+            <div><b>Loại lương:</b> ${isMonthly ? 'Theo tháng' : 'Theo ngày'}</div>
+            <div><b>Ca làm việc:</b> ${cc.esc(cfg.workStart)}–${cc.esc(cfg.workEnd)}</div>
+            <div><b>Số công:</b> ${m.workedDays} ngày</div>
+            <div><b>Đơn giá:</b> ${fmt(cfg.dailyRate)}${isMonthly ? '/tháng' : '/ngày'}</div>
+          </div>
+          <table>
+            ${sectionHead('Lương chính', fmt(m.luongChinh))}
+            <tr><td class="ps-sub">${luongChinhDesc}</td><td class="ps-amt">${fmt(m.luongChinh)}</td></tr>
+            ${sectionHead('Tăng ca (OT)', m.lamThem ? '+' + fmt(m.lamThem) : '0đ', 'ot')}
+            ${otRows || '<tr><td class="ps-sub">Không có tăng ca.</td><td class="ps-amt">—</td></tr>'}
+            ${sectionHead('Phụ cấp', m.phuCap ? '+' + fmt(m.phuCap) : '0đ')}
+            ${itemRows(pr.allowances, '+') || '<tr><td class="ps-sub">—</td><td class="ps-amt">—</td></tr>'}
+            ${sectionHead('Thưởng', m.thuong ? '+' + fmt(m.thuong) : '0đ', 'thuong')}
+            ${itemRows(pr.thuong_items, '+', 'thuong') || '<tr><td class="ps-sub">—</td><td class="ps-amt">—</td></tr>'}
+            ${sectionHead('Giảm trừ', m.giamTru ? '−' + fmt(m.giamTru) : '0đ', 'giam')}
+            ${lateRows || '<tr><td class="ps-sub">Không bị phạt muộn.</td><td class="ps-amt">—</td></tr>'}
+            ${itemRows(pr.giam_tru_items, '−', 'giam')}
+            ${sectionHead('Đã trả', m.daTra ? fmt(m.daTra) : '0đ')}
+            ${itemRows(pr.da_tra_items, '') || '<tr><td class="ps-sub">—</td><td class="ps-amt">—</td></tr>'}
+          </table>
+          <table class="ps-totals">
+            <tr><td>TỔNG LƯƠNG</td><td class="ps-amt tong">${fmt(m.tongLuong)}</td></tr>
+            <tr class="ps-con"><td>CÒN LẠI PHẢI TRẢ</td><td class="ps-amt">${fmt(m.conCanTra)}</td></tr>
+          </table>
+          ${pr.ghi_chu ? `<div class="ps-notes"><div class="ps-notes-h">Ghi chú tháng</div><div class="ps-note">${cc.esc(pr.ghi_chu)}</div></div>` : ''}
+          ${notesHtml}
+          <div class="ps-sign">
+            <div><div class="ps-role">Người nhận lương</div>(Ký, ghi rõ họ tên)</div>
+            <div><div class="ps-role">Người lập phiếu</div>(Ký, ghi rõ họ tên)</div>
+          </div>
+          <div class="ps-foot">Phiếu lương in từ hệ thống Chấm công · ${new Intl.DateTimeFormat('vi-VN', { timeZone: cc.S.VN_TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date())}</div>
+        </div>
+        <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script>
+        </body></html>`;
+
+        const w = global.open('', '_blank', 'width=820,height=900');
+        if (!w) {
+            cc.toast('Trình duyệt chặn cửa sổ in. Cho phép pop-up rồi thử lại.', 'error');
+            return;
+        }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
     }
 
     // ── Modal sửa điều chỉnh lương ──────────────────────────────────────────

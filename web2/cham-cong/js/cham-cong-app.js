@@ -47,6 +47,7 @@
         payrollById: {}, // '{empId}_{monthKey}' → row
         sync: null,
         loading: false,
+        empDirty: false, // tab Nhân viên đang sửa dở → KHÔNG cho reload nền đè (mất chỉnh sửa)
     };
 
     // ── Helpers chia sẻ ────────────────────────────────────────────────────
@@ -124,7 +125,25 @@
         state.sync = r.sync || null;
     }
 
-    async function loadAll() {
+    // Chỉ làm tươi dải trạng thái máy (KHÔNG reload bảng) — dùng cho heartbeat ADMS
+    // (~10s) để giữ "Đang đồng bộ" mà không re-render bảng (tránh mất chỉnh sửa đang gõ).
+    let _syncOnlyAt = 0;
+    async function refreshSyncOnly() {
+        const t = Date.now();
+        if (t - _syncOnlyAt < 20000) return; // throttle: tối đa 1 lần/20s
+        _syncOnlyAt = t;
+        try {
+            const s = await Api.getSyncStatus().catch(() => null);
+            if (s && s.status) {
+                state.sync = s.status;
+                renderSyncStrip();
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+
+    async function loadAll(force) {
         const mk = state.monthKey;
         // Chỉ hydrate cache khi load LẠNH / đổi tháng (tháng này CHƯA có trong RAM).
         // Reload nóng (sau mutation/SSE) → KHÔNG hydrate (tránh cache cũ đè thay đổi
@@ -137,7 +156,7 @@
                 if (c && state.monthKey === mk) {
                     applyResults(c);
                     state.loading = false;
-                    renderActive();
+                    renderActive(force);
                     renderSyncStrip();
                     hydrated = true;
                 }
@@ -180,23 +199,26 @@
             if (!hydrated) toast('Lỗi tải dữ liệu: ' + e.message, 'error');
         }
         state.loading = false;
-        renderActive();
+        renderActive(force);
         renderSyncStrip();
     }
 
     // ── Tab switching ────────────────────────────────────────────────────────
     function setTab(tab) {
         state.tab = tab;
+        state.empDirty = false; // chuyển tab = bỏ trạng thái sửa dở của tab Nhân viên
         document.querySelectorAll('.cc-tab').forEach((b) => {
             b.classList.toggle('active', b.dataset.tab === tab);
         });
-        renderActive();
+        renderActive(true); // chuyển tab = render chủ động (fresh)
     }
-    function renderActive() {
+    // force=true → render chủ động (chuyển tab / bấm Tải lại / đổi tháng): luôn dựng lại.
+    // force=false → reload nền (SSE/mutation): tab Nhân viên đang sửa dở sẽ GIỮ nguyên.
+    function renderActive(force) {
         if (state.tab === 'timesheet') renderTimesheet();
         else if (state.tab === 'payroll' && global.ChamCongPayroll) global.ChamCongPayroll.render();
         else if (state.tab === 'employees' && global.ChamCongEmployees)
-            global.ChamCongEmployees.render();
+            global.ChamCongEmployees.render({ force: !!force });
     }
 
     // ── Sync strip ───────────────────────────────────────────────────────────
@@ -570,9 +592,10 @@
         const [y, m] = state.monthKey.split('-').map(Number);
         const d = new Date(y, m - 1 + delta, 1);
         state.monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        state.empDirty = false;
         const inp = document.getElementById('ccMonth');
         if (inp) inp.value = state.monthKey;
-        loadAll();
+        loadAll(true);
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -603,22 +626,36 @@
             monthInp.addEventListener('change', () => {
                 if (/^\d{4}-\d{2}$/.test(monthInp.value)) {
                     state.monthKey = monthInp.value;
-                    loadAll();
+                    state.empDirty = false;
+                    loadAll(true);
                 }
             });
         }
         document.getElementById('ccPrev')?.addEventListener('click', () => shiftMonth(-1));
         document.getElementById('ccNext')?.addEventListener('click', () => shiftMonth(1));
-        document.getElementById('ccReload')?.addEventListener('click', loadAll);
+        // Bấm "Tải lại" = render chủ động (kể cả khi tab Nhân viên đang sửa dở).
+        document.getElementById('ccReload')?.addEventListener('click', () => {
+            state.empDirty = false;
+            loadAll(true);
+        });
 
         if (global.lucide) global.lucide.createIcons();
 
-        loadAll();
+        loadAll(true);
         if (global.Web2SSE?.subscribe) {
             let t = null;
-            global.Web2SSE.subscribe('web2:attendance', () => {
+            global.Web2SSE.subscribe('web2:attendance', (evt) => {
+                const action = evt && evt.data && evt.data.action;
+                // Heartbeat (~10s) / sync = chỉ làm tươi dải trạng thái, KHÔNG reload bảng
+                // → không re-render khi user đang gõ (gốc lỗi "bảng tự refresh mất chỉnh sửa").
+                if (action === 'heartbeat' || action === 'sync') {
+                    refreshSyncOnly();
+                    return;
+                }
+                // Dữ liệu thật (records…) → reload nền (debounce). Tab Nhân viên đang sửa
+                // dở sẽ được guard giữ nguyên (force=false).
                 clearTimeout(t);
-                t = setTimeout(loadAll, 600);
+                t = setTimeout(() => loadAll(false), 600);
             });
         }
     }

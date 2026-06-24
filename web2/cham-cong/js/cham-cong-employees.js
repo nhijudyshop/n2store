@@ -11,10 +11,38 @@
         return global.ChamCong;
     }
 
-    function render() {
+    // Banner "có thay đổi chưa lưu" — toggle hiển thị.
+    function setDirtyBanner(on) {
+        const b = document.getElementById('ccEmpDirty');
+        if (b) b.style.display = on ? 'flex' : 'none';
+    }
+    // Gắn theo dõi sửa: gõ/đổi bất kỳ ô nào trong bảng → đánh dấu dirty + hiện banner.
+    function wireDirty(el) {
+        const cc = CC();
+        const tbl = el.querySelector('.cc-emp');
+        if (!tbl) return;
+        const mark = () => {
+            if (!cc.state.empDirty) {
+                cc.state.empDirty = true;
+                setDirtyBanner(true);
+            }
+        };
+        tbl.addEventListener('input', mark);
+        tbl.addEventListener('change', mark);
+    }
+
+    function render(opts) {
         const cc = CC();
         const el = document.getElementById('ccBody');
         if (!el) return;
+        // GUARD chống mất chỉnh sửa: đang sửa dở + đây là RELOAD NỀN (không force, vd máy
+        // đẩy dữ liệu / SSE) → GIỮ NGUYÊN bảng đang gõ, chỉ nhắc bằng banner. Bấm "Tải lại"
+        // hoặc đổi tab/tháng (force=true) mới dựng lại bảng mới.
+        if (!(opts && opts.force) && cc.state.empDirty && el.querySelector('.cc-emp')) {
+            setDirtyBanner(true);
+            return;
+        }
+        cc.state.empDirty = false; // dựng bảng mới = sạch
         if (cc.state.loading) {
             el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
@@ -80,6 +108,9 @@
               <button class="cc-btn cc-btn-primary cc-emp-saveall" type="button"><i data-lucide="save"></i> Lưu tất cả</button>
             </div>
           </div>
+          <div id="ccEmpDirty" style="display:none;align-items:center;gap:8px;margin:0 0 10px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12.5px;">
+            <span>●</span><span><b>Có thay đổi chưa lưu.</b> Bảng tạm dừng tự cập nhật để không mất chỉnh sửa đang gõ. Bấm <b>Lưu</b> rồi <b>Tải lại</b> (↻) để đồng bộ dữ liệu mới từ máy.</span>
+          </div>
           <div class="cc-grid-wrap">
             <table class="cc-emp">
               <thead><tr>
@@ -99,6 +130,7 @@
             saveAll(e.currentTarget)
         );
         el.querySelector('.cc-emp-addmanual')?.addEventListener('click', addManual);
+        wireDirty(el); // theo dõi sửa dở → guard chống reload nền đè
         if (global.lucide?.createIcons) global.lucide.createIcons();
     }
 
@@ -121,7 +153,8 @@
         try {
             await cc.Api.createDeviceUser({ displayName: name });
             cc.toast(`Đã thêm NV thủ công "${name}".`, 'success');
-            await cc.loadAll();
+            cc.state.empDirty = false; // hành động chủ động → cho render lại để thấy NV mới
+            await cc.loadAll(true);
         } catch (e) {
             cc.toast(e.message, 'error');
         }
@@ -141,7 +174,8 @@
             await cc.Api.deleteDeviceUser(uid);
             cc.state.deviceUsers = cc.state.deviceUsers.filter((d) => d.device_user_id !== uid);
             cc.toast('Đã xoá NV thủ công.', 'success');
-            render();
+            cc.state.empDirty = false; // hành động chủ động → render lại
+            render({ force: true });
         } catch (e) {
             cc.toast(e.message, 'error');
         }
@@ -214,6 +248,9 @@
         if (fails.length) {
             cc.toast(`Đã lưu ${ok}/${trs.length}. Lỗi PIN: ${fails.join(', ')}`, 'error');
         } else {
+            // Tất cả đã lưu → hết "sửa dở", cho phép bảng tự cập nhật lại.
+            cc.state.empDirty = false;
+            setDirtyBanner(false);
             cc.toast(`Đã lưu tất cả ${ok} nhân viên.`, 'success');
         }
     }

@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### [fix/feat] Chấm công — guard chống reload nền mất chỉnh sửa + heartbeat strip-only + in phiếu lương
+
+User: (1) gán NV → máy đẩy dữ liệu refresh bảng ~5s khi chưa Lưu → mất chỉnh sửa; (2) thêm nút in phiếu lương tháng chi tiết.
+
+Files: `web2/cham-cong/js/cham-cong-app.js`, `cham-cong-employees.js`, `cham-cong-payroll.js`, `index.html`.
+
+- **Bug refresh mất edit (gốc)**: heartbeat ADMS (~10s) `_notify('heartbeat')` → SSE `web2:attendance` → client `loadAll()` → re-render tab Nhân viên → **mất ô đang gõ**. Fix 2 lớp: (a) **heartbeat → strip-only**: SSE handler đọc `evt.data.action`, `heartbeat`/`sync` → `refreshSyncOnly()` (chỉ fetch sync-status + cập nhật dải, throttle 20s, KHÔNG reload bảng); chỉ `records`… mới `loadAll`. (b) **edit-guard tab Nhân viên**: `state.empDirty` set khi gõ/đổi ô (banner "có thay đổi chưa lưu") → `render({force})` bỏ qua rebuild khi reload nền (`force=false`) + dirty → GIỮ nguyên ô đang gõ; force=true (đổi tab/tháng, Tải lại, thêm/xoá NV, Lưu tất cả) mới dựng lại. `renderActive(force)` threaded qua loadAll/setTab/shiftMonth/ccReload.
+- **In phiếu lương** (`printPayslip`): nút "🖨 In" mỗi dòng Bảng lương + trong modal Chi tiết → `window.open` phiếu lương A4 self-contained (header shop, NV/mã/ca/đơn giá, breakdown lương chính/OT từng ngày/phụ cấp/thưởng/giảm trừ+phạt muộn/đã trả, tổng+còn lại, ghi chú tháng+ngày, ô ký) → auto `window.print()`. Không thư viện.
+- Bump payroll/employees/app `?v=` 20260624 j/k/l.
+- **Verified browser**: 0 console error; edit-guard (gõ→dirty→banner→reload nền GIỮ edit→force rebuild fresh); payslip HTML đủ section (PHIẾU LƯƠNG/tên/tổng/thưởng/tạm ứng). Audit toàn trang chạy nền (workflow) — bug + roadmap báo sau.
+
 ### [feat/fix] Chấm công — nhúng token vào bộ cài (admin-only, KHÔNG vào repo) + hiện "Đang kết nối" cho ADMS
 
 User: "cai-cham-cong.bat chưa để token vào" + "không được để token ở folder github".
