@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260624-103026-f0637de`
-**Session file**: [`./20260624-103026-f0637de.md`](../20260624-103026-f0637de.md)
-**Commit**: `f0637de` — feat(web2): expand AI presets shared module — +6 chat roles, dual global, sidebar autoload
-**Last updated**: 2026-06-24 10:30:26 +07
-**Summary**: web2: promote AI presets shared module + 13 vai trò chat + rename env WEB2_NANOBANANA_API_KEY + audit 9 repos
+**Latest session**: `RESUME:20260624-113131-8427499`
+**Session file**: [`./20260624-113131-8427499.md`](../20260624-113131-8427499.md)
+**Commit**: `8427499` — docs(dev-log): bg-remover server (tách nền máy shop, VieNeu pattern)
+**Last updated**: 2026-06-24 11:31:31 +07
+**Summary**: fix web2/users: perms tab scroll + đổi mật khẩu modal Sửa + hiện MK cột
 
 ## Files changed in this commit (`docs/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `842749995` docs(dev-log): bg-remover server (tách nền máy shop, VieNeu pattern) _(2026-06-24)_
+- `a2d0d9c59` fix(web2/users): perms tab scroll (iframe embed clip) + đổi mật khẩu trong modal Sửa + hiện MK cột _(2026-06-24)_
+- `302b54408` fix(web2): VieNeu registry -> Postgres (fix multi-instance) + ChatAnywhere provider + preset thumbnails _(2026-06-24)_
+- `53a105105` chore(session): RESUME:20260624-103026-f0637de _(2026-06-24)_
 - `f0637de38` feat(web2): expand AI presets shared module — +6 chat roles, dual global, sidebar autoload _(2026-06-24)_
-- `83d711c3c` chore(session): RESUME:20260624-101608-ad26a34 _(2026-06-24)_
-- `5800e4bb8` chore(session): RESUME:20260624-101411-00347f3 _(2026-06-24)_
-- `00347f3cd` feat(web2/ai-hub): tách key chat/Nano Banana + gate quyền + quota + lưu ảnh/prompt/chat + thư viện mẫu _(2026-06-24)_
-- `7987ce8d8` chore(session): RESUME:20260624-040008-6bd2fac _(2026-06-24)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260624-103026-f0637de` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260624-113131-8427499` cho Claude walk chain theo CLAUDE.md protocol.

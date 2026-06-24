@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2/`
+# Latest Snapshot — `bg-remover/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,25 +9,18 @@
 **Last updated**: 2026-06-24 11:31:31 +07
 **Summary**: fix web2/users: perms tab scroll + đổi mật khẩu modal Sửa + hiện MK cột
 
-## Files changed in this commit (`web2/`)
+## Files changed in this commit (`bg-remover/`)
 
-- `web2/ai-hub/index.html`
-- `web2/ai-hub/js/ai-image.js`
-- `web2/shared/web2-ai-presets.js`
-- `web2/shared/web2-bgremover.js`
-- `web2/shared/web2-sidebar.js`
-- `web2/users-permissions/index.html`
-- `web2/users/css/users.css`
-- `web2/users/index.html`
-- `web2/users/js/users-app.js`
+- `bg-remover/README.md`
+- `bg-remover/app.py`
+- `bg-remover/install-windows.bat`
+- `bg-remover/requirements.txt`
+- `bg-remover/run-mac.command`
+- `bg-remover/serve.py`
 
-## Last 5 commits touching `web2/`
+## Last 5 commits touching `bg-remover/`
 
 - `4bac6625f` chore(web2/users): prettier format users-app.js _(2026-06-24)_
-- `a2d0d9c59` fix(web2/users): perms tab scroll (iframe embed clip) + đổi mật khẩu trong modal Sửa + hiện MK cột _(2026-06-24)_
-- `302b54408` fix(web2): VieNeu registry -> Postgres (fix multi-instance) + ChatAnywhere provider + preset thumbnails _(2026-06-24)_
-- `f0637de38` feat(web2): expand AI presets shared module — +6 chat roles, dual global, sidebar autoload _(2026-06-24)_
-- `635a74d5b` refactor(web2): promote AI presets to shared module + thêm 6 vai trò chat (awesome-chatgpt-prompts) _(2026-06-24)_
 
 ---
 
