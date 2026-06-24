@@ -2,6 +2,16 @@
 
 ## 2026-06-24
 
+### [feat] web2/users: xoá VĨNH VIỄN + khôi phục user đã vô hiệu (hard delete/purge + restore)
+
+User: "xóa các users đã bị vô hiệu đi làm sao?" — DELETE chỉ soft-delete (is_active=FALSE), nút thùng rác disabled cho user inactive → không có cách purge.
+
+Files: `render.com/routes/web2-users.js`, `web2/users/js/users-app.js`, `web2/users/index.html` (**cần deploy web2-api**).
+
+- **Backend**: route mới `DELETE /:id/purge` (requireWeb2Admin + perm `users.delete`) — `DELETE FROM web2_users WHERE id=$1 AND is_active=FALSE` (CHỈ purge user đã vô hiệu → buộc vô hiệu trước; active → 400 "phải vô hiệu trước"; không tồn tại → 404). Session cascade theo FK `ON DELETE CASCADE` (chỉ `web2_user_sessions` có FK → không vỡ ràng buộc). `_notify('purge')` + audit.
+- **Frontend**: hàng inactive đổi nút thùng-rác-disabled → 2 nút **Khôi phục** (rotate-ccw → PATCH isActive=true) + **Xoá vĩnh viễn** (trash danger → DELETE /:id/purge, Popup.danger xác nhận). Nút bulk toolbar **"Xoá hẳn N user vô hiệu"** (hiện khi đang xem user vô hiệu) → purge tuần tự + báo lỗi từng cái.
+- Revive-on-create (commit trước) verified E2E sau deploy: tạo→vô hiệu→tạo lại cùng username = revive (giữ id, role/displayName mới), KHÔNG 409.
+
 ### [fix] web2/users: audit fix nhiều bug ẩn (3 reviewer agent: frontend/backend/security)
 
 User: "audit lại web2/users có nhiều bug ẩn lắm". Chạy 3 agent review song song → verify từng finding với code thật (loại false-positive) → fix nhóm an toàn + page-local, report nhóm cần quyết định.

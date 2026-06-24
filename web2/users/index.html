@@ -119,6 +119,15 @@
                                 <input type="checkbox" id="uShowInactive" />
                                 <span>Hiển thị user đã vô hiệu</span>
                             </label>
+                            <button
+                                class="btn btn-secondary u-purge-all"
+                                id="uPurgeAllBtn"
+                                type="button"
+                                hidden
+                                title="Xoá vĩnh viễn toàn bộ user đã vô hiệu"
+                            >
+                                <i data-lucide="trash-2"></i> Xoá hẳn user vô hiệu
+                            </button>
                         </div>
                     </section>
 
@@ -330,7 +339,7 @@
         <!-- Avatar DiceBear (Web2UserProfile.avatarUrl) — load TRƯỚC app để table render
              avatar ngay, không chờ sidebar inject async. -->
         <script src="../shared/web2-user-profile.js?v=20260624a"></script>
-        <script src="js/users-app.js?v=20260624audit"></script>
+        <script src="js/users-app.js?v=20260624purge"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             // Tab switch: Người dùng ↔ Phân quyền (iframe lazy-load). Gộp users-permissions

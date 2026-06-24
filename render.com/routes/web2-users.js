@@ -1094,6 +1094,49 @@ router.delete(
     }
 );
 
+// ── Hard delete (purge) — xoá VĨNH VIỄN khỏi DB ────────────────────
+// Chỉ purge user ĐÃ vô hiệu (is_active=FALSE) → buộc "vô hiệu trước, xoá sau",
+// tránh lỡ tay xoá user đang hoạt động. Session cascade theo FK; chỉ web2_user_sessions
+// có FK tới web2_users nên không vỡ ràng buộc. Audit log/KPI chỉ lưu id rời (loose) →
+// purge không lỗi FK, chấp nhận orphan id (dữ liệu test/đã ngừng dùng).
+router.delete(
+    '/:id(\\d+)/purge',
+    requireWeb2Admin,
+    requireWeb2Permission('users', 'delete'),
+    async (req, res) => {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+        try {
+            await ensureTables(pool);
+            const id = Number(req.params.id);
+            // Chỉ cho purge khi đang inactive → atomic, không cần check riêng.
+            const r = await pool.query(
+                'DELETE FROM web2_users WHERE id = $1 AND is_active = FALSE RETURNING id, username',
+                [id]
+            );
+            if (!r.rows.length) {
+                const ex = await pool.query('SELECT is_active FROM web2_users WHERE id = $1', [id]);
+                if (ex.rows.length) {
+                    return res.status(400).json({
+                        error: 'Phải vô hiệu user trước khi xoá vĩnh viễn',
+                    });
+                }
+                return res.status(404).json({ error: 'Không tìm thấy' });
+            }
+            // Session cascade theo FK ON DELETE CASCADE; xoá tường minh cho chắc.
+            await pool
+                .query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id])
+                .catch(() => {});
+            _notify('purge', id);
+            _auditUser(req, 'purge', id, { username: r.rows[0].username });
+            res.json({ success: true });
+        } catch (e) {
+            console.error('[WEB2-USERS] purge error:', e.message);
+            res.status(e.status || 500).json({ error: e.message });
+        }
+    }
+);
+
 // ── Login: verify password → issue token ───────────────────────────
 router.post('/login', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;

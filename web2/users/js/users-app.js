@@ -191,9 +191,18 @@
                         <button class="u-icon-btn" type="button" title="Lịch sử thao tác" data-act="history" data-id="${u.id}">
                             <i data-lucide="history"></i>
                         </button>
-                        <button class="u-icon-btn u-icon-btn-danger" type="button" title="${u.isActive ? 'Vô hiệu' : 'Đã vô hiệu'}" data-act="delete" data-id="${u.id}" ${u.isActive ? '' : 'disabled'}>
+                        ${
+                            u.isActive
+                                ? `<button class="u-icon-btn u-icon-btn-danger" type="button" title="Vô hiệu" data-act="delete" data-id="${u.id}">
                             <i data-lucide="trash-2"></i>
+                        </button>`
+                                : `<button class="u-icon-btn" type="button" title="Khôi phục (kích hoạt lại)" data-act="restore" data-id="${u.id}">
+                            <i data-lucide="rotate-ccw"></i>
                         </button>
+                        <button class="u-icon-btn u-icon-btn-danger" type="button" title="Xoá vĩnh viễn (đã vô hiệu)" data-act="purge" data-id="${u.id}">
+                            <i data-lucide="trash"></i>
+                        </button>`
+                        }
                     </td>
                 </tr>`;
             })
@@ -207,6 +216,14 @@
                 handleAction(btn.dataset.act, Number(btn.dataset.id))
             );
         });
+        // Nút "Xoá hẳn user vô hiệu" chỉ hiện khi có user vô hiệu trong danh sách.
+        const purgeAllBtn = document.getElementById('uPurgeAllBtn');
+        if (purgeAllBtn) {
+            const nInactive = STATE.users.filter((u) => !u.isActive).length;
+            purgeAllBtn.hidden = nInactive === 0;
+            if (nInactive && purgeAllBtn.lastChild)
+                purgeAllBtn.lastChild.textContent = ` Xoá hẳn ${nInactive} user vô hiệu`;
+        }
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
@@ -256,6 +273,8 @@
         else if (act === 'kpi') openKpiAssignments(user);
         else if (act === 'history') openUserHistory(user);
         else if (act === 'delete') deactivateUser(user);
+        else if (act === 'restore') restoreUser(user);
+        else if (act === 'purge') purgeUser(user);
         else if (act === 'copypwd') copyUserPassword(user);
     }
 
@@ -664,6 +683,66 @@
         }
     }
 
+    // ---------- restore (kích hoạt lại user đã vô hiệu) ----------
+    async function restoreUser(user) {
+        try {
+            await api('PATCH', `/${user.id}`, { isActive: true });
+            notify(`Đã khôi phục ${user.username}`, 'success');
+            await loadAll();
+            renderList();
+        } catch (e) {
+            notify(e.message || 'Lỗi khôi phục', 'error');
+        }
+    }
+
+    // ---------- purge (xoá VĨNH VIỄN user đã vô hiệu) ----------
+    async function purgeUser(user) {
+        const ok = await Popup.danger(
+            `Xoá VĨNH VIỄN user "${user.username}"? Không thể hoàn tác — toàn bộ phiên & dữ liệu định danh sẽ bị xoá khỏi DB.`,
+            { okText: 'Xoá vĩnh viễn' }
+        );
+        if (!ok) return;
+        try {
+            await api('DELETE', `/${user.id}/purge`);
+            notify(`Đã xoá vĩnh viễn ${user.username}`, 'success');
+            await loadAll();
+            renderList();
+        } catch (e) {
+            notify(e.message || 'Lỗi xoá vĩnh viễn', 'error');
+        }
+    }
+
+    // Bulk purge: xoá vĩnh viễn TẤT CẢ user đang vô hiệu (đang hiển thị).
+    async function purgeAllInactive() {
+        const inactive = STATE.users.filter((u) => !u.isActive);
+        if (!inactive.length) {
+            notify('Không có user vô hiệu nào để xoá', 'info');
+            return;
+        }
+        const ok = await Popup.danger(
+            `Xoá VĨNH VIỄN toàn bộ ${inactive.length} user đã vô hiệu? Không thể hoàn tác.`,
+            { okText: `Xoá ${inactive.length} user` }
+        );
+        if (!ok) return;
+        let done = 0;
+        const fails = [];
+        for (const u of inactive) {
+            try {
+                await api('DELETE', `/${u.id}/purge`);
+                done++;
+            } catch (e) {
+                fails.push(u.username);
+            }
+        }
+        await loadAll();
+        renderList();
+        if (fails.length) {
+            notify(`Đã xoá ${done}, lỗi ${fails.length}: ${fails.join(', ')}`, 'warning');
+        } else {
+            notify(`Đã xoá vĩnh viễn ${done} user`, 'success');
+        }
+    }
+
     // ---------- permissions modal ----------
     function openPermsModal(user) {
         STATE.permsUser = user;
@@ -781,6 +860,7 @@
             await loadAll();
             renderList();
         });
+        document.getElementById('uPurgeAllBtn')?.addEventListener('click', purgeAllInactive);
         document.getElementById('uUserSaveBtn').addEventListener('click', confirmUserSave);
         document.getElementById('uPwdSaveBtn').addEventListener('click', confirmPasswordSave);
         document
