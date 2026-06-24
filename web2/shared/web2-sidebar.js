@@ -103,7 +103,7 @@
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
         // Hồ sơ user + đổi avatar DiceBear (mở từ footer sidebar) — mọi trang.
-        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624c');
+        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624d');
         // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
         //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
         //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
@@ -686,10 +686,17 @@
         const username = escapeHtml(user.username || '');
         const displayName = escapeHtml(user.displayName || user.username || '');
         const role = escapeHtml(user.role || '');
-        // Avatar DiceBear nếu user đã đặt; không thì chữ cái đầu.
-        // Tính inline (không chờ Web2UserProfile load) → không bị "mất avatar" trên
-        // trang mà module avatar load trễ hơn lúc render footer.
-        const avUrl = user.avatar ? _avatarUrlInline(user.avatar) : null;
+        // Avatar DiceBear: custom nếu đã đặt, KHÔNG thì sinh MẶC ĐỊNH từ username (đồng
+        // nhất với bảng users + preview hồ sơ). Trước đây footer fallback chữ cái khi user
+        // chưa đổi avatar → "không load avatar mặc định". Tính inline (không chờ
+        // Web2UserProfile load) → không mất avatar trên trang load module avatar trễ.
+        const defStyle =
+            (window.Web2UserProfile && window.Web2UserProfile.DEFAULT_STYLE) || 'lorelei';
+        const avUrl =
+            _avatarUrlInline(user.avatar) ||
+            (user.username
+                ? _avatarUrlInline({ style: defStyle, seed: user.username, bg: 'transparent' })
+                : null);
         const avatarInner = avUrl
             ? `<img src="${escapeHtml(avUrl)}" alt="${displayName}" referrerpolicy="no-referrer">`
             : initial;

@@ -14,6 +14,18 @@ Files: `web2/shared/web2-ai-presets.js`, `web2/shared/web2-user-profile.js`, `we
 - Bump version: `web2-ai-presets.js` 20260624f→h, `web2-user-profile.js` a→b, `web2-image-lightbox.js` a→b (sidebar autoload).
 - **Bỏ chữ "trả phí"** (user: "bỏ mấy chữ trả phí đi"): gỡ "(ảnh trả phí)"/"là ảnh AI trả phí" khỏi UI ai-hub (`index.html` keyhint, `ai-image.js` quota hint + comment, `ai-tryon.js` warn + comment). Nano Banana giờ chỉ ghi "cần quyền + giới hạn lượt/ngày". Bump `ai-image.js` e→f, `ai-tryon.js` c→d. Verify browser: 0 chữ "trả phí" hiển thị.
 
+### [fix] Avatar mặc định DiceBear ĐỒNG NHẤT (footer + bảng users + preview) — 1 nguồn avatarUrlFor
+
+User: "có avatar mặc định ở mỗi user [bảng users] nhưng vào nó không load avatar mặc định này, ai đã đổi avatar mới [hiện] chọn". → 3 nơi default KHÁC nhau: bảng users dùng `lorelei`+username, footer sidebar fallback **null (chữ cái)**, preview hồ sơ dùng `adventurer`. User chưa đặt avatar → footer mất avatar.
+
+Files: `web2/shared/web2-user-profile.js`, `web2/shared/web2-sidebar.js`, `web2/users/js/users-app.js`.
+
+- **1 nguồn**: thêm `Web2UserProfile.avatarUrlFor(user)` = custom nếu `user.avatar` đặt, KHÔNG thì sinh mặc định từ username (`DEFAULT_STYLE='lorelei'`). Export `avatarUrlFor` + `DEFAULT_STYLE`.
+- **Footer sidebar** (`renderUserFooter`): bỏ `user.avatar ? ... : null` → fallback `_avatarUrlInline({style:DEFAULT_STYLE, seed:username})` khi chưa có avatar (tính inline, không chờ module load).
+- **Bảng users** (`userAvatarUrl`): dùng `up.avatarUrlFor(u)` (thay hardcode lorelei) → cùng nguồn.
+- **Preview hồ sơ**: default state `style: DEFAULT_STYLE` (lorelei, khớp bảng + footer) thay `adventurer`.
+- Verify browser: `avatarUrlFor({username:'phuocnho'})`→`lorelei/svg?seed=phuocnho`; custom bottts→giữ; **footer admin (no custom) giờ hiện avatar lorelei thay vì chữ cái**. Bump `web2-user-profile.js` c→d.
+
 ### [feat] Tuỳ chỉnh avatar DiceBear ĐẦY ĐỦ (schema-driven, không giảm tính năng github)
 
 User: "dicebear cho chỉnh sửa avatar rất chi tiết (thay trang sức, phụ kiện…)" + "đừng chọn lọc làm giảm giới hạn của github". → KHÔNG hardcode toggle chọn lọc; nạp **schema thật** của từng style → form động cho MỌI option.

@@ -32,6 +32,9 @@
     }
 
     const DICEBEAR_BASE = 'https://api.dicebear.com/10.x';
+    // Style avatar MẶC ĐỊNH (user chưa tự đặt) — DÙNG CHUNG bảng users + footer sidebar +
+    // preview hồ sơ để đồng nhất. Đổi 1 chỗ áp dụng mọi nơi.
+    const DEFAULT_STYLE = 'lorelei';
     // style → nhãn. Nguồn: DiceBear (free, generator avatar chibi/hoạt hình bằng "seed",
     // KHÔNG tốn API — thay cho hướng "ảnh thật → chibi" của Nano Banana trả phí). Nhóm
     // 🎨 Chibi / Cute dẫn đầu (adventurer/big-smile/miniavs/micah/personas/croodles).
@@ -107,6 +110,20 @@
             });
         }
         return `${DICEBEAR_BASE}/${encodeURIComponent(cfg.style)}/svg?${p.toString()}`;
+    }
+
+    // Avatar cho 1 user: custom nếu đã đặt, KHÔNG thì sinh MẶC ĐỊNH từ username (style
+    // DEFAULT_STYLE) → đồng nhất mọi nơi (bảng users, footer, preview). Trả null nếu
+    // không có cả username (không suy ra được seed).
+    function avatarUrlFor(user) {
+        if (!user) return null;
+        if (user.avatar) {
+            const u = avatarUrl(user.avatar);
+            if (u) return u;
+        }
+        const seed = user.username || user.id || '';
+        if (!seed) return null;
+        return avatarUrl({ style: DEFAULT_STYLE, seed: String(seed), bg: 'transparent' });
     }
 
     function randSeed() {
@@ -251,7 +268,7 @@
             cfg = null;
         }
         const state = {
-            style: (cfg && cfg.style) || 'adventurer',
+            style: (cfg && cfg.style) || DEFAULT_STYLE,
             seed: (cfg && cfg.seed) || user.username || 'user',
             bg: (cfg && cfg.bg) || 'transparent',
             options:
@@ -450,5 +467,12 @@
         });
     }
 
-    global.Web2UserProfile = { open, avatarUrl, DICEBEAR_BASE, STYLES };
+    global.Web2UserProfile = {
+        open,
+        avatarUrl,
+        avatarUrlFor,
+        DEFAULT_STYLE,
+        DICEBEAR_BASE,
+        STYLES,
+    };
 })(window);

@@ -62,7 +62,10 @@
     // trang). Trả '' nếu module chưa sẵn sàng (cell sẽ rỗng, không vỡ layout).
     function userAvatarUrl(u) {
         const up = window.Web2UserProfile;
-        if (!up || !up.avatarUrl) return '';
+        if (!up) return '';
+        // Nguồn 1 chỗ: avatarUrlFor (custom nếu đặt, không thì mặc định từ username).
+        if (up.avatarUrlFor) return up.avatarUrlFor(u) || '';
+        if (!up.avatarUrl) return '';
         return (
             (u.avatar && up.avatarUrl(u.avatar)) ||
             up.avatarUrl({ style: 'lorelei', seed: u.username || 'user', bg: 'transparent' }) ||
