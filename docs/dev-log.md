@@ -2,6 +2,15 @@
 
 ## 2026-06-24
 
+### [fix] Xóa logo dùng OpenCV inpaint THẬT (trước chỉ làm mờ) + product-card tự động xóa nền
+
+User: (1) "xóa logo không hoạt động đúng, chỉ làm mờ đi"; (2) "tạo card sản phẩm sẽ tự động xóa nền SP trước khi tạo card".
+
+Files: `web2/shared/web2-logo-eraser.js` (inpaint OpenCV), `web2/product-card/index.html` (auto-bg deps + toggle + bump), `web2/product-card/js/product-card.js` (loadProductImage auto-cutout), `web2/ai-photo/index.html` (bump logo-eraser).
+
+- **Xóa logo (fix)**: `_inpaintRect` cũ = nội suy song tuyến từ 4 viền → fill gradient mượt = TRÔNG NHƯ LÀM MỜ, không xóa được logo trên nền có texture. Nay `applyErase` ưu tiên **OpenCV `cv.inpaint` TELEA** (content-aware, lấp bằng texture xung quanh): lazy-load opencv.js `@techstark@4.11.0` (~8MB, mirror loader của web2-pack-counter), build mask từ rect (nở 5px phủ viền), inpaint radius 6. Lỗi tải opencv → fallback bilinear cũ. Verify: opencv load + cv.inpaint chạy OK in-browser.
+- **Auto xóa nền product-card**: thêm `loadProductImage(src)` → nếu bật "✨ Tự động xóa nền" (default ON) thì gọi `Web2BgScene.cutout(src,{prefer:'auto'})` (server rembg máy shop nếu có, else on-device RMBG-1.4) TRƯỚC khi vẽ card; giữ `_origSrc` để tắt toggle revert ảnh gốc. Route upload/paste/chọn-kho qua loadProductImage. Lỗi cutout → dùng ảnh gốc. Verify browser: cutout RMBG-1.4 on-device trả ảnh 72KB ✓, 0 console error.
+
 ### [feat] A — HyperFrames render video HTML→MP4 (self-host máy shop, như VieNeu) + nối B→A
 
 User chọn A (sau B): dựng HyperFrames thành service render video self-host trên máy shop (mô hình VieNeu-TTS).

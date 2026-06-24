@@ -2,9 +2,11 @@
 // =====================================================================
 // Web2LogoEraser — XOÁ LOGO / watermark trên ảnh, ON-DEVICE (không server).
 //   await Web2LogoEraser.open(imgSrc) → Promise<dataURL PNG | null>
-// User: kéo chọn 1+ vùng logo (hoặc "Tự dò" gợi ý) → "Xoá vùng" → fill
-// content-aware (nội suy từ viền vùng + nhiễu nhẹ) che logo → "Xong" trả ảnh sạch.
-// Reusable: product-card / photo-studio… đều gọi được. KHÔNG phụ thuộc lib ngoài.
+// User: kéo chọn 1+ vùng logo (hoặc "Tự dò" gợi ý) → "Xoá vùng" → INPAINT THẬT
+// bằng OpenCV TELEA (lấp bằng texture xung quanh, content-aware) → "Xong" trả ảnh sạch.
+// Trước đây chỉ nội suy viền (bilinear) = trông như LÀM MỜ; nay ưu tiên opencv.js
+// (lazy-load ~8MB WASM), fallback bilinear nếu CDN/opencv lỗi.
+// Reusable: product-card / photo-studio… đều gọi được.
 // =====================================================================
 (function (global) {
     'use strict';
@@ -63,6 +65,86 @@
                 px[i + 3] = 255;
             }
         }
+    }
+
+    // ── XOÁ logo THẬT bằng OpenCV inpaint (content-aware, lấp bằng texture xung
+    // quanh) thay vì chỉ nội suy mượt (trông như làm mờ). Lazy-load opencv.js. ──
+    const OPENCV_URL =
+        'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.11.0-release.1/dist/opencv.js';
+    let _cvP = null;
+    function _loadCv() {
+        if (global.cv && global.cv.Mat) return Promise.resolve(global.cv);
+        if (_cvP) return _cvP;
+        _cvP = new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = OPENCV_URL;
+            s.async = true;
+            let done = false;
+            const ready = () => {
+                if (!done && global.cv && global.cv.Mat) {
+                    done = true;
+                    res(global.cv);
+                }
+            };
+            s.onload = () => {
+                if (global.cv && typeof global.cv.then === 'function') {
+                    global.cv.then((m) => {
+                        global.cv = m;
+                        done = true;
+                        res(m);
+                    });
+                    return;
+                }
+                if (global.cv && !global.cv.Mat) {
+                    try {
+                        global.cv.onRuntimeInitialized = ready;
+                    } catch (_) {}
+                }
+                let tries = 0;
+                const poll = () => {
+                    if (done) return;
+                    ready();
+                    if (!done && tries++ < 150) setTimeout(poll, 100);
+                };
+                poll();
+            };
+            s.onerror = () => {
+                _cvP = null;
+                rej(new Error('opencv load fail'));
+            };
+            (document.head || document.documentElement).appendChild(s);
+        });
+        return _cvP;
+    }
+
+    // Inpaint TELEA trên canvas đầy đủ độ phân giải: mask = các rect (đã nở viền).
+    function _inpaintCv(cv, canvas, rects) {
+        const src = cv.imread(canvas); // RGBA
+        const rgb = new cv.Mat();
+        cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
+        const mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC1);
+        const white = new cv.Scalar(255);
+        rects.forEach((r) => {
+            const x = Math.max(0, r.x);
+            const y = Math.max(0, r.y);
+            const p1 = new cv.Point(x, y);
+            const p2 = new cv.Point(Math.min(src.cols, x + r.w), Math.min(src.rows, y + r.h));
+            cv.rectangle(mask, p1, p2, white, -1);
+        });
+        // nở mask phủ viền logo (anti-alias) để inpaint không sót rìa
+        const k = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.dilate(mask, mask, k);
+        const dst = new cv.Mat();
+        cv.inpaint(rgb, mask, dst, 6, cv.INPAINT_TELEA);
+        const out = new cv.Mat();
+        cv.cvtColor(dst, out, cv.COLOR_RGB2RGBA);
+        cv.imshow(canvas, out);
+        src.delete();
+        rgb.delete();
+        mask.delete();
+        k.delete();
+        dst.delete();
+        out.delete();
     }
 
     // Tự dò vùng logo: chia lưới, tính mật độ cạnh (gradient luminance), gộp ô
@@ -281,26 +363,38 @@
                 redraw();
             });
 
-            function applyErase() {
+            async function applyErase() {
                 if (!rects.length) return notify('Hãy khoanh vùng logo trước', 'warning');
                 history.push(wctx.getImageData(0, 0, NW, NH));
                 if (history.length > 8) history.shift();
-                const data = wctx.getImageData(0, 0, NW, NH);
-                rects.forEach((r) =>
-                    _inpaintRect(
-                        data,
-                        NW,
-                        NH,
-                        Math.round(r.x),
-                        Math.round(r.y),
-                        Math.round(r.w),
-                        Math.round(r.h)
-                    )
-                );
-                wctx.putImageData(data, 0, 0);
+                const rs = rects.map((r) => ({
+                    x: Math.round(r.x),
+                    y: Math.round(r.y),
+                    w: Math.round(r.w),
+                    h: Math.round(r.h),
+                }));
+                // ƯU TIÊN inpaint THẬT (OpenCV TELEA) — lấp bằng texture xung quanh,
+                // KHÔNG chỉ làm mờ. Lỗi tải/chạy → fallback nội suy viền (bilinear).
+                let okCv = false;
+                notify('Đang xoá logo (AI inpaint, lần đầu tải ~8MB)…', 'info');
+                try {
+                    const cv = await _loadCv();
+                    _inpaintCv(cv, wctx.canvas, rs);
+                    okCv = true;
+                } catch (e) {
+                    console.warn('[logo-eraser] opencv inpaint fail → fallback bilinear:', e);
+                }
+                if (!okCv) {
+                    const data = wctx.getImageData(0, 0, NW, NH);
+                    rs.forEach((r) => _inpaintRect(data, NW, NH, r.x, r.y, r.w, r.h));
+                    wctx.putImageData(data, 0, 0);
+                }
                 rects = [];
                 redraw();
-                notify('Đã xoá vùng đã chọn', 'success');
+                notify(
+                    okCv ? 'Đã xoá logo ✓ (inpaint)' : 'Đã xoá vùng (nền mượt — opencv lỗi)',
+                    'success'
+                );
             }
             function autoDetect() {
                 const data = wctx.getImageData(0, 0, NW, NH);
