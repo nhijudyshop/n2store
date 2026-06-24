@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [feat] Chấm công DG-600 — nút "Tải & cài" trên trang Máy in (1-click bootstrap từ web)
+
+User: "tích hợp vào trang printer-settings 1 option .bat tự tải folder attendance-sync về và chạy".
+
+Files: `web2/shared/web2-attendance-installer.js` (mới), `web2/printer-settings/index.html`.
+
+- **Module shared `Web2AttendanceInstaller`** (mirror `Web2PosInstaller`): `downloadInstaller/downloadUninstaller/renderButtons/batContent`. Nút trên web sinh `cai-cham-cong.bat` client-side (Blob download).
+- **bat tự bootstrap**: check Node → tải 5 file (`setup.js, adms-proxy.js, lib-config.js, config.example.json, package.json`) từ `siteRoot()/attendance-sync/*` về `%LOCALAPPDATA%\N2StoreChamCong` (PowerShell Invoke-WebRequest) → tạo `config.json` từ example → `node setup.js` (lo hết: tự gỡ cũ + test + autostart + chạy nền). `go-cham-cong.bat` gọi `setup.js --uninstall` + xoá autostart + kill proxy (belt-and-suspenders).
+- **Trang Máy in**: thêm section "Cài máy chấm công DG-600 (Windows — 1 click)" + 2 nút (cài/gỡ) + hướng dẫn 5 bước, load `web2-attendance-installer.js`, `renderButtons('#attInstallBtns',{showUninstall:true})`.
+- URL tải tính từ SITE-ROOT (trước `/web2/`) → đúng mọi domain (nhijudy.store / github.io).
+- **Verified**: (a) batContent sinh đúng (download loop + node setup.js); (b) **bootstrap end-to-end thật**: tải 5 file từ nhijudy.store/attendance-sync/\* (setup.js 19234B) → `node setup.js` → self-test HTTP 200 "CHUOI HOAT DONG" exit 0; (c) browser test trang Máy in: module loaded, 2 nút render, 0 console error.
+
 ### [feat] Biến thể (inventory-tracking) — kéo sắp xếp thứ tự Màu/Size, lưu DB, load về các máy
 
 User: "Vị trí màu, size cho kéo lưu vị trí lại cho dễ dùng -> lưu lên db load về các máy."

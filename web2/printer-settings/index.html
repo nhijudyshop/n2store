@@ -417,6 +417,46 @@
                             </li>
                         </ol>
                     </div>
+
+                    <div class="ps-section-title">
+                        <i data-lucide="fingerprint"></i> Cài máy chấm công DG-600 (Windows — 1
+                        click)
+                    </div>
+                    <div class="ps-install">
+                        <p class="ps-install-lead">
+                            1 file <code>.bat</code> <strong>tự tải agent chấm công</strong> về máy
+                            rồi cài luôn: nhận dữ liệu máy <strong>DG-600</strong> (vân tay) đẩy lên
+                            <strong>trang Chấm công</strong>. Bấm đúp 1 lần: tự tải, tự gỡ bản cũ,
+                            <strong>tự kiểm tra kết nối</strong>, chạy nền +
+                            <strong>tự bật khi mở máy</strong>.
+                        </p>
+                        <div class="ps-actions" id="attInstallBtns"></div>
+                        <ol class="ps-install-steps">
+                            <li>
+                                Bấm <strong>Tải file cài Chấm công (.bat)</strong> → chép sang
+                                <strong>máy tính trong shop</strong> (cùng mạng LAN với máy DG-600).
+                            </li>
+                            <li>
+                                Bấm đúp <code>cai-cham-cong.bat</code> (nếu SmartScreen → "More
+                                info" → "Run anyway"). Cần <strong>Node.js</strong> —
+                                <code>https://nodejs.org</code>.
+                            </li>
+                            <li>
+                                Đọc dòng <strong>[8/8]</strong>: lấy <strong>IP máy tính</strong> →
+                                vào máy DG-600 (menu Comm/Cloud/ADMS) đặt
+                                <strong>Server address = IP đó</strong>, <strong>Port 8081</strong>,
+                                <strong>Mode Auto upload</strong>.
+                            </li>
+                            <li>
+                                Chấm 1 vân tay → mở trang <strong>Chấm công</strong> (Quản trị viên)
+                                thấy "Đang kết nối" + lượt chấm hiện ra.
+                            </li>
+                            <li style="color: #94a3b8">
+                                Gỡ: bấm <strong>Tải file gỡ</strong> → bấm đúp file
+                                <code>go-cham-cong.bat</code>.
+                            </li>
+                        </ol>
+                    </div>
                 </div>
             </main>
         </div>
@@ -507,6 +547,8 @@
         <script src="../../web2/shared/web2-printer.js?v=20260623role"></script>
         <!-- Tải bộ cài máy POS (.bat MENU: Print Bridge + VieNeu + OmniVoice) — DÙNG CHUNG -->
         <script src="../../web2/shared/web2-pos-installer.js?v=20260620a"></script>
+        <!-- Tải file cài Chấm công DG-600 (.bat tự tải folder attendance-sync rồi chạy) — DÙNG CHUNG -->
+        <script src="../../web2/shared/web2-attendance-installer.js?v=20260624a"></script>
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
@@ -861,6 +903,16 @@
                 Web2PosInstaller.downloadUninstaller();
                 toast('Đã tải file tắt & gỡ — bấm đúp để chạy', 'success');
             });
+
+            // ── Nút cài Chấm công DG-600 (.bat tự tải folder attendance-sync rồi chạy) ──
+            if (window.Web2AttendanceInstaller) {
+                Web2AttendanceInstaller.renderButtons('#attInstallBtns', { showUninstall: true });
+            } else {
+                const _att = $('attInstallBtns');
+                if (_att)
+                    _att.innerHTML =
+                        '<span style="color:#94a3b8;font-size:13px">Chưa tải được module cài Chấm công.</span>';
+            }
 
             // Render ngay từ cache rồi tải mới từ SERVER → render lại. Đồng bộ
             // realtime đa user qua SSE web2:printer (module tự subscribe).
