@@ -3,24 +3,24 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cd77b95` — feat(web2/system): tab Module + tab Bên thứ 3 (audit 5 vòng, 70 bên thứ 3) + sửa tab Dịch vụ cho chính xác
-**Last updated**: 2026-06-24 17:25:39 +07
-**Latest session**: [`RESUME:20260624-172539-cd77b95`](../20260624-172539-cd77b95.md)
-**Summary**: Cấu hình & Hệ thống: +tab Module +tab Bên thứ 3 (audit 5 vòng, 70 bên thứ 3) + sửa tab Dịch vụ
+**Latest commit**: `fcebc6e` — feat(web2/system): thống kê trang↔module + 2 doc agent-reference (PAGE-MODULES + THIRD-PARTIES)
+**Last updated**: 2026-06-24 17:38:11 +07
+**Latest session**: [`RESUME:20260624-173811-fcebc6e`](../20260624-173811-fcebc6e.md)
+**Summary**: feat(web2/system): thống kê trang↔module + 2 doc agent-reference (PAGE-MODULES + THIRD-PARTIES)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-24 10:16
+- [`_root/`](./_root.md) — updated 2026-06-24 17:38
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-24 14:02
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
@@ -30,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-24 17:25
+- [`docs/`](./docs.md) — updated 2026-06-24 17:38
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -62,7 +62,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
 - [`render.com/`](./render.com.md) — updated 2026-06-24 17:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-24 17:25
+- [`scripts/`](./scripts.md) — updated 2026-06-24 17:38
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-24 17:25
+- [`web2/`](./web2.md) — updated 2026-06-24 17:38
