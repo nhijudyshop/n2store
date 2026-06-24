@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8597eb6` — perf(web2/beauty): giảm res xử lý chống 'đứng/stuck' (DETECT_MAX 1024→640, MAX_WORK 1800→1440)
-**Last updated**: 2026-06-24 19:45:29 +07
-**Latest session**: [`RESUME:20260624-194529-8597eb6`](../20260624-194529-8597eb6.md)
-**Summary**: perf(web2/beauty): giảm res xử lý chống 'đứng/stuck' (DETECT_MAX 1024→640, MAX_WORK 1800→1440)
+**Latest commit**: `b92005f` — auto: session update
+**Last updated**: 2026-06-24 20:00:09 +07
+**Latest session**: [`RESUME:20260624-200009-b92005f`](../20260624-200009-b92005f.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -80,4 +80,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-24 19:43
+- [`web2/`](./web2.md) — updated 2026-06-24 20:00
