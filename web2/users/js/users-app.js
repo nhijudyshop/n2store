@@ -210,7 +210,11 @@
             return `<span class="u-muted">••••••</span>`;
         }
         if (u.passwordPlain === '') {
-            return `<span class="u-muted" title="Mật khẩu cũ chưa mã hoá — bấm Đổi mật khẩu để hiện">—</span>`;
+            // Mật khẩu cũ chỉ lưu bcrypt (1 chiều) → không đọc lại được. Cho nút
+            // "Đặt MK" mở modal đổi mật khẩu; sau khi đặt sẽ hiện plaintext ở đây.
+            return `<button class="u-icon-btn u-pwd-set" type="button" title="Mật khẩu cũ chỉ lưu dạng mã hoá 1 chiều — không đọc lại được. Bấm để đặt mật khẩu mới (sẽ hiện ở đây)." data-act="pwd" data-id="${u.id}">
+                        <i data-lucide="key-round"></i> Đặt MK
+                    </button>`;
         }
         return `<span class="u-pwd-wrap">
                     <code class="u-pwd-text">${escapeHtml(u.passwordPlain)}</code>
@@ -399,10 +403,22 @@
         document.getElementById('uUserModalTitle').textContent = user
             ? 'Sửa người dùng'
             : 'Tạo người dùng';
-        document.getElementById('uPasswordField').hidden = !!user;
+        // Mật khẩu: hiện ô ở CẢ create lẫn edit. Tạo = bắt buộc; Sửa = tùy chọn
+        // (để trống → giữ nguyên). Trước đây ẩn khi edit nhưng dính bug CSS
+        // `.u-field{display:flex}` đè UA `[hidden]{display:none}` → ô vẫn hiện mà
+        // KHÔNG lưu (gốc bug "đổi mật khẩu ở đây không được" 2026-06-24).
+        document.getElementById('uPasswordField').hidden = false;
+        const pwLabel = document.getElementById('uPasswordLabel');
+        const pwHint = document.getElementById('uPasswordHint');
+        if (pwLabel) pwLabel.innerHTML = user ? 'Đổi mật khẩu' : 'Mật khẩu <em>*</em>';
+        if (pwHint)
+            pwHint.textContent = user
+                ? 'Để trống nếu giữ mật khẩu hiện tại. Đặt mới: tối thiểu 8 ký tự (sẽ hiện ở cột Mật khẩu).'
+                : 'Tối thiểu 8 ký tự. Bấm "Tạo" để sinh 1 từ tiếng Anh dễ nhớ.';
         document.getElementById('uFormUsername').value = user?.username || '';
         document.getElementById('uFormUsername').disabled = !!user; // không cho đổi username
         document.getElementById('uFormPassword').value = '';
+        document.getElementById('uFormPassword').type = 'text';
         document.getElementById('uFormDisplayName').value = user?.displayName || '';
         document.getElementById('uFormEmail').value = user?.email || '';
         document.getElementById('uFormPhone').value = user?.phone || '';
@@ -428,8 +444,9 @@
             note: document.getElementById('uFormNote').value.trim(),
         };
         const isEdit = !!STATE.editingUser;
+        const pwdInput = document.getElementById('uFormPassword').value;
         if (!isEdit) {
-            body.password = document.getElementById('uFormPassword').value;
+            body.password = pwdInput;
         }
         if (!body.username || !body.displayName) {
             notify('Username + Họ tên bắt buộc', 'warning');
@@ -437,6 +454,12 @@
         }
         if (!isEdit && (!body.password || body.password.length < 8)) {
             notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
+            return;
+        }
+        // Edit: mật khẩu tùy chọn — nếu admin nhập thì phải ≥ 8 ký tự.
+        const pwdToChange = isEdit && pwdInput ? pwdInput : '';
+        if (isEdit && pwdInput && pwdInput.length < 8) {
+            notify('Mật khẩu mới phải ≥ 8 ký tự (để trống nếu không đổi)', 'warning');
             return;
         }
         btn.disabled = true;
@@ -452,7 +475,20 @@
                     role: body.role,
                     note: body.note,
                 });
-                notify(`Đã cập nhật ${body.username}`, 'success');
+                if (pwdToChange) {
+                    // Đổi mật khẩu ngay trong modal Sửa (endpoint riêng /password).
+                    const user = STATE.editingUser;
+                    const isSelf = Number(user.id) === Number(_currentSessionUserId());
+                    await api('POST', `/${user.id}/password`, { password: pwdToChange });
+                    if (isSelf) {
+                        // Backend xoá hết session của user này → re-login ngay để giữ phiên.
+                        _selfPwdChangeAt = Date.now();
+                        await _reauthSelf(user.username, pwdToChange);
+                    }
+                    notify(`Đã cập nhật ${body.username} + đổi mật khẩu`, 'success');
+                } else {
+                    notify(`Đã cập nhật ${body.username}`, 'success');
+                }
             } else {
                 await api('POST', '/', body);
                 notify(`Đã tạo user ${body.username}`, 'success');

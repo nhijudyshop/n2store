@@ -2,7 +2,15 @@
 
 ## 2026-06-24
 
-### [fix+feat] web2: FIX VieNeu không kết nối (registry → Postgres) + ChatAnywhere chat + ảnh mẫu preset
+### [fix] web2/users: trang Phân quyền không scroll + đổi mật khẩu trong modal Sửa + hiện MK cột
+
+User báo: (1) `/web2/users/index.html` tab "Phân quyền" không scroll được; (2) modal "Sửa người dùng" có ô mật khẩu nhưng đổi không ăn; (3) muốn hiện mật khẩu user ở cột Mật khẩu.
+
+Files: `web2/users-permissions/index.html`, `web2/users/index.html`, `web2/users/js/users-app.js`, `web2/users/css/users.css`
+
+- **🔴 FIX không scroll (tab Phân quyền)** — tab nhúng `users-permissions/?embed=1` qua iframe. Embed mode đổi `.web2-shell` sang `display:block` NHƯNG giữ `height:100vh; overflow:hidden` (từ web2-sidebar.css) → `.web2-main` hết là grid-cell scroll được, nội dung ma trận (2563px) bị **clip** ở chiều cao iframe (710px), không thanh cuộn. Fix: embed mode set `.web2-shell`/`.web2-main` `height:auto; overflow:visible` + `body/html overflow:auto` → document tự cao bằng nội dung → **iframe TỰ scroll**. Verified browser: canScroll=true, scrollTop chạm đáy (row "Quản lý chi tiêu").
+- **🔴 FIX đổi mật khẩu trong modal Sửa** — 2 lỗi chồng: (a) `openUserModal` ẩn ô MK khi edit bằng `uPasswordField.hidden=!!user` nhưng dính bug CSS `.u-field{display:flex}` đè UA `[hidden]{display:none}` → ô **vẫn hiện**; (b) `confirmUserSave` edit chỉ PATCH, **không gửi password** → gõ MK mới mà không lưu. Fix: ô MK hiện ở CẢ create+edit (edit = tùy chọn, label "Đổi mật khẩu", để trống = giữ nguyên); edit có nhập MK ≥8 ký tự → gọi `POST /:id/password` sau PATCH (kèm re-auth nếu tự đổi MK mình). Thêm `.u-field[hidden]{display:none!important}` chống bug CSS chung. Verified E2E (user test): đổi MK qua modal Sửa → login MK mới OK, MK cũ bị từ chối.
+- **feat hiện MK cột Mật khẩu** — user cũ chỉ có bcrypt (`password_enc` NULL) hiện `—` (MK 1 chiều không đọc lại được). Đổi `—` thành nút **"Đặt MK"** mở modal đổi MK → đặt xong plaintext hiện ở cột (admin xem, account admin vẫn khoá 🔒). User đặt MK qua hệ mới → cột hiện plaintext + nút copy (verified: testpwuser hiện "newpass456").
 
 User: (1) thêm ChatAnywhere làm provider chat, (2) VieNeu chạy .bat mà không connect → fix, (3) preset có ảnh mẫu.
 

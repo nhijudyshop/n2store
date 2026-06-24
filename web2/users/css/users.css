@@ -171,6 +171,20 @@
 .u-pwd-copy {
     flex: 0 0 auto;
 }
+/* Nút "Đặt MK" cho user mật khẩu cũ (chưa lưu dạng đọc được). */
+.u-pwd-set {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+.u-pwd-set i {
+    width: 14px;
+    height: 14px;
+}
 .u-pwd-copy i {
     width: 15px;
     height: 15px;
@@ -368,6 +382,11 @@
     flex-direction: column;
     gap: 5px;
     margin-bottom: 14px;
+}
+/* UA `[hidden]{display:none}` bị `.u-field{display:flex}` (author) đè do author >
+   UA → ô vẫn hiện khi set attr hidden. Buộc ẩn để toggle `hidden` hoạt động đúng. */
+.u-field[hidden] {
+    display: none !important;
 }
 .u-field > span {
     font-size: 0.8125rem;

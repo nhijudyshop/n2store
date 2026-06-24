@@ -120,13 +120,27 @@
             body.w2-embed .web2-aside-scrim {
                 display: none !important;
             }
+            /* Embed: shell mặc định grid 100vh + overflow:hidden (clip). Khi nhúng
+               iframe, đổi block + bỏ ràng buộc chiều cao/clip để nội dung cao tự
+               trào → iframe TỰ scroll (fix "không scroll được" 2026-06-24). */
             body.w2-embed .web2-shell {
                 display: block !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
             }
             body.w2-embed .web2-main {
                 margin-left: 0 !important;
                 max-width: 100% !important;
                 padding: 14px 18px !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            /* iframe document phải tự cao bằng nội dung để xuất hiện thanh cuộn. */
+            body.w2-embed,
+            html:has(body.w2-embed) {
+                height: auto !important;
+                overflow: auto !important;
             }
             body.w2-embed .perm-main > h1,
             body.w2-embed .perm-main > p {
