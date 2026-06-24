@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [feat] Biến thể / inventory-tracking — bỏ inline edit, dùng POPUP INPUT (dễ thao tác iPad)
+
+User: "lúc bấm 2 lần vào dữ liệu cần chỉnh thì mở modal hay 1 popup input đi đừng inline nữa vì tôi tương tác trên iPad bị khó."
+
+Files: `inventory-tracking/js/table-renderer.js`, `inventory-tracking/css/modern.css`, `inventory-tracking/index.html`.
+
+- **1 helper dùng chung** `openCellEditPopup({title,label,value,type,min,max,step,placeholder})` → Promise<string|null> (null = hủy). Overlay center, input 16px + cao 48px (không zoom iOS, dễ chạm), nút Lưu/Hủy to, đóng khi bấm ngoài/Esc, guard chỉ 1 popup 1 lúc.
+- **Chuyển HẾT 7 chỗ inline edit sang popup** (giữ nguyên logic commit/lưu cũ — chỉ đổi cách lấy value, truyền `{value}` vào commit): `startInlineEdit` (Mã hàng/Tổng SL/Đơn giá), `startInlineEditNcc` (tên NCC), `startInlineEditCost` (chi phí), `startInlineEditCostNote` (ghi chú CP), `startInlineEditTiGia` (tỉ giá), `_startInlineEditPaymentGeneric` (ngày/số tiền/ghi chú thanh toán — type date/number/text), `startInlineShortage` (số món thiếu, max=tongMon). Bỏ tạo input-trong-ô + blur/Enter/Escape.
+- `commitInlineEdit` re-append decorations (nút bút chì) qua `td._restoreDecorations` như cũ; popup KHÔNG empty ô (commit tự ghi đè innerHTML).
+- **Verified browser (stub API, KHÔNG ghi prod)**: mở ô Tổng SL "25" → popup title "Sửa Tổng SL", type number, value 25, nút "Lưu"; ô KHÔNG còn input inline. Hủy → overlay biến mất, ô giữ "25", 0 API call. Lưu (value 99) → 1 API call `shipmentsApi.update(invoiceId,{sanPham})` đúng, ô hiện "99", nút bút chì còn nguyên.
+- Bump table-renderer.js + css/modern.css → 20260624d.
+
 ### [fix] ai-hub: 401 /chats,/status,/quota — bắt buộc auth Web 2.0 + xử lý phiên hết hạn
 
 User: lỗi `GET /api/web2-ai/chats?limit=50 401` + hỏi lưu lịch sử chat lên DB. Chẩn đoán: lịch sử chat ĐÃ lưu DB (Postgres `web2_ai_chats`, cột messages **JSONB** — gọn + query được, KHÔNG cần mã hoá/giải mã thủ công). 401 = token Web 2.0 thiếu/hết hạn → middleware `requireWeb2AuthSoft` chặn khi `WEB2_AUTH_ENFORCE=1`. ai-hub TRƯỚC ĐÂY không enforce auth lúc load → user token hết hạn vẫn vào trang nhưng mọi call AI 401.

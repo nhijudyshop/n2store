@@ -1701,42 +1701,118 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
 /**
  * Start inline editing for shortage cell
  */
+/**
+ * iPad-friendly popup input — replaces inline cell editing (easier to tap on a
+ * tablet than a tiny in-cell input). Returns a Promise that resolves to the
+ * entered string, or null if the user cancels.
+ *
+ * opts: { title, label, value, type:'text'|'number'|'date'|'textarea',
+ *         min, step, placeholder, okText }
+ */
+function openCellEditPopup(opts = {}) {
+    return new Promise((resolve) => {
+        // Guard: only one popup at a time (rapid double-click / multiple cells).
+        if (document.querySelector('.cell-edit-popup-overlay')) {
+            resolve(null);
+            return;
+        }
+        const {
+            title = 'Chỉnh sửa',
+            label = '',
+            value = '',
+            type = 'text',
+            min,
+            max,
+            step,
+            placeholder = '',
+            okText = 'Lưu',
+        } = opts;
+        const v = value == null ? '' : String(value);
+        const inputType = type === 'date' ? 'date' : type === 'number' ? 'number' : 'text';
+
+        const overlay = document.createElement('div');
+        overlay.className = 'cell-edit-popup-overlay';
+        overlay.innerHTML = `
+            <div class="cell-edit-popup" role="dialog" aria-modal="true">
+                <div class="cell-edit-popup-header">
+                    <span class="cep-title"></span>
+                    <button type="button" class="cell-edit-popup-x" aria-label="Đóng">✕</button>
+                </div>
+                <div class="cell-edit-popup-body">
+                    ${label ? '<label class="cell-edit-popup-label cep-label"></label>' : ''}
+                    ${
+                        type === 'textarea'
+                            ? '<textarea class="cell-edit-popup-input" rows="4"></textarea>'
+                            : `<input class="cell-edit-popup-input" type="${inputType}">`
+                    }
+                </div>
+                <div class="cell-edit-popup-footer">
+                    <button type="button" class="cell-edit-popup-cancel">Hủy</button>
+                    <button type="button" class="cell-edit-popup-ok"></button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('.cep-title').textContent = title;
+        if (label) overlay.querySelector('.cep-label').textContent = label;
+        const inputEl = overlay.querySelector('.cell-edit-popup-input');
+        inputEl.value = v;
+        if (placeholder) inputEl.placeholder = placeholder;
+        if (type === 'number') {
+            inputEl.setAttribute('inputmode', 'decimal');
+            if (min != null) inputEl.min = String(min);
+            if (max != null) inputEl.max = String(max);
+            if (step != null) inputEl.step = String(step);
+        }
+        overlay.querySelector('.cell-edit-popup-ok').textContent = okText;
+
+        let settled = false;
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            overlay.remove();
+            resolve(result);
+        };
+        overlay.querySelector('.cell-edit-popup-ok').onclick = () => finish(inputEl.value);
+        overlay.querySelector('.cell-edit-popup-cancel').onclick = () => finish(null);
+        overlay.querySelector('.cell-edit-popup-x').onclick = () => finish(null);
+        overlay.addEventListener('mousedown', (e) => {
+            if (e.target === overlay) finish(null); // click outside closes (cancel)
+        });
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && type !== 'textarea') {
+                e.preventDefault();
+                finish(inputEl.value);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                finish(null);
+            }
+        });
+        setTimeout(() => {
+            inputEl.focus();
+            try {
+                if (inputEl.select) inputEl.select();
+            } catch (_) {
+                /* ignore */
+            }
+        }, 30);
+    });
+}
+
 function startInlineShortage(td) {
-    // Already editing
-    if (td.querySelector('.shortage-inline-input')) return;
-
-    const rawValue = parseInt(td.dataset.rawValue) || 0;
+    const oldValue = parseInt(td.dataset.rawValue) || 0;
     const tongMon = parseInt(td.dataset.tongMon) || 0;
-
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = 'shortage-inline-input';
-    input.value = rawValue || '';
-    input.placeholder = '0';
-    input.min = '0';
-    input.max = String(tongMon);
-    input.style.cssText =
-        'width: 60px; text-align: center; font-weight: 700; font-size: inherit; padding: 2px 4px; border: 2px solid var(--primary, #4a7cff); border-radius: 4px; outline: none;';
-
-    // Replace content
-    td.innerHTML = '';
-    td.appendChild(input);
-    input.focus();
-    input.select();
-
-    // Stop click from re-triggering
-    input.addEventListener('click', (e) => e.stopPropagation());
-
-    // Save on blur or Enter
-    input.addEventListener('blur', () => commitInlineShortage(td, input));
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.blur();
-        }
-        if (e.key === 'Escape') {
-            cancelInlineShortage(td);
-        }
+    openCellEditPopup({
+        title: 'Sửa số món thiếu',
+        value: oldValue || '',
+        type: 'number',
+        min: 0,
+        max: tongMon > 0 ? tongMon : undefined,
+        step: 1,
+        placeholder: '0',
+    }).then((newVal) => {
+        if (newVal === null) return; // cancelled
+        commitInlineShortage(td, { value: newVal });
     });
 }
 
@@ -2176,26 +2252,18 @@ function closeImageLightbox() {
  * Inline edit NCC name (tenNCC)
  */
 function startInlineEditNcc(span) {
-    if (span.querySelector('input')) return;
-
     const invoiceId = span.dataset.invoiceId;
     const oldValue = span.textContent.trim();
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'inline-edit-input';
-    input.value = oldValue;
-    span.textContent = '';
-    span.appendChild(input);
-    input.focus();
-    input.select();
-
-    const commit = async () => {
-        const newValue = input.value.trim();
-        if (!newValue || newValue === oldValue) {
-            span.textContent = oldValue;
-            return;
-        }
+    openCellEditPopup({
+        title: 'Sửa tên NCC',
+        label: 'Tên nhà cung cấp',
+        value: oldValue,
+        type: 'text',
+    }).then(async (newVal) => {
+        if (newVal === null) return; // cancelled
+        const newValue = newVal.trim();
+        if (!newValue || newValue === oldValue) return;
 
         let targetDot = null;
         for (const ncc of globalState.nccList) {
@@ -2205,10 +2273,7 @@ function startInlineEditNcc(span) {
                 break;
             }
         }
-        if (!targetDot) {
-            span.textContent = oldValue;
-            return;
-        }
+        if (!targetDot) return;
 
         try {
             targetDot.tenNCC = newValue;
@@ -2217,28 +2282,12 @@ function startInlineEditNcc(span) {
             window.notificationManager?.success('Đã cập nhật NCC');
         } catch (err) {
             console.error('[INLINE-EDIT] NCC update error:', err);
-            span.textContent = oldValue;
             window.notificationManager?.error('Không thể cập nhật');
-        }
-    };
-
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
-        }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            span.textContent = oldValue;
         }
     });
 }
 
 function startInlineEdit(td) {
-    if (td.querySelector('input, textarea')) return; // Already editing
-
     const field = td.dataset.field;
     const invoiceId = td.dataset.invoiceId;
     const productIdx = parseInt(td.dataset.productIdx);
@@ -2251,49 +2300,32 @@ function startInlineEdit(td) {
     if (isNumeric) rawText = rawText.replace(/\s*\([^)]*\)\s*$/, '').trim();
     const oldValue = rawText.replace(/,/g, '');
 
-    const input = document.createElement(field === 'moTa' ? 'textarea' : 'input');
-    if (isNumeric) {
-        input.type = 'number';
-        input.min = '0';
-        input.step = field === 'giaDonVi' ? '0.01' : '1';
-    } else {
-        input.type = 'text';
-    }
-    input.className = 'inline-edit-input';
-    input.value = oldValue === '-' ? '' : oldValue;
-    // Preserve trailing decoration elements (pencil button, draft badge) so
-    // chúng không bị wipe khi commit set td.innerHTML = displayValue.
+    // Preserve trailing decoration elements (pencil button, draft badge) so the
+    // commit (which rewrites td.innerHTML) can re-append them.
     td._restoreDecorations = Array.from(
         td.querySelectorAll(':scope > .btn-edit-cell, :scope > .po-draft-badge')
     )
         .map((el) => el.outerHTML)
         .join('');
-    td.textContent = '';
-    td.appendChild(input);
-    input.focus();
-    input.select();
 
-    const commit = () => commitInlineEdit(td, input, field, invoiceId, productIdx, oldValue);
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !(e.shiftKey && field === 'moTa')) {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
+    const titles = {
+        maSP: 'Sửa Mã hàng',
+        tongSoLuong: 'Sửa Tổng SL',
+        giaDonVi: 'Sửa Đơn giá (tiền Trung)',
+        moTa: 'Sửa mô tả',
+    };
+    openCellEditPopup({
+        title: titles[field] || 'Chỉnh sửa',
+        value: oldValue === '-' ? '' : oldValue,
+        type: field === 'moTa' ? 'textarea' : isNumeric ? 'number' : 'text',
+        min: isNumeric ? 0 : undefined,
+        step: field === 'giaDonVi' ? '0.01' : isNumeric ? '1' : undefined,
+    }).then((newVal) => {
+        if (newVal === null) {
+            delete td._restoreDecorations; // cancelled — leave cell unchanged
+            return;
         }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            const deco = td._restoreDecorations || '';
-            if (isNumeric && field === 'giaDonVi' && oldValue && oldValue !== '-') {
-                const tg = parseFloat(td.dataset.tiGia) || 0;
-                const n = parseFloat(oldValue) || 0;
-                td.innerHTML = (n > 0 ? `${formatNumber(n)}${_vndSuffixHtml(n, tg)}` : '-') + deco;
-            } else {
-                td.innerHTML = (oldValue === '' ? '-' : oldValue) + deco;
-            }
-            delete td._restoreDecorations;
-            if (deco && window.lucide?.createIcons) window.lucide.createIcons();
-        }
+        commitInlineEdit(td, { value: newVal }, field, invoiceId, productIdx, oldValue);
     });
 }
 
@@ -2674,7 +2706,6 @@ function _refreshCostTotal(td) {
 
 function startInlineEditCost(td) {
     if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
-    if (td.querySelector('input')) return;
 
     const costId = td.dataset.costId || '';
     const invoiceId = td.dataset.invoiceId;
@@ -2683,33 +2714,17 @@ function startInlineEditCost(td) {
     const oldEl = td.querySelector('.cost-value');
     const oldSoTien = oldEl ? parseFloat(oldEl.textContent.replace(/[.,\s]/g, '')) || 0 : 0;
 
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.min = '0';
-    input.step = '1';
-    input.className = 'inline-edit-input';
-    input.value = oldSoTien > 0 ? String(oldSoTien) : '';
-    td.innerHTML = '';
-    td.appendChild(input);
-    input.focus();
-    input.select();
-
-    const restore = () => {
-        td.innerHTML = _renderCostValueHtml(oldSoTien);
-    };
-    const commit = () => commitInlineEditCost(td, input, costId, invoiceId, oldSoTien);
-
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
-        }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            restore();
-        }
+    openCellEditPopup({
+        title: 'Sửa chi phí hàng về',
+        label: 'Số tiền (VNĐ)',
+        value: oldSoTien > 0 ? String(oldSoTien) : '',
+        type: 'number',
+        min: 0,
+        step: 1,
+        placeholder: '0',
+    }).then((newVal) => {
+        if (newVal === null) return; // cancelled
+        commitInlineEditCost(td, { value: newVal }, costId, invoiceId, oldSoTien);
     });
 }
 
@@ -2798,7 +2813,6 @@ async function commitInlineEditCost(td, input, costId, invoiceId, oldSoTien) {
 
 function startInlineEditCostNote(td) {
     if (!permissionHelper?.can('edit_chiPhiHangVe')) return;
-    if (td.querySelector('input')) return;
 
     const costId = td.dataset.costId || '';
     const invoiceId = td.dataset.invoiceId;
@@ -2807,31 +2821,14 @@ function startInlineEditCostNote(td) {
     const oldEl = td.querySelector('.cost-label');
     const oldLoai = oldEl ? oldEl.textContent : '';
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'inline-edit-input';
-    input.value = oldLoai;
-    td.innerHTML = '';
-    td.appendChild(input);
-    input.focus();
-    input.select();
-
-    const restore = () => {
-        td.innerHTML = _renderCostNoteHtml(oldLoai);
-    };
-    const commit = () => commitInlineEditCostNote(td, input, costId, invoiceId, oldLoai);
-
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
-        }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            restore();
-        }
+    openCellEditPopup({
+        title: 'Sửa ghi chú chi phí',
+        label: 'Loại chi phí (vd: Tiền xe, Tiền cọc…)',
+        value: oldLoai,
+        type: 'text',
+    }).then((newVal) => {
+        if (newVal === null) return; // cancelled
+        commitInlineEditCostNote(td, { value: newVal }, costId, invoiceId, oldLoai);
     });
 }
 
@@ -3240,61 +3237,37 @@ function _getTiGiaForDot(dotSo) {
 
 function startInlineEditTiGia(el) {
     if (!permissionHelper?.can('view_thanhToanCK')) return;
-    if (el.querySelector('input')) return;
 
     const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
     const oldVal = _getTiGiaForDot(dotSo);
 
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.min = '0';
-    input.step = '0.0001';
-    input.className = 'inline-edit-input payment-ti-gia-input';
-    input.value = oldVal > 0 ? String(oldVal) : '';
-    el.innerHTML = '';
-    el.appendChild(input);
-    input.focus();
-    input.select();
-
-    const restore = () => {
-        el.textContent = oldVal > 0 ? String(oldVal) : '—';
-    };
-    const commit = async () => {
-        const newVal = parseFloat(input.value) || 0;
-        if (newVal === oldVal) {
-            restore();
-            return;
-        }
-        el.textContent = newVal > 0 ? String(newVal) : '—';
+    openCellEditPopup({
+        title: 'Sửa tỉ giá',
+        label: 'Tỉ giá (VNĐ / 1 tệ)',
+        value: oldVal > 0 ? String(oldVal) : '',
+        type: 'number',
+        min: 0,
+        step: '0.0001',
+    }).then(async (newVal) => {
+        if (newVal === null) return; // cancelled
+        const parsed = parseFloat(newVal) || 0;
+        if (parsed === oldVal) return;
+        el.textContent = parsed > 0 ? String(parsed) : '—';
         try {
-            await _persistPaymentByDot(dotSo, { tiGia: newVal });
+            await _persistPaymentByDot(dotSo, { tiGia: parsed });
             window.notificationManager?.success('Đã cập nhật tỉ giá');
         } catch (error) {
             console.error('[PAYMENT] Ti gia update error:', error);
-            restore();
+            el.textContent = oldVal > 0 ? String(oldVal) : '—';
             window.notificationManager?.error('Không thể cập nhật: ' + error.message);
-        }
-    };
-
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
-        }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            restore();
         }
     });
 }
 
 // ---------- Payment row inline edits ----------
 
-function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
+function _startInlineEditPaymentGeneric(el, inputType, formatter, parser, title) {
     if (!permissionHelper?.can('view_thanhToanCK')) return;
-    if (el.querySelector('input')) return;
 
     const paymentId = el.dataset.paymentId;
     const dotSo = parseInt(el.dataset.dotSo, 10) || 1;
@@ -3306,48 +3279,26 @@ function _startInlineEditPaymentGeneric(el, inputType, formatter, parser) {
     if (!record) return;
 
     const oldVal = record[field];
-    const oldDisplay = formatter(oldVal);
+    const popupType = inputType === 'date' ? 'date' : inputType === 'number' ? 'number' : 'text';
 
-    const input = document.createElement('input');
-    input.type = inputType;
-    input.className = 'inline-edit-input';
-    input.value = oldVal === undefined || oldVal === null ? '' : String(oldVal);
-    el.innerHTML = '';
-    el.appendChild(input);
-    input.focus();
-    input.select();
-
-    const restore = () => {
-        el.innerHTML = oldDisplay;
-    };
-    const commit = async () => {
-        const newVal = parser(input.value);
-        if (newVal === oldVal || (newVal === '' && !oldVal) || Number.isNaN(newVal)) {
-            restore();
-            return;
-        }
+    openCellEditPopup({
+        title: title || 'Sửa thanh toán',
+        value: oldVal === undefined || oldVal === null ? '' : String(oldVal),
+        type: popupType,
+        min: popupType === 'number' ? 0 : undefined,
+    }).then(async (raw) => {
+        if (raw === null) return; // cancelled
+        const newVal = parser(raw);
+        if (newVal === oldVal || (newVal === '' && !oldVal) || Number.isNaN(newVal)) return;
         const updated = payments.map((p) => (p.id === paymentId ? { ...p, [field]: newVal } : p));
-        el.innerHTML = formatter(newVal);
+        el.innerHTML = formatter(newVal); // optimistic
         try {
             await _persistPaymentByDot(dotSo, { thanhToanCK: updated });
             window.notificationManager?.success('Đã cập nhật thanh toán');
         } catch (error) {
             console.error('[PAYMENT] Update error:', error);
-            restore();
+            el.innerHTML = formatter(oldVal); // rollback
             window.notificationManager?.error('Không thể cập nhật: ' + error.message);
-        }
-    };
-
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.removeEventListener('blur', commit);
-            commit();
-        }
-        if (e.key === 'Escape') {
-            input.removeEventListener('blur', commit);
-            restore();
         }
     });
 }
@@ -3357,7 +3308,8 @@ function startInlineEditPaymentNgay(el) {
         el,
         'date',
         (v) => (v ? formatDateDisplay(v) : '—'),
-        (v) => (v || '').trim()
+        (v) => (v || '').trim(),
+        'Sửa ngày thanh toán'
     );
 }
 
@@ -3369,7 +3321,8 @@ function startInlineEditPaymentSoTien(el) {
         el,
         'number',
         (v) => _formatSoTienWithVnd(v, tiGia),
-        (v) => parseFloat(v) || 0
+        (v) => parseFloat(v) || 0,
+        'Sửa số tiền thanh toán'
     );
 }
 
@@ -3378,7 +3331,8 @@ function startInlineEditPaymentNote(el) {
         el,
         'text',
         (v) => _escAttr(v || ''),
-        (v) => (v || '').trim()
+        (v) => (v || '').trim(),
+        'Sửa ghi chú thanh toán'
     );
 }
 

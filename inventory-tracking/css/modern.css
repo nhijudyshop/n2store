@@ -1744,6 +1744,127 @@ textarea.inline-edit-input {
     min-height: 28px;
 }
 
+/* ===== CELL EDIT POPUP — thay inline edit (dễ thao tác trên iPad) ===== */
+.cell-edit-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overscroll-behavior: contain;
+}
+.cell-edit-popup {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: cellEditPopupIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes cellEditPopupIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.cell-edit-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 16px 18px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-800, #1f2937);
+    border-bottom: 1px solid var(--gray-200, #e5e7eb);
+}
+.cell-edit-popup-x {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--gray-500, #6b7280);
+}
+.cell-edit-popup-x:hover {
+    background: var(--gray-100, #f3f4f6);
+}
+.cell-edit-popup-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cell-edit-popup-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-600, #4b5563);
+}
+.cell-edit-popup-input {
+    width: 100%;
+    /* 16px font + 48px height = no iOS zoom + comfortable tap target */
+    font-size: 16px;
+    min-height: 48px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--gray-300, #d1d5db);
+    border-radius: 12px;
+    font-family: inherit;
+    outline: none;
+    background: #fff;
+    box-sizing: border-box;
+}
+textarea.cell-edit-popup-input {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.5;
+}
+.cell-edit-popup-input:focus {
+    border-color: var(--primary, #4a7cff);
+    box-shadow: 0 0 0 3px rgba(74, 124, 255, 0.18);
+}
+.cell-edit-popup-footer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 18px 18px;
+}
+.cell-edit-popup-footer button {
+    flex: 1;
+    min-height: 48px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+.cell-edit-popup-cancel {
+    background: var(--gray-100, #f3f4f6);
+    color: var(--gray-700, #374151);
+    border-color: var(--gray-200, #e5e7eb);
+}
+.cell-edit-popup-cancel:hover {
+    background: var(--gray-200, #e5e7eb);
+}
+.cell-edit-popup-ok {
+    background: var(--primary, #4a7cff);
+    color: #fff;
+}
+.cell-edit-popup-ok:hover {
+    filter: brightness(0.95);
+}
+
 .invoice-table .col-products {
     width: 60%;
 }
