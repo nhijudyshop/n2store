@@ -206,6 +206,14 @@ async function ensureSchema(pool) {
             created_at      BIGINT NOT NULL,
             processed_at    BIGINT
         );
+        -- Chốt lương kỳ (khoá tháng): snapshot bảng lương ĐÃ tính (frontend gửi lên)
+        -- + ai/khi nào chốt. Tháng đã khoá → render từ snapshot, chặn sửa.
+        CREATE TABLE IF NOT EXISTS web2_attendance_period_lock (
+            month_key   VARCHAR(7) PRIMARY KEY,
+            locked_by   VARCHAR(120),
+            locked_at   BIGINT NOT NULL,
+            snapshot    JSONB NOT NULL DEFAULT '{}'::jsonb
+        );
     `);
 }
 
@@ -802,6 +810,55 @@ router.get('/sync-status', requireWeb2Admin, async (req, res) => {
 router.get('/agent-secret', requireWeb2Admin, (req, res) => {
     const secret = String(process.env.WEB2_ATTENDANCE_SECRET || '').trim();
     return ok(res, { secret, configured: !!secret });
+});
+
+// ── Chốt lương kỳ (khoá tháng) — snapshot bảng lương + ai/khi nào ────────
+const MK_RE = /^\d{4}-\d{2}$/;
+router.get('/period-lock', requireWeb2Admin, async (req, res) => {
+    try {
+        const mk = String(req.query.monthKey || '').trim();
+        if (!MK_RE.test(mk)) return fail(res, 400, 'monthKey không hợp lệ');
+        const r = await getDb(req).query(
+            `SELECT month_key, locked_by, locked_at, snapshot
+               FROM web2_attendance_period_lock WHERE month_key=$1`,
+            [mk]
+        );
+        return ok(res, { locked: r.rows.length > 0, lock: r.rows[0] || null });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+router.post('/period-lock', requireWeb2Admin, async (req, res) => {
+    try {
+        const b = req.body || {};
+        const mk = String(b.monthKey || '').trim();
+        if (!MK_RE.test(mk)) return fail(res, 400, 'monthKey không hợp lệ');
+        const snapshot = b.snapshot && typeof b.snapshot === 'object' ? b.snapshot : {};
+        const by = req.web2User?.display_name || req.web2User?.username || 'admin';
+        const t = now();
+        await getDb(req).query(
+            `INSERT INTO web2_attendance_period_lock (month_key, locked_by, locked_at, snapshot)
+             VALUES ($1,$2,$3,$4)
+             ON CONFLICT (month_key) DO UPDATE SET
+                locked_by=EXCLUDED.locked_by, locked_at=EXCLUDED.locked_at, snapshot=EXCLUDED.snapshot`,
+            [mk, by, t, JSON.stringify(snapshot)]
+        );
+        _notify('period-lock', { monthKey: mk, locked: true });
+        return ok(res, { locked: true, locked_by: by, locked_at: t });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+router.delete('/period-lock/:monthKey', requireWeb2Admin, async (req, res) => {
+    try {
+        const mk = String(req.params.monthKey || '').trim();
+        if (!MK_RE.test(mk)) return fail(res, 400, 'monthKey không hợp lệ');
+        await getDb(req).query('DELETE FROM web2_attendance_period_lock WHERE month_key=$1', [mk]);
+        _notify('period-lock', { monthKey: mk, locked: false });
+        return ok(res, { unlocked: true });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
 });
 
 router.put('/sync-status', requireAgentSecret, async (req, res) => {

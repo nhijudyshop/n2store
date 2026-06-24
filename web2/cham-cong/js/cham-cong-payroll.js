@@ -34,6 +34,78 @@
         );
     }
 
+    // ── Chốt lương kỳ: nếu tháng đã KHOÁ → đọc snapshot (đóng băng) thay vì tính lại ──
+    function lockObj() {
+        return CC().state.lock;
+    }
+    function isLocked() {
+        return !!lockObj();
+    }
+    function snapRows() {
+        const l = lockObj();
+        return l && l.snapshot && Array.isArray(l.snapshot.rows) ? l.snapshot.rows : null;
+    }
+    function snapRow(uid) {
+        const rows = snapRows();
+        return rows ? rows.find((r) => r.device_user_id === uid) : null;
+    }
+    // { du, name, salary_type, pr, m } cho 1 NV — snapshot nếu khoá, ngược lại tính live.
+    function resolveRow(uid) {
+        const cc = CC();
+        const snap = snapRow(uid);
+        if (snap)
+            return {
+                du: snap.du,
+                name: snap.name,
+                salary_type: snap.salary_type,
+                pr: snap.pr || {},
+                m: snap.m,
+            };
+        const du = cc.state.deviceUsers.find((d) => d.device_user_id === uid);
+        if (!du) return null;
+        return {
+            du,
+            name: cc.empName(du),
+            salary_type: du.salary_type,
+            pr: cc.payrollFor(uid) || {},
+            m: computeRow(du),
+        };
+    }
+    // Danh sách entries để render bảng: snapshot khi khoá, live khi chưa.
+    function entriesForRender() {
+        const cc = CC();
+        const rows = snapRows();
+        if (rows)
+            return rows.map((r) => ({
+                du: r.du,
+                name: r.name,
+                salary_type: r.salary_type,
+                pr: r.pr || {},
+                m: r.m,
+                uid: r.device_user_id,
+            }));
+        return cc.state.deviceUsers
+            .filter((d) => d.active !== false && cc.isVisibleEmp(d))
+            .map((du) => ({
+                du,
+                name: cc.empName(du),
+                salary_type: du.salary_type,
+                pr: cc.payrollFor(du.device_user_id) || {},
+                m: computeRow(du),
+                uid: du.device_user_id,
+            }));
+    }
+    function fmtLockTime(ms) {
+        if (!ms) return '?';
+        return new Intl.DateTimeFormat('vi-VN', {
+            timeZone: CC().S.VN_TZ,
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        }).format(new Date(Number(ms)));
+    }
+
     function render() {
         const cc = CC();
         const el = document.getElementById('ccBody');
@@ -42,29 +114,32 @@
             el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
-        // Tính lương cho PIN đã gán NV hoặc NV thủ công (đồng bộ với Bảng công).
-        const dus = cc.state.deviceUsers.filter((d) => d.active !== false && cc.isVisibleEmp(d));
-        if (!dus.length) {
+        // Tháng đã KHOÁ → entries từ snapshot (đóng băng); chưa khoá → tính live.
+        const locked = isLocked();
+        const entries = entriesForRender();
+        if (!entries.length) {
             el.innerHTML = `<div class="cc-empty"><p>Chưa có PIN máy nào được gán nhân viên. Vào tab <b>Nhân viên</b> để gán.</p></div>`;
             return;
         }
         // B3: phát hiện 1 NV gán cho nhiều PIN → cảnh báo + kèm PIN để phân biệt 2 dòng.
         const empIdCount = {};
-        for (const d of dus)
-            if (d.employee_id) empIdCount[d.employee_id] = (empIdCount[d.employee_id] || 0) + 1;
+        for (const e of entries)
+            if (e.du && e.du.employee_id)
+                empIdCount[e.du.employee_id] = (empIdCount[e.du.employee_id] || 0) + 1;
         const dupEmpIds = new Set(Object.keys(empIdCount).filter((k) => empIdCount[k] > 1));
 
         let rows = '';
         let tot = { luong: 0, ot: 0, pc: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
-        for (const du of dus) {
-            const m = computeRow(du);
+        for (const en of entries) {
+            const m = en.m;
+            const du = en.du || {};
             const isDup = du.employee_id && dupEmpIds.has(String(du.employee_id));
             // B6: NV lương THÁNG chưa chấm công ngày nào → nhắc admin kiểm tra (vẫn trả full).
-            const lowMonthly = du.salary_type === 'monthly' && m.workedDays === 0;
+            const lowMonthly = en.salary_type === 'monthly' && m.workedDays === 0;
             const warnStyle = 'color:#dc2626;font-size:11px;font-weight:600;white-space:nowrap';
             const nameExtra =
                 (isDup
-                    ? ` <span style="${warnStyle}" title="Gán trùng NV — lương tính 2 lần">⚠ PIN ${cc.esc(du.device_user_id)}</span>`
+                    ? ` <span style="${warnStyle}" title="Gán trùng NV — lương tính 2 lần">⚠ PIN ${cc.esc(en.uid)}</span>`
                     : '') +
                 (lowMonthly
                     ? ` <span style="${warnStyle}" title="Lương tháng nhưng 0 ngày công — kiểm tra giảm trừ">⚠ 0 công</span>`
@@ -78,7 +153,7 @@
             tot.datra += m.daTra;
             tot.con += m.conCanTra;
             rows += `<tr>
-                <td class="cc-pl-name">${cc.esc(cc.empName(du))}${nameExtra}</td>
+                <td class="cc-pl-name">${cc.esc(en.name)}${nameExtra}</td>
                 <td class="num">${m.workedDays}</td>
                 <td class="num">${fmt(m.luongChinh)}</td>
                 <td class="num ot">${m.lamThem ? '+' + fmt(m.lamThem) : '—'}</td>
@@ -89,16 +164,26 @@
                 <td class="num">${m.daTra ? fmt(m.daTra) : '—'}</td>
                 <td class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</td>
                 <td class="cc-pl-acts">
-                    <button class="cc-btn cc-btn-ghost cc-pl-detail" data-uid="${cc.esc(du.device_user_id)}">Chi tiết</button>
-                    <button class="cc-btn cc-btn-ghost cc-pl-print" data-uid="${cc.esc(du.device_user_id)}" title="In phiếu lương">🖨 In</button>
-                    <button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(du.device_user_id)}">Sửa</button>
+                    <button class="cc-btn cc-btn-ghost cc-pl-detail" data-uid="${cc.esc(en.uid)}">Chi tiết</button>
+                    <button class="cc-btn cc-btn-ghost cc-pl-print" data-uid="${cc.esc(en.uid)}" title="In phiếu lương">🖨 In</button>
+                    ${locked ? '' : `<button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(en.uid)}">Sửa</button>`}
                 </td>
             </tr>`;
         }
+        const dusLen = entries.length;
         const dupBanner = dupEmpIds.size
             ? `<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-size:12.5px;"><b>⚠ Có nhân viên được gán cho NHIỀU PIN máy</b> — lương người đó đang tính TRÙNG (cộng 2 lần vào TỔNG). Vào tab <b>Nhân viên</b> sửa lại để mỗi người chỉ 1 PIN.</div>`
             : '';
+        const lockBanner = locked
+            ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;color:#065f46;font-size:13px;">
+                 <b>🔒 Đã chốt lương tháng ${cc.esc(cc.state.monthKey)}</b>
+                 <span style="color:#047857">bởi ${cc.esc((lockObj() || {}).locked_by || '?')} · ${fmtLockTime((lockObj() || {}).locked_at)}</span>
+                 <span style="font-size:12px;color:#059669">— số liệu ĐÓNG BĂNG (sửa chấm công/cấu hình sau đó KHÔNG đổi bảng này).</span>
+                 <button class="cc-btn cc-btn-ghost" id="ccUnlock" style="margin-left:auto">🔓 Mở khoá</button>
+               </div>`
+            : '';
         el.innerHTML = `
+          ${lockBanner}
           ${dupBanner}
           <div class="cc-grid-wrap">
             <table class="cc-payroll">
@@ -109,7 +194,7 @@
               </tr></thead>
               <tbody>${rows}</tbody>
               <tfoot><tr>
-                <td>TỔNG (${dus.length} NV)</td><td></td>
+                <td>TỔNG (${dusLen} NV)</td><td></td>
                 <td class="num">${fmt(tot.luong)}</td><td class="num ot">${fmt(tot.ot)}</td>
                 <td class="num">${fmt(tot.pc)}</td><td class="num thuong">${fmt(tot.thuong)}</td>
                 <td class="num giam">${fmt(tot.giam)}</td><td class="num tong">${fmt(tot.tong)}</td>
@@ -119,6 +204,7 @@
           </div>
           <div class="cc-pl-actions">
             <button class="cc-btn cc-btn-ghost" id="ccExportPayroll"><i data-lucide="download"></i> Xuất Excel bảng lương</button>
+            ${locked ? '' : `<button class="cc-btn cc-btn-primary" id="ccLockPeriod"><i data-lucide="lock"></i> Chốt lương tháng này</button>`}
           </div>`;
         el.querySelectorAll('.cc-pl-edit').forEach((b) => {
             b.addEventListener('click', () => openEdit(b.dataset.uid));
@@ -130,7 +216,62 @@
             b.addEventListener('click', () => printPayslip(b.dataset.uid));
         });
         document.getElementById('ccExportPayroll')?.addEventListener('click', exportPayroll);
+        document.getElementById('ccLockPeriod')?.addEventListener('click', doLock);
+        document.getElementById('ccUnlock')?.addEventListener('click', doUnlock);
         if (global.lucide) global.lucide.createIcons();
+    }
+
+    // ── Chốt / mở khoá kỳ ────────────────────────────────────────────────────
+    async function doLock() {
+        const cc = CC();
+        const mk = cc.state.monthKey;
+        if (
+            !(await cc.confirmBox(
+                `Chốt lương tháng ${mk}?\nSố liệu hiện tại sẽ được ĐÓNG BĂNG (snapshot). Sau khi chốt, sửa chấm công / cấu hình / điều chỉnh sẽ KHÔNG làm đổi bảng đã chốt. Vẫn có thể "Mở khoá" để tính lại.`
+            ))
+        )
+            return;
+        const entries = entriesForRender(); // đang chưa khoá → live
+        const tot = { luong: 0, ot: 0, pc: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
+        const rows = entries.map((en) => {
+            tot.luong += en.m.luongChinh;
+            tot.ot += en.m.lamThem;
+            tot.tong += en.m.tongLuong;
+            tot.datra += en.m.daTra;
+            tot.con += en.m.conCanTra;
+            return {
+                device_user_id: en.uid,
+                name: en.name,
+                salary_type: en.salary_type,
+                du: en.du,
+                pr: en.pr,
+                m: en.m,
+            };
+        });
+        try {
+            await cc.Api.lockPeriod(mk, { rows, total: tot, monthKey: mk });
+            cc.toast(`Đã chốt lương tháng ${mk}.`, 'success');
+            await cc.loadAll(true);
+        } catch (e) {
+            cc.toast('Chốt lương lỗi: ' + e.message, 'error');
+        }
+    }
+    async function doUnlock() {
+        const cc = CC();
+        const mk = cc.state.monthKey;
+        if (
+            !(await cc.confirmBox(
+                `Mở khoá tháng ${mk}?\nBảng lương sẽ tính LẠI từ dữ liệu hiện tại — có thể khác bản đã chốt nếu chấm công/cấu hình đã thay đổi.`
+            ))
+        )
+            return;
+        try {
+            await cc.Api.unlockPeriod(mk);
+            cc.toast(`Đã mở khoá tháng ${mk}.`, 'success');
+            await cc.loadAll(true);
+        } catch (e) {
+            cc.toast('Mở khoá lỗi: ' + e.message, 'error');
+        }
     }
 
     // ── Modal CHI TIẾT (read-only): giải thích vì sao có từng khoản ──────────
@@ -157,11 +298,12 @@
 
     function openDetail(deviceUserId) {
         const cc = CC();
-        const du = cc.state.deviceUsers.find((d) => d.device_user_id === deviceUserId);
-        if (!du) return;
+        const R = resolveRow(deviceUserId); // snapshot nếu đã chốt, ngược lại live
+        if (!R) return;
+        const du = R.du;
         const cfg = cc.cfgFor(du);
-        const m = computeRow(du);
-        const pr = cc.payrollFor(deviceUserId) || {};
+        const m = R.m;
+        const pr = R.pr;
 
         // Lương chính
         const dayRate = Number(cfg.dailyRate) || 0;
@@ -231,7 +373,7 @@
           <div class="cc-modal-backdrop" id="ccDtBackdrop">
             <div class="cc-modal cc-modal-lg">
               <div class="cc-modal-head">
-                <div>Chi tiết lương · <b>${cc.esc(cc.empName(du))}</b> · ${cc.state.monthKey}</div>
+                <div>Chi tiết lương · <b>${cc.esc(R.name)}</b> · ${cc.state.monthKey}${isLocked() ? ' <span style="color:#059669;font-size:12px">🔒 đã chốt</span>' : ''}</div>
                 <button class="cc-x" id="ccDtClose">✕</button>
               </div>
               <div class="cc-modal-body cc-detail-body">
@@ -249,7 +391,7 @@
                 ${section('📝 Ghi chú theo ngày', notesBlock)}
               </div>
               <div class="cc-modal-foot">
-                <button class="cc-btn cc-btn-ghost" id="ccDtEdit">Sửa điều chỉnh</button>
+                ${isLocked() ? '' : '<button class="cc-btn cc-btn-ghost" id="ccDtEdit">Sửa điều chỉnh</button>'}
                 <button class="cc-btn cc-btn-ghost" id="ccDtPrint">🖨 In phiếu lương</button>
                 <span class="cc-foot-spacer"></span>
                 <button class="cc-btn cc-btn-primary" id="ccDtOk">Đóng</button>
@@ -262,10 +404,12 @@
         document.getElementById('ccDtBackdrop').onclick = (e) => {
             if (e.target.id === 'ccDtBackdrop') close();
         };
-        document.getElementById('ccDtEdit').onclick = () => {
-            close();
-            openEdit(deviceUserId);
-        };
+        const dtEdit = document.getElementById('ccDtEdit');
+        if (dtEdit)
+            dtEdit.onclick = () => {
+                close();
+                openEdit(deviceUserId);
+            };
         document.getElementById('ccDtPrint').onclick = () => printPayslip(deviceUserId);
     }
 
@@ -275,11 +419,12 @@
     const SHOP_NAME = 'NHI JUDY STORE';
     function printPayslip(deviceUserId) {
         const cc = CC();
-        const du = cc.state.deviceUsers.find((d) => d.device_user_id === deviceUserId);
-        if (!du) return;
+        const R = resolveRow(deviceUserId); // snapshot nếu đã chốt, ngược lại live
+        if (!R) return;
+        const du = R.du;
         const cfg = cc.cfgFor(du);
-        const m = computeRow(du);
-        const pr = cc.payrollFor(deviceUserId) || {};
+        const m = R.m;
+        const pr = R.pr;
         const monthKey = cc.state.monthKey;
         const [yy, mm] = monthKey.split('-');
         const isMonthly = cfg.salaryType === 'monthly';
@@ -337,7 +482,7 @@
             `<tr class="ps-sec"><td>${t}</td><td class="ps-amt ${cls || ''}">${total}</td></tr>`;
 
         const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8">
-        <title>Phiếu lương ${cc.esc(cc.empName(du))} ${mm}/${yy}</title>
+        <title>Phiếu lương ${cc.esc(R.name)} ${mm}/${yy}</title>
         <style>
           *{box-sizing:border-box} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:0;padding:24px;font-size:13px}
           .ps-wrap{max-width:720px;margin:0 auto}
@@ -372,7 +517,7 @@
             <div class="ps-period">Kỳ lương tháng ${mm}/${yy}</div>
           </div>
           <div class="ps-info">
-            <div><b>Nhân viên:</b> ${cc.esc(cc.empName(du))}</div>
+            <div><b>Nhân viên:</b> ${cc.esc(R.name)}</div>
             <div><b>Mã NV:</b> ${nvCode}</div>
             <div><b>Loại lương:</b> ${isMonthly ? 'Theo tháng' : 'Theo ngày'}</div>
             <div><b>Ca làm việc:</b> ${cc.esc(cfg.workStart)}–${cc.esc(cfg.workEnd)}</div>
@@ -537,9 +682,7 @@
                     document.head.appendChild(s);
                 });
             }
-            const dus = cc.state.deviceUsers.filter(
-                (d) => d.active !== false && cc.isVisibleEmp(d)
-            );
+            const entries = entriesForRender(); // snapshot khi đã chốt, ngược lại live
             const aoa = [
                 [
                     'Nhân viên',
@@ -554,10 +697,10 @@
                     'Còn lại',
                 ],
             ];
-            for (const du of dus) {
-                const m = computeRow(du);
+            for (const en of entries) {
+                const m = en.m;
                 aoa.push([
-                    cc.empName(du),
+                    en.name,
                     m.workedDays,
                     m.luongChinh,
                     m.lamThem,

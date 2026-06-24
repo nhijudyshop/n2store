@@ -8,7 +8,7 @@
         <meta name="web2-db" content="render" />
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t6" />
-        <link rel="stylesheet" href="css/system.css?v=20260614a" />
+        <link rel="stylesheet" href="css/system.css?v=20260624a" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
@@ -50,6 +50,12 @@
                     </button>
                     <button class="sys-tab" role="tab" data-tab="pages" type="button">
                         <i data-lucide="layout-grid"></i> <span>Các trang Web 2.0</span>
+                    </button>
+                    <button class="sys-tab" role="tab" data-tab="modules" type="button">
+                        <i data-lucide="boxes"></i> <span>Module</span>
+                    </button>
+                    <button class="sys-tab" role="tab" data-tab="thirdparty" type="button">
+                        <i data-lucide="plug"></i> <span>Bên thứ 3</span>
                     </button>
                 </nav>
 
@@ -192,6 +198,40 @@
                     </div>
                     <div class="sys-pages-groups" id="sysPagesGroups"></div>
                 </section>
+
+                <!-- ============ PANEL: MODULES INVENTORY ============ -->
+                <section class="sys-panel" data-panel="modules" role="tabpanel">
+                    <p class="sys-panel-intro">
+                        Toàn bộ module Web 2.0 — <strong>dùng chung</strong> (web2/shared), theo
+                        <strong>trang</strong>, và <strong>backend</strong> (Render
+                        routes/services). Nguồn:
+                        <code>web2/system/data/web2-modules.json</code> (sinh bởi
+                        <code>scripts/gen-web2-system-data.js</code>).
+                    </p>
+                    <div class="sys-pages-summary" id="modSummary">
+                        <div class="sd-loading">Đang tải manifest…</div>
+                    </div>
+                    <div class="mod-toolbar" id="modToolbar"></div>
+                    <div class="mod-host" id="modHost">
+                        <div class="sd-loading">Đang tải…</div>
+                    </div>
+                </section>
+
+                <!-- ============ PANEL: THIRD-PARTY INVENTORY ============ -->
+                <section class="sys-panel" data-panel="thirdparty" role="tabpanel">
+                    <p class="sys-panel-intro">
+                        Tất cả <strong>bên thứ 3</strong> được dùng trong Web 2.0 — API, thư viện
+                        CDN, model ML on-device, dự án open-source/GitHub, hạ tầng/platform. Đã rà
+                        soát 5 vòng. Nguồn: <code>web2/system/data/web2-third-parties.json</code>.
+                    </p>
+                    <div class="sys-pages-summary" id="tpSummary">
+                        <div class="sd-loading">Đang tải registry…</div>
+                    </div>
+                    <div class="tp-toolbar" id="tpToolbar"></div>
+                    <div class="tp-host" id="tpHost">
+                        <div class="sd-loading">Đang tải…</div>
+                    </div>
+                </section>
             </main>
         </div>
 
@@ -200,6 +240,8 @@
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="js/system-services.js?v=20260614a"></script>
         <script src="js/system-sse.js?v=20260614a"></script>
-        <script src="js/system-app.js?v=20260614a"></script>
+        <script src="js/system-modules.js?v=20260624a"></script>
+        <script src="js/system-thirdparty.js?v=20260624a"></script>
+        <script src="js/system-app.js?v=20260624a"></script>
     </body>
 </html>

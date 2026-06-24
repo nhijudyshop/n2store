@@ -823,6 +823,403 @@
     color: #15803d;
 }
 
+/* =====================================================================
+   TAB MODULE + TAB BÊN THỨ 3 (mod-* / tp-*) — dùng chung token web2.
+   ===================================================================== */
+
+/* ---- Toolbar dùng chung (search + view + chips) ---- */
+.mod-toolbar,
+.tp-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+.mod-views {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.mod-view {
+    padding: 7px 14px;
+    border: 1px solid var(--web2-border);
+    background: #fff;
+    border-radius: 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--web2-text-2);
+    cursor: pointer;
+    transition:
+        background 0.14s,
+        color 0.14s,
+        border-color 0.14s;
+}
+.mod-view:hover {
+    border-color: var(--web2-primary);
+}
+.mod-view.is-on {
+    background: var(--web2-primary);
+    border-color: var(--web2-primary);
+    color: #fff;
+}
+.mod-search {
+    flex: 1 1 240px;
+    min-width: 200px;
+    padding: 8px 13px;
+    border: 1px solid var(--web2-border);
+    border-radius: 9px;
+    font-size: 13px;
+    color: var(--web2-text);
+    background: #fff;
+}
+.mod-search:focus {
+    outline: none;
+    border-color: var(--web2-primary);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
+}
+.tp-filterline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.mod-cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.mod-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border: 1px solid var(--web2-border);
+    background: #fff;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--web2-text-2);
+    cursor: pointer;
+    transition:
+        background 0.14s,
+        color 0.14s,
+        border-color 0.14s;
+}
+.mod-chip:hover {
+    border-color: var(--web2-primary);
+}
+.mod-chip.is-on {
+    background: #e7f0ff;
+    border-color: var(--web2-primary);
+    color: var(--web2-primary);
+}
+.mod-chip .n {
+    background: var(--web2-bg-light);
+    color: var(--web2-text-3);
+    border-radius: 8px;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 800;
+}
+.mod-chip.is-on .n {
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--web2-primary);
+}
+
+/* ---- Groups + grids ---- */
+.mod-group {
+    margin-bottom: 24px;
+}
+.mod-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--web2-text);
+}
+.mod-group-head .count {
+    background: var(--web2-bg-light);
+    color: var(--web2-text-3);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 10px;
+}
+.mod-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+}
+.tp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+
+/* ---- Module card ---- */
+.mod-card {
+    border: 1px solid var(--web2-border);
+    border-radius: 10px;
+    padding: 12px 13px;
+    background: #fff;
+    transition:
+        transform 0.16s,
+        box-shadow 0.16s,
+        border-color 0.16s;
+}
+.mod-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 104, 255, 0.1);
+    border-color: var(--web2-primary);
+}
+.mod-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.mod-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--web2-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mod-lines {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--web2-text-3);
+    background: var(--web2-bg-light);
+    border-radius: 7px;
+    padding: 2px 7px;
+    font-variant-numeric: tabular-nums;
+}
+.mod-lines.big {
+    background: #fef3c7;
+    color: #92400e;
+}
+.mod-file {
+    margin-top: 5px;
+    font-size: 10.5px;
+    color: var(--web2-text-faded);
+    word-break: break-all;
+}
+.mod-file code {
+    font-family: ui-monospace, Menlo, monospace;
+    background: transparent;
+}
+.mod-purpose {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--web2-text-2);
+    line-height: 1.45;
+}
+.mod-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+.mod-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--web2-text-3);
+    background: var(--web2-bg-light);
+    border-radius: 7px;
+    padding: 2px 8px;
+}
+.mod-tag.api {
+    color: #4338ca;
+    background: #eef2ff;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mod-tag.warn {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+/* ---- Third-party card ---- */
+.tp-card {
+    border: 1px solid var(--web2-border);
+    border-left: 4px solid var(--web2-border);
+    border-radius: 10px;
+    padding: 13px 15px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    transition:
+        transform 0.16s,
+        box-shadow 0.16s;
+}
+.tp-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+}
+.tp-cat-ai-llm {
+    border-left-color: #8b5cf6;
+}
+.tp-cat-tts-voice {
+    border-left-color: #ec4899;
+}
+.tp-cat-media-gen {
+    border-left-color: #f59e0b;
+}
+.tp-cat-stock-media {
+    border-left-color: #14b8a6;
+}
+.tp-cat-messaging-social {
+    border-left-color: #0ea5e9;
+}
+.tp-cat-commerce-tpos {
+    border-left-color: #6366f1;
+}
+.tp-cat-payment {
+    border-left-color: #22c55e;
+}
+.tp-cat-browser-lib {
+    border-left-color: #64748b;
+}
+.tp-cat-ml-model-ondevice {
+    border-left-color: #d946ef;
+}
+.tp-cat-opensource-port {
+    border-left-color: #334155;
+}
+.tp-cat-infra-platform {
+    border-left-color: #ef4444;
+}
+.tp-cat-font {
+    border-left-color: #a3a3a3;
+}
+.tp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.tp-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--web2-text);
+}
+.tp-cost {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 11.5px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+.tp-cost.free {
+    background: #dcfce7;
+    color: #15803d;
+}
+.tp-cost.paid {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.tp-cost.usage {
+    background: #fef3c7;
+    color: #92400e;
+}
+.tp-cost.freemium {
+    background: #fef3c7;
+    color: #92400e;
+}
+.tp-provider {
+    font-size: 11.5px;
+    color: var(--web2-text-3);
+    font-weight: 600;
+}
+.tp-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.tp-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+.tp-badge.w2 {
+    background: #e7f0ff;
+    color: var(--web2-primary);
+}
+.tp-badge.w1 {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+.tp-badge.both {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+.tp-badge.legacy {
+    background: var(--web2-bg-light);
+    color: var(--web2-text-faded);
+}
+.tp-badge.dormant {
+    background: #fef9c3;
+    color: #854d0e;
+}
+.tp-badge.lic {
+    background: #f1f5f9;
+    color: #475569;
+}
+.tp-cost-detail {
+    font-size: 11px;
+    color: var(--web2-text-3);
+}
+.tp-notes {
+    font-size: 12px;
+    color: var(--web2-text-2);
+    line-height: 1.45;
+}
+.tp-used,
+.tp-env {
+    font-size: 10.5px;
+    color: var(--web2-text-3);
+    line-height: 1.6;
+}
+.tp-used-label,
+.tp-env-label {
+    font-weight: 700;
+    color: var(--web2-text-2);
+}
+.tp-used code,
+.tp-env code {
+    font-family: ui-monospace, Menlo, monospace;
+    background: var(--web2-bg-light);
+    border-radius: 5px;
+    padding: 1px 5px;
+    font-size: 10px;
+    word-break: break-all;
+}
+.tp-more {
+    color: var(--web2-text-faded);
+    font-weight: 700;
+}
+.tp-link {
+    align-self: flex-start;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--web2-primary);
+    text-decoration: none;
+}
+.tp-link:hover {
+    text-decoration: underline;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
     .sys-main {
@@ -839,5 +1236,9 @@
     }
     .sys-header {
         flex-direction: column;
+    }
+    .mod-grid,
+    .tp-grid {
+        grid-template-columns: 1fr;
     }
 }

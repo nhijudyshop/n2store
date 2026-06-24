@@ -46,6 +46,7 @@
         holidaySet: new Set(), // 'dateKey'
         payrollById: {}, // '{empId}_{monthKey}' → row
         sync: null,
+        lock: null, // chốt lương kỳ: lock row của tháng hiện tại (null = chưa khoá)
         loading: false,
         empDirty: false, // tab Nhân viên đang sửa dở → KHÔNG cho reload nền đè (mất chỉnh sửa)
     };
@@ -123,6 +124,7 @@
         for (const p of r.payroll || []) pById[p.id] = p;
         state.payrollById = pById;
         state.sync = r.sync || null;
+        state.lock = r.lock || null; // chốt lương kỳ (null = chưa khoá tháng này)
     }
 
     // Chỉ làm tươi dải trạng thái máy (KHÔNG reload bảng) — dùng cho heartbeat ADMS
@@ -171,7 +173,7 @@
         // 2) Revalidate ngầm từ server.
         const { start, end } = monthRange();
         try {
-            const [du, emp, rec, note, fd, hol, pay, sync] = await Promise.all([
+            const [du, emp, rec, note, fd, hol, pay, sync, lk] = await Promise.all([
                 Api.listDeviceUsers().catch(() => ({ items: [] })),
                 Api.listEmployees().catch(() => ({ users: [] })),
                 Api.listRecords(start, end).catch(() => ({ items: [] })),
@@ -180,6 +182,7 @@
                 Api.listHolidays().catch(() => ({ items: [] })),
                 Api.getPayroll(mk).catch(() => ({ items: [] })),
                 Api.getSyncStatus().catch(() => ({ status: null })),
+                Api.getPeriodLock(mk).catch(() => ({ lock: null })),
             ]);
             if (state.monthKey !== mk) return; // user đã đổi tháng giữa chừng
             const results = {
@@ -191,6 +194,7 @@
                 holidays: hol.items || [],
                 payroll: pay.items || [],
                 sync: sync.status || null,
+                lock: lk.lock || null,
             };
             applyResults(results);
             state._loadedMonth = mk;
@@ -540,6 +544,7 @@
         // history: delete + add punch
         mount.querySelectorAll('.cc-pdel').forEach((b) => {
             b.onclick = async () => {
+                if (state.lock) return toast('Tháng đã CHỐT lương — Mở khoá để sửa.', 'warning');
                 if (!(await confirmBox('Xoá lượt chấm này?'))) return;
                 try {
                     await Api.deleteRecord(b.dataset.id);
@@ -553,6 +558,7 @@
         const addBtn = document.getElementById('ccPunchAdd');
         if (addBtn)
             addBtn.onclick = async () => {
+                if (state.lock) return toast('Tháng đã CHỐT lương — Mở khoá để sửa.', 'warning');
                 const t = document.getElementById('ccPunchTime').value;
                 const type = Number(document.getElementById('ccPunchType').value);
                 if (!t) return;
@@ -570,6 +576,7 @@
             };
         // Xoá cả ngày (mọi lượt chấm)
         document.getElementById('ccDayDelete').onclick = async () => {
+            if (state.lock) return toast('Tháng đã CHỐT lương — Mở khoá để sửa.', 'warning');
             if (!recs.length) return toast('Ngày này không có lượt chấm.', 'info');
             if (!(await confirmBox('Xoá TẤT CẢ lượt chấm ngày này?'))) return;
             try {
@@ -597,6 +604,8 @@
 
     // Lưu chi tiết 1 ngày: nghỉ phép (fullday) + chỉnh giờ Vào/Ra (xoá punch cũ + thêm mới).
     async function saveDayDetail(deviceUserId, dateKey, ctx) {
+        if (state.lock)
+            return toast('Tháng đã CHỐT lương — Mở khoá ở Bảng lương để sửa.', 'warning');
         const mount = document.getElementById('ccModalMount');
         const leave = (mount.querySelector('input[name="ccLeave"]:checked') || {}).value || 'work';
         const inChk = document.getElementById('ccInChk')?.checked;

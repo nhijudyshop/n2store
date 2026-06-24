@@ -77,5 +77,11 @@
             api('/holidays/' + encodeURIComponent(dateKey), { method: 'DELETE' }),
         // Sync status (chỉ đọc — hiển thị dải trạng thái máy)
         getSyncStatus: () => api('/sync-status'),
+        // Chốt lương kỳ (khoá tháng)
+        getPeriodLock: (monthKey) => api('/period-lock?monthKey=' + encodeURIComponent(monthKey)),
+        lockPeriod: (monthKey, snapshot) =>
+            api('/period-lock', { method: 'POST', body: { monthKey, snapshot } }),
+        unlockPeriod: (monthKey) =>
+            api('/period-lock/' + encodeURIComponent(monthKey), { method: 'DELETE' }),
     };
 })(window);

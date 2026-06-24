@@ -4,7 +4,7 @@
 (function () {
     'use strict';
 
-    const VALID_TABS = ['services', 'sse', 'pages'];
+    const VALID_TABS = ['services', 'sse', 'pages', 'modules', 'thirdparty'];
     const _inited = new Set();
 
     function $(id) {
@@ -39,6 +39,12 @@
         } else if (tab === 'pages' && !_inited.has('pages')) {
             _inited.add('pages');
             buildPages();
+        } else if (tab === 'modules' && !_inited.has('modules')) {
+            _inited.add('modules');
+            window.SystemModules?.start?.();
+        } else if (tab === 'thirdparty' && !_inited.has('thirdparty')) {
+            _inited.add('thirdparty');
+            window.SystemThirdParty?.start?.();
         }
 
         // Reflect in URL (không tạo history entry).
@@ -63,6 +69,8 @@
             if (active === 'services') window.SystemServices?.reload?.();
             else if (active === 'sse') window.SystemSSE?.reload?.();
             else if (active === 'pages') buildPages(true);
+            else if (active === 'modules') window.SystemModules?.reload?.();
+            else if (active === 'thirdparty') window.SystemThirdParty?.reload?.();
         });
     }
 
