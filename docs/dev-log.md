@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### [perf] Làm đẹp khuôn mặt → WEB WORKER (hết "đứng/stuck" hoàn toàn)
+
+User: ai-photo Làm đẹp vẫn "loading hoài" — screenshot cho thấy kẹt ở **"Đang nhận diện khuôn mặt…"**. Root cause: cả **MediaPipe detect** lẫn **lọc** (smoothSkin/warp) chạy ĐỒNG BỘ trên main-thread → đứng UI (nặng nhất trên browser software-render / máy yếu). Giảm res (turn trước) chưa đủ.
+
+Fix triệt để — chuyển TOÀN BỘ xử lý nặng sang **Web Worker** (built-in trình duyệt, MIỄN PHÍ):
+
+- **NEW `web2/shared/beauty/web2-beauty-worker.js`**: chạy smoothSkin/adjustSkinTone/beautify/warp/auto trên luồng nền (pixel buffer Transferable). `web2-beauty-filters.js` đổi IIFE `(window)`→`(self)` để chạy được trong worker; `web2-beauty-studio.js` doApply → async, gọi `processImageData()` (worker, fallback sync).
+- **NEW `web2/shared/beauty/web2-beauty-face-worker.js`** (module worker): chạy MediaPipe FaceLandmarker nền; `web2-beauty-face.js` `detect()` gửi ImageBitmap (đã thu nhỏ ≤640) sang worker → landmarks; keepalive `_emit` 1.5s để guard 30s ở studio không tự huỷ khi tải model; fallback `_detectMain` nếu worker lỗi.
+- **Verify browser (headless, môi trường chậm nhất)**: probe trong lúc xử lý đều TRẢ LỜI ~0.01-0.02s = **main-thread KHÔNG đứng** (trước đây timeout/frozen); detect xong (busy:false, XNNPACK CPU, có mặt); Tự động apply → whole-canvas hash ĐỔI (changed:true ~146ms). Smooth/warp/auto đều chạy qua worker OK. Chỉ còn 1 lần chờ NỀN: tải model ~13MB lần đầu/phiên (spinner mượt, page tương tác được).
+- Bump version 5 file beauty (ai-photo + video-beauty). Worker URL lấy từ currentScript (cùng thư mục).
+
 ### [feat] Mobile: thanh menu dưới cùng cho điện thoại + fix nút Đăng xuất bị khuất
 
 User: "Trên điện thoại không có nút đăng xuất? → Có giao diện riêng cho điện thoại nên làm thanh menu cho điện thoại luôn đi". Chọn kiểu **bottom bar**.

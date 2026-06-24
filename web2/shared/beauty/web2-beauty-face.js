@@ -71,6 +71,75 @@
         return () => _progCbs.delete(cb);
     }
 
+    // ── WEB WORKER (module) nhận diện mặt NỀN → KHÔNG đứng UI ở "Đang nhận diện". ──
+    // URL worker = cùng thư mục module này. Lỗi/không hỗ trợ → fallback detect main-thread.
+    const FACE_WORKER_URL = (function () {
+        try {
+            const s = document.currentScript && document.currentScript.src;
+            if (s) return s.replace(/[^/]*$/, 'web2-beauty-face-worker.js') + '?v=20260624a';
+        } catch (_) {}
+        return null;
+    })();
+    let _fw = null; // Worker | false | null
+    let _fwSeq = 0;
+    const _fwJobs = new Map();
+    function getFaceWorker() {
+        if (_fw === false || !FACE_WORKER_URL || typeof Worker === 'undefined') return null;
+        if (_fw) return _fw;
+        try {
+            _fw = new Worker(FACE_WORKER_URL, { type: 'module' });
+            _fw.onmessage = (e) => {
+                const { id, ok, landmarks, error } = e.data || {};
+                const j = _fwJobs.get(id);
+                if (!j) return;
+                _fwJobs.delete(id);
+                ok ? j.res(landmarks) : j.rej(new Error(error || 'face worker error'));
+            };
+            _fw.onerror = () => {
+                _fw = false;
+                _fwJobs.forEach((j) => j.rej(new Error('face worker crashed')));
+                _fwJobs.clear();
+            };
+        } catch (_) {
+            _fw = false;
+            return null;
+        }
+        return _fw;
+    }
+    // detect qua worker: gửi ImageBitmap (đã thu nhỏ ≤DETECT_MAX) → landmarks 0..1.
+    async function detectViaWorker(srcEl, W, H) {
+        const w = getFaceWorker();
+        if (!w) throw new Error('no face worker');
+        if (typeof createImageBitmap === 'undefined') throw new Error('no createImageBitmap');
+        const m = Math.max(W, H);
+        const k = m > DETECT_MAX ? DETECT_MAX / m : 1;
+        const bitmap = await createImageBitmap(srcEl, {
+            resizeWidth: Math.max(1, Math.round(W * k)),
+            resizeHeight: Math.max(1, Math.round(H * k)),
+            resizeQuality: 'medium',
+        });
+        // keepalive: bơm progress 1.5s/lần để guard 30s ở studio không tự huỷ khi
+        // model đang tải/đang detect (worker không gửi % tải về main).
+        const keep = setInterval(() => _emit(Math.min(0.95, (_dlFrac || 0) + 0.02)), 1500);
+        try {
+            const landmarks = await new Promise((res, rej) => {
+                const id = ++_fwSeq;
+                _fwJobs.set(id, { res, rej });
+                w.postMessage({ id, bitmap }, [bitmap]);
+                setTimeout(() => {
+                    if (_fwJobs.has(id)) {
+                        _fwJobs.delete(id);
+                        rej(new Error('face worker timeout'));
+                    }
+                }, 90000);
+            });
+            _emit(1);
+            return landmarks; // [[x,y],...] | null
+        } finally {
+            clearInterval(keep);
+        }
+    }
+
     // ── Lazy-load MediaPipe Tasks Vision (ESM) — singleton ──
     let _visionP = null;
     function loadVision() {
@@ -228,9 +297,21 @@
     // 640px đủ chính xác landmark, nhanh ~2.5× → giảm freeze.
     const DETECT_MAX = 640;
     async function detect(srcEl) {
-        const fl = await getLandmarker();
         const W = srcEl.naturalWidth || srcEl.videoWidth || srcEl.width;
         const H = srcEl.naturalHeight || srcEl.videoHeight || srcEl.height;
+        // ƯU TIÊN worker (nền) → UI không đứng. Lỗi worker → fallback main-thread.
+        try {
+            const lm = await detectViaWorker(srcEl, W, H);
+            if (!lm || !lm.length) return null;
+            return { px: lm.map((p) => ({ x: p[0] * W, y: p[1] * H })), W, H, count: lm.length };
+        } catch (e) {
+            console.warn('[Web2BeautyFace] worker detect fail → fallback main:', e.message || e);
+        }
+        return _detectMain(srcEl, W, H);
+    }
+    // Fallback: detect đồng bộ trên main-thread (cũ) khi worker không dùng được.
+    async function _detectMain(srcEl, W, H) {
+        const fl = await getLandmarker();
         let target = srcEl;
         const m = Math.max(W, H);
         if (m > DETECT_MAX) {
