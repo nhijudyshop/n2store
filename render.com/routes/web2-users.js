@@ -320,6 +320,8 @@ const WEB2_PAGES = [
         group: 'AI',
         actions: ['view', 'generate', 'export'],
     },
+    { slug: 'ai-assistant', label: 'Trợ lý AI theo trang', group: 'AI', actions: ['view'] },
+    { slug: 'ai-photo', label: 'Sửa ảnh AI', group: 'AI', actions: ['view'] },
     // ─── Đa dụng ───────────────────────────────────────────────────
     { slug: 'multi-tool', label: 'Tăng số lượng comment', group: 'Facebook', actions: ['view'] },
     { slug: 'product-counter', label: 'Đếm SP qua camera', group: 'Đa dụng', actions: ['view'] },
@@ -989,14 +991,23 @@ router.put(
                 const knownSlugs = new Set(WEB2_PAGES.map((p) => p.slug));
                 const slugActions = new Map(WEB2_PAGES.map((p) => [p.slug, new Set(p.actions)]));
                 for (const slug of Object.keys(perms)) {
-                    if (!knownSlugs.has(slug))
-                        throw Object.assign(new Error(`Page "${slug}" không tồn tại`), {
-                            status: 400,
-                        });
                     if (!Array.isArray(perms[slug]))
                         throw Object.assign(new Error(`permissions.${slug} phải là array`), {
                             status: 400,
                         });
+                    // Trang auto-discover từ sidebar NAV (chưa khai báo ở WEB2_PAGES) chỉ
+                    // được FE cấp 'view'. Chấp nhận lưu nếu slug an toàn + chỉ action 'view'
+                    // → khớp auto-discover, trang sidebar mới không vỡ lúc Save. Action
+                    // khác hoặc slug lạ → từ chối.
+                    if (!knownSlugs.has(slug)) {
+                        const safeSlug = /^[a-z0-9][a-z0-9-]{0,63}$/.test(slug);
+                        const viewOnly = perms[slug].every((a) => a === 'view');
+                        if (!safeSlug || !viewOnly)
+                            throw Object.assign(new Error(`Page "${slug}" không tồn tại`), {
+                                status: 400,
+                            });
+                        continue;
+                    }
                     const allowed = slugActions.get(slug);
                     for (const a of perms[slug]) {
                         if (!allowed.has(a))

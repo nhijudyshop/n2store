@@ -12,6 +12,16 @@ Files: `web2/users-permissions/index.html` (regex làm sạch nhãn auto-discove
 - **Fix**: thay bằng strip emoji/biểu tượng ở ĐẦU/CUỐI qua Unicode property escape `^[\s\p{Extended_Pictographic}️‍]+|[…]+$/gu` — chỉ ăn emoji + VS16 + ZWJ + khoảng trắng, **giữ nguyên dấu tiếng Việt**.
 - **Verify**: Node test 7 case (Trợ lý/Sửa ảnh/Xưởng Video + emoji đầu/cuối + nhãn thường) → ALL PASS, diacritics giữ nguyên. Iframe đã cache-bust `&t=Date.now()` nên không cần bump version.
 
+### [fix] Phân quyền: Save báo 400 `Page "ai-assistant" không tồn tại`
+
+User: lưu phân quyền → `PUT /api/web2-users/39/permissions 400` `{"error":"Page \"ai-assistant\" không tồn tại"}`.
+
+Files: `render.com/routes/web2-users.js` (registry + validation PUT /permissions) — deploy `web2-api`.
+
+- **Nguyên nhân**: FE auto-discover trang sidebar (ai-assistant/ai-photo) cho admin tick `view`, nhưng BE `PUT /:id/permissions` validate CỨNG — slug không có trong `WEB2_PAGES` → reject 400. → mọi trang chỉ-có-trong-sidebar đều vỡ lúc Save, không riêng 2 trang AI.
+- **Fix (2 lớp)**: (1) thêm `ai-assistant` (Trợ lý AI theo trang) + `ai-photo` (Sửa ảnh AI) vào `WEB2_PAGES` nhóm AI, `actions:['view']` (đúng convention "thêm trang mới → 1 entry"); (2) nới validation: slug lạ vẫn lưu được **nếu** slug an toàn `/^[a-z0-9][a-z0-9-]{0,63}$/` **và** chỉ action `view` → khớp auto-discover, trang sidebar mới sau này không vỡ. Action khác / slug lạ → vẫn reject. Known page sai action → vẫn reject.
+- **Verify**: `node -c` OK + Node test 7 nhánh (known mới pass, future view-only pass, non-view reject, unsafe slug reject, known-bad-action reject) → đúng hết. BE cần Render redeploy `web2-api`.
+
 ### [fix] Xóa logo dùng OpenCV inpaint THẬT (trước chỉ làm mờ) + product-card tự động xóa nền
 
 User: (1) "xóa logo không hoạt động đúng, chỉ làm mờ đi"; (2) "tạo card sản phẩm sẽ tự động xóa nền SP trước khi tạo card".
