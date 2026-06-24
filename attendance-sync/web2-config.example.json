@@ -1,5 +1,0 @@
-{
-    "_note": "Copy thành web2-config.json rồi dán secret. Bật DUAL-PUSH: collector Web 1.0 đẩy THÊM sang Web 2.0 (/api/web2-attendance). KHÔNG commit web2-config.json (chứa secret).",
-    "attendanceSecret": "DÁN_GIỐNG_WEB2_ATTENDANCE_SECRET_TRÊN_RENDER",
-    "renderBase": "https://chatomni-proxy.nhijudyshop.workers.dev"
-}

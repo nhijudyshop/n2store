@@ -2,6 +2,21 @@
 
 ## 2026-06-24
 
+### [fix/refactor] Chấm công DG-600 — sửa lỗi không cài được + gom 1 folder + 1 NÚT cài/gỡ
+
+User: "tại sao attendance-sync cài không được? quá khó cài vì quá nhiều file, đơn giản hóa 1 nút tự xóa tự cài làm hết kiểm tra, báo lỗi nếu có" + "xóa hết file không cần thiết trong attendance-sync, thêm hướng dẫn chi tiết".
+
+**Root cause (verified live curl)**: máy DG-600 push `/iclock/cdata`; bản cũ `attendance-sync/adms-proxy.js` (v2 "Web 1.0 first + Web2 mirror") forward THẲNG `/iclock/cdata` tới **gốc worker** → worker chỉ route `/api/*` → trả **404 `{"error":"Invalid API route"}`** → proxy trả nguyên 404 đó về MÁY làm phản hồi handshake → máy không hiểu → lặp handshake 15s/lần, **KHÔNG bao giờ đẩy ATTLOG**. Web2 mirror (đúng endpoint) trả 200 nhưng fire-and-forget → response tốt bị vứt. + 2 folder trùng (`attendance-sync/` legacy vs `web2-attendance-sync/`) → cài nhầm bản broken. Live test xác nhận: `/api/web2-attendance-adms/iclock/cdata`→200 `GET OPTION FROM`, raw `/iclock/cdata`→404.
+
+Files: `attendance-sync/` (gom về 1 folder duy nhất). Xoá folder trùng `web2-attendance-sync/`.
+
+- **1 NÚT**: `CAI-DAT.bat`/`cai-dat.command` (cài) + `GO-BO.bat`/`go-bo.command` (gỡ) → gọi `setup.js` (bộ não cross-platform). Tự: [1] check Node [2] **syntax + #Note mọi .js, báo lỗi** [3] check/tạo config.json [4] **tự gỡ bản cũ** (kill theo cổng 8081 + theo command-line cả 2 folder; xoá 4 autostart VBS cũ) [5] npm install (tolerant) [6] **tự test chuỗi** proxy→worker→web2-api (GET `/iclock/cdata` phải có `GET OPTION FROM`) [7] autostart Startup VBS + chạy nền [8] in IP LAN máy + cách verify. Idempotent (chạy lại = gỡ-rồi-cài).
+- **adms-proxy.js đúng**: forward `/iclock/*` → `<renderBase>/api/web2-attendance-adms/iclock/*`, **trả nguyên văn** response về máy (handshake hợp lệ). Append `?secret=` nếu có. KHÔNG deps (pure http/https) → package.json deps rỗng.
+- **Xoá file thừa** trong attendance-sync: `zk.js, api.js, web2-push.js, index.js, find-commkey.js, diagnose.js, test.js, test-mac.sh, setup.bat, setup-adms.bat, cai-dat-tu-dong.bat, go-tu-dong.bat, start.vbs, stop.bat, web2-config.example.json`. Còn lại 11 file gọn.
+- **README.md chi tiết**: cài 1 nút, cấu hình máy DG-600 (Server address = IP máy tính, port 8081, Auto upload), secret, kiểm tra, gỡ, bảng troubleshooting, sơ đồ kiến trúc, giải thích lỗi cũ.
+- ANSI color TẮT trên Windows cmd (tránh escape rác). Output ASCII-only (console Windows không lỗi font).
+- **Verified** chạy `node setup.js` 2 lần (từ web2-attendance-sync trước migrate + từ attendance-sync sau migrate): self-test HTTP 200 "CHUOI HOAT DONG", exit 0, syntax + #Note OK cả 3 file.
+
 ### [feat/fix] AI presets modal giống YouMind + bỏ chibi-banana + chibi avatar free + fix lightbox
 
 User (5 yêu cầu + 2 bổ sung): (1) mẫu prompt có hình + filter/search như youmind.com/nano-banana-pro-prompts; (2) modal mẫu bị lỗi giao diện (card chồng lên nhau); (3) bỏ chibi tạo bằng Nano Banana (tốn tiền) → thay bằng generator avatar chibi FREE ở phần avatar; (4) zoom ảnh rồi tắt → ảnh to hiện dưới footer; (5) audit + browser test + fix lặp. Bổ sung: card hiện cả hình + prompt + nút; cuộn để load more.

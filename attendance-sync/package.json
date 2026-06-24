@@ -1,11 +1,14 @@
 {
-  "name": "attendance-sync",
-  "version": "5.0.0",
-  "description": "Raw ZK protocol (TCP+UDP auto-detect), no ZK library",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "node test.js"
-  },
-  "dependencies": {}
+    "name": "attendance-sync",
+    "version": "2.0.0",
+    "private": true,
+    "description": "Agent may cham cong DG-600 -> trang Cham cong (Web 2.0). ADMS proxy, KHONG can thu vien.",
+    "main": "adms-proxy.js",
+    "scripts": {
+        "setup": "node setup.js",
+        "uninstall": "node setup.js --uninstall",
+        "start": "node adms-proxy.js",
+        "proxy": "node adms-proxy.js"
+    },
+    "dependencies": {}
 }
