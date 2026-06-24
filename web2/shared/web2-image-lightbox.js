@@ -26,6 +26,24 @@
 
     var OVERLAY_ID = 'web2ImageLightbox';
     var _state = { images: [], idx: 0 };
+    var _closeTimer = null; // timer fade-out; clear khi mở lại để tránh race "mở rồi bị ẩn".
+    var _cssInjected = false;
+
+    // CSS guard (inject 1 lần): bảo đảm overlay LUÔN fixed + ẩn hẳn khi hidden — kể cả
+    // nếu inline style bị mất/đè (gốc lỗi "ảnh to hiện dưới footer" = overlay rớt về
+    // document flow). !important phủ mọi stylesheet trang.
+    function _injectGuardCss() {
+        if (_cssInjected) return;
+        _cssInjected = true;
+        var s = document.createElement('style');
+        s.textContent =
+            '#' +
+            OVERLAY_ID +
+            '{position:fixed!important;inset:0}#' +
+            OVERLAY_ID +
+            '[hidden]{display:none!important}';
+        (document.head || document.documentElement).appendChild(s);
+    }
 
     function _esc(v) {
         if (global.Web2Escape && global.Web2Escape.escapeHtml) {
@@ -63,6 +81,7 @@
     }
 
     function _ensureOverlay() {
+        _injectGuardCss();
         var ov = document.getElementById(OVERLAY_ID);
         if (ov) return ov;
         ov = document.createElement('div');
@@ -152,6 +171,10 @@
         _state.images = imgs;
         _state.idx = Math.min(Math.max(0, Number(startIdx) || 0), imgs.length - 1);
         var ov = _ensureOverlay();
+        if (_closeTimer) {
+            clearTimeout(_closeTimer); // huỷ fade-out đang chờ → tránh ẩn nhầm ảnh mới
+            _closeTimer = null;
+        }
         _render();
         ov.hidden = false;
         ov.style.display = 'flex'; // hiện lại (close đặt none)
@@ -169,9 +192,11 @@
         var ov = document.getElementById(OVERLAY_ID);
         if (!ov || ov.hidden) return;
         ov.style.opacity = '0';
-        setTimeout(function () {
+        if (_closeTimer) clearTimeout(_closeTimer);
+        _closeTimer = setTimeout(function () {
             ov.hidden = true;
             ov.style.display = 'none'; // gỡ lớp phủ → trả click lại cho trang
+            _closeTimer = null;
         }, 180);
     }
 

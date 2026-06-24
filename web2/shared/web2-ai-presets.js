@@ -31,7 +31,6 @@
         { id: 'onmodel', label: '🧥 Mặc lên người (cần ảnh)' },
         { id: 'scene', label: '🖼️ Đổi nền / Phong cảnh (cần ảnh)' },
         { id: 'avatar', label: '👤 Ảnh đại diện (cần ảnh)' },
-        { id: 'chibi', label: '🎨 Chibi / Nhân vật (cần ảnh)' },
         { id: 'layout', label: '📐 Flat-lay / Bố cục' },
         { id: 'poster', label: '🎉 Poster / Khuyến mãi' },
     ];
@@ -228,47 +227,6 @@
             needsImage: false,
             source: 'youmind (Social Media Post)',
         },
-        // ── 🎨 Chibi / nhân vật (cần ảnh — biến ẢNH THẬT thành chibi/figurine bằng Nano Banana) ──
-        {
-            id: 'chibi-cute',
-            cat: 'chibi',
-            title: 'Ảnh → Chibi dễ thương (Q-version)',
-            prompt: 'Biến người trong ảnh thành nhân vật chibi dễ thương (Q-version): đầu to thân nhỏ, mắt to long lanh, nét vẽ tròn mềm, màu pastel tươi, GIỮ đặc điểm nhận diện khuôn mặt/kiểu tóc/trang phục, nền đơn giản, phong cách sticker đáng yêu.',
-            needsImage: true,
-            source: 'PicoTrex (chibi version) + youmind (Chibi/Q-Style)',
-        },
-        {
-            id: 'chibi-brawl',
-            cat: 'chibi',
-            title: 'Ảnh → Chibi kiểu game (Brawl Stars)',
-            prompt: 'Biến người trong ảnh thành nhân vật chibi phong cách game Brawl Stars / Supercell: đầu to thân nhỏ, mắt to biểu cảm, ĐƯỜNG VIỀN ĐẬM, màu sắc rực rỡ tương phản cao, tạo hình 3D game-art bóng bẩy, dáng pose năng động, GIỮ đặc điểm khuôn mặt/trang phục để nhận ra, nền đơn giản.',
-            needsImage: true,
-            source: 'community (Brawl Stars chibi)',
-        },
-        {
-            id: 'chibi-figurine',
-            cat: 'chibi',
-            title: 'Ảnh → Mô hình figurine / Funko Pop',
-            prompt: 'Biến người trong ảnh thành mô hình đồ chơi figurine sưu tầm phong cách Funko Pop: đầu to vuông, thân nhỏ, mắt đen tròn, chất liệu nhựa vinyl bóng, đặt trên bàn trưng bày có hộp blister phía sau, ánh sáng studio, GIỮ đặc điểm nhận diện + trang phục.',
-            needsImage: true,
-            source: 'PicoTrex (figurine/garage kit)',
-        },
-        {
-            id: 'chibi-plush',
-            cat: 'chibi',
-            title: 'Ảnh → Thú nhồi bông (plush toy)',
-            prompt: 'Biến chủ thể trong ảnh thành một con thú nhồi bông (plush toy) mềm mại dễ thương: chất liệu vải lông mịn, đường chỉ may, hình khối tròn đầy, bóng đổ mềm, nền xám nhạt đơn giản, giữ nét nhận diện đặc trưng.',
-            needsImage: true,
-            source: 'PicoTrex (No.12 Fluffy Plush)',
-        },
-        {
-            id: 'chibi-anime',
-            cat: 'chibi',
-            title: 'Ảnh → Anime / ảnh đại diện hoạt hình',
-            prompt: 'Vẽ lại người trong ảnh theo phong cách anime Nhật chất lượng cao: nét sạch, tô màu cel-shading, mắt to có hồn, tóc chi tiết, GIỮ đặc điểm khuôn mặt/kiểu tóc/trang phục, nền gradient nhẹ — hợp làm ảnh đại diện.',
-            needsImage: true,
-            source: 'youmind (Anime/Manga)',
-        },
     ];
 
     // Ảnh mẫu minh hoạ (CDN youmind, public) cho từng câu lệnh → card có hình cho dễ hình dung.
@@ -287,12 +245,12 @@
         'onmodel-product': _T + '1780560150781_xh95nv_HJ3DGgRXcAA4p4s.jpg',
         'onmodel-flatlay-to-model': _T + '1780645919757_0jpqt5_HJ8WQ9WbIAApkYy.jpg',
         'scene-white': _T + '1781684782153_2vzpgr_HK7T3TTXUAACV9f.jpg',
+        'scene-beach': _T + '1782200281348_evr0na_HLZxwFTWsAAL14k.jpg',
+        'scene-street': _T + '1780645927302_7piitf_HJ8DE5JWsAAI0Kc.jpg',
         'scene-restore': _T + '1782028907000_r80lq8_HLPN7xGaQAAMyqY.jpg',
         'avatar-studio': _T + '1782200278004_thj6jq_HLbworvXEAE7zAJ.jpg',
         'avatar-id': _T + '1782028906257_7ytl5t_HLPN7PgagAArlFL.jpg',
         'avatar-pixar': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
-        'chibi-cute': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
-        'chibi-anime': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
         'layout-flatlay': _T + '1781941373581_vejcq0_HK-5lMlXkAAV8zn.jpg',
         'layout-bento':
             _T + '1768962051381_l9uih4_537980579-6f29d32a-c786-40c4-bd5a-79c640737496.png',
@@ -457,17 +415,33 @@
         .aip-cat{border:1px solid var(--web2-border,#e2e8f0);background:var(--web2-bg,#f8fafc);border-radius:999px;
             padding:5px 12px;font-size:.78rem;cursor:pointer;white-space:nowrap}
         .aip-cat.active{background:var(--web2-primary,#6366f1);border-color:var(--web2-primary,#6366f1);color:#fff}
-        .aip-grid{overflow:auto;padding:12px 18px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+        .aip-search-row{padding:8px 18px 2px;display:flex}
+        .aip-search-row[hidden]{display:none!important}
+        .aip-search{flex:1;height:38px;border:1px solid var(--web2-border,#e2e8f0);border-radius:10px;padding:0 12px;
+            font:inherit;font-size:.86rem;background:var(--web2-bg,#f8fafc);color:var(--web2-text,#0f172a);outline:none}
+        .aip-search:focus{border-color:var(--web2-primary,#6366f1);box-shadow:0 0 0 3px rgba(99,102,241,.14)}
+        .aip-grid{flex:1 1 auto;min-height:0;overflow:auto;padding:12px 18px 18px;display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;align-content:start}
         .aip-card{border:1px solid var(--web2-border,#e2e8f0);border-radius:12px;padding:12px;cursor:pointer;
             background:var(--web2-surface,#fff);transition:border-color .15s,transform .12s,box-shadow .15s;display:flex;flex-direction:column;gap:6px}
-        .aip-card.has-thumb{padding:0;overflow:hidden}
+        /* KHÔNG dùng overflow:hidden ở card — grid item là scroll-container sẽ thu
+           chiều cao track về body-only (62px) làm thumb 150px bị cắt. Bo góc ở .aip-thumb. */
+        .aip-card.has-thumb{padding:0}
         .aip-card.has-thumb .aip-card-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px}
         .aip-card:hover{border-color:var(--web2-primary,#6366f1);transform:translateY(-2px);box-shadow:0 6px 18px rgba(99,102,241,.14)}
-        .aip-thumb{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;background:var(--web2-bg,#f1f5f9)}
+        .aip-thumb{position:relative;width:100%;height:150px;flex:0 0 auto;overflow:hidden;border-radius:11px 11px 0 0;background:var(--web2-bg,#f1f5f9)}
         .aip-thumb img{width:100%;height:100%;object-fit:cover;display:block}
         .aip-card h4{margin:0;font-size:.86rem;font-weight:700;line-height:1.3}
         .aip-card p{margin:0;font-size:.74rem;color:var(--web2-text-2,#64748b);line-height:1.4;
             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        /* Hộp prompt đầy đủ (giống YouMind) — hiện nội dung câu lệnh cho user dễ hình dung. */
+        .aip-prompt{font-size:.72rem;color:var(--web2-text-2,#475569);line-height:1.45;white-space:pre-wrap;
+            background:var(--web2-bg,#f8fafc);border:1px solid var(--web2-border,#eef2f7);border-radius:8px;
+            padding:7px 9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+        .aip-use{margin-top:1px;border:none;border-radius:8px;background:var(--web2-primary,#6366f1);color:#fff;
+            font-weight:600;font-size:.76rem;padding:8px 10px;cursor:pointer;width:100%;transition:filter .12s}
+        .aip-use:hover{filter:brightness(1.08)}
+        .aip-loadmore{grid-column:1/-1;text-align:center;color:var(--web2-text-3,#94a3b8);font-size:.74rem;padding:8px 0 2px}
         .aip-tag{align-self:flex-start;font-size:.66rem;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4f46e5;font-weight:600}
         .aip-tag.need{background:#fef3c7;color:#b45309}
         .aip-tag.on-thumb{position:absolute;top:6px;left:6px;background:rgba(255,255,255,.92);box-shadow:0 1px 4px rgba(0,0,0,.18)}
@@ -483,6 +457,14 @@
             (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
         );
     }
+    // Chuẩn hoá để tìm kiếm: thường + bỏ dấu tiếng Việt (gõ "ao" khớp "áo").
+    function _norm(s) {
+        return String(s == null ? '' : s)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/g, 'd');
+    }
 
     let _overlay = null;
     function _ensureOverlay() {
@@ -493,6 +475,7 @@
         ov.innerHTML = `<div class="aip-modal" role="dialog" aria-modal="true">
             <div class="aip-head"><h3 data-aip-title>Mẫu câu lệnh</h3><button class="aip-x" data-aip-x>×</button></div>
             <div class="aip-cats" data-aip-cats></div>
+            <div class="aip-search-row" data-aip-search-row><input type="search" class="aip-search" data-aip-search placeholder="🔎 Tìm câu lệnh theo tên / nội dung…"></div>
             <div class="aip-grid" data-aip-grid></div>
         </div>`;
         document.body.appendChild(ov);
@@ -502,6 +485,21 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && ov.classList.contains('open')) close();
         });
+        // Cuộn gần đáy → nạp thêm batch (infinite scroll). Handler đặt 1 lần, gọi
+        // callback `_loadMore` mà pickImage gán (passive cho mượt — MODAL-ANTI-LAG).
+        const grid = ov.querySelector('[data-aip-grid]');
+        grid.addEventListener(
+            'scroll',
+            () => {
+                if (
+                    grid._loadMore &&
+                    grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 140
+                ) {
+                    grid._loadMore();
+                }
+            },
+            { passive: true }
+        );
         _overlay = ov;
         return ov;
     }
@@ -518,8 +516,19 @@
         const items = onlyCats ? IMAGE.filter((p) => onlyCats.includes(p.cat)) : IMAGE;
         const cats = CATS.filter((c) => c.id === 'all' || items.some((p) => p.cat === c.id));
         let active = 'all';
+        let query = '';
         const catBox = ov.querySelector('[data-aip-cats]');
         const grid = ov.querySelector('[data-aip-grid]');
+        const searchRow = ov.querySelector('[data-aip-search-row]');
+        const searchInput = ov.querySelector('[data-aip-search]');
+        if (searchRow) searchRow.hidden = false;
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.oninput = () => {
+                query = _norm(searchInput.value.trim());
+                renderGrid();
+            };
+        }
         function renderCats() {
             catBox.innerHTML = cats
                 .map(
@@ -535,32 +544,70 @@
                 })
             );
         }
-        function renderGrid() {
-            const list = active === 'all' ? items : items.filter((p) => p.cat === active);
-            grid.innerHTML = list.length
-                ? list
-                      .map(
-                          (p) =>
-                              `<div class="aip-card ${p.thumb ? 'has-thumb' : ''}" data-id="${p.id}">
-                                ${p.thumb ? `<div class="aip-thumb"><img src="${_esc(p.thumb)}" alt="" loading="lazy" onerror="this.closest('.aip-thumb').remove()"><span class="aip-tag ${p.needsImage ? 'need' : ''} on-thumb">${p.needsImage ? '🖼 cần ảnh gốc' : '✏️ tạo mới'}</span></div>` : `<span class="aip-tag ${p.needsImage ? 'need' : ''}">${p.needsImage ? '🖼 cần ảnh gốc' : '✏️ tạo mới'}</span>`}
-                                <div class="aip-card-body">
-                                    <h4>${_esc(p.title)}</h4>
-                                    <p>${_esc(p.prompt)}</p>
-                                </div>
-                            </div>`
-                      )
-                      .join('')
-                : '<div class="aip-empty">Không có mẫu phù hợp</div>';
-            grid.querySelectorAll('[data-id]').forEach((el) =>
-                el.addEventListener('click', () => {
-                    const p = items.find((x) => x.id === el.dataset.id);
-                    if (p) {
-                        close();
-                        cb(p.prompt, p);
-                    }
-                })
-            );
+        // ── Render theo batch (infinite scroll) — cuộn gần đáy nạp thêm ──
+        const PAGE = 9; // số card mỗi batch
+        let curList = [];
+        let shown = 0;
+        function cardHtml(p) {
+            const tag = `<span class="aip-tag ${p.needsImage ? 'need' : ''}${p.thumb ? ' on-thumb' : ''}">${p.needsImage ? '🖼 cần ảnh gốc' : '✏️ tạo mới'}</span>`;
+            const thumb = p.thumb
+                ? `<div class="aip-thumb"><img src="${_esc(p.thumb)}" alt="" loading="lazy" onerror="this.style.display='none'">${tag}</div>`
+                : tag;
+            return `<div class="aip-card ${p.thumb ? 'has-thumb' : ''}" data-id="${_esc(p.id)}">
+                ${thumb}
+                <div class="aip-card-body">
+                    <h4>${_esc(p.title)}</h4>
+                    <div class="aip-prompt" title="${_esc(p.prompt)}">${_esc(p.prompt)}</div>
+                    <button type="button" class="aip-use">✨ Dùng mẫu này</button>
+                </div>
+            </div>`;
         }
+        function syncMoreHint() {
+            const old = grid.querySelector('.aip-loadmore');
+            if (old) old.remove();
+            if (shown < curList.length) {
+                const d = document.createElement('div');
+                d.className = 'aip-loadmore';
+                d.textContent = `↓ Cuộn để xem thêm (${curList.length - shown} mẫu)`;
+                grid.appendChild(d);
+            }
+        }
+        function appendBatch() {
+            const slice = curList.slice(shown, shown + PAGE);
+            if (!slice.length) return;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = slice.map(cardHtml).join('');
+            const hint = grid.querySelector('.aip-loadmore');
+            while (tmp.firstChild) grid.insertBefore(tmp.firstChild, hint);
+            shown += slice.length;
+            syncMoreHint();
+        }
+        function renderGrid() {
+            curList = active === 'all' ? items : items.filter((p) => p.cat === active);
+            if (query)
+                curList = curList.filter((p) =>
+                    (_norm(p.title) + ' ' + _norm(p.prompt)).includes(query)
+                );
+            shown = 0;
+            grid.scrollTop = 0;
+            if (!curList.length) {
+                grid.innerHTML = '<div class="aip-empty">Không có mẫu phù hợp</div>';
+                return;
+            }
+            grid.innerHTML = '';
+            appendBatch();
+        }
+        // Click 1 card (cả nút "Dùng mẫu này") → áp dụng. Delegation đặt 1 lần.
+        grid.onclick = (e) => {
+            const el = e.target.closest('[data-id]');
+            if (!el) return;
+            const p = items.find((x) => x.id === el.dataset.id);
+            if (p) {
+                close();
+                cb(p.prompt, p);
+            }
+        };
+        grid._loadMore = appendBatch; // bật infinite-scroll cho lần mở này
         renderCats();
         renderGrid();
         ov.classList.add('open');
@@ -570,7 +617,12 @@
         const ov = _ensureOverlay();
         ov.querySelector('[data-aip-title]').textContent = 'Chọn vai trò cho AI';
         ov.querySelector('[data-aip-cats]').innerHTML = '';
+        const searchRow = ov.querySelector('[data-aip-search-row]');
+        if (searchRow) searchRow.hidden = true;
         const grid = ov.querySelector('[data-aip-grid]');
+        grid._loadMore = null; // tắt infinite-scroll của pickImage
+        grid.onclick = null; // gỡ delegation ảnh để không bắt nhầm card vai trò
+        grid.scrollTop = 0;
         grid.innerHTML = ROLES.map(
             (r) =>
                 `<div class="aip-card" data-id="${r.id}">

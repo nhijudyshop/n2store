@@ -103,14 +103,14 @@
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
         // Hồ sơ user + đổi avatar DiceBear (mở từ footer sidebar) — mọi trang.
-        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624a');
+        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624b');
         // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
         //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
         //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
         //  - image-paste: ô NHẬP ẢNH dùng chung (paste/kéo-thả/chọn file + nén + preview).
         //  - effects: HOVER ZOOM ảnh nội dung (+ ripple/confetti…) — cặp với click-phóng-to.
         if (!global.Web2CanvasUtils) inject('web2-canvas-utils.js', '20260619a');
-        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260624a');
+        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260624b');
         if (!global.Web2ImagePaste) inject('web2-image-paste.js', '20260623b');
         if (!global.Web2Effects) inject('web2-effects.js', '20260623a');
         // Dịch thuật dùng chung (LLM free + fallback Google) — mọi trang gọi Web2Translate.translate.
@@ -126,7 +126,7 @@
         if (!global.Web2Perm) inject('web2-perm.js', '20260624a');
         // Thư viện mẫu câu lệnh AI (ảnh + vai trò chat) — Web2AiPresets.pickImage/pickRole.
         // Dùng chung: ai-hub, fb-posts (caption), video-maker (kịch bản)… gọi được luôn.
-        if (!global.Web2AiPresets) inject('web2-ai-presets.js', '20260624f');
+        if (!global.Web2AiPresets) inject('web2-ai-presets.js', '20260624h');
         // Tách nền ảnh dùng máy shop tự host (free) — Web2BgRemover.removeBgAuto(input).
         if (!global.Web2BgRemover) inject('web2-bgremover.js', '20260624a');
     })();

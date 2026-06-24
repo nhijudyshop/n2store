@@ -13,16 +13,27 @@
     if (global.Web2UserProfile) return;
 
     const DICEBEAR_BASE = 'https://api.dicebear.com/10.x';
-    // style → nhãn. Tất cả KHÔNG yêu cầu ghi nguồn.
+    // style → nhãn. Nguồn: DiceBear (free, generator avatar chibi/hoạt hình bằng "seed",
+    // KHÔNG tốn API — thay cho hướng "ảnh thật → chibi" của Nano Banana trả phí). Nhóm
+    // 🎨 Chibi / Cute dẫn đầu (adventurer/big-smile/miniavs/micah/personas/croodles).
     const STYLES = [
+        // ── Chibi / Cute (hoạt hình dễ thương) ──
+        { id: 'adventurer', label: 'Chibi' },
+        { id: 'big-smile', label: 'Cười tươi' },
+        { id: 'miniavs', label: 'Mini' },
+        { id: 'micah', label: 'Micah' },
+        { id: 'personas', label: 'Nhân vật' },
+        { id: 'croodles', label: 'Doodle' },
+        // ── Hoạt hình / minh hoạ khác ──
         { id: 'lorelei', label: 'Lorelei' },
         { id: 'notionists', label: 'Notion' },
         { id: 'open-peeps', label: 'Peeps' },
         { id: 'avataaars', label: 'Avataaars' },
-        { id: 'bottts', label: 'Bottts' },
+        { id: 'fun-emoji', label: 'Emoji' },
+        { id: 'bottts', label: 'Robot' },
+        // ── Trừu tượng / chữ ──
         { id: 'pixel-art', label: 'Pixel' },
         { id: 'thumbs', label: 'Thumbs' },
-        { id: 'fun-emoji', label: 'Emoji' },
         { id: 'shapes', label: 'Shapes' },
         { id: 'identicon', label: 'Identicon' },
         { id: 'rings', label: 'Rings' },
@@ -206,7 +217,7 @@
             cfg = null;
         }
         const state = {
-            style: (cfg && cfg.style) || 'lorelei',
+            style: (cfg && cfg.style) || 'adventurer',
             seed: (cfg && cfg.seed) || user.username || 'user',
             bg: (cfg && cfg.bg) || 'transparent',
         };

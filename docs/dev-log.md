@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### [feat/fix] AI presets modal giống YouMind + bỏ chibi-banana + chibi avatar free + fix lightbox
+
+User (5 yêu cầu + 2 bổ sung): (1) mẫu prompt có hình + filter/search như youmind.com/nano-banana-pro-prompts; (2) modal mẫu bị lỗi giao diện (card chồng lên nhau); (3) bỏ chibi tạo bằng Nano Banana (tốn tiền) → thay bằng generator avatar chibi FREE ở phần avatar; (4) zoom ảnh rồi tắt → ảnh to hiện dưới footer; (5) audit + browser test + fix lặp. Bổ sung: card hiện cả hình + prompt + nút; cuộn để load more.
+
+Files: `web2/shared/web2-ai-presets.js`, `web2/shared/web2-user-profile.js`, `web2/shared/web2-image-lightbox.js`, `web2/shared/web2-sidebar.js`, `web2/ai-hub/index.html`. Set Render web2-api: `WEB2_CHATANYWHERE_API_KEY1..3` (deploy `dep-d8tn3eog4nts73d3l080`).
+
+- **Task 1+2 (presets modal)**: thêm ô **tìm kiếm** (bỏ dấu tiếng Việt: gõ "ao" khớp "áo"), card kiểu YouMind (ảnh 150px + tiêu đề + **hộp prompt đầy đủ** + nút "✨ Dùng mẫu này"), **infinite-scroll** (render 9 card/batch, cuộn gần đáy nạp thêm, hint "↓ Cuộn để xem thêm (N mẫu)"). **Bug giao diện (root cause)**: `.aip-card.has-thumb{overflow:hidden}` → grid item là scroll-container nên track sizing thu chiều cao card về body-only 62px, thumb 150px (aspect-ratio cũ collapse 0px) bị cắt → card chồng nhau. Fix: bỏ `overflow:hidden` ở card + `height:150px` cố định cho `.aip-thumb` + `border-radius` bo góc thumb. Verify browser: 23 card đồng đều 236-254px, search/scroll/click OK, 0 console error.
+- **Task 3 (chibi)**: xoá 5 mẫu chibi-\* (chibi-cute/brawl/figurine/plush/anime) + category `chibi` khỏi `web2-ai-presets.js` (chúng cần Nano Banana trả phí). Thêm 6 style **DiceBear chibi/cute FREE** (adventurer/big-smile/miniavs/micah/personas/croodles) dẫn đầu picker avatar `web2-user-profile.js` (18 style, default `adventurer`). DiceBear = generator avatar bằng seed, KHÔNG tốn API. Verify: 6 ảnh chibi load OK (naturalWidth 150, 0 broken).
+- **Task 4 (lightbox)**: bug "ảnh to dưới footer" KHÔNG repro trên code hiện tại (đã fix bởi commit 03:12 quản lý `display:none`). Hardening thêm: inject CSS guard `#web2ImageLightbox{position:fixed!important}` + `[hidden]{display:none!important}` (overlay KHÔNG bao giờ rớt về document flow), fix **race close-rồi-mở-lại-trong-180ms** (clear `_closeTimer` khi open → tránh ẩn nhầm ảnh mới). Verify: open=fixed top:0, reopen-after-race visible, close=display:none, 0 ảnh in-flow.
+- Bump version: `web2-ai-presets.js` 20260624f→h, `web2-user-profile.js` a→b, `web2-image-lightbox.js` a→b (sidebar autoload).
+
 ### [change] web2/users: hạ mật khẩu tối thiểu 8 → 6 ký tự
 
 User: "có thể đặt mật khẩu 6 ký tự" (vd `181015`). Đổi min length 8→6 đồng bộ FE+BE.
