@@ -1,9 +1,9 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-const { fetchWithRetry, fetchWithTimeout } = require("../../shared/node/fetch-utils.cjs");
-const TPOS_CONFIG = require("../config/tpos.config");
-const tposTokenManager = require("./tpos-token-manager");
-const { randomDelay, getHeaders } = require("../helpers/utils");
-const { getDynamicHeaderManager } = require("../helpers/dynamic-header-manager");
+const { fetchWithRetry, fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
+const TPOS_CONFIG = require('../config/tpos.config');
+const tposTokenManager = require('./tpos-token-manager');
+const { randomDelay, getHeaders } = require('../helpers/utils');
+const { getDynamicHeaderManager } = require('../helpers/dynamic-header-manager');
 
 // Get singleton instance
 const dynamicHeaderManager = getDynamicHeaderManager();
@@ -18,29 +18,33 @@ async function uploadExcelToTPOS(excelBase64) {
     };
 
     // 📤 Logging (if enabled)
-    if (process.env.ENABLE_HEADER_LOGGING === "true") {
-        console.log("\n" + "=".repeat(60));
-        console.log("📤 UPLOAD EXCEL TO TPOS");
-        console.log("URL:", url);
-        console.log("Headers:", JSON.stringify(headers, null, 2));
-        console.log("=".repeat(60));
+    if (process.env.ENABLE_HEADER_LOGGING === 'true') {
+        console.log('\n' + '='.repeat(60));
+        console.log('📤 UPLOAD EXCEL TO TPOS');
+        console.log('URL:', url);
+        console.log('Headers:', JSON.stringify(headers, null, 2));
+        console.log('='.repeat(60));
     }
 
-    const response = await fetchWithTimeout(url, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify({
-            do_inventory: false,
-            file: excelBase64,
-            version: "2701",
-        }),
-    }, 30000);
+    const response = await fetchWithTimeout(
+        url,
+        {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                do_inventory: false,
+                file: excelBase64,
+                version: '2701',
+            }),
+        },
+        30000
+    );
 
     // 🔥 Learn from response headers
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
 
     // 📥 Logging response
-    if (process.env.ENABLE_HEADER_LOGGING === "true") {
+    if (process.env.ENABLE_HEADER_LOGGING === 'true') {
         console.log(`📥 Response: ${response.status} ${response.statusText}\n`);
     }
 
@@ -61,12 +65,12 @@ async function getLatestProducts(count) {
     await randomDelay();
 
     const queryParams = new URLSearchParams({
-        Active: "true",
-        priceId: "0",
-        $top: "1000",
-        $orderby: "DateCreated desc",
-        $filter: "Active eq true",
-        $count: "true",
+        Active: 'true',
+        priceId: '0',
+        $top: '1000',
+        $orderby: 'DateCreated desc',
+        $filter: 'Active eq true',
+        $count: 'true',
     });
 
     const url = `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`;
@@ -76,12 +80,12 @@ async function getLatestProducts(count) {
     };
 
     // 📤 Logging (if enabled)
-    if (process.env.ENABLE_HEADER_LOGGING === "true") {
-        console.log("\n" + "=".repeat(60));
-        console.log("📤 GET LATEST PRODUCTS");
-        console.log("URL:", url);
-        console.log("Headers:", JSON.stringify(headers, null, 2));
-        console.log("=".repeat(60));
+    if (process.env.ENABLE_HEADER_LOGGING === 'true') {
+        console.log('\n' + '='.repeat(60));
+        console.log('📤 GET LATEST PRODUCTS');
+        console.log('URL:', url);
+        console.log('Headers:', JSON.stringify(headers, null, 2));
+        console.log('='.repeat(60));
     }
 
     const response = await fetchWithRetry(url, { headers }, 2, 1000, 15000);
@@ -90,7 +94,7 @@ async function getLatestProducts(count) {
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
 
     // 📥 Logging
-    if (process.env.ENABLE_HEADER_LOGGING === "true") {
+    if (process.env.ENABLE_HEADER_LOGGING === 'true') {
         console.log(`📥 Response: ${response.status} ${response.statusText}\n`);
     }
 
@@ -104,7 +108,7 @@ async function getLatestProducts(count) {
     await dynamicHeaderManager.learnFromResponseBody(data, { verbose: false });
 
     const items = (data.value || data).filter(
-        (item) => item.CreatedByName === TPOS_CONFIG.CREATED_BY_NAME,
+        (item) => item.CreatedByName === TPOS_CONFIG.CREATED_BY_NAME
     );
 
     return items.sort((a, b) => b.Id - a.Id).slice(0, count);
@@ -136,15 +140,11 @@ async function getProductDetail(productId) {
     return data;
 }
 
-async function updateProductWithImageAndAttributes(
-    productDetail,
-    imageBase64,
-    attributeLines,
-) {
+async function updateProductWithImageAndAttributes(productDetail, imageBase64, attributeLines) {
     await randomDelay();
 
     const payload = { ...productDetail };
-    delete payload["@odata.context"];
+    delete payload['@odata.context'];
 
     if (imageBase64) {
         payload.Image = imageBase64;
@@ -161,25 +161,29 @@ async function updateProductWithImageAndAttributes(
     };
 
     // 📤 Logging (if enabled)
-    if (process.env.ENABLE_HEADER_LOGGING === "true") {
-        console.log("\n" + "=".repeat(60));
-        console.log("📤 UPDATE PRODUCT");
-        console.log("URL:", url);
-        console.log("Headers:", JSON.stringify(headers, null, 2));
-        console.log("=".repeat(60));
+    if (process.env.ENABLE_HEADER_LOGGING === 'true') {
+        console.log('\n' + '='.repeat(60));
+        console.log('📤 UPDATE PRODUCT');
+        console.log('URL:', url);
+        console.log('Headers:', JSON.stringify(headers, null, 2));
+        console.log('='.repeat(60));
     }
 
-    const response = await fetchWithTimeout(url, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-    }, 30000);
+    const response = await fetchWithTimeout(
+        url,
+        {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload),
+        },
+        30000
+    );
 
     // 🔥 Learn from response
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
 
     // 📥 Logging
-    if (process.env.ENABLE_HEADER_LOGGING === "true") {
+    if (process.env.ENABLE_HEADER_LOGGING === 'true') {
         console.log(`📥 Response: ${response.status} ${response.statusText}\n`);
     }
 
@@ -196,9 +200,46 @@ async function updateProductWithImageAndAttributes(
     return data;
 }
 
+/**
+ * Fetch product attribute VALUES from TPOS (màu / size số / size chữ …).
+ * Returns the raw OData `value[]` (each item has Name, AttributeId, Sequence).
+ * Used by inventory-tracking to give every machine ONE shared attribute list
+ * instead of each machine caching its own copy in localStorage.
+ */
+async function getProductAttributeValues() {
+    await randomDelay();
+
+    // API_BASE ends with `/ProductTemplate`; the OData root is its parent.
+    // Endpoint + orderby mirror the TPOS web UI's own call. $top kept high so
+    // we always pull EVERY attribute value (màu + size số + size chữ + …) in one
+    // page — a clothing shop has a few hundred at most.
+    const odataRoot = String(TPOS_CONFIG.API_BASE).replace(/\/ProductTemplate\/?$/, '');
+    const qs = new URLSearchParams({
+        $top: '5000',
+        $orderby: 'AttributeName,Name,Id',
+        $count: 'true',
+    });
+    const url = `${odataRoot}/ProductAttributeValue/OdataService.GetView?${qs.toString()}`;
+    const headers = {
+        ...getHeaders(),
+        authorization: `Bearer ${await tposTokenManager.getToken()}`,
+    };
+
+    const response = await fetchWithRetry(url, { headers }, 2, 1000, 15000);
+    await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
+
+    if (!response.ok) {
+        throw new Error(`Get product attribute values failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.value || [];
+}
+
 module.exports = {
     uploadExcelToTPOS,
     getLatestProducts,
     getProductDetail,
     updateProductWithImageAndAttributes,
+    getProductAttributeValues,
 };

@@ -31,6 +31,7 @@
  *   PUT    /other-expenses/:id           - Update
  *   DELETE /other-expenses/:id           - Delete
  *
+ *   GET    /product-attributes           - Shared TPOS màu/size lists (server-cached, same for all machines)
  *   GET    /product-images               - List all product images
  *   PUT    /product-images               - Bulk replace all product images
  *   DELETE /product-images/:id           - Delete one
@@ -42,6 +43,15 @@
 
 const express = require('express');
 const router = express.Router();
+
+// TPOS attribute values (màu / size) — fetched server-side so EVERY machine
+// shares ONE list instead of each caching its own copy in localStorage.
+let tposService = null;
+try {
+    tposService = require('../../services/tpos.service');
+} catch (e) {
+    console.warn('[inventory] tpos.service unavailable:', e.message);
+}
 
 // Ensure schema inventory_* tồn tại trên chatDb (Web 1.0) trước mọi handler.
 // Trên chatDb các bảng đã tồn tại sẵn với data thật → block này là no-op vô hại
@@ -79,6 +89,78 @@ function notify(topic, action, extra) {
         console.warn(`[inventory] notify ${topic} failed:`, e.message);
     }
 }
+
+// ===== PRODUCT ATTRIBUTES (màu / size) — SHARED across machines =====
+// Root cause of "variant modal loads wrong data ở các máy": each machine
+// built its Màu/Size lists from its OWN localStorage TPOS cache (+ a tiny
+// hardcoded fallback), so machine A showed 80 màu while machine B showed 10.
+// Fix: fetch TPOS ProductAttributeValue once on the server, cache it, and
+// serve the SAME list to every machine. TPOS attribute ids: 1=Size Chữ,
+// 3=Màu, 4=Size Số.
+const TPOS_ATTR = { COLOR: 3, SIZE_CHAR: 1, SIZE_NUM: 4 };
+const PRODUCT_ATTR_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+// Fallback used only if TPOS is unreachable AND nothing is cached yet. Kept in
+// sync with the client default in inventory-tracking/js/modal-variant.js.
+const PRODUCT_ATTR_FALLBACK = {
+    colors: ['Trắng', 'Đen', 'Xám', 'Xanh', 'Vàng', 'Hồng', 'Cam', 'Tím', 'Đỏ', 'Nâu'],
+    sizeNum: ['27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'],
+    sizeChar: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
+};
+let _productAttrCache = { ts: 0, data: null };
+
+router.get('/product-attributes', async (req, res) => {
+    try {
+        const force = req.query.refresh === '1' || req.query.refresh === 'true';
+        const now = Date.now();
+
+        // Serve warm cache (same list for every machine).
+        if (!force && _productAttrCache.data && now - _productAttrCache.ts < PRODUCT_ATTR_TTL_MS) {
+            return res.json({ success: true, data: _productAttrCache.data, cached: true });
+        }
+
+        if (!tposService?.getProductAttributeValues) {
+            const data = _productAttrCache.data || PRODUCT_ATTR_FALLBACK;
+            return res.json({ success: true, data, fallback: !_productAttrCache.data });
+        }
+
+        let values;
+        try {
+            values = await tposService.getProductAttributeValues();
+        } catch (err) {
+            console.warn('[inventory] product-attributes TPOS fetch failed:', err.message);
+            // TPOS down → serve last good cache (stale) or fallback. Never break.
+            const data = _productAttrCache.data || PRODUCT_ATTR_FALLBACK;
+            return res.json({
+                success: true,
+                data,
+                stale: !!_productAttrCache.data,
+                fallback: !_productAttrCache.data,
+            });
+        }
+
+        const colors = [];
+        const sizeNum = [];
+        const sizeChar = [];
+        for (const v of values) {
+            const name = v && v.Name;
+            if (!name) continue;
+            if (v.AttributeId === TPOS_ATTR.COLOR) colors.push(name);
+            else if (v.AttributeId === TPOS_ATTR.SIZE_NUM) sizeNum.push(name);
+            else if (v.AttributeId === TPOS_ATTR.SIZE_CHAR) sizeChar.push(name);
+        }
+
+        const data = {
+            colors: colors.length ? colors : PRODUCT_ATTR_FALLBACK.colors,
+            sizeNum: sizeNum.length ? sizeNum : PRODUCT_ATTR_FALLBACK.sizeNum,
+            sizeChar: sizeChar.length ? sizeChar : PRODUCT_ATTR_FALLBACK.sizeChar,
+        };
+        _productAttrCache = { ts: now, data };
+        res.json({ success: true, data, cached: false });
+    } catch (err) {
+        console.error('[inventory] product-attributes error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 // ===== EDIT-HISTORY LOGGER (server-side) =====
 // Tracks every shipment mutation so the audit trail is reliable even when
