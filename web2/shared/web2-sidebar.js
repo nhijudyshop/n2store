@@ -129,6 +129,9 @@
         if (!global.Web2AiPresets) inject('web2-ai-presets.js', '20260624h');
         // Tách nền ảnh dùng máy shop tự host (free) — Web2BgRemover.removeBgAuto(input).
         if (!global.Web2BgRemover) inject('web2-bgremover.js', '20260624a');
+        // Trợ lý AI theo trang (nút nổi ✨) — đọc dữ liệu đang hiển thị → AI free rà soát
+        // số liệu/phép tính, phân tích cảm xúc khách, soát đơn. Cấu hình ở web2/ai-assistant.
+        if (!global.Web2AiAssistant) inject('web2-ai-assistant.js', '20260624a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.
@@ -163,6 +166,10 @@
                 {
                     label: 'Xưởng Video AI 🎬',
                     our: '../web2/video-maker/index.html',
+                },
+                {
+                    label: 'Trợ lý AI theo trang ✨',
+                    our: '../web2/ai-assistant/index.html',
                 },
             ],
         },

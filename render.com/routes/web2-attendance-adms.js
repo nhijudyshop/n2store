@@ -16,7 +16,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { insertRecords } = require('./web2-attendance');
+const { insertRecords, touchAdmsStatus } = require('./web2-attendance');
 
 // Text body cho MỌI content-type (máy gửi text/plain hoặc không header).
 router.use(express.text({ type: '*/*', limit: '2mb' }));
@@ -67,6 +67,9 @@ function parseAttlog(body) {
 router.get('/iclock/cdata', (req, res) => {
     const sn = String(req.query.SN || req.query.sn || 'UNKNOWN');
     _needCheck.set(sn, true);
+    // Máy bắt tay (heartbeat ~10s) → đánh dấu ĐANG KẾT NỐI cho trang Chấm công.
+    touchAdmsStatus(getDb(req));
+    _notify('heartbeat', { sn });
     res.set('Content-Type', 'text/plain');
     return res.send(
         [
@@ -104,6 +107,7 @@ router.post('/iclock/cdata', async (req, res) => {
         const rows = parseAttlog(req.body);
         let inserted = 0;
         if (rows.length) inserted = await insertRecords(getDb(req), rows, 'adms');
+        touchAdmsStatus(getDb(req)); // máy đẩy punch → ĐANG KẾT NỐI + cập nhật "Lần cuối"
         if (inserted) _notify('records', { inserted, source: 'adms' });
         res.set('Content-Type', 'text/plain');
         return res.send(`OK: ${inserted}`);

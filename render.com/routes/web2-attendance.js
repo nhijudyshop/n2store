@@ -525,6 +525,25 @@ async function insertRecords(db, rows, source) {
     return inserted;
 }
 
+// Đánh dấu agent ĐANG KẾT NỐI (gọi từ ADMS route khi máy bắt tay / đẩy punch).
+// ADMS proxy KHÔNG gọi PUT /sync-status nên nếu thiếu hàm này trang Chấm công sẽ
+// luôn hiện "Chưa đồng bộ" dù máy vẫn đang đẩy. Fire-and-forget, nuốt lỗi.
+async function touchAdmsStatus(db) {
+    try {
+        await db.query(
+            `INSERT INTO web2_attendance_sync_status
+                (id, connected, last_sync_time, last_error, device_count, record_count, updated_at)
+             VALUES ('current', TRUE, now(), NULL, 0, 0, $1)
+             ON CONFLICT (id) DO UPDATE SET
+                connected = TRUE,
+                last_sync_time = now(),
+                last_error = NULL,
+                updated_at = $1`,
+            [now()]
+        );
+    } catch (_) {}
+}
+
 // POST /records/bulk — agent ingest (secret).
 router.post('/records/bulk', requireAgentSecret, async (req, res) => {
     try {
@@ -777,6 +796,14 @@ router.get('/sync-status', requireWeb2Admin, async (req, res) => {
     }
 });
 
+// ADMIN-ONLY: trả secret agent (từ env Render, KHÔNG có trong repo) để trang Cài đặt
+// nhúng vào config.json của bộ cài 1-click. Chỉ admin đăng nhập mới lấy được → secret
+// KHÔNG bao giờ nằm trong mã nguồn public / GitHub.
+router.get('/agent-secret', requireWeb2Admin, (req, res) => {
+    const secret = String(process.env.WEB2_ATTENDANCE_SECRET || '').trim();
+    return ok(res, { secret, configured: !!secret });
+});
+
 router.put('/sync-status', requireAgentSecret, async (req, res) => {
     try {
         const db = getDb(req);
@@ -872,5 +899,6 @@ module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.ensureSchema = ensureSchema;
 module.exports.insertRecords = insertRecords;
+module.exports.touchAdmsStatus = touchAdmsStatus;
 module.exports.dateKeyVN = dateKeyVN;
 module.exports.parsePunchTime = parsePunchTime;
