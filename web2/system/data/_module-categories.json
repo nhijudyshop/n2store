@@ -1,0 +1,584 @@
+{
+    "categories": [
+        {
+            "file": "web2/shared/beauty/web2-beauty-face.js",
+            "category": "beauty",
+            "oneLine": "Face landmarks detection for beauty effects"
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-filters.js",
+            "category": "beauty",
+            "oneLine": "Beauty pixel processing filters engine"
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-studio.js",
+            "category": "beauty",
+            "oneLine": "Beauty studio UI editor"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
+            "category": "chat",
+            "oneLine": "Emoji dataset and recent helper"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-entity-detect.js",
+            "category": "chat",
+            "oneLine": "Entity detection in messages (phone, address)"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
+            "category": "chat",
+            "oneLine": "Chat message composer"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
+            "category": "chat",
+            "oneLine": "Chat message rendering"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-state.js",
+            "category": "chat",
+            "oneLine": "Chat panel state management"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel.js",
+            "category": "chat",
+            "oneLine": "Main chat panel component"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-sticker-data.js",
+            "category": "chat",
+            "oneLine": "Sticker collection for chat"
+        },
+        {
+            "file": "web2/shared/delivery-method-picker.js",
+            "category": "other",
+            "oneLine": "Delivery method picker (VN-aware)"
+        },
+        {
+            "file": "web2/shared/page-builder.js",
+            "category": "popup-ui",
+            "oneLine": "Generic CRUD page builder"
+        },
+        {
+            "file": "web2/shared/popup.js",
+            "category": "popup-ui",
+            "oneLine": "Alert/confirm/prompt popup"
+        },
+        {
+            "file": "web2/shared/web2-api-fetch.js",
+            "category": "format-util",
+            "oneLine": "API fetch with auth and fallback"
+        },
+        {
+            "file": "web2/shared/web2-api.js",
+            "category": "format-util",
+            "oneLine": "Generic API client"
+        },
+        {
+            "file": "web2/shared/web2-audit-log.js",
+            "category": "format-util",
+            "oneLine": "Audit log display"
+        },
+        {
+            "file": "web2/shared/web2-auth.js",
+            "category": "format-util",
+            "oneLine": "Token storage and page guard"
+        },
+        {
+            "file": "web2/shared/web2-avatar-utils.js",
+            "category": "format-util",
+            "oneLine": "Avatar utilities"
+        },
+        {
+            "file": "web2/shared/web2-barcode-scanner.js",
+            "category": "qr-barcode",
+            "oneLine": "On-device barcode/QR scanning via camera"
+        },
+        {
+            "file": "web2/shared/web2-bill-service.js",
+            "category": "other",
+            "oneLine": "Bill/invoice service"
+        },
+        {
+            "file": "web2/shared/web2-campaign.js",
+            "category": "campaign",
+            "oneLine": "Campaign management"
+        },
+        {
+            "file": "web2/shared/web2-canvas-utils.js",
+            "category": "image",
+            "oneLine": "Canvas manipulation utilities"
+        },
+        {
+            "file": "web2/shared/web2-chat-api.js",
+            "category": "chat",
+            "oneLine": "Chat API client"
+        },
+        {
+            "file": "web2/shared/web2-chat-client.js",
+            "category": "chat",
+            "oneLine": "Chat client core"
+        },
+        {
+            "file": "web2/shared/web2-chat-live.js",
+            "category": "chat",
+            "oneLine": "Live chat functionality"
+        },
+        {
+            "file": "web2/shared/web2-chat-settings.js",
+            "category": "chat",
+            "oneLine": "Chat settings management"
+        },
+        {
+            "file": "web2/shared/web2-chat-tags.js",
+            "category": "chat",
+            "oneLine": "Chat message tags"
+        },
+        {
+            "file": "web2/shared/web2-chat-tokens.js",
+            "category": "chat",
+            "oneLine": "Chat tokens handler"
+        },
+        {
+            "file": "web2/shared/web2-chat-utils.js",
+            "category": "chat",
+            "oneLine": "Chat utility functions"
+        },
+        {
+            "file": "web2/shared/web2-ck-assign-picker.js",
+            "category": "other",
+            "oneLine": "CK assignment picker"
+        },
+        {
+            "file": "web2/shared/web2-ck-review.js",
+            "category": "other",
+            "oneLine": "CK verification review"
+        },
+        {
+            "file": "web2/shared/web2-command-palette.js",
+            "category": "sidebar-nav",
+            "oneLine": "Command palette (Ctrl+K)"
+        },
+        {
+            "file": "web2/shared/web2-customer-chat-core.js",
+            "category": "chat",
+            "oneLine": "Customer chat core functionality"
+        },
+        {
+            "file": "web2/shared/web2-customer-chat-modal.js",
+            "category": "chat",
+            "oneLine": "Customer chat modal"
+        },
+        {
+            "file": "web2/shared/web2-customer-chat.js",
+            "category": "chat",
+            "oneLine": "Customer chat integration"
+        },
+        {
+            "file": "web2/shared/web2-customer-detail-modal.js",
+            "category": "customers",
+            "oneLine": "Customer detail modal"
+        },
+        {
+            "file": "web2/shared/web2-customer-lookup.js",
+            "category": "customers",
+            "oneLine": "Customer lookup helper"
+        },
+        {
+            "file": "web2/shared/web2-customer-store.js",
+            "category": "customers",
+            "oneLine": "Customer store (single source)"
+        },
+        {
+            "file": "web2/shared/web2-db-badge.js",
+            "category": "other",
+            "oneLine": "DB version badge display"
+        },
+        {
+            "file": "web2/shared/web2-deeplink.js",
+            "category": "other",
+            "oneLine": "Deep linking utilities"
+        },
+        {
+            "file": "web2/shared/web2-effects.js",
+            "category": "video",
+            "oneLine": "Effects and animations library"
+        },
+        {
+            "file": "web2/shared/web2-escape.js",
+            "category": "format-util",
+            "oneLine": "String escaping utilities"
+        },
+        {
+            "file": "web2/shared/web2-export-helpers.js",
+            "category": "other",
+            "oneLine": "Export utilities"
+        },
+        {
+            "file": "web2/shared/web2-extension-bridge.js",
+            "category": "other",
+            "oneLine": "Extension bridge"
+        },
+        {
+            "file": "web2/shared/web2-fb-client.js",
+            "category": "other",
+            "oneLine": "Facebook Graph API client"
+        },
+        {
+            "file": "web2/shared/web2-fb-post-preview.js",
+            "category": "other",
+            "oneLine": "Facebook post preview"
+        },
+        {
+            "file": "web2/shared/web2-fb-share.js",
+            "category": "other",
+            "oneLine": "Facebook share handoff"
+        },
+        {
+            "file": "web2/shared/web2-format.js",
+            "category": "format-util",
+            "oneLine": "Currency/date/time formatting (GMT+7)"
+        },
+        {
+            "file": "web2/shared/web2-history-timeline.js",
+            "category": "format-util",
+            "oneLine": "History timeline renderer"
+        },
+        {
+            "file": "web2/shared/web2-idb-store.js",
+            "category": "cache",
+            "oneLine": "IndexedDB key-value store"
+        },
+        {
+            "file": "web2/shared/web2-image-editor.js",
+            "category": "image",
+            "oneLine": "Image editing and manipulation tools"
+        },
+        {
+            "file": "web2/shared/web2-image-lightbox.js",
+            "category": "image",
+            "oneLine": "Image lightbox viewer with navigation"
+        },
+        {
+            "file": "web2/shared/web2-image-paste.js",
+            "category": "image",
+            "oneLine": "Image clipboard paste handler"
+        },
+        {
+            "file": "web2/shared/web2-import.js",
+            "category": "other",
+            "oneLine": "File import handler"
+        },
+        {
+            "file": "web2/shared/web2-jwt-utils.js",
+            "category": "format-util",
+            "oneLine": "JWT parsing utilities"
+        },
+        {
+            "file": "web2/shared/web2-kpi.js",
+            "category": "kpi",
+            "oneLine": "KPI utilities"
+        },
+        {
+            "file": "web2/shared/web2-label-ocr.js",
+            "category": "scanner-count",
+            "oneLine": "OCR text reading from labels via camera"
+        },
+        {
+            "file": "web2/shared/web2-logo-eraser.js",
+            "category": "image",
+            "oneLine": "Logo removal from images"
+        },
+        {
+            "file": "web2/shared/web2-lottie.js",
+            "category": "video",
+            "oneLine": "Lottie animation player"
+        },
+        {
+            "file": "web2/shared/web2-motion.js",
+            "category": "video",
+            "oneLine": "Motion.dev animation engine"
+        },
+        {
+            "file": "web2/shared/web2-msg-template-core.js",
+            "category": "chat",
+            "oneLine": "Message template core"
+        },
+        {
+            "file": "web2/shared/web2-msg-template-send.js",
+            "category": "chat",
+            "oneLine": "Message template sending"
+        },
+        {
+            "file": "web2/shared/web2-msg-template-ui.js",
+            "category": "chat",
+            "oneLine": "Message template UI"
+        },
+        {
+            "file": "web2/shared/web2-msg-template.js",
+            "category": "chat",
+            "oneLine": "Message template wrapper"
+        },
+        {
+            "file": "web2/shared/web2-new-msg-badge.js",
+            "category": "chat",
+            "oneLine": "New message badge"
+        },
+        {
+            "file": "web2/shared/web2-notification-bell.js",
+            "category": "popup-ui",
+            "oneLine": "Notification bell component"
+        },
+        {
+            "file": "web2/shared/web2-notify.js",
+            "category": "popup-ui",
+            "oneLine": "Toast/notification system"
+        },
+        {
+            "file": "web2/shared/web2-optimistic.js",
+            "category": "optimistic",
+            "oneLine": "Optimistic UI pattern"
+        },
+        {
+            "file": "web2/shared/web2-order-tag-detail.js",
+            "category": "popup-ui",
+            "oneLine": "Order tag detail display"
+        },
+        {
+            "file": "web2/shared/web2-order-tag-pill.js",
+            "category": "popup-ui",
+            "oneLine": "Order tag pill component"
+        },
+        {
+            "file": "web2/shared/web2-pack-counter.js",
+            "category": "scanner-count",
+            "oneLine": "Package/item counting via camera"
+        },
+        {
+            "file": "web2/shared/web2-pancake-accounts.js",
+            "category": "suppliers",
+            "oneLine": "Pancake accounts manager"
+        },
+        {
+            "file": "web2/shared/web2-pancake-import.js",
+            "category": "suppliers",
+            "oneLine": "Pancake import handler"
+        },
+        {
+            "file": "web2/shared/web2-pancake-token.js",
+            "category": "suppliers",
+            "oneLine": "Pancake JWT token monitor"
+        },
+        {
+            "file": "web2/shared/web2-phone-utils.js",
+            "category": "format-util",
+            "oneLine": "Vietnamese phone normalization"
+        },
+        {
+            "file": "web2/shared/web2-pos-installer.js",
+            "category": "other",
+            "oneLine": "Multi-store installer"
+        },
+        {
+            "file": "web2/shared/web2-printer.js",
+            "category": "other",
+            "oneLine": "Printer manager and ESC/POS printing"
+        },
+        {
+            "file": "web2/shared/web2-product-code.js",
+            "category": "products",
+            "oneLine": "Product code utilities"
+        },
+        {
+            "file": "web2/shared/web2-product-counter.js",
+            "category": "scanner-count",
+            "oneLine": "Product counting via realtime camera"
+        },
+        {
+            "file": "web2/shared/web2-product-picker.js",
+            "category": "products",
+            "oneLine": "Product selection picker"
+        },
+        {
+            "file": "web2/shared/web2-products-api.js",
+            "category": "products",
+            "oneLine": "Products API client"
+        },
+        {
+            "file": "web2/shared/web2-products-cache.js",
+            "category": "products",
+            "oneLine": "Products cache with Firestore sync"
+        },
+        {
+            "file": "web2/shared/web2-pwa.js",
+            "category": "other",
+            "oneLine": "PWA installation helper"
+        },
+        {
+            "file": "web2/shared/web2-qr-modal.js",
+            "category": "qr-barcode",
+            "oneLine": "QR modal viewer"
+        },
+        {
+            "file": "web2/shared/web2-qr.js",
+            "category": "qr-barcode",
+            "oneLine": "QR code generation for products"
+        },
+        {
+            "file": "web2/shared/web2-quick-reply.js",
+            "category": "chat",
+            "oneLine": "Quick reply system for messages"
+        },
+        {
+            "file": "web2/shared/web2-realtime.js",
+            "category": "sse-realtime",
+            "oneLine": "Realtime client (Pancake WS)"
+        },
+        {
+            "file": "web2/shared/web2-return-bill.js",
+            "category": "other",
+            "oneLine": "Return bill handler"
+        },
+        {
+            "file": "web2/shared/web2-sidebar.js",
+            "category": "sidebar-nav",
+            "oneLine": "Main sidebar navigation"
+        },
+        {
+            "file": "web2/shared/web2-so-order-reader.js",
+            "category": "other",
+            "oneLine": "SO order reader"
+        },
+        {
+            "file": "web2/shared/web2-so-order-utils.js",
+            "category": "other",
+            "oneLine": "SO order utilities"
+        },
+        {
+            "file": "web2/shared/web2-sse-bridge.js",
+            "category": "sse-realtime",
+            "oneLine": "SSE bridge for realtime updates"
+        },
+        {
+            "file": "web2/shared/web2-sse-topics.js",
+            "category": "sse-realtime",
+            "oneLine": "SSE topic definitions"
+        },
+        {
+            "file": "web2/shared/web2-suppliers-cache.js",
+            "category": "suppliers",
+            "oneLine": "Suppliers cache"
+        },
+        {
+            "file": "web2/shared/web2-text-utils.js",
+            "category": "format-util",
+            "oneLine": "Text normalization and search"
+        },
+        {
+            "file": "web2/shared/web2-translate.js",
+            "category": "format-util",
+            "oneLine": "Translation system"
+        },
+        {
+            "file": "web2/shared/web2-unread-panel.js",
+            "category": "other",
+            "oneLine": "Unread messages panel"
+        },
+        {
+            "file": "web2/shared/web2-user-info.js",
+            "category": "format-util",
+            "oneLine": "User information utilities"
+        },
+        {
+            "file": "web2/shared/web2-variant-group.js",
+            "category": "products",
+            "oneLine": "Product variant grouping"
+        },
+        {
+            "file": "web2/shared/web2-variant-multi.js",
+            "category": "products",
+            "oneLine": "Multi-variant handler"
+        },
+        {
+            "file": "web2/shared/web2-variants-cache.js",
+            "category": "products",
+            "oneLine": "Variants cache with Firestore"
+        },
+        {
+            "file": "web2/shared/web2-vieneu.js",
+            "category": "voice-tts",
+            "oneLine": "Voice/TTS storage"
+        },
+        {
+            "file": "web2/shared/web2-wallet-api.js",
+            "category": "wallet",
+            "oneLine": "Customer wallet API client"
+        },
+        {
+            "file": "web2/shared/web2-wallet-balance.js",
+            "category": "wallet",
+            "oneLine": "Wallet balance display helper"
+        },
+        {
+            "file": "web2/shared/web2-zalo-api.js",
+            "category": "chat",
+            "oneLine": "Zalo API wrapper"
+        },
+        {
+            "file": "web2/shared/web2-zalo.js",
+            "category": "chat",
+            "oneLine": "Zalo helper (single source)"
+        },
+        {
+            "file": "web2/shared/zalo-chat/bubbles.js",
+            "category": "chat",
+            "oneLine": "Zalo chat message bubbles"
+        },
+        {
+            "file": "web2/shared/zalo-chat/chat-actions.js",
+            "category": "chat",
+            "oneLine": "Zalo chat actions handler"
+        },
+        {
+            "file": "web2/shared/zalo-chat/chat-store.js",
+            "category": "chat",
+            "oneLine": "Zalo chat state store"
+        },
+        {
+            "file": "web2/shared/zalo-chat/chat-view.js",
+            "category": "chat",
+            "oneLine": "Zalo chat view renderer"
+        },
+        {
+            "file": "web2/shared/zalo-chat/composer.js",
+            "category": "chat",
+            "oneLine": "Zalo chat message composer"
+        },
+        {
+            "file": "web2/shared/zalo-chat/emoji-picker.js",
+            "category": "chat",
+            "oneLine": "Zalo emoji picker UI"
+        },
+        {
+            "file": "web2/shared/zalo-chat/lightbox.js",
+            "category": "chat",
+            "oneLine": "Zalo image lightbox"
+        },
+        {
+            "file": "web2/shared/zalo-chat/reactions.js",
+            "category": "chat",
+            "oneLine": "Zalo chat reactions"
+        },
+        {
+            "file": "web2/shared/zalo-chat/realtime.js",
+            "category": "chat",
+            "oneLine": "Zalo chat realtime updates"
+        },
+        {
+            "file": "web2/shared/zalo-chat/sticker-picker.js",
+            "category": "chat",
+            "oneLine": "Zalo sticker picker"
+        }
+    ]
+}

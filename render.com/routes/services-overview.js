@@ -114,10 +114,16 @@ async function _dbStats(pool, name) {
 // -----------------------------------------------------
 // Static service inventory — cost + plan + free tier
 // -----------------------------------------------------
+// LƯU Ý: tab "Dịch vụ" tập trung HẠ TẦNG + chi phí + DB live. DANH SÁCH ĐẦY ĐỦ
+// mọi bên thứ 3 (API AI/TTS, thư viện CDN, model on-device, dự án GitHub) →
+// tab "Bên thứ 3" (web2/system/data/web2-third-parties.json, audit 5 vòng 2026-06-24).
+// Cập nhật 2026-06-24: sửa text cũ (Firestore drained, web2Db schema thật,
+// Firebase Auth legacy, Cloudflare unified proxy, GitHub Pages → nhijudy.store) +
+// thêm AI/TTS, SePay, TPOS.
 const SERVICES_INVENTORY = [
     {
         category: 'database',
-        name: 'Render Postgres',
+        name: 'Render Postgres (Web 1.0)',
         plan: 'Basic 1GB (Singapore)',
         provider: 'Render',
         costMonth: 19,
@@ -125,7 +131,7 @@ const SERVICES_INVENTORY = [
         freeTier: { storage: '1 GB', expiration: '90 days' },
         paidLimit: { storage: '1 GB Basic $19/mo · 4 GB Pro $55/mo · 8 GB Pro+ $95/mo' },
         purpose:
-            'DB chính — web2_products, native_orders, fast_sale_orders, customers, invoice_status, ...',
+            'DB Web 1.0 PROD (n2store_chat) — customers, balance_history, customer_wallets, app_users, invoice_status, pancake_accounts… Web 2.0 KHÔNG còn ở đây (cutover 2026-06-03).',
         url: 'https://dashboard.render.com',
         poolKey: 'chatDb',
         host: 'dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com',
@@ -140,23 +146,25 @@ const SERVICES_INVENTORY = [
         freeTier: { storage: '1 GB' },
         paidLimit: { storage: '1 GB Basic $19/mo · upgrade nếu vượt' },
         purpose:
-            'DB Web 2.0 generic — web2_records (78+ entities, JSONB). TÁCH RIÊNG khỏi chatDb để Web 2.0 (beta) không ảnh hưởng Web 1.0 production.',
+            'DB Web 2.0 (n2store_web2) — bảng web2_* + native_orders + fast_sale_orders: web2_products, web2_variants, web2_so_order, web2_supplier_meta/ledger, web2_customers, web2_customer_wallets, web2_wallet_transactions, web2_balance_history, web2_users/user_sessions, web2_records (generic). TÁCH RIÊNG khỏi chatDb.',
         url: 'https://dashboard.render.com',
         poolKey: 'web2Db',
         host: 'dpg-d8d7besp3tds73f8gr60-a.singapore-postgres.render.com',
-        note: 'Tạo 2026-05-30 thay Neon Free Tier (consolidated về Render — cùng provider backend).',
+        note: 'Tạo 2026-05-30 thay Neon. Web 2.0 đã migrate KHỎI Firestore sang đây (2026-06-14) — Firestore giờ drained.',
     },
     {
         category: 'compute',
-        name: 'Render Backend',
+        name: 'Render Backend (×2 web service)',
         plan: 'Starter',
         provider: 'Render',
         costMonth: 7,
         currency: 'USD',
         freeTier: { hours: '750/mo', cpu: '0.5', ram: '512 MB' },
         paidLimit: { hours: 'unlimited', cpu: '0.5', ram: '512 MB' },
-        purpose: 'Node.js API server — Express, SSE hubs, cron, services',
+        purpose:
+            'Node.js API — Express, 2 hub SSE (web1 + web2), cron, services. 2 service: n2store-fallback (Web 1.0) + web2-api-kv04 (Web 2.0, tách 2026-06).',
         url: 'https://dashboard.render.com',
+        note: 'web2-api là service riêng (web2-api-kv04.onrender.com) — chi phí phụ thuộc plan từng service.',
     },
     {
         category: 'network',
@@ -167,8 +175,54 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: { requests: '100k/day' },
         paidLimit: { requests: '10M/mo ($5/mo Paid)' },
-        purpose: 'chatomni-proxy — TPOS/Pancake/FB proxy, Edge Cache',
+        purpose:
+            'chatomni-proxy — proxy CHUNG: TPOS/Pancake/FB (Web 1.0) + route /api/web2-* → web2-api (Web 2.0). Match path Web 2.0 tường minh TRƯỚC catch-all TPOS. Edge cache.',
         url: 'https://dash.cloudflare.com',
+    },
+    {
+        category: 'ai',
+        name: 'AI / LLM / TTS / Media (đa nhà cung cấp)',
+        plan: 'Free-tier + multi-key rotation',
+        provider: 'Gemini · Groq · OpenRouter · ElevenLabs · Vivibe · Pollinations …',
+        costMonth: 0,
+        currency: 'USD',
+        freeTier: {
+            chat: 'Gemini/Groq/OpenRouter/ChatAnywhere (xoay nhiều key)',
+            tts: 'ElevenLabs / Vivibe / VieNeu (self-host) / MMS-TTS on-device',
+            image: 'Pollinations / Cloudflare Workers AI / DiceBear',
+        },
+        paidLimit: { 'pay-per-use': 'Nano Banana (Gemini image) · DeepSeek — dùng theo lượng' },
+        purpose:
+            'Trợ lý AI, dịch thuật, tạo ảnh/video, giọng đọc. Chủ yếu chạy free-tier (xoay key). Chi tiết đầy đủ + license + nơi dùng → tab "Bên thứ 3".',
+        url: 'index.html?tab=thirdparty',
+        note: 'Pool key tách: chat free (WEB2_GEMINI_API_KEY1..4) vs Nano Banana paid (KEY5/NANOBANANA).',
+    },
+    {
+        category: 'payment',
+        name: 'SePay',
+        plan: 'Webhook (Free)',
+        provider: 'SePay Vietnam',
+        costMonth: 0,
+        currency: 'USD',
+        freeTier: { webhook: 'không giới hạn (theo TK ngân hàng)' },
+        paidLimit: null,
+        purpose:
+            'Webhook biến động số dư ngân hàng → nạp ví KH Web 2.0 (web2_customer_wallets) + Sổ quỹ. 2 kênh độc lập (shop + Home).',
+        url: 'https://my.sepay.vn',
+    },
+    {
+        category: 'commerce',
+        name: 'TPOS (Tomato POS)',
+        plan: 'Subscription (POS shop)',
+        provider: 'TPOS',
+        costMonth: 0,
+        currency: 'USD',
+        freeTier: null,
+        paidLimit: { note: 'Gói POS riêng của shop (không phải hạ tầng app)' },
+        purpose:
+            'POS thật của shop (OData API qua tomato.tpos.vn). Web 1.0 dùng trực tiếp; Web 2.0 có shadow (odata-tpos-shadow). Proxy qua chatomni-proxy.',
+        url: 'https://tomato.tpos.vn',
+        note: 'Chi phí là subscription POS của shop, không tính vào hạ tầng app này.',
     },
     {
         category: 'database',
@@ -179,8 +233,10 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: { storage: '1 GB', reads: '50k/day', writes: '20k/day' },
         paidLimit: { storage: 'pay-as-go', reads: 'pay-as-go' },
-        purpose: 'Web 2.0 data (so-order, wallets, snapshots) + tickle pub/sub',
+        purpose:
+            'LEGACY/drained cho Web 2.0 — data đã chuyển sang Postgres web2_* (2026-06-14). Còn ACTIVE: collection pancake_tokens/accounts (token Pancake, dùng chung Web 1.0). Web 1.0 vẫn dùng vài store.',
         url: 'https://console.firebase.google.com',
+        note: 'Web 2.0 KHÔNG tạo collection Firestore mới — realtime dùng SSE trên Render.',
     },
     {
         category: 'auth',
@@ -191,7 +247,8 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: { mau: '50,000 MAU' },
         paidLimit: { mau: '$0.0055/MAU > 50k' },
-        purpose: 'Legacy n2store auth (AuthManager) + web 2.0 fallback',
+        purpose:
+            'Auth Web 1.0 (AuthManager). Web 2.0 dùng auth Postgres riêng (web2_users + web2_user_sessions, x-web2-token) — KHÔNG còn phụ thuộc Firebase Auth.',
         url: 'https://console.firebase.google.com',
     },
     {
@@ -203,7 +260,8 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: null,
         paidLimit: { storage: '$0.01/GB/mo + $0.005-0.03/GB egress' },
-        purpose: 'CHỈ AI KOL Studio — n2store-aikol zone',
+        purpose:
+            'CHỈ AI KOL Studio (Web 1.0) — n2store-aikol zone. Web 2.0 KHÔNG dùng (ảnh lưu Postgres bytea).',
         url: 'https://panel.bunny.net',
     },
     {
@@ -215,7 +273,8 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: { bandwidth: '100 GB/mo', builds: '10/hr' },
         paidLimit: null,
-        purpose: 'Static frontend hosting — nhijudyshop.github.io/n2store',
+        purpose:
+            'Host frontend tĩnh (deploy qua git push). Domain chính hiện tại: nhijudy.store. Repo: nhijudyshop/n2store.',
         url: 'https://github.com/nhijudyshop/n2store',
     },
 ];

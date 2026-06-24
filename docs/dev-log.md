@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### [feat] Cấu hình & Hệ thống — 2 tab mới "Module" + "Bên thứ 3" (audit 5 vòng) + sửa tab Dịch vụ cho chính xác
+
+User: audit lại Web 2.0 → trang `web2/system/?tab=services`: (1) tab Dịch vụ đã chính xác chưa khi có code/feature/trang mới; (2) thêm 1 tab tổng hợp toàn bộ module + 1 tab tổng hợp toàn bộ bên thứ 3 (vd github) — rà soát 5 vòng.
+
+Files: **NEW** `web2/system/js/system-modules.js`, `web2/system/js/system-thirdparty.js`, `scripts/gen-web2-system-data.js`, `web2/system/data/{web2-modules.json,web2-third-parties.json,_module-categories.json}`; sửa `web2/system/index.html` (2 tab + 2 panel + cross-link), `web2/system/js/system-app.js` (VALID_TABS + lazy-init + reload), `web2/system/css/system.css` (mod-_ / tp-_), `render.com/routes/services-overview.js` (SERVICES_INVENTORY).
+
+- **Audit bên thứ 3 = workflow 5 vòng** (13 agent, ~1.1M tok): discover 6 góc (CDN libs, frontend API, backend+ENV, OSS/GitHub ports, infra, services-accuracy) → 5 vòng rà soát lăng kính riêng (AI/LLM/TTS → nhắn tin/TPOS/payment → CDN lib/on-device model → OSS+infra → cross-check) → synthesize. Ra **70 bên thứ 3** (mỗi mục có `usedIn` = file thật, đã spot-verify grep KHÔNG hallucination). Registry: `web2-third-parties.json` (category/provider/cost/license/layer/usedIn/envKeys[chỉ TÊN biến]/githubUrl/status). Tab UI: filter category + layer (web2/web1) + cost + search.
+- **Tab Module**: `web2-modules.json` sinh bởi `gen-web2-system-data.js` (đọc codemap + quét render.com) — 126 shared (20 nhóm category) + 43 trang + 57 route + 35 service backend. 3 view (Dùng chung / Trang / Backend), search, category chips. (10 shared module mới chưa categorize → "Khác", chạy lại categorize sau.)
+- **Sửa tab Dịch vụ (9 finding)**: Firestore = LEGACY/drained cho Web 2.0 (data đã sang Postgres 2026-06-14, chỉ pancake*tokens còn active); web2Db purpose = bảng web2*\* thật (bỏ "Neon/78 entities"); Firebase Auth = Web 1.0 (Web 2.0 dùng auth Postgres); Cloudflare = unified proxy; GitHub Pages → nhijudy.store; +AI/TTS/SePay/TPOS; Render = 2 service (n2store-fallback + web2-api). ⚠ Tab Dịch vụ đọc API live → cần Render redeploy mới thấy inventory mới.
+- **Verify browser** (localhost, 5 tab): 0 console error; Module 116→126 cards/20 nhóm; Bên thứ 3 70 cards/13 nhóm, filter web1→16, search "gemini"→3; screenshot OK.
+
 ### [feat] Trang "Sửa ảnh AI" mới (group AI) thay photo-editor cũ — gom mọi công cụ ảnh
 
 User: "photo-editor cũ/dở → xóa, làm trang mới bên group AI, gồm tất cả tính năng + model github tốt nhất (license kệ vì nội bộ)".

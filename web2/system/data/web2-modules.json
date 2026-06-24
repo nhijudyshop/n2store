@@ -1,0 +1,2302 @@
+{
+    "generatedAt": "2026-06-24T10:23:36.889Z",
+    "source": "docs/web2/web2-codemap.json + render.com scan",
+    "totals": {
+        "sharedModules": 126,
+        "pages": 43,
+        "backendRoutes": 57,
+        "backendServices": 35,
+        "frontendFiles": 422,
+        "functions": 3341
+    },
+    "sharedByCategory": {
+        "beauty": 3,
+        "chat": 35,
+        "other": 29,
+        "popup-ui": 6,
+        "format-util": 13,
+        "qr-barcode": 3,
+        "campaign": 1,
+        "image": 5,
+        "sidebar-nav": 2,
+        "customers": 3,
+        "video": 3,
+        "cache": 1,
+        "kpi": 1,
+        "scanner-count": 3,
+        "optimistic": 1,
+        "suppliers": 4,
+        "products": 7,
+        "sse-realtime": 3,
+        "voice-tts": 1,
+        "wallet": 2
+    },
+    "shared": [
+        {
+            "file": "web2/shared/beauty/web2-beauty-face.js",
+            "name": "Web2BeautyFace",
+            "globals": ["Web2BeautyFace"],
+            "purpose": "Face landmarks detection for beauty effects",
+            "api": [],
+            "lines": 365,
+            "consumerCount": 4,
+            "category": "beauty"
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-filters.js",
+            "name": "Web2BeautyFilters",
+            "globals": ["Web2BeautyFilters"],
+            "purpose": "Beauty pixel processing filters engine",
+            "api": [],
+            "lines": 397,
+            "consumerCount": 4,
+            "category": "beauty"
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-studio.js",
+            "name": "Web2BeautyStudio",
+            "globals": ["Web2BeautyStudio"],
+            "purpose": "Beauty studio UI editor",
+            "api": [],
+            "lines": 524,
+            "consumerCount": 1,
+            "category": "beauty"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
+            "name": "Web2ChatEmoji",
+            "globals": ["Web2ChatEmoji"],
+            "purpose": "Emoji dataset and recent helper",
+            "api": [],
+            "lines": 212,
+            "consumerCount": 1,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-entity-detect.js",
+            "name": "Web2ChatEntityDetect",
+            "globals": ["Web2ChatEntityDetect"],
+            "purpose": "Entity detection in messages (phone, address)",
+            "api": [],
+            "lines": 116,
+            "consumerCount": 1,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
+            "name": "web2-chat-panel-compose",
+            "globals": [],
+            "purpose": "Chat message composer",
+            "api": [],
+            "lines": 475,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
+            "name": "web2-chat-panel-render",
+            "globals": [],
+            "purpose": "Chat message rendering",
+            "api": [],
+            "lines": 415,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-state.js",
+            "name": "web2-chat-panel-state",
+            "globals": [],
+            "purpose": "Chat panel state management",
+            "api": [],
+            "lines": 194,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel.js",
+            "name": "Web2ChatPanel",
+            "globals": ["Web2ChatPanel"],
+            "purpose": "Main chat panel component",
+            "api": [],
+            "lines": 120,
+            "consumerCount": 13,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-sticker-data.js",
+            "name": "Web2ChatStickers",
+            "globals": ["Web2ChatStickers"],
+            "purpose": "Sticker collection for chat",
+            "api": [],
+            "lines": 33,
+            "consumerCount": 1,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/delivery-method-picker.js",
+            "name": "DeliveryMethodPicker",
+            "globals": ["DeliveryMethodPicker"],
+            "purpose": "Delivery method picker (VN-aware)",
+            "api": [],
+            "lines": 617,
+            "consumerCount": 4,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/page-builder.js",
+            "name": "Web2Page",
+            "globals": ["Web2Page"],
+            "purpose": "Generic CRUD page builder",
+            "api": [],
+            "lines": 763,
+            "consumerCount": 0,
+            "category": "popup-ui"
+        },
+        {
+            "file": "web2/shared/popup.js",
+            "name": "Popup",
+            "globals": ["Popup"],
+            "purpose": "Alert/confirm/prompt popup",
+            "api": [],
+            "lines": 481,
+            "consumerCount": 55,
+            "category": "popup-ui"
+        },
+        {
+            "file": "web2/shared/web2-ai-assistant.js",
+            "name": "Web2AiAssistant",
+            "globals": ["Web2AiAssistant"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 395,
+            "consumerCount": 2,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-ai-presets.js",
+            "name": "Web2AiPresets",
+            "globals": ["Web2AiPresets", "AiPresets"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "lines": 659,
+            "consumerCount": 4,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-api-fetch.js",
+            "name": "Web2ApiFetch",
+            "globals": ["Web2ApiFetch"],
+            "purpose": "API fetch with auth and fallback",
+            "api": [],
+            "lines": 82,
+            "consumerCount": 1,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-api.js",
+            "name": "Web2Api",
+            "globals": ["Web2Api"],
+            "purpose": "Generic API client",
+            "api": [],
+            "lines": 94,
+            "consumerCount": 1,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-attendance-installer.js",
+            "name": "Web2AttendanceInstaller",
+            "globals": ["Web2AttendanceInstaller"],
+            "purpose": "WEB2.0 shared — 1-click tải & cài agent Chấm công DG-600.",
+            "api": [],
+            "lines": 245,
+            "consumerCount": 0,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-audit-log.js",
+            "name": "Web2AuditLog",
+            "globals": ["Web2AuditLog"],
+            "purpose": "Audit log display",
+            "api": [],
+            "lines": 380,
+            "consumerCount": 19,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-auth.js",
+            "name": "WEB2_CONFIG",
+            "globals": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+            "purpose": "Token storage and page guard",
+            "api": [],
+            "lines": 246,
+            "consumerCount": 127,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-avatar-utils.js",
+            "name": "Web2AvatarUtils",
+            "globals": ["Web2AvatarUtils"],
+            "purpose": "Avatar utilities",
+            "api": [],
+            "lines": 140,
+            "consumerCount": 1,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-barcode-scanner.js",
+            "name": "Web2BarcodeScanner",
+            "globals": ["Web2BarcodeScanner"],
+            "purpose": "On-device barcode/QR scanning via camera",
+            "api": [],
+            "lines": 443,
+            "consumerCount": 3,
+            "category": "qr-barcode"
+        },
+        {
+            "file": "web2/shared/web2-bg-scene.js",
+            "name": "Web2BgScene",
+            "globals": ["Web2BgScene"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 325,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-bgremover.js",
+            "name": "Web2BgRemover",
+            "globals": ["Web2BgRemover"],
+            "purpose": "WEB2.0 module.",
+            "api": [
+                "Web2BgRemover.listServers(timeoutMs) → [{name, url, ageSec}]",
+                "Web2BgRemover.removeBg(serverUrl, input, opts) → dataURL PNG (input: File|Blob|dataURL|url)",
+                "Web2BgRemover.removeBgAuto(input, opts) → tự chọn máy online đầu tiên → dataURL (throw nếu ko có máy)"
+            ],
+            "lines": 86,
+            "consumerCount": 3,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-bill-service.js",
+            "name": "Web2Bill",
+            "globals": ["Web2Bill"],
+            "purpose": "Bill/invoice service",
+            "api": [],
+            "lines": 753,
+            "consumerCount": 3,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-campaign.js",
+            "name": "Web2Campaign",
+            "globals": ["Web2Campaign"],
+            "purpose": "Campaign management",
+            "api": [],
+            "lines": 187,
+            "consumerCount": 4,
+            "category": "campaign"
+        },
+        {
+            "file": "web2/shared/web2-canvas-utils.js",
+            "name": "Web2CanvasUtils",
+            "globals": ["Web2CanvasUtils"],
+            "purpose": "Canvas manipulation utilities",
+            "api": [],
+            "lines": 139,
+            "consumerCount": 2,
+            "category": "image"
+        },
+        {
+            "file": "web2/shared/web2-chat-api.js",
+            "name": "web2-chat-api",
+            "globals": [],
+            "purpose": "Chat API client",
+            "api": [],
+            "lines": 403,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-chat-client.js",
+            "name": "Web2Chat",
+            "globals": ["Web2Chat"],
+            "purpose": "Chat client core",
+            "api": [],
+            "lines": 107,
+            "consumerCount": 41,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-chat-live.js",
+            "name": "web2-chat-live",
+            "globals": [],
+            "purpose": "Live chat functionality",
+            "api": [],
+            "lines": 274,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-chat-settings.js",
+            "name": "web2-chat-settings",
+            "globals": [],
+            "purpose": "Chat settings management",
+            "api": [],
+            "lines": 140,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-chat-tags.js",
+            "name": "web2-chat-tags",
+            "globals": [],
+            "purpose": "Chat message tags",
+            "api": [],
+            "lines": 156,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-chat-tokens.js",
+            "name": "web2-chat-tokens",
+            "globals": [],
+            "purpose": "Chat tokens handler",
+            "api": [],
+            "lines": 268,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-chat-utils.js",
+            "name": "web2-chat-utils",
+            "globals": [],
+            "purpose": "Chat utility functions",
+            "api": [],
+            "lines": 128,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-ck-assign-picker.js",
+            "name": "Web2CkAssignPicker",
+            "globals": ["Web2CkAssignPicker"],
+            "purpose": "CK assignment picker",
+            "api": [],
+            "lines": 269,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-ck-review.js",
+            "name": "Web2CkReview",
+            "globals": ["Web2CkReview"],
+            "purpose": "CK verification review",
+            "api": [],
+            "lines": 494,
+            "consumerCount": 2,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-command-palette.js",
+            "name": "Web2CommandPalette",
+            "globals": ["Web2CommandPalette"],
+            "purpose": "Command palette (Ctrl+K)",
+            "api": [],
+            "lines": 269,
+            "consumerCount": 1,
+            "category": "sidebar-nav"
+        },
+        {
+            "file": "web2/shared/web2-customer-chat-core.js",
+            "name": "web2-customer-chat-core",
+            "globals": [],
+            "purpose": "Customer chat core functionality",
+            "api": [],
+            "lines": 544,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-customer-chat-modal.js",
+            "name": "web2-customer-chat-modal",
+            "globals": [],
+            "purpose": "Customer chat modal",
+            "api": [],
+            "lines": 228,
+            "consumerCount": 0,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-customer-chat.js",
+            "name": "Web2CustomerChat",
+            "globals": ["Web2CustomerChat"],
+            "purpose": "Customer chat integration",
+            "api": [],
+            "lines": 214,
+            "consumerCount": 12,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-customer-detail-modal.js",
+            "name": "Web2CustomerDetailModal",
+            "globals": ["Web2CustomerDetailModal"],
+            "purpose": "Customer detail modal",
+            "api": [],
+            "lines": 417,
+            "consumerCount": 3,
+            "category": "customers"
+        },
+        {
+            "file": "web2/shared/web2-customer-lookup.js",
+            "name": "PartnerCustomerApi",
+            "globals": ["PartnerCustomerApi", "Web2CustomerLookup"],
+            "purpose": "Customer lookup helper",
+            "api": [],
+            "lines": 66,
+            "consumerCount": 7,
+            "category": "customers"
+        },
+        {
+            "file": "web2/shared/web2-customer-store.js",
+            "name": "Web2CustomerStore",
+            "globals": ["Web2CustomerStore"],
+            "purpose": "Customer store (single source)",
+            "api": [],
+            "lines": 521,
+            "consumerCount": 12,
+            "category": "customers"
+        },
+        {
+            "file": "web2/shared/web2-db-badge.js",
+            "name": "Web2DbBadge",
+            "globals": ["Web2DbBadge"],
+            "purpose": "DB version badge display",
+            "api": [],
+            "lines": 145,
+            "consumerCount": 0,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-deeplink.js",
+            "name": "Web2Deeplink",
+            "globals": ["Web2Deeplink"],
+            "purpose": "Deep linking utilities",
+            "api": [],
+            "lines": 101,
+            "consumerCount": 7,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-dicebear-customizer.js",
+            "name": "Web2DicebearCustomizer",
+            "globals": ["Web2DicebearCustomizer"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 313,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-effects.js",
+            "name": "Web2Effects",
+            "globals": ["Web2Effects"],
+            "purpose": "Effects and animations library",
+            "api": [],
+            "lines": 794,
+            "consumerCount": 8,
+            "category": "video"
+        },
+        {
+            "file": "web2/shared/web2-escape.js",
+            "name": "Web2Escape",
+            "globals": ["Web2Escape"],
+            "purpose": "String escaping utilities",
+            "api": [],
+            "lines": 64,
+            "consumerCount": 48,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-export-helpers.js",
+            "name": "Web2Export",
+            "globals": ["Web2Export"],
+            "purpose": "Export utilities",
+            "api": [],
+            "lines": 160,
+            "consumerCount": 0,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-extension-bridge.js",
+            "name": "Web2Ext",
+            "globals": ["Web2Ext"],
+            "purpose": "Extension bridge",
+            "api": [],
+            "lines": 91,
+            "consumerCount": 5,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-fb-client.js",
+            "name": "Web2FbClient",
+            "globals": ["Web2FbClient", "FBPostsApi"],
+            "purpose": "Facebook Graph API client",
+            "api": [],
+            "lines": 120,
+            "consumerCount": 8,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-fb-post-preview.js",
+            "name": "Web2FbPostPreview",
+            "globals": ["Web2FbPostPreview"],
+            "purpose": "Facebook post preview",
+            "api": [],
+            "lines": 147,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-fb-share.js",
+            "name": "Web2FbShare",
+            "globals": ["Web2FbShare"],
+            "purpose": "Facebook share handoff",
+            "api": [],
+            "lines": 100,
+            "consumerCount": 3,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-format.js",
+            "name": "Web2Format",
+            "globals": ["Web2Format"],
+            "purpose": "Currency/date/time formatting (GMT+7)",
+            "api": [],
+            "lines": 92,
+            "consumerCount": 20,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-history-timeline.js",
+            "name": "Web2HistoryTimeline",
+            "globals": ["Web2HistoryTimeline"],
+            "purpose": "History timeline renderer",
+            "api": [],
+            "lines": 238,
+            "consumerCount": 8,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-idb-store.js",
+            "name": "Web2IdbStore",
+            "globals": ["Web2IdbStore"],
+            "purpose": "IndexedDB key-value store",
+            "api": [],
+            "lines": 183,
+            "consumerCount": 5,
+            "category": "cache"
+        },
+        {
+            "file": "web2/shared/web2-image-editor.js",
+            "name": "Web2ImageEditor",
+            "globals": ["Web2ImageEditor"],
+            "purpose": "Image editing and manipulation tools",
+            "api": [],
+            "lines": 295,
+            "consumerCount": 2,
+            "category": "image"
+        },
+        {
+            "file": "web2/shared/web2-image-lightbox.js",
+            "name": "Web2ImageLightbox",
+            "globals": ["Web2ImageLightbox"],
+            "purpose": "Image lightbox viewer with navigation",
+            "api": [],
+            "lines": 353,
+            "consumerCount": 5,
+            "category": "image"
+        },
+        {
+            "file": "web2/shared/web2-image-paste.js",
+            "name": "Web2ImagePaste",
+            "globals": ["Web2ImagePaste"],
+            "purpose": "Image clipboard paste handler",
+            "api": [],
+            "lines": 595,
+            "consumerCount": 6,
+            "category": "image"
+        },
+        {
+            "file": "web2/shared/web2-import.js",
+            "name": "Web2Import",
+            "globals": ["Web2Import"],
+            "purpose": "File import handler",
+            "api": [],
+            "lines": 565,
+            "consumerCount": 4,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-jwt-utils.js",
+            "name": "Web2JwtUtils",
+            "globals": ["Web2JwtUtils"],
+            "purpose": "JWT parsing utilities",
+            "api": [],
+            "lines": 96,
+            "consumerCount": 3,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-kpi.js",
+            "name": "Web2Kpi",
+            "globals": ["Web2Kpi"],
+            "purpose": "KPI utilities",
+            "api": [],
+            "lines": 97,
+            "consumerCount": 4,
+            "category": "kpi"
+        },
+        {
+            "file": "web2/shared/web2-label-ocr.js",
+            "name": "Web2LabelOcr",
+            "globals": ["Web2LabelOcr"],
+            "purpose": "OCR text reading from labels via camera",
+            "api": [],
+            "lines": 433,
+            "consumerCount": 2,
+            "category": "scanner-count"
+        },
+        {
+            "file": "web2/shared/web2-logo-eraser.js",
+            "name": "Web2LogoEraser",
+            "globals": ["Web2LogoEraser"],
+            "purpose": "Logo removal from images",
+            "api": [],
+            "lines": 379,
+            "consumerCount": 3,
+            "category": "image"
+        },
+        {
+            "file": "web2/shared/web2-lottie.js",
+            "name": "Web2Lottie",
+            "globals": ["Web2Lottie"],
+            "purpose": "Lottie animation player",
+            "api": [],
+            "lines": 391,
+            "consumerCount": 8,
+            "category": "video"
+        },
+        {
+            "file": "web2/shared/web2-motion.js",
+            "name": "Web2Motion",
+            "globals": ["Web2Motion"],
+            "purpose": "Motion.dev animation engine",
+            "api": [],
+            "lines": 98,
+            "consumerCount": 0,
+            "category": "video"
+        },
+        {
+            "file": "web2/shared/web2-msg-template-core.js",
+            "name": "W2MT",
+            "globals": ["W2MT"],
+            "purpose": "Message template core",
+            "api": [],
+            "lines": 265,
+            "consumerCount": 3,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-msg-template-send.js",
+            "name": "W2MT",
+            "globals": ["W2MT"],
+            "purpose": "Message template sending",
+            "api": [],
+            "lines": 500,
+            "consumerCount": 3,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-msg-template-ui.js",
+            "name": "W2MT",
+            "globals": ["W2MT"],
+            "purpose": "Message template UI",
+            "api": [],
+            "lines": 264,
+            "consumerCount": 3,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-msg-template.js",
+            "name": "W2MT",
+            "globals": ["W2MT", "Web2MsgTemplate"],
+            "purpose": "Message template wrapper",
+            "api": [],
+            "lines": 99,
+            "consumerCount": 5,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-new-msg-badge.js",
+            "name": "Web2NewMsgBadge",
+            "globals": ["Web2NewMsgBadge"],
+            "purpose": "New message badge",
+            "api": [],
+            "lines": 305,
+            "consumerCount": 1,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-notification-bell.js",
+            "name": "Web2NotificationBell",
+            "globals": ["Web2NotificationBell"],
+            "purpose": "Notification bell component",
+            "api": [],
+            "lines": 188,
+            "consumerCount": 0,
+            "category": "popup-ui"
+        },
+        {
+            "file": "web2/shared/web2-notify.js",
+            "name": "Web2Notify",
+            "globals": ["Web2Notify"],
+            "purpose": "Toast/notification system",
+            "api": [],
+            "lines": 49,
+            "consumerCount": 1,
+            "category": "popup-ui"
+        },
+        {
+            "file": "web2/shared/web2-optimistic.js",
+            "name": "Web2Optimistic",
+            "globals": ["Web2Optimistic"],
+            "purpose": "Optimistic UI pattern",
+            "api": [],
+            "lines": 110,
+            "consumerCount": 24,
+            "category": "optimistic"
+        },
+        {
+            "file": "web2/shared/web2-order-tag-detail.js",
+            "name": "Web2OrderTagDetail",
+            "globals": ["Web2OrderTagDetail"],
+            "purpose": "Order tag detail display",
+            "api": [],
+            "lines": 389,
+            "consumerCount": 2,
+            "category": "popup-ui"
+        },
+        {
+            "file": "web2/shared/web2-order-tag-pill.js",
+            "name": "Web2OrderTagPill",
+            "globals": ["Web2OrderTagPill"],
+            "purpose": "Order tag pill component",
+            "api": [],
+            "lines": 93,
+            "consumerCount": 2,
+            "category": "popup-ui"
+        },
+        {
+            "file": "web2/shared/web2-pack-counter.js",
+            "name": "Web2PackCounter",
+            "globals": ["Web2PackCounter"],
+            "purpose": "Package/item counting via camera",
+            "api": [],
+            "lines": 427,
+            "consumerCount": 0,
+            "category": "scanner-count"
+        },
+        {
+            "file": "web2/shared/web2-pancake-accounts.js",
+            "name": "Web2PancakeAccounts",
+            "globals": ["Web2PancakeAccounts"],
+            "purpose": "Pancake accounts manager",
+            "api": [],
+            "lines": 300,
+            "consumerCount": 4,
+            "category": "suppliers"
+        },
+        {
+            "file": "web2/shared/web2-pancake-import.js",
+            "name": "Web2PancakeImport",
+            "globals": ["Web2PancakeImport"],
+            "purpose": "Pancake import handler",
+            "api": [],
+            "lines": 150,
+            "consumerCount": 1,
+            "category": "suppliers"
+        },
+        {
+            "file": "web2/shared/web2-pancake-token.js",
+            "name": "Web2PancakeToken",
+            "globals": ["Web2PancakeToken"],
+            "purpose": "Pancake JWT token monitor",
+            "api": [],
+            "lines": 207,
+            "consumerCount": 2,
+            "category": "suppliers"
+        },
+        {
+            "file": "web2/shared/web2-perm.js",
+            "name": "Web2Perm",
+            "globals": ["Web2Perm"],
+            "purpose": "WEB2.0 shared — phân quyền (enforcement).",
+            "api": [],
+            "lines": 142,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-phone-utils.js",
+            "name": "Web2PhoneUtils",
+            "globals": ["Web2PhoneUtils"],
+            "purpose": "Vietnamese phone normalization",
+            "api": [],
+            "lines": 38,
+            "consumerCount": 5,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-pos-installer.js",
+            "name": "Web2PosInstaller",
+            "globals": ["Web2PosInstaller"],
+            "purpose": "Multi-store installer",
+            "api": [],
+            "lines": 220,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-printer.js",
+            "name": "Web2Printer",
+            "globals": ["Web2Printer"],
+            "purpose": "Printer manager and ESC/POS printing",
+            "api": [],
+            "lines": 740,
+            "consumerCount": 3,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-product-code.js",
+            "name": "Web2ProductCode",
+            "globals": ["Web2ProductCode"],
+            "purpose": "Product code utilities",
+            "api": [],
+            "lines": 594,
+            "consumerCount": 5,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-product-counter.js",
+            "name": "Web2ProductCounter",
+            "globals": ["Web2ProductCounter"],
+            "purpose": "Product counting via realtime camera",
+            "api": [],
+            "lines": 570,
+            "consumerCount": 4,
+            "category": "scanner-count"
+        },
+        {
+            "file": "web2/shared/web2-product-picker.js",
+            "name": "Web2ProductPicker",
+            "globals": ["Web2ProductPicker"],
+            "purpose": "Product selection picker",
+            "api": [],
+            "lines": 168,
+            "consumerCount": 1,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-products-api.js",
+            "name": "Web2ProductsApi",
+            "globals": ["Web2ProductsApi"],
+            "purpose": "Products API client",
+            "api": [],
+            "lines": 150,
+            "consumerCount": 12,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-products-cache.js",
+            "name": "Web2ProductsCache",
+            "globals": ["Web2ProductsCache"],
+            "purpose": "Products cache with Firestore sync",
+            "api": [],
+            "lines": 324,
+            "consumerCount": 22,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-pwa.js",
+            "name": "Web2PWA",
+            "globals": ["Web2PWA"],
+            "purpose": "PWA installation helper",
+            "api": [],
+            "lines": 80,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-qr-modal.js",
+            "name": "Web2QrModal",
+            "globals": ["Web2QrModal"],
+            "purpose": "QR modal viewer",
+            "api": [],
+            "lines": 301,
+            "consumerCount": 1,
+            "category": "qr-barcode"
+        },
+        {
+            "file": "web2/shared/web2-qr.js",
+            "name": "Web2QR",
+            "globals": ["Web2QR"],
+            "purpose": "QR code generation for products",
+            "api": [],
+            "lines": 348,
+            "consumerCount": 4,
+            "category": "qr-barcode"
+        },
+        {
+            "file": "web2/shared/web2-quick-reply.js",
+            "name": "Web2QuickReply",
+            "globals": ["Web2QuickReply"],
+            "purpose": "Quick reply system for messages",
+            "api": [],
+            "lines": 657,
+            "consumerCount": 1,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-realtime.js",
+            "name": "Web2Realtime",
+            "globals": ["Web2Realtime"],
+            "purpose": "Realtime client (Pancake WS)",
+            "api": [],
+            "lines": 599,
+            "consumerCount": 5,
+            "category": "sse-realtime"
+        },
+        {
+            "file": "web2/shared/web2-return-bill.js",
+            "name": "NativeReturnBill",
+            "globals": ["NativeReturnBill"],
+            "purpose": "Return bill handler",
+            "api": [],
+            "lines": 59,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-sidebar.js",
+            "name": "Web2Sidebar",
+            "globals": ["Web2Sidebar"],
+            "purpose": "Main sidebar navigation",
+            "api": [],
+            "lines": 853,
+            "consumerCount": 16,
+            "category": "sidebar-nav"
+        },
+        {
+            "file": "web2/shared/web2-smart-cache.js",
+            "name": "Web2SmartCache",
+            "globals": ["Web2SmartCache"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "lines": 605,
+            "consumerCount": 5,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-so-order-reader.js",
+            "name": "Web2SoOrder",
+            "globals": ["Web2SoOrder"],
+            "purpose": "SO order reader",
+            "api": [],
+            "lines": 53,
+            "consumerCount": 5,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-so-order-utils.js",
+            "name": "Web2SoOrderUtils",
+            "globals": ["Web2SoOrderUtils"],
+            "purpose": "SO order utilities",
+            "api": [],
+            "lines": 129,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-sse-bridge.js",
+            "name": "Web2SSE",
+            "globals": ["Web2SSE"],
+            "purpose": "SSE bridge for realtime updates",
+            "api": [],
+            "lines": 289,
+            "consumerCount": 58,
+            "category": "sse-realtime"
+        },
+        {
+            "file": "web2/shared/web2-sse-topics.js",
+            "name": "Web2SSETopics",
+            "globals": ["Web2SSETopics"],
+            "purpose": "SSE topic definitions",
+            "api": [],
+            "lines": 28,
+            "consumerCount": 0,
+            "category": "sse-realtime"
+        },
+        {
+            "file": "web2/shared/web2-suppliers-cache.js",
+            "name": "Web2SuppliersCache",
+            "globals": ["Web2SuppliersCache"],
+            "purpose": "Suppliers cache",
+            "api": [],
+            "lines": 280,
+            "consumerCount": 9,
+            "category": "suppliers"
+        },
+        {
+            "file": "web2/shared/web2-text-utils.js",
+            "name": "Web2TextUtils",
+            "globals": ["Web2TextUtils"],
+            "purpose": "Text normalization and search",
+            "api": [],
+            "lines": 41,
+            "consumerCount": 1,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-translate.js",
+            "name": "Web2Translate",
+            "globals": ["Web2Translate"],
+            "purpose": "Translation system",
+            "api": [],
+            "lines": 74,
+            "consumerCount": 2,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-unread-panel.js",
+            "name": "Web2UnreadPanel",
+            "globals": ["Web2UnreadPanel"],
+            "purpose": "Unread messages panel",
+            "api": [],
+            "lines": 151,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-user-info.js",
+            "name": "Web2UserInfo",
+            "globals": ["Web2UserInfo"],
+            "purpose": "User information utilities",
+            "api": [],
+            "lines": 154,
+            "consumerCount": 24,
+            "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-user-profile.js",
+            "name": "Web2UserProfile",
+            "globals": ["Web2UserProfile"],
+            "purpose": "WEB2.0 module — Hồ sơ user + đổi avatar DiceBear (dùng chung mọi trang).",
+            "api": [],
+            "lines": 479,
+            "consumerCount": 2,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-variant-group.js",
+            "name": "Web2VariantGroup",
+            "globals": ["Web2VariantGroup"],
+            "purpose": "Product variant grouping",
+            "api": [],
+            "lines": 158,
+            "consumerCount": 2,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-variant-multi.js",
+            "name": "Web2VariantMulti",
+            "globals": ["Web2VariantMulti"],
+            "purpose": "Multi-variant handler",
+            "api": [],
+            "lines": 192,
+            "consumerCount": 5,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-variants-cache.js",
+            "name": "Web2VariantsCache",
+            "globals": ["Web2VariantsCache"],
+            "purpose": "Variants cache with Firestore",
+            "api": [],
+            "lines": 253,
+            "consumerCount": 12,
+            "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-vieneu.js",
+            "name": "Web2Vieneu",
+            "globals": ["Web2Vieneu"],
+            "purpose": "Voice/TTS storage",
+            "api": [],
+            "lines": 205,
+            "consumerCount": 2,
+            "category": "voice-tts"
+        },
+        {
+            "file": "web2/shared/web2-wallet-api.js",
+            "name": "Web2WalletApi",
+            "globals": ["Web2WalletApi"],
+            "purpose": "Customer wallet API client",
+            "api": [],
+            "lines": 227,
+            "consumerCount": 4,
+            "category": "wallet"
+        },
+        {
+            "file": "web2/shared/web2-wallet-balance.js",
+            "name": "Web2WalletBalance",
+            "globals": ["Web2WalletBalance"],
+            "purpose": "Wallet balance display helper",
+            "api": [],
+            "lines": 335,
+            "consumerCount": 19,
+            "category": "wallet"
+        },
+        {
+            "file": "web2/shared/web2-watermark.js",
+            "name": "Web2Watermark",
+            "globals": ["Web2Watermark"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 212,
+            "consumerCount": 1,
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-zalo-api.js",
+            "name": "Web2ZaloOwner",
+            "globals": ["Web2ZaloOwner", "ZaloApi"],
+            "purpose": "Zalo API wrapper",
+            "api": [],
+            "lines": 250,
+            "consumerCount": 10,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/web2-zalo.js",
+            "name": "Web2Zalo",
+            "globals": ["Web2Zalo"],
+            "purpose": "Zalo helper (single source)",
+            "api": [],
+            "lines": 388,
+            "consumerCount": 4,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/bubbles.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat message bubbles",
+            "api": [],
+            "lines": 269,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/chat-actions.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat actions handler",
+            "api": [],
+            "lines": 104,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/chat-store.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat state store",
+            "api": [],
+            "lines": 214,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/chat-view.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat view renderer",
+            "api": [],
+            "lines": 810,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/composer.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat message composer",
+            "api": [],
+            "lines": 597,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/emoji-picker.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo emoji picker UI",
+            "api": [],
+            "lines": 105,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/lightbox.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo image lightbox",
+            "api": [],
+            "lines": 86,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/reactions.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat reactions",
+            "api": [],
+            "lines": 68,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/realtime.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo chat realtime updates",
+            "api": [],
+            "lines": 56,
+            "consumerCount": 11,
+            "category": "chat"
+        },
+        {
+            "file": "web2/shared/zalo-chat/sticker-picker.js",
+            "name": "WZChat",
+            "globals": ["WZChat"],
+            "purpose": "Zalo sticker picker",
+            "api": [],
+            "lines": 113,
+            "consumerCount": 11,
+            "category": "chat"
+        }
+    ],
+    "pages": [
+        {
+            "page": "live-chat",
+            "fileCount": 86,
+            "totalLines": 23781,
+            "globals": [
+                "API_CONFIG",
+                "APP_CONFIG",
+                "AppInit",
+                "ColumnManager",
+                "SettingsManager",
+                "LCM",
+                "LiveState",
+                "LiveCommentList",
+                "LiveApi",
+                "LiveCampaignManager",
+                "LiveChatModal",
+                "LiveCustomerPanel",
+                "LiveHiddenCommenters",
+                "LiveColumnManager",
+                "LiveKhoEnricher",
+                "LiveLivestreamGallery",
+                "LiveSnap",
+                "LiveLivestreamSnap",
+                "NativeOrdersApi",
+                "LiveOrderHistory"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "native-orders",
+            "fileCount": 21,
+            "totalLines": 7137,
+            "globals": [
+                "NativeOrdersApi",
+                "NativeOrders",
+                "NativeOrdersKpiHealth",
+                "NativeOrdersKpi",
+                "NativeOrdersPackingSlip",
+                "NativeOrdersApp"
+            ],
+            "oversized": [
+                {
+                    "file": "native-orders/js/native-orders-pbh-bill.js",
+                    "lines": 831
+                },
+                {
+                    "file": "native-orders/js/native-orders-render.js",
+                    "lines": 915
+                }
+            ]
+        },
+        {
+            "page": "so-order",
+            "fileCount": 25,
+            "totalLines": 7236,
+            "globals": ["SoOrder", "SoOrderStorage"],
+            "oversized": []
+        },
+        {
+            "page": "web2/ai-assistant",
+            "fileCount": 1,
+            "totalLines": 204,
+            "globals": ["AiAssistantAdmin"],
+            "oversized": []
+        },
+        {
+            "page": "web2/ai-hub",
+            "fileCount": 5,
+            "totalLines": 1873,
+            "globals": ["AiChat", "AiHub", "AiImage", "AiKeys", "AiTryon"],
+            "oversized": []
+        },
+        {
+            "page": "web2/ai-photo",
+            "fileCount": 1,
+            "totalLines": 124,
+            "globals": ["AiPhoto"],
+            "oversized": []
+        },
+        {
+            "page": "web2/balance-history",
+            "fileCount": 18,
+            "totalLines": 3677,
+            "globals": [
+                "W2BH",
+                "Web2BalanceHistoryApp",
+                "Web2LinkCustomerModal",
+                "Web2ManualDeposit",
+                "Web2PartnerEnricher",
+                "W2PM",
+                "Web2PendingMatch"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "web2/cham-cong",
+            "fileCount": 5,
+            "totalLines": 2163,
+            "globals": [
+                "ChamCongApi",
+                "ChamCong",
+                "ChamCongEmployees",
+                "ChamCongPayroll",
+                "ChamCongSalary"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "web2/chi-tieu",
+            "fileCount": 3,
+            "totalLines": 801,
+            "globals": ["ChiTieuApi", "ChiTieu", "ChiTieuReport"],
+            "oversized": []
+        },
+        {
+            "page": "web2/ck-dashboard",
+            "fileCount": 1,
+            "totalLines": 469,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/customer-wallet",
+            "fileCount": 5,
+            "totalLines": 1493,
+            "globals": ["W2CW", "Web2CustomerWalletApp"],
+            "oversized": []
+        },
+        {
+            "page": "web2/customers",
+            "fileCount": 6,
+            "totalLines": 1165,
+            "globals": ["CustomersApi"],
+            "oversized": []
+        },
+        {
+            "page": "web2/fastsaleorder-delivery",
+            "fileCount": 1,
+            "totalLines": 276,
+            "globals": ["DlvApp"],
+            "oversized": []
+        },
+        {
+            "page": "web2/fastsaleorder-invoice",
+            "fileCount": 6,
+            "totalLines": 1136,
+            "globals": ["PbhActions", "PbhApi", "PbhApp", "PbhFilters", "PbhRender", "PbhState"],
+            "oversized": []
+        },
+        {
+            "page": "web2/fastsaleorder-refund",
+            "fileCount": 1,
+            "totalLines": 281,
+            "globals": ["RfApp"],
+            "oversized": []
+        },
+        {
+            "page": "web2/fb-ads-stats",
+            "fileCount": 2,
+            "totalLines": 637,
+            "globals": ["FBAdsManual"],
+            "oversized": []
+        },
+        {
+            "page": "web2/fb-insights",
+            "fileCount": 1,
+            "totalLines": 339,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/fb-posts",
+            "fileCount": 5,
+            "totalLines": 1572,
+            "globals": [
+                "FBPosts",
+                "FBPostsComposer",
+                "FBPostsDrafts",
+                "FBPostsList",
+                "FBPostsMedia"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "web2/jt-tracking",
+            "fileCount": 7,
+            "totalLines": 1326,
+            "globals": [
+                "JtTrackingActions",
+                "JtTrackingApi",
+                "JtTrackingApp",
+                "JtTrackingConst",
+                "JtTrackingModals",
+                "JtTrackingRender",
+                "JtTrackingState"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "web2/kpi",
+            "fileCount": 2,
+            "totalLines": 661,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/live-control",
+            "fileCount": 1,
+            "totalLines": 480,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/live-tv",
+            "fileCount": 1,
+            "totalLines": 300,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/modules-manifest.js",
+            "fileCount": 1,
+            "totalLines": 26,
+            "globals": ["WEB2_MODULES_MANIFEST"],
+            "oversized": []
+        },
+        {
+            "page": "web2/multi-tool",
+            "fileCount": 1,
+            "totalLines": 671,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/order-tags",
+            "fileCount": 1,
+            "totalLines": 596,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/pancake-settings",
+            "fileCount": 5,
+            "totalLines": 1449,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/payment-confirm",
+            "fileCount": 1,
+            "totalLines": 403,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/photo-studio",
+            "fileCount": 8,
+            "totalLines": 2840,
+            "globals": ["PS", "PhotoStudio"],
+            "oversized": [
+                {
+                    "file": "web2/photo-studio/photo-studio-edit.js",
+                    "lines": 806
+                }
+            ]
+        },
+        {
+            "page": "web2/product-card",
+            "fileCount": 2,
+            "totalLines": 811,
+            "globals": ["Web2ProductCard", "ProductCardPage"],
+            "oversized": []
+        },
+        {
+            "page": "web2/product-counter",
+            "fileCount": 1,
+            "totalLines": 63,
+            "globals": ["ProductCounterPage"],
+            "oversized": []
+        },
+        {
+            "page": "web2/products",
+            "fileCount": 13,
+            "totalLines": 4300,
+            "globals": [
+                "Web2ProductDetail",
+                "Web2ProductsCore",
+                "Web2ProductsApp",
+                "W2PP",
+                "Web2ProductsPrint"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "web2/purchase-refund",
+            "fileCount": 6,
+            "totalLines": 1834,
+            "globals": ["PurchaseRefund"],
+            "oversized": []
+        },
+        {
+            "page": "web2/reconcile",
+            "fileCount": 5,
+            "totalLines": 1302,
+            "globals": ["RC"],
+            "oversized": []
+        },
+        {
+            "page": "web2/returns",
+            "fileCount": 8,
+            "totalLines": 1177,
+            "globals": [
+                "Web2ReturnsApi",
+                "Web2Returns",
+                "ReturnsCod",
+                "ReturnsCore",
+                "ReturnsCustomer",
+                "ReturnsForm",
+                "ReturnsItems",
+                "ReturnsTabs"
+            ],
+            "oversized": []
+        },
+        {
+            "page": "web2/shared",
+            "fileCount": 126,
+            "totalLines": 35348,
+            "globals": [
+                "Web2BeautyFace",
+                "Web2BeautyFilters",
+                "Web2BeautyStudio",
+                "Web2ChatEmoji",
+                "Web2ChatEntityDetect",
+                "Web2ChatPanel",
+                "Web2ChatStickers",
+                "DeliveryMethodPicker",
+                "Web2Page",
+                "Popup",
+                "Web2AiAssistant",
+                "Web2AiPresets",
+                "AiPresets",
+                "Web2ApiFetch",
+                "Web2Api",
+                "Web2AttendanceInstaller",
+                "Web2AuditLog",
+                "WEB2_CONFIG",
+                "API_CONFIG",
+                "Web2Auth"
+            ],
+            "oversized": [
+                {
+                    "file": "web2/shared/web2-sidebar.js",
+                    "lines": 853
+                },
+                {
+                    "file": "web2/shared/zalo-chat/chat-view.js",
+                    "lines": 810
+                }
+            ]
+        },
+        {
+            "page": "web2/supplier-debt",
+            "fileCount": 6,
+            "totalLines": 1557,
+            "globals": [],
+            "oversized": []
+        },
+        {
+            "page": "web2/supplier-wallet",
+            "fileCount": 6,
+            "totalLines": 1477,
+            "globals": ["SW_DEBUG", "SupplierWalletStorage"],
+            "oversized": []
+        },
+        {
+            "page": "web2/system",
+            "fileCount": 5,
+            "totalLines": 1447,
+            "globals": ["SystemModules", "SystemServices", "SystemSSE", "SystemThirdParty"],
+            "oversized": []
+        },
+        {
+            "page": "web2/users",
+            "fileCount": 1,
+            "totalLines": 974,
+            "globals": [],
+            "oversized": [
+                {
+                    "file": "web2/users/js/users-app.js",
+                    "lines": 974
+                }
+            ]
+        },
+        {
+            "page": "web2/variants",
+            "fileCount": 2,
+            "totalLines": 587,
+            "globals": ["Web2VariantsApi", "Web2VariantsApp"],
+            "oversized": []
+        },
+        {
+            "page": "web2/video-beauty",
+            "fileCount": 3,
+            "totalLines": 658,
+            "globals": ["Web2VideoBeautyExport", "Web2VideoBeautyRender", "VideoBeautyPage"],
+            "oversized": []
+        },
+        {
+            "page": "web2/video-maker",
+            "fileCount": 11,
+            "totalLines": 4751,
+            "globals": [
+                "Web2VideoAiScript",
+                "Web2VideoAnim",
+                "Web2VideoAudio",
+                "Web2VideoImport",
+                "Web2VideoLibraryUI",
+                "VideoMakerPage",
+                "Web2VideoRender",
+                "Web2VideoSceneEditor",
+                "Web2VideoStock",
+                "Web2VideoTTS",
+                "Web2VideoVieneuUI"
+            ],
+            "oversized": [
+                {
+                    "file": "web2/video-maker/js/video-maker.js",
+                    "lines": 1616
+                }
+            ]
+        },
+        {
+            "page": "web2/zalo",
+            "fileCount": 6,
+            "totalLines": 1425,
+            "globals": ["WZApp"],
+            "oversized": []
+        }
+    ],
+    "backend": {
+        "routes": [
+            {
+                "file": "render.com/routes/admin-web2-data-reset.js",
+                "kind": "route",
+                "purpose": "ADMIN WEB2 DATA RESET — backup + wipe data Sản phẩm / Đơn Web / PBH / Cart",
+                "lines": 405
+            },
+            {
+                "file": "render.com/routes/admin-web2-import-customers.js",
+                "kind": "route",
+                "purpose": "POST /api/admin/web2-import-customers  (header x-admin-secret = CLEANUP_SECRET)",
+                "lines": 185
+            },
+            {
+                "file": "render.com/routes/admin-web2-import-fb-links.js",
+                "kind": "route",
+                "purpose": "POST /api/admin/web2-import-fb-links  (header x-admin-secret = CLEANUP_SECRET)",
+                "lines": 132
+            },
+            {
+                "file": "render.com/routes/admin-web2-import-pancake-customers.js",
+                "kind": "route",
+                "purpose": "POST /api/admin/web2-import-pancake-customers  (header x-admin-secret = CLEANUP_SECRET)",
+                "lines": 175
+            },
+            {
+                "file": "render.com/routes/admin-web2-wallet-reset.js",
+                "kind": "route",
+                "purpose": "ADMIN WEB2 WALLET RESET — backup + xóa data ví/matching Web 2.0 → rebuild.",
+                "lines": 518
+            },
+            {
+                "file": "render.com/routes/livestream-images.js",
+                "kind": "route",
+                "purpose": "Kho \"Hình Livestream\" — manual iframe capture (tpos-pancake)",
+                "lines": 370
+            },
+            {
+                "file": "render.com/routes/livestream-snapshots.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — Livestream Snapshot per Customer",
+                "lines": 1481
+            },
+            {
+                "file": "render.com/routes/purchase-refund.js",
+                "kind": "route",
+                "purpose": "PURCHASE-REFUND — state machine + stock side-effects",
+                "lines": 946
+            },
+            {
+                "file": "render.com/routes/realtime-sse-web2.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — REALTIME SSE (Server-Sent Events)",
+                "lines": 1028
+            },
+            {
+                "file": "render.com/routes/services-overview.js",
+                "kind": "route",
+                "purpose": "SERVICES OVERVIEW — tổng hợp DB stats + service inventory",
+                "lines": 329
+            },
+            {
+                "file": "render.com/routes/wallet-deposits.js",
+                "kind": "route",
+                "purpose": "WALLET DEPOSITS — query SePay bank transfers cho 2 ví (NCC + KH)",
+                "lines": 64
+            },
+            {
+                "file": "render.com/routes/web2-ai-script.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — AI Video Script (Gemini RIÊNG của Web 2.0, KHÔNG đụng Web 1.0).",
+                "lines": 190
+            },
+            {
+                "file": "render.com/routes/web2-ai.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Trợ lý AI (chat free + tạo ảnh free). Prefix /api/web2-ai → worker",
+                "lines": 444
+            },
+            {
+                "file": "render.com/routes/web2-attendance-adms.js",
+                "kind": "route",
+                "purpose": "ADMS / iclock PUSH endpoint cho máy chấm công DG-600 (ZKTeco family).",
+                "lines": 194
+            },
+            {
+                "file": "render.com/routes/web2-attendance.js",
+                "kind": "route",
+                "purpose": "Chấm công Web 2.0 — quản lý dữ liệu máy chấm công vân tay DG-600.",
+                "lines": 962
+            },
+            {
+                "file": "render.com/routes/web2-campaign-products.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — SẢN PHẨM TRONG CHIẾN DỊCH LIVESTREAM (campaign ⇄ product)",
+                "lines": 343
+            },
+            {
+                "file": "render.com/routes/web2-cashbook.js",
+                "kind": "route",
+                "purpose": "Sổ quỹ Web 2.0 — quản lý thu/chi, quỹ (tiền mặt/ngân hàng/ví), loại tuỳ",
+                "lines": 678
+            },
+            {
+                "file": "render.com/routes/web2-comment-boost.js",
+                "kind": "route",
+                "purpose": "web2-comment-boost — API tạo/giám sát job tăng comment chạy NỀN.",
+                "lines": 215
+            },
+            {
+                "file": "render.com/routes/web2-customer-intents.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Customer Intents API (FLAG-only: huỷ đơn/đổi địa chỉ/xem đơn/ship)",
+                "lines": 124
+            },
+            {
+                "file": "render.com/routes/web2-cutout.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Cutout route (tách nền chất lượng cao qua API thứ 3).",
+                "lines": 106
+            },
+            {
+                "file": "render.com/routes/web2-dedicated-entity.js",
+                "kind": "route",
+                "purpose": "WEB2 DEDICATED ENTITY — factory router cho config Web 2.0 cần BẢNG RIÊNG",
+                "lines": 355
+            },
+            {
+                "file": "render.com/routes/web2-elevenlabs.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — ElevenLabs TTS proxy (cho trang Tạo video / video-maker).",
+                "lines": 204
+            },
+            {
+                "file": "render.com/routes/web2-fb-posts.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — \"Đăng bài Facebook\": quản lý bài viết + soạn/đăng/lên lịch cho 2 page",
+                "lines": 969
+            },
+            {
+                "file": "render.com/routes/web2-generic.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 GENERIC ENTITY REST API",
+                "lines": 793
+            },
+            {
+                "file": "render.com/routes/web2-jt-tracking.js",
+                "kind": "route",
+                "purpose": "Tra cứu + quản lý trạng thái giao hàng J&T Express VN cho Web 2.0.",
+                "lines": 1102
+            },
+            {
+                "file": "render.com/routes/web2-live-comments.js",
+                "kind": "route",
+                "purpose": "web2-live-comments — kho comment livestream Web 2.0 (web2Db).",
+                "lines": 994
+            },
+            {
+                "file": "render.com/routes/web2-live-relay.js",
+                "kind": "route",
+                "purpose": "web2-live-relay — cầu nối pancake-settings ↔ relay web2-realtime.",
+                "lines": 71
+            },
+            {
+                "file": "render.com/routes/web2-msg-send.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Bulk FB Message Send Job (server-side, refresh-safe)",
+                "lines": 402
+            },
+            {
+                "file": "render.com/routes/web2-msg-templates.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — Message Templates (mẫu tin nhắn bulk-send) server storage",
+                "lines": 206
+            },
+            {
+                "file": "render.com/routes/web2-order-tags.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — TAG đơn hàng (config). CRUD bảng web2_order_tags + danh sách trigger.",
+                "lines": 229
+            },
+            {
+                "file": "render.com/routes/web2-pancake-refresh.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Pancake auto-refresh token (server-side login)",
+                "lines": 371
+            },
+            {
+                "file": "render.com/routes/web2-payment-signals.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Payment Signals API (\"KH báo đã chuyển khoản\")",
+                "lines": 578
+            },
+            {
+                "file": "render.com/routes/web2-products.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 PRODUCTS REST API",
+                "lines": 1752
+            },
+            {
+                "file": "render.com/routes/web2-quick-replies.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 QUICK REPLIES — fork khỏi /api/quick-replies (Web 1.0).",
+                "lines": 227
+            },
+            {
+                "file": "render.com/routes/web2-returns.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — THU VỀ (Goods Return) REST API",
+                "lines": 1456
+            },
+            {
+                "file": "render.com/routes/web2-so-order.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — SỔ ORDER (so-order) server storage",
+                "lines": 215
+            },
+            {
+                "file": "render.com/routes/web2-stock-media.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Route stock media (Pexels/Pixabay) cho Xưởng Video AI.",
+                "lines": 43
+            },
+            {
+                "file": "render.com/routes/web2-supplier-wallet.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 SUPPLIER WALLET — server ledger (ĐỢT E, 2026-06-12, audit vòng 3).",
+                "lines": 591
+            },
+            {
+                "file": "render.com/routes/web2-translate.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Dịch thuật proxy (module dùng chung). Prefix /api/web2-translate → worker",
+                "lines": 61
+            },
+            {
+                "file": "render.com/routes/web2-tts-pro.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — \"Giọng AI Pro\" proxy (cho trang Xưởng Video AI / video-maker).",
+                "lines": 94
+            },
+            {
+                "file": "render.com/routes/web2-unread.js",
+                "kind": "route",
+                "purpose": "Web 2.0 — Unread Messages API (độc lập Web 1.0)",
+                "lines": 97
+            },
+            {
+                "file": "render.com/routes/web2-users.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 USERS — user account system riêng cho Web 2.0",
+                "lines": 1301
+            },
+            {
+                "file": "render.com/routes/web2-variants.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 VARIANTS — kho quản lý biến thể (size/màu/spec)",
+                "lines": 528
+            },
+            {
+                "file": "render.com/routes/web2-vieneu-registry.js",
+                "kind": "route",
+                "purpose": "web2-vieneu-registry — sổ đăng ký MÁY SERVER tự host của shop (tự dò máy online).",
+                "lines": 148
+            },
+            {
+                "file": "render.com/routes/web2-zalo.js",
+                "kind": "route",
+                "purpose": "NGUỒN DUY NHẤT mọi dữ liệu + chức năng Zalo của Web 2.0.",
+                "lines": 2313
+            },
+            {
+                "file": "render.com/routes/v2/audit-log.js",
+                "kind": "route-v2",
+                "purpose": "WEB 2.0 — Audit Log (F05)",
+                "lines": 344,
+                "piggyback": true
+            },
+            {
+                "file": "render.com/routes/v2/cart.js",
+                "kind": "route-v2",
+                "purpose": "WEB 2.0 — Giỏ TPOS panel = native_orders.products (status='draft')",
+                "lines": 786,
+                "piggyback": true
+            },
+            {
+                "file": "render.com/routes/v2/dashboard-kpi.js",
+                "kind": "route-v2",
+                "purpose": "1D-auth (2026-06-12): KPI lộ doanh thu + partner_name → gate SOFT (enforce qua env).",
+                "lines": 180,
+                "piggyback": true
+            },
+            {
+                "file": "render.com/routes/v2/kpi.js",
+                "kind": "route-v2",
+                "purpose": "WEB 2.0 — KPI Attribution System",
+                "lines": 1112
+            },
+            {
+                "file": "render.com/routes/v2/notifications.js",
+                "kind": "route-v2",
+                "purpose": "WEB 2.0 — Notification Center",
+                "lines": 459,
+                "piggyback": true
+            },
+            {
+                "file": "render.com/routes/v2/web2-balance-history.js",
+                "kind": "route-v2",
+                "purpose": "API V2 — Web 2.0 Balance History (ĐỘC LẬP với /v2/balance-history cũ)",
+                "lines": 1266
+            },
+            {
+                "file": "render.com/routes/v2/web2-customer-orders.js",
+                "kind": "route-v2",
+                "purpose": "- native_orders (Web 2.0 đơn web)",
+                "lines": 252
+            },
+            {
+                "file": "render.com/routes/v2/web2-customer-wallet.js",
+                "kind": "route-v2",
+                "purpose": "API V2 — Web 2.0 Customer Wallet Aggregate",
+                "lines": 516
+            },
+            {
+                "file": "render.com/routes/v2/web2-customers.js",
+                "kind": "route-v2",
+                "purpose": "/api/web2/customers — KHO KHÁCH HÀNG RIÊNG Web 2.0 (warehouse).",
+                "lines": 1190
+            },
+            {
+                "file": "render.com/routes/v2/web2-geocode.js",
+                "kind": "route-v2",
+                "purpose": "WEB 2.0 — GOONG GEOCODE PROXY (Method B auto-detect địa chỉ giao hàng)",
+                "lines": 101
+            },
+            {
+                "file": "render.com/routes/v2/web2-monitoring.js",
+                "kind": "route-v2",
+                "purpose": "API V2 — Web 2.0 Monitoring & Audit",
+                "lines": 275
+            },
+            {
+                "file": "render.com/routes/v2/web2-wallets.js",
+                "kind": "route-v2",
+                "purpose": "API V2 — Web 2.0 Wallets (ĐỘC LẬP với /v2/wallets cũ của Web 1.0)",
+                "lines": 251
+            }
+        ],
+        "services": [
+            {
+                "file": "render.com/services/web2-ai-image-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Trợ lý AI: TẠO ẢNH free (nhiều nguồn để xoay). Server-side.",
+                "lines": 323
+            },
+            {
+                "file": "render.com/services/web2-ai-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Trợ lý AI (chat) DÙNG CHUNG. Server-side, giấu key, XOAY TUA NHIỀU KEY FREE.",
+                "lines": 639
+            },
+            {
+                "file": "render.com/services/web2-ai-store.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Trợ lý AI: LƯU TRỮ server-side (ảnh + prompt + hội thoại). Pool web2Db.",
+                "lines": 250
+            },
+            {
+                "file": "render.com/services/web2-audit-sink.js",
+                "kind": "service",
+                "purpose": "web2-audit-sink — EVENT-SINK chung cho \"Lịch sử thao tác toàn bộ\" Web 2.0.",
+                "lines": 81
+            },
+            {
+                "file": "render.com/services/web2-blacklist.js",
+                "kind": "service",
+                "purpose": "Web2Blacklist — DB-backed blacklist của số không được match (shop bank",
+                "lines": 118
+            },
+            {
+                "file": "render.com/services/web2-caption-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Sinh nội dung bài đăng Facebook tiếng Việt cho shop thời trang.",
+                "lines": 258
+            },
+            {
+                "file": "render.com/services/web2-ck-watcher.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — CK Watcher \"chờ tiền về\" (TỰ ĐỘNG HOÀN TOÀN)",
+                "lines": 470
+            },
+            {
+                "file": "render.com/services/web2-comment-boost-worker.js",
+                "kind": "service",
+                "purpose": "web2-comment-boost-worker — chạy NỀN trên server (web2-api).",
+                "lines": 492
+            },
+            {
+                "file": "render.com/services/web2-content-extractor.js",
+                "kind": "service",
+                "purpose": "Web2ContentExtractor — Extract customer identifier từ SePay transaction",
+                "lines": 257
+            },
+            {
+                "file": "render.com/services/web2-content-parser.js",
+                "kind": "service",
+                "purpose": "Web2ContentParser — strip noise + extract phone candidates + score",
+                "lines": 325
+            },
+            {
+                "file": "render.com/services/web2-cutout-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Cutout service (tách nền chất lượng cao qua API thứ 3).",
+                "lines": 183
+            },
+            {
+                "file": "render.com/services/web2-elevenlabs-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — ElevenLabs service (proxy server-side, giấu API key) + XOAY TUA NHIỀU KEY.",
+                "lines": 433
+            },
+            {
+                "file": "render.com/services/web2-fb-graph-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Facebook Graph API service (đăng bài + lên lịch + liệt kê + xoá).",
+                "lines": 802
+            },
+            {
+                "file": "render.com/services/web2-kpi-core.js",
+                "kind": "service",
+                "purpose": "web2-kpi-core — NGUỒN DUY NHẤT cho TOÁN KPI Web 2.0 (rate · sanitize · product-map ·",
+                "lines": 138
+            },
+            {
+                "file": "render.com/services/web2-livestream-media-migrate.js",
+                "kind": "service",
+                "purpose": "web2-livestream-media-migrate — dời `livestream_snapshots` + `livestream_images`",
+                "lines": 185
+            },
+            {
+                "file": "render.com/services/web2-livestream-poller.js",
+                "kind": "service",
+                "purpose": "web2-livestream-poller — EVENT-DRIVEN fetcher (background poll ĐÃ TẮT",
+                "lines": 658
+            },
+            {
+                "file": "render.com/services/web2-match-audit.js",
+                "kind": "service",
+                "purpose": "Web2MatchAudit — ghi mọi quyết định match vào web2_match_audit table",
+                "lines": 285
+            },
+            {
+                "file": "render.com/services/web2-msg-send-worker.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Bulk FB Message Send WORKER (server-side background)",
+                "lines": 516
+            },
+            {
+                "file": "render.com/services/web2-order-customer-service.js",
+                "kind": "service",
+                "purpose": "WEB2 ORDER-CUSTOMER SERVICE — adapter mỏng cho kho KH warehouse Web 2.0.",
+                "lines": 63
+            },
+            {
+                "file": "render.com/services/web2-order-tags-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Order auto-tag ENGINE (single source of truth).",
+                "lines": 626
+            },
+            {
+                "file": "render.com/services/web2-pancake-creds.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Pancake credentials encryption (AES-256-GCM)",
+                "lines": 60
+            },
+            {
+                "file": "render.com/services/web2-pancake-login.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Pancake server-side LOGIN (pure Node, no browser)",
+                "lines": 213
+            },
+            {
+                "file": "render.com/services/web2-payment-signal-detector.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Payment Signal Detector (\"KH báo đã chuyển khoản\")",
+                "lines": 411
+            },
+            {
+                "file": "render.com/services/web2-reprocess-cron.js",
+                "kind": "service",
+                "purpose": "WEB 2.0 REPROCESS CRON",
+                "lines": 71
+            },
+            {
+                "file": "render.com/services/web2-sepay-matching.js",
+                "kind": "service",
+                "purpose": "Web2SepayMatching — Match SePay deposit → KH → cộng ví Web 2.0",
+                "lines": 1263
+            },
+            {
+                "file": "render.com/services/web2-stock-media-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Stock media (ảnh/video bản quyền-free) DÙNG CHUNG cho Xưởng Video AI.",
+                "lines": 258
+            },
+            {
+                "file": "render.com/services/web2-translate-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Dịch thuật DÙNG CHUNG (module). Server-side, giấu key.",
+                "lines": 108
+            },
+            {
+                "file": "render.com/services/web2-tts-pro-service.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — \"Giọng AI Pro\" service (proxy server-side, GIẤU nhà cung cấp + API key).",
+                "lines": 228
+            },
+            {
+                "file": "render.com/services/web2-unread-reconcile.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Unread Reconcile (lưới an toàn cho event WS bị miss)",
+                "lines": 189
+            },
+            {
+                "file": "render.com/services/web2-unread-tracker.js",
+                "kind": "service",
+                "purpose": "Web 2.0 — Unread Messages Tracker (logic Web 2.0 thuần, KHÔNG học Web 1.0)",
+                "lines": 118
+            },
+            {
+                "file": "render.com/services/web2-wallet-isolation.js",
+                "kind": "service",
+                "purpose": "WEB 2.0 — Wallet isolation (tách triệt để khỏi Web 1.0)",
+                "lines": 325
+            },
+            {
+                "file": "render.com/services/web2-wallet-service.js",
+                "kind": "service",
+                "purpose": "Web2WalletService — Wallet operations cho Web 2.0",
+                "lines": 529
+            },
+            {
+                "file": "render.com/services/web2-webhook-retry.js",
+                "kind": "service",
+                "purpose": "Web2WebhookRetry — khi _processWeb2Path fail (Web 2.0 path), push",
+                "lines": 219
+            },
+            {
+                "file": "render.com/services/web2-zalo-oa.js",
+                "kind": "service",
+                "purpose": "Zalo Official Account — token store/refresh + ZNS + tin tư vấn (cs).",
+                "lines": 326
+            },
+            {
+                "file": "render.com/services/web2-zalo-zca.js",
+                "kind": "service",
+                "purpose": "Quản lý phiên zca-js cho account_type='personal' (đăng nhập cá nhân).",
+                "lines": 1131
+            }
+        ]
+    }
+}
