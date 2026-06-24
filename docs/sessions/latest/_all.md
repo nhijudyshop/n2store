@@ -3,23 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `00347f3` — feat(web2/ai-hub): tách key chat/Nano Banana + gate quyền + quota + lưu ảnh/prompt/chat + thư viện mẫu
-**Last updated**: 2026-06-24 10:14:11 +07
-**Latest session**: [`RESUME:20260624-101411-00347f3`](../20260624-101411-00347f3.md)
-**Summary**: web2 ai-hub: tách key chat/Nano Banana paid + gate quyền + quota + lưu ảnh/prompt/chat + thư viện mẫu (nano-banana-pro-prompts + system-prompts)
+**Latest commit**: `ad26a34` — auto: session update
+**Last updated**: 2026-06-24 10:16:08 +07
+**Latest session**: [`RESUME:20260624-101608-ad26a34`](../20260624-101608-ad26a34.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 5 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-23 23:48
+- [`_root/`](./_root.md) — updated 2026-06-24 10:16
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-23 18:17
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
