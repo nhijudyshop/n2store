@@ -55,6 +55,7 @@
                         <button id="aihhPng" class="aihh-btn" disabled><i data-lucide="image-down"></i> PNG</button>
                         <button id="aihhDl" class="aihh-btn" disabled><i data-lucide="download"></i> HTML</button>
                         <button id="aihhOpen" class="aihh-btn" disabled><i data-lucide="external-link"></i> Mở tab</button>
+                        <button id="aihhRender" class="aihh-btn" hidden disabled><i data-lucide="clapperboard"></i> Render MP4 (máy shop)</button>
                     </div>
                     <div class="aihh-status" id="aihhStatus">Free AI (Gemini/Groq/OpenRouter) · luật chống "AI slop" bật sẵn.</div>
                 </div>
@@ -84,6 +85,7 @@
             HS().exportHtml(state.html, 'web2-' + state.skillId)
         );
         $('aihhOpen').addEventListener('click', openTab);
+        $('aihhRender').addEventListener('click', renderVideo);
         selectSkill(state.skillId);
         if (global.lucide) global.lucide.createIcons();
         window.addEventListener('resize', fitPreview);
@@ -106,7 +108,15 @@
         if (ta) ta.placeholder = meta?.hint || 'Dán dữ liệu…';
         const sl = $('aihhSizeLabel');
         if (sl) sl.textContent = meta ? meta.size.label : '';
+        const rb = $('aihhRender');
+        if (rb) rb.hidden = !meta?.video; // nút render MP4 chỉ hiện với skill video
         fitPreview();
+    }
+
+    function isVideoSkill() {
+        return !!HS()
+            .skills()
+            .find((s) => s.id === state.skillId)?.video;
     }
 
     function setBusy(on) {
@@ -114,6 +124,28 @@
         $('aihhGen').hidden = on;
         $('aihhStop').hidden = !on;
         ['aihhPng', 'aihhDl', 'aihhOpen'].forEach((id) => ($(id).disabled = on || !state.html));
+        const rb = $('aihhRender');
+        if (rb) rb.disabled = on || !state.html || !isVideoSkill();
+    }
+
+    // Gửi composition HTML lên MÁY SHOP (hyperframes-render) → MP4. Tự dò máy online.
+    async function renderVideo() {
+        if (!state.html) return;
+        if (!global.Web2VideoRender) return toast('Chưa tải module render video', 'error');
+        const rb = $('aihhRender');
+        rb.disabled = true;
+        $('aihhStatus').textContent = 'Đang tìm máy render + render MP4 (có thể vài chục giây)…';
+        try {
+            const { url } = await global.Web2VideoRender.render({ html: state.html });
+            $('aihhStatus').textContent = 'Render MP4 xong ✓ — đã mở video ở tab mới.';
+            window.open(url, '_blank');
+            toast('Render MP4 thành công', 'success');
+        } catch (e) {
+            $('aihhStatus').textContent = 'Render MP4 lỗi: ' + (e.message || e);
+            toast(e.message || String(e), 'error');
+        } finally {
+            rb.disabled = !state.html || !isVideoSkill();
+        }
     }
 
     async function generate() {

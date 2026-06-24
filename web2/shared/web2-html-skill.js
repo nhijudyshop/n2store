@@ -64,6 +64,7 @@
         a4: { w: 794, h: 1123, label: 'A4 dọc (96dpi)' },
         a4land: { w: 1123, h: 794, label: 'A4 ngang' },
         card: { w: 1080, h: 1350, label: '1080×1350 (card SP)' },
+        video: { w: 1080, h: 1920, label: '1080×1920 (video dọc)' },
     };
 
     // ── SKILLS (drop-in: thêm phần tử là có skill mới) ──
@@ -113,6 +114,21 @@
             instruction:
                 'Tạo MỘT báo cáo dữ liệu (khung A4 dọc) từ bảng số người dùng dán vào. Gồm: tiêu đề báo cáo, 3–4 thẻ KPI (tổng/trung bình/lớn nhất… tính TỪ data thật), 1 biểu đồ cột bằng CSS thuần (KHÔNG dùng thư viện), và bảng số liệu gọn. Mọi con số phải tính đúng từ data đưa vào; KHÔNG bịa số.',
         },
+        {
+            id: 'video-hyperframes',
+            label: 'Video HyperFrames (MP4)',
+            emoji: '🎬',
+            surface: 'video',
+            video: true,
+            hint: 'Mô tả nội dung video bán hàng (tên SP, giá, khuyến mãi…). AI tạo composition động → render MP4 trên máy shop.',
+            instruction:
+                'Tạo MỘT composition HyperFrames (HTML video động, khung 1080×1920 dọc) bán hàng. YÊU CẦU KỸ THUẬT BẮT BUỘC để render được:\n' +
+                '- <body> chứa 1 div gốc có thuộc tính data-composition-id="main" data-width="1080" data-height="1920".\n' +
+                '- Nạp GSAP qua CDN: <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>.\n' +
+                '- Tạo timeline động (fade/scale/slide chữ + giá + badge) bằng GSAP, KHỞI TẠO gsap.timeline({ paused: true }) rồi gán window.__timelines = { main: tl } (engine seek theo frame).\n' +
+                '- Tổng thời lượng ~5–8s. Nền gradient đẹp, chữ to rõ, animation mượt (transform/opacity).\n' +
+                'Vẫn theo kỷ luật chống AI-slop ở trên. Trả về HTML hoàn chỉnh.',
+        },
     ];
 
     function skills() {
@@ -123,6 +139,7 @@
             surface: s.surface,
             size: SIZES[s.surface] || SIZES.square,
             hint: s.hint,
+            video: !!s.video,
         }));
     }
     function skill(id) {

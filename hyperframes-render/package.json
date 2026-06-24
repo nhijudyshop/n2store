@@ -1,0 +1,16 @@
+{
+    "name": "hyperframes-render",
+    "version": "1.0.0",
+    "private": true,
+    "description": "WEB2.0 — render HTML→MP4 (HeyGen HyperFrames) trên máy shop + tunnel + heartbeat",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "express": "^4.21.2",
+        "hyperframes": "latest"
+    }
+}

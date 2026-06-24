@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### [feat] A — HyperFrames render video HTML→MP4 (self-host máy shop, như VieNeu) + nối B→A
+
+User chọn A (sau B): dựng HyperFrames thành service render video self-host trên máy shop (mô hình VieNeu-TTS).
+
+Files: **NEW** `hyperframes-render/` (server.js + package.json + README + run-mac.command + run-windows.bat + .gitignore), `web2/shared/web2-video-render.js` (`Web2VideoRender`); sửa `web2/shared/web2-html-skill.js` (skill `video-hyperframes` + size 1080×1920 + flag video), `web2/ai-hub/js/ai-html.js` (nút "Render MP4 (máy shop)"), `web2/ai-hub/index.html` (load video-render + bump).
+
+- **hyperframes-render/server.js** (Node 22, máy shop): Express `POST /render {html}` → ghi HTML → chạy HyperFrames CLI (`HF_RENDER_CMD` override) → trả MP4; `/health`; CORS `*`; cloudflared tunnel + heartbeat 30s. **KHÔNG cần route worker/registry mới** — tái dùng `web2-vieneu-registry` (cột `engine`, đăng ký `engine='hyperframes'`).
+- **Web2VideoRender** (client): `listMachines()`→`pickOnline()` (probe /health)→`render({html})` POST thẳng tunnel máy → MP4 blob URL. Không máy online → lỗi rõ ràng.
+- **B→A**: HTML Studio thêm skill `video-hyperframes` (composition động: data-composition-id + GSAP timeline paused + window.\_\_timelines). Skill video → hiện nút render.
+- **Verify browser** (chưa có máy shop): 6 skill, nút render đúng skill video (1080×1920), discovery graceful (machines [], render → lỗi "Chưa có máy render online…"), 0 console error. Render thật verify khi bật `hyperframes-render` trên máy shop (README).
+
 ### [feat] HTML Studio — sinh HTML đẹp từ data bằng AI free (mượn ý html-anything) + product-card "Layout AI"
 
 User: nghiên cứu hyperframes/html-anything → chọn làm **B** (port pattern "skill + anti-AI-slop" vào product-card/ai-hub dùng AI free sinh card/bài đăng HTML đẹp). (A = HyperFrames render service self-host máy shop — làm tiếp sau.)
