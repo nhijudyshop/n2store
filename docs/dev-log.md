@@ -14,6 +14,16 @@ Files: `web2/shared/web2-ai-presets.js`, `web2/shared/web2-user-profile.js`, `we
 - Bump version: `web2-ai-presets.js` 20260624f→h, `web2-user-profile.js` a→b, `web2-image-lightbox.js` a→b (sidebar autoload).
 - **Bỏ chữ "trả phí"** (user: "bỏ mấy chữ trả phí đi"): gỡ "(ảnh trả phí)"/"là ảnh AI trả phí" khỏi UI ai-hub (`index.html` keyhint, `ai-image.js` quota hint + comment, `ai-tryon.js` warn + comment). Nano Banana giờ chỉ ghi "cần quyền + giới hạn lượt/ngày". Bump `ai-image.js` e→f, `ai-tryon.js` c→d. Verify browser: 0 chữ "trả phí" hiển thị.
 
+### [feat] Tuỳ chỉnh avatar DiceBear ĐẦY ĐỦ (schema-driven, không giảm tính năng github)
+
+User: "dicebear cho chỉnh sửa avatar rất chi tiết (thay trang sức, phụ kiện…)" + "đừng chọn lọc làm giảm giới hạn của github". → KHÔNG hardcode toggle chọn lọc; nạp **schema thật** của từng style → form động cho MỌI option.
+
+Files: **NEW** `web2/shared/web2-dicebear-customizer.js` (`window.Web2DicebearCustomizer`), `web2/shared/web2-user-profile.js`, `web2/shared/web2-sidebar.js`.
+
+- **Module customizer**: `getSchema(style)` lazy `import()` `@dicebear/<style>@9.2.4` từ esm.sh (cache; lỗi mạng/CSP → form rỗng graceful). `mount(box,{base,style,seed,options,onChange})` dựng form từ `schema.properties`: enum→dropdown "🎲 Tự động / 🚫 Không có / Kiểu 1..N", color→`<input type=color>`+ô "Tự động", integer `*Probability` gộp vào enum cha (chọn kiểu→prob=100, "Không có"→prob=0), bool→toggle. `buildUrl()` ghép mọi param vào URL HTTP API.
+- **Tích hợp profile**: thêm section gập "🎨 Tuỳ chỉnh chi tiết" (lazy mount khi mở lần đầu, suy path customizer từ `document.currentScript.src`). `avatarUrl(cfg)` thêm `cfg.options` (mọi param DiceBear). Lưu `{style,seed,bg,options}` — backend lưu chuỗi JSON opaque, KHÔNG cần đổi BE. Đổi style → `setStyle` reset options + nạp schema mới.
+- **Verify browser**: adventurer hiện đủ tóc(45)/mắt(26)/miệng(30)/lông mày(15)/kính(5)/khuyên tai(6)/đặc điểm(4) + màu tóc/da; đổi kính/màu → preview cập nhật đúng param (`glasses=variant01&glassesProbability=100&hairColor=ff3366`), ảnh load OK; đổi sang bottts → schema robot khác (eyes/face/mouth/sides/texture/top), options reset. Bump `web2-user-profile.js` b→c, customizer `20260624a`.
+
 ### [change] web2/users: hạ mật khẩu tối thiểu 8 → 6 ký tự
 
 User: "có thể đặt mật khẩu 6 ký tự" (vd `181015`). Đổi min length 8→6 đồng bộ FE+BE.

@@ -12,6 +12,25 @@
     'use strict';
     if (global.Web2UserProfile) return;
 
+    // Đường dẫn script này → suy ra path web2-dicebear-customizer.js (cùng folder shared)
+    // để lazy-load khi user mở "Tuỳ chỉnh chi tiết" (không nạp ở trang không mở hồ sơ).
+    const _selfSrc = (document.currentScript && document.currentScript.src) || '';
+    function ensureCustomizer() {
+        return new Promise((res) => {
+            if (global.Web2DicebearCustomizer) return res(true);
+            if (!_selfSrc) return res(false);
+            const url = _selfSrc.replace(
+                /web2-user-profile\.js.*$/,
+                'web2-dicebear-customizer.js?v=20260624a'
+            );
+            const s = document.createElement('script');
+            s.src = url;
+            s.onload = () => res(!!global.Web2DicebearCustomizer);
+            s.onerror = () => res(false);
+            document.head.appendChild(s);
+        });
+    }
+
     const DICEBEAR_BASE = 'https://api.dicebear.com/10.x';
     // style → nhãn. Nguồn: DiceBear (free, generator avatar chibi/hoạt hình bằng "seed",
     // KHÔNG tốn API — thay cho hướng "ảnh thật → chibi" của Nano Banana trả phí). Nhóm
@@ -77,6 +96,15 @@
         // (mặc định DiceBear vốn đã trong suốt). Chỉ set khi là mã màu hex hợp lệ.
         if (cfg.bg && cfg.bg !== 'transparent' && /^[0-9a-fA-F]{3,8}$/.test(cfg.bg)) {
             p.set('backgroundColor', cfg.bg);
+        }
+        // Tuỳ chỉnh chi tiết (tóc/mắt/kính/màu… từ Web2DicebearCustomizer) — mọi param
+        // DiceBear hỗ trợ, lưu trong cfg.options. Bỏ giá trị rỗng.
+        if (cfg.options && typeof cfg.options === 'object') {
+            Object.keys(cfg.options).forEach((k) => {
+                const v = cfg.options[k];
+                if (v === null || v === undefined || v === '') return;
+                p.set(k, String(v));
+            });
         }
         return `${DICEBEAR_BASE}/${encodeURIComponent(cfg.style)}/svg?${p.toString()}`;
     }
@@ -146,6 +174,12 @@
 .w2up-info{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:.9rem;}
 .w2up-info dt{color:#94a3b8;}
 .w2up-info dd{margin:0;color:#0f172a;font-weight:500;}
+.w2up-adv-toggle{width:100%;text-align:left;border:1px dashed #cbd5e1;background:#f8fafc;border-radius:10px;padding:9px 12px;cursor:pointer;font:inherit;font-weight:600;font-size:.84rem;color:#334155;display:flex;align-items:center;justify-content:space-between;}
+.w2up-adv-toggle:hover{background:#f1f5f9;border-color:#94a3b8;}
+.w2up-adv-toggle .chev{transition:transform .15s;}
+.w2up-adv-toggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
+.w2up-adv{margin-top:10px;}
+.w2up-adv[hidden]{display:none!important;}
 .w2up-foot{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid #eef2f5;position:sticky;bottom:0;background:#fff;}
 .w2up-foot .spacer{flex:1;}
 .w2up-reset{border:none;background:none;color:#64748b;cursor:pointer;font:inherit;text-decoration:underline;}
@@ -220,6 +254,8 @@
             style: (cfg && cfg.style) || 'adventurer',
             seed: (cfg && cfg.seed) || user.username || 'user',
             bg: (cfg && cfg.bg) || 'transparent',
+            options:
+                cfg && cfg.options && typeof cfg.options === 'object' ? { ...cfg.options } : {},
         };
 
         const back = document.createElement('div');
@@ -246,6 +282,14 @@
                   <button class="w2up-btn" id="w2upRand" type="button">🎲 Ngẫu nhiên</button>
                 </div>
                 <div class="w2up-bgs" id="w2upBgs"></div>
+
+                <div class="w2up-row" style="margin-top:14px;display:block">
+                  <button type="button" class="w2up-adv-toggle" id="w2upAdvToggle" aria-expanded="false">
+                    <span>🎨 Tuỳ chỉnh chi tiết (tóc, mắt, kính, phụ kiện, màu…)</span>
+                    <span class="chev">▾</span>
+                  </button>
+                  <div class="w2up-adv" id="w2upAdv" hidden></div>
+                </div>
               </div>
 
               <div class="w2up-sec">
@@ -273,6 +317,7 @@
         const stylesEl = $('#w2upStyles');
         const bgsEl = $('#w2upBgs');
         const seedEl = $('#w2upSeed');
+        let customizerCtl = null; // controller Web2DicebearCustomizer (lazy khi mở)
 
         function refreshPreview() {
             previewEl.src = avatarUrl(state) || '';
@@ -291,6 +336,9 @@
                     stylesEl
                         .querySelectorAll('.w2up-style')
                         .forEach((x) => x.classList.toggle('sel', x === b));
+                    // Style khác → variant khác → reset options qua customizer (nếu đang mở).
+                    if (customizerCtl) customizerCtl.setStyle(state.style);
+                    else state.options = {};
                     refreshPreview();
                 });
             });
@@ -321,6 +369,7 @@
             clearTimeout(seedT);
             seedT = setTimeout(() => {
                 state.seed = seedEl.value.trim() || user.username || 'user';
+                if (customizerCtl) customizerCtl.setSeed(state.seed);
                 refreshPreview();
                 refreshStyles();
             }, 250);
@@ -328,8 +377,39 @@
         $('#w2upRand').addEventListener('click', () => {
             state.seed = randSeed();
             seedEl.value = state.seed;
+            if (customizerCtl) customizerCtl.setSeed(state.seed);
             refreshPreview();
             refreshStyles();
+        });
+
+        // ── Tuỳ chỉnh chi tiết (lazy mount Web2DicebearCustomizer khi mở lần đầu) ──
+        const advToggle = $('#w2upAdvToggle');
+        const advBox = $('#w2upAdv');
+        let advMounted = false;
+        advToggle.addEventListener('click', async () => {
+            const open = advToggle.getAttribute('aria-expanded') === 'true';
+            advToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+            advBox.hidden = open;
+            if (open || advMounted) return;
+            advMounted = true;
+            advBox.innerHTML =
+                '<div style="font-size:.8rem;color:#64748b;padding:8px 0">Đang tải tuỳ chọn…</div>';
+            const ok = await ensureCustomizer();
+            if (!ok || !global.Web2DicebearCustomizer) {
+                advBox.innerHTML =
+                    '<div style="font-size:.8rem;color:#b45309;padding:8px 0">Không tải được trình tuỳ chỉnh. Vẫn đổi được style/seed/màu nền.</div>';
+                return;
+            }
+            customizerCtl = global.Web2DicebearCustomizer.mount(advBox, {
+                base: DICEBEAR_BASE,
+                style: state.style,
+                seed: state.seed,
+                options: state.options,
+                onChange: (opts) => {
+                    state.options = opts;
+                    refreshPreview();
+                },
+            });
         });
 
         $('#w2upX')?.addEventListener('click', close);
@@ -357,7 +437,9 @@
             btn.disabled = true;
             btn.textContent = 'Đang lưu…';
             try {
-                await saveAvatar({ style: state.style, seed: state.seed, bg: state.bg });
+                const cfg = { style: state.style, seed: state.seed, bg: state.bg };
+                if (state.options && Object.keys(state.options).length) cfg.options = state.options;
+                await saveAvatar(cfg);
                 toast('Đã cập nhật avatar.', 'success');
                 close();
             } catch (e) {

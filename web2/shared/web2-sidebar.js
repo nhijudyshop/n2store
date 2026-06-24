@@ -103,7 +103,7 @@
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
         // Hồ sơ user + đổi avatar DiceBear (mở từ footer sidebar) — mọi trang.
-        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624b');
+        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260624c');
         // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
         //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
         //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
