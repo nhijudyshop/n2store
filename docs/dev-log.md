@@ -2,6 +2,22 @@
 
 ## 2026-06-24
 
+### [feat] Thêm logo / watermark (Web2Watermark) vào photo-editor — phần DUY NHẤT còn thiếu
+
+User yêu cầu 5 chức năng sửa ảnh (xóa nền, đổi nền, xóa logo, xóa watermark, thêm logo/watermark) + "license kệ vì làm kho nội bộ". **Audit phát hiện 4/5 ĐÃ CÓ** (tránh build trùng — bài học đọc-existing-trước):
+
+- Xóa nền + đổi nền → `web2/photo-studio/` (MediaPipe Selfie + @imgly isnet + SlimSAM + chroma; nền màu/preset/scene/upload).
+- Xóa logo + watermark → `web2/photo-editor/` tool "Xoá logo" + shared `Web2LogoEraser` (inpaint vùng chọn).
+  → Chỉ **THÊM logo/watermark** chưa có. Đã XÓA các file build trùng (image-tools/, web2-bg-scene.js, web2-image-inpaint.js).
+
+Files: **NEW** `web2/shared/web2-watermark.js` (`Web2Watermark.open(src)→Promise<dataURL>`), `web2/photo-editor/index.html` (+script +tool button "Thêm logo/WM"), `web2/photo-editor/js/photo-editor.js` (runTool case 'watermark').
+
+- **Web2Watermark**: modal tự chứa — upload logo, 9 vị trí, slider Cỡ + Mờ, checkbox "Lặp khắp ảnh (watermark chìm, xoay nghiêng)". Composite canvas full-res on-device, $0. Trả dataURL. Cắm vào framework tool có sẵn của photo-editor (mirror Web2LogoEraser).
+- **Verify browser**: button "Thêm logo/WM" có; module load; modal mở 9 anchor; nạp logo→preview render→Áp dụng→result dataURL 22KB→modal đóng; tile mode hiện logo lặp xoay nghiêng đẹp.
+- **MEMORY**: feedback_web2_license_internal (Web 2.0 nội bộ → dùng tự do model NC/AGPL).
+
+## 2026-06-24
+
 ### [fix] Chấm công — nhóm 1/3: sửa lỗi tính lương (B3/B6/B7/B9/B10/B11) sau audit
 
 Files: `cham-cong-salary.js`, `cham-cong-employees.js`, `cham-cong-payroll.js`, `index.html`. Theo audit [`docs/web2/CHAM-CONG-AUDIT.md`](web2/CHAM-CONG-AUDIT.md).

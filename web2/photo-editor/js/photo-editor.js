@@ -66,6 +66,10 @@
                 if (!global.Web2LogoEraser?.open)
                     return notify('Chưa tải được công cụ xoá logo', 'error');
                 out = await global.Web2LogoEraser.open(_src);
+            } else if (tool === 'watermark') {
+                if (!global.Web2Watermark?.open)
+                    return notify('Chưa tải được công cụ thêm logo/watermark', 'error');
+                out = await global.Web2Watermark.open(_src);
             } else if (tool === 'advanced') {
                 if (!global.Web2ImageEditor?.open)
                     return notify('Chưa tải được trình chỉnh sửa', 'error');
