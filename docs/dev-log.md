@@ -2,6 +2,27 @@
 
 ## 2026-06-24
 
+### [fix] web2/users: audit fix nhiều bug ẩn (3 reviewer agent: frontend/backend/security)
+
+User: "audit lại web2/users có nhiều bug ẩn lắm". Chạy 3 agent review song song → verify từng finding với code thật (loại false-positive) → fix nhóm an toàn + page-local, report nhóm cần quyết định.
+
+Files: `web2/users/js/users-app.js`, `web2/users/index.html`, `render.com/routes/web2-users.js`
+
+**Đã fix (verified browser):**
+
+- 🔴 **Tự vô hiệu chính mình** — `deactivateUser` thiếu guard self → admin bấm xoá chính row mình (khi còn admin khác, backend không chặn) → tự khoá. Thêm guard `id===_currentSessionUserId()` → toast chặn. ✅
+- 🔴 **Tự hạ quyền admin chính mình** — `confirmUserSave` edit đổi role mình admin→staff lưu được → mất quyền (token sống nhưng 403). Thêm guard chặn. ✅
+- **Cross-contamination state modal** — password modal share `STATE.editingUser` với edit modal → tách `STATE.pwdUser` riêng (openPasswordModal/confirmPasswordSave). ✅
+- **SSE reload đè modal đang mở** — reload `web2:users` lúc đang sửa → `loadAll()` thay `STATE.users` làm con trỏ user cũ stale → skip reload khi có `.u-modal:not([hidden])`. ✅
+- **iframe Phân quyền stale** — `permLoaded` cờ 1 lần → ma trận cũ, lưu đè quyền. Reload iframe MỖI lần vào tab (cache-bust `&t=`). ✅
+- **Avatar `src=""`** — `userAvatarUrl` rỗng → `<img src="">` GET rác/row + ảnh vỡ → render placeholder `<span>` khi thiếu URL. ✅
+- **`fmtTs`** — `new Date(Number(isoString))=NaN` → "Invalid Date"; + GMT+7 (rule 10): thêm isNaN guard + `timeZone:'Asia/Ho_Chi_Minh'`. ✅
+- **uCount mơ hồ khi search** — hiện `khớp/tổng` ("2/6 user") thay vì chỉ số khớp. ✅
+- **`resetPermsToRoleDefaults`** null guard (`STATE.permsUser` null → TypeError). ✅
+- 🔴 **Backend revive (create) hardening** — UPDATE `... AND is_active=FALSE RETURNING *` (atomic, đóng TOCTOU → rowCount 0 trả 409) + xoá `web2_user_sessions` của bản hồi sinh (token cũ không tái dùng với MK mới; deactivate qua PATCH không dọn session). **Cần deploy web2-api.**
+
+**Report (chưa fix — cần user quyết, rủi ro/đụng module khác):** `/list`+`/:id` lộ email/SĐT/permissions cho mọi user đã đăng nhập (KHÔNG gate `users.view` được vì kpi-assignments + cham-cong là NV không có quyền đó đang gọi `/list` → sẽ vỡ; nên scope field cho non-admin); `/pages`+`/role-defaults` không auth (iframe gọi không token); default AES key fallback (nên fail-loud nhưng phải chắc env set); login rate-limit per-instance; token qua query `?token=` (/me); token ở localStorage (XSS). KHÔNG đổi: password `type=text` + toast hiện MK (CHỦ Ý — feature admin xem MK).
+
 ### [fix] web2-users: xóa user rồi tạo lại cùng username báo trùng → HỒI SINH bản inactive
 
 User: "tôi xóa user coi tạo lại báo trùng". DELETE là **soft-delete** (`is_active=FALSE`) → username vẫn chiếm chỗ trong DB → POST create cùng tên đụng unique constraint → 409 "đã tồn tại" (mà user lại không thấy trong list vì mặc định ẩn user vô hiệu).

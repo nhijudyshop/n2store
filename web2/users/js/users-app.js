@@ -21,6 +21,7 @@
         pages: [],
         actionLabels: {},
         editingUser: null, // null = create mode
+        pwdUser: null, // user đang đổi mật khẩu (modal riêng)
         permsUser: null,
         permsDraft: null, // { [slug]: [actions] }
         filters: { search: '', includeInactive: false },
@@ -38,11 +39,13 @@
     }
     function fmtTs(ts) {
         if (!ts) return '—';
-        const d = new Date(Number(ts));
+        const d = new Date(typeof ts === 'number' ? ts : String(ts));
+        if (isNaN(d.getTime())) return '—';
+        const TZ = { timeZone: 'Asia/Ho_Chi_Minh' };
         return (
-            d.toLocaleDateString('vi-VN') +
+            d.toLocaleDateString('vi-VN', TZ) +
             ' ' +
-            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            d.toLocaleTimeString('vi-VN', { ...TZ, hour: '2-digit', minute: '2-digit' })
         );
     }
     function notify(msg, type) {
@@ -148,11 +151,17 @@
                 const customMark = u.customPermissions
                     ? ` <span class="u-custom-mark" title="Có phân quyền tùy chỉnh">●</span>`
                     : '';
+                // Avatar: chỉ render <img> khi có URL — src="" rỗng sẽ trỏ về URL trang
+                // hiện tại (1 GET rác/row + ảnh vỡ). Thiếu URL → placeholder span.
+                const avatarSrc = userAvatarUrl(u);
+                const avatarHtml = avatarSrc
+                    ? `<img class="u-avatar" src="${escapeHtml(avatarSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`
+                    : `<span class="u-avatar" aria-hidden="true"></span>`;
                 return `<tr class="${inactiveCls}" data-user-id="${u.id}">
                     <td class="u-col-stt">${i + 1}</td>
                     <td>
                         <div class="u-user-cell">
-                            <img class="u-avatar" src="${escapeHtml(userAvatarUrl(u))}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                            ${avatarHtml}
                             <strong>${escapeHtml(u.username)}</strong>
                         </div>
                     </td>
@@ -189,7 +198,10 @@
                 </tr>`;
             })
             .join('');
-        document.getElementById('uCount').textContent = `${rows.length} user`;
+        // Search active → "khớp/tổng" để admin không nhầm tổng số user.
+        document.getElementById('uCount').textContent = search
+            ? `${rows.length}/${STATE.users.length} user`
+            : `${STATE.users.length} user`;
         tbody.querySelectorAll('[data-act]').forEach((btn) => {
             btn.addEventListener('click', () =>
                 handleAction(btn.dataset.act, Number(btn.dataset.id))
@@ -462,6 +474,17 @@
             notify('Mật khẩu mới phải ≥ 8 ký tự (để trống nếu không đổi)', 'warning');
             return;
         }
+        // Không cho tự hạ quyền admin của CHÍNH MÌNH → tránh tự khoá quyền quản trị
+        // (token còn sống nhưng request kế 403). Hạ quyền user khác thì OK.
+        if (
+            isEdit &&
+            Number(STATE.editingUser.id) === Number(_currentSessionUserId()) &&
+            STATE.editingUser.role === 'admin' &&
+            body.role !== 'admin'
+        ) {
+            notify('Không thể tự hạ quyền admin của chính bạn.', 'error');
+            return;
+        }
         btn.disabled = true;
         const orig = btn.innerHTML;
         btn.innerHTML = '<i data-lucide="loader-2"></i> Đang lưu…';
@@ -506,8 +529,10 @@
     }
 
     // ---------- password modal ----------
+    // Dùng slot RIÊNG (STATE.pwdUser), KHÔNG share STATE.editingUser với modal Sửa —
+    // tránh cross-contamination khi mở 2 modal liên tiếp (đổi MK nhầm user).
     function openPasswordModal(user) {
-        STATE.editingUser = user;
+        STATE.pwdUser = user;
         document.getElementById('uPwdUsername').textContent = user.username;
         document.getElementById('uPwdNew').value = '';
         document.getElementById('uPasswordModal').hidden = false;
@@ -518,7 +543,8 @@
     async function confirmPasswordSave() {
         const btn = document.getElementById('uPwdSaveBtn');
         if (btn.disabled) return;
-        const user = STATE.editingUser;
+        const user = STATE.pwdUser;
+        if (!user) return;
         const pwd = document.getElementById('uPwdNew').value;
         if (!pwd || pwd.length < 8) {
             notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
@@ -592,6 +618,12 @@
     // ---------- delete (deactivate) ----------
     // UI-first: mark user disabled NGAY, DELETE background. Rollback nếu lỗi.
     async function deactivateUser(user) {
+        // Không cho tự vô hiệu chính mình → tránh tự khoá tài khoản đang đăng nhập
+        // (backend chỉ chặn admin CUỐI; còn admin khác thì vẫn cho self-deactivate).
+        if (Number(user.id) === Number(_currentSessionUserId())) {
+            notify('Không thể vô hiệu chính tài khoản bạn đang đăng nhập.', 'error');
+            return;
+        }
         if (
             !(await Popup.danger(`Vô hiệu user "${user.username}"? Các session sẽ bị logout.`, {
                 okText: 'Vô hiệu',
@@ -714,6 +746,7 @@
 
     async function resetPermsToRoleDefaults() {
         const user = STATE.permsUser;
+        if (!user) return;
         try {
             const r = await api('GET', `/role-defaults/${user.role}`);
             STATE.permsDraft = r.permissions || {};
@@ -823,10 +856,13 @@
                 return;
             }
 
-            // Normal: reload user list
+            // Normal: reload user list — nhưng KHÔNG reload khi đang mở modal
+            // (Sửa/Đổi MK/Phân quyền) để tránh loadAll() thay STATE.users làm
+            // STATE.editingUser/pwdUser/permsUser trỏ object cũ → lưu nhầm/stale.
             if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
             _sseReloadTimer = setTimeout(async () => {
                 _sseReloadTimer = null;
+                if (document.querySelector('.u-modal:not([hidden])')) return;
                 console.log('[users-app-SSE] event:', action, targetId || '');
                 await loadAll();
                 renderList();

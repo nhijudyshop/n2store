@@ -330,7 +330,7 @@
         <!-- Avatar DiceBear (Web2UserProfile.avatarUrl) — load TRƯỚC app để table render
              avatar ngay, không chờ sidebar inject async. -->
         <script src="../shared/web2-user-profile.js?v=20260624a"></script>
-        <script src="js/users-app.js?v=20260624pw"></script>
+        <script src="js/users-app.js?v=20260624audit"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             // Tab switch: Người dùng ↔ Phân quyền (iframe lazy-load). Gộp users-permissions
@@ -340,7 +340,6 @@
                 const panU = document.getElementById('uPanelUsers');
                 const panP = document.getElementById('uPanelPerms');
                 const frame = document.getElementById('uPermFrame');
-                let permLoaded = false;
                 function activate(name) {
                     tabs.forEach((t) => {
                         const on = t.dataset.utab === name;
@@ -352,9 +351,11 @@
                     });
                     if (panU) panU.hidden = name !== 'users';
                     if (panP) panP.hidden = name !== 'perms';
-                    if (name === 'perms' && !permLoaded && frame) {
-                        frame.src = '../users-permissions/index.html?embed=1';
-                        permLoaded = true;
+                    // Reload iframe MỖI lần vào tab Phân quyền (cache-bust) → luôn lấy
+                    // ma trận mới nhất, tránh ghi đè quyền bằng state cũ sau khi vừa
+                    // sửa user ở tab Người dùng. (iframe không có SSE riêng.)
+                    if (name === 'perms' && frame) {
+                        frame.src = '../users-permissions/index.html?embed=1&t=' + Date.now();
                     }
                 }
                 tabs.forEach((t) => t.addEventListener('click', () => activate(t.dataset.utab)));

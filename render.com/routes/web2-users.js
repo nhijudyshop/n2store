@@ -817,13 +817,15 @@ router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), asy
             let r;
             if (existing.rows.length) {
                 // Revive: reset toàn bộ về user "mới" (permissions/avatar/last_login về mặc định).
+                // WHERE ... AND is_active=FALSE → atomic, đóng cửa sổ TOCTOU (nếu user vừa
+                // được kích hoạt lại bởi request khác giữa SELECT↔UPDATE → rowCount=0 → 409).
                 r = await pool.query(
                     `UPDATE web2_users SET
                         password_hash = $2, password_enc = $3, display_name = $4,
                         email = $5, phone = $6, role = $7, note = $8,
                         is_active = TRUE, permissions = NULL, avatar = NULL,
                         last_login_at = NULL, created_at = $9, updated_at = $9
-                     WHERE id = $1 RETURNING *`,
+                     WHERE id = $1 AND is_active = FALSE RETURNING *`,
                     [
                         existing.rows[0].id,
                         hash,
@@ -836,6 +838,15 @@ router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), asy
                         now,
                     ]
                 );
+                if (!r.rows.length) {
+                    return res.status(409).json({ error: `Username "${username}" đã tồn tại` });
+                }
+                // Xoá MỌI session cũ của bản vừa hồi sinh → token cũ (trước khi xoá)
+                // không thể tái dùng với mật khẩu mới. (DELETE soft-delete đã xoá session,
+                // nhưng deactivate qua PATCH thì chưa → dọn ở đây cho chắc.)
+                await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [
+                    existing.rows[0].id,
+                ]);
             } else {
                 r = await pool.query(
                     `INSERT INTO web2_users
