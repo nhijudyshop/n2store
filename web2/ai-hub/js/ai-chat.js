@@ -106,6 +106,7 @@
             const r = await fetch(H().API() + '/chats?limit=50', {
                 headers: H().authHeaders(false),
             });
+            if (H().handle401 && H().handle401(r)) return; // phiên hết hạn → đăng nhập lại
             const j = await r.json();
             if (!j.ok || !Array.isArray(j.chats)) return;
             let added = false;

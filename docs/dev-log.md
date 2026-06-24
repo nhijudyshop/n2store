@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [fix] ai-hub: 401 /chats,/status,/quota — bắt buộc auth Web 2.0 + xử lý phiên hết hạn
+
+User: lỗi `GET /api/web2-ai/chats?limit=50 401` + hỏi lưu lịch sử chat lên DB. Chẩn đoán: lịch sử chat ĐÃ lưu DB (Postgres `web2_ai_chats`, cột messages **JSONB** — gọn + query được, KHÔNG cần mã hoá/giải mã thủ công). 401 = token Web 2.0 thiếu/hết hạn → middleware `requireWeb2AuthSoft` chặn khi `WEB2_AUTH_ENFORCE=1`. ai-hub TRƯỚC ĐÂY không enforce auth lúc load → user token hết hạn vẫn vào trang nhưng mọi call AI 401.
+
+Files: `web2/ai-hub/js/ai-hub.js`, `web2/ai-hub/js/ai-chat.js`, `web2/ai-hub/index.html`.
+
+- **Enforce auth lúc init**: `AiHub.init()` gọi `Web2Auth.requireAuth()` đầu tiên → token hết hạn (/me 401) tự redirect `/web2/login` (lỗi mạng giữ nguyên). User đăng nhập lại → token mới → AI + lịch sử chat chạy.
+- **Phiên hết hạn giữa chừng**: `AiHub.handle401(res)` + `notifyAuthExpired()` (toast 1 lần + đẩy login) wire vào `_mergeServerChats` (fetch /chats).
+- **Verify browser**: login phuocnho/telephone → round-trip chat history OK (PUT 200 + list found + GET 2 msgs + DELETE 200); reload ai-hub token hợp lệ → KHÔNG redirect, 4 provider load (gemini/groq/openrouter/chatanywhere), 0 lỗi 401. Bump `ai-hub.js` c→d, `ai-chat.js` d→e.
+
+## 2026-06-24
+
 ### [feat] Chấm công DG-600 — nút "Tải & cài" trên trang Máy in (1-click bootstrap từ web)
 
 User: "tích hợp vào trang printer-settings 1 option .bat tự tải folder attendance-sync về và chạy".
