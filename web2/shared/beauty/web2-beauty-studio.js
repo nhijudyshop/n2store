@@ -21,6 +21,88 @@
     const MAX_WORK = 1440; // cạnh dài tối đa canvas xử lý (cân bằng tốc độ/chất lượng)
     const MAX_HISTORY = 6;
 
+    // ── WEB WORKER: xử lý lọc NẶNG trên luồng nền → KHÔNG đứng UI (spinner mượt). ──
+    // URL worker = cùng thư mục module này (lấy từ currentScript lúc load). Pixel buffer
+    // chuyển bằng Transferable. Lỗi/không có worker → fallback xử lý sync ở main-thread.
+    const WORKER_URL = (function () {
+        try {
+            const s = document.currentScript && document.currentScript.src;
+            if (s) return s.replace(/[^/]*$/, 'web2-beauty-worker.js') + '?v=20260624a';
+        } catch (_) {}
+        return null;
+    })();
+    let _bw = null; // Worker | false (đã lỗi) | null (chưa tạo)
+    let _bwSeq = 0;
+    const _bwJobs = new Map();
+    function getWorker() {
+        if (_bw === false || !WORKER_URL || typeof Worker === 'undefined') return null;
+        if (_bw) return _bw;
+        try {
+            _bw = new Worker(WORKER_URL);
+            _bw.onmessage = (e) => {
+                const { id, ok, buf, w, h, error } = e.data || {};
+                const job = _bwJobs.get(id);
+                if (!job) return;
+                _bwJobs.delete(id);
+                ok ? job.res({ buf, w, h }) : job.rej(new Error(error || 'worker error'));
+            };
+            _bw.onerror = () => {
+                _bw = false;
+                _bwJobs.forEach((j) => j.rej(new Error('worker crashed')));
+                _bwJobs.clear();
+            };
+        } catch (_) {
+            _bw = false;
+            return null;
+        }
+        return _bw;
+    }
+    function runInWorker(op, imageData, params) {
+        return new Promise((res, rej) => {
+            const w = getWorker();
+            if (!w) return rej(new Error('no worker'));
+            const id = ++_bwSeq;
+            _bwJobs.set(id, { res, rej });
+            const buf = imageData.data.buffer; // sẽ bị transfer (detach) — ok, ta tạo ImageData mới từ kết quả
+            w.postMessage({ id, op, buf, w: imageData.width, h: imageData.height, params }, [buf]);
+            setTimeout(() => {
+                if (_bwJobs.has(id)) {
+                    _bwJobs.delete(id);
+                    rej(new Error('worker timeout'));
+                }
+            }, 90000);
+        });
+    }
+    // Chạy 1 op lọc: ưu tiên Worker (nền), lỗi → fallback sync main-thread. Trả ImageData.
+    async function processImageData(op, imageData, params) {
+        try {
+            const r = await runInWorker(op, imageData, params);
+            return new ImageData(new Uint8ClampedArray(r.buf), r.w, r.h);
+        } catch (_) {
+            const F = global.Web2BeautyFilters;
+            if (op === 'smooth') {
+                F.smoothSkin(imageData, F.buildSkinMask(imageData), params);
+                return imageData;
+            }
+            if (op === 'tone') {
+                F.adjustSkinTone(imageData, F.buildSkinMask(imageData), params);
+                return imageData;
+            }
+            if (op === 'beautify') {
+                F.beautify(imageData, params.strength);
+                return imageData;
+            }
+            if (op === 'warp') return F.warp(imageData, params.brushes || []);
+            if (op === 'auto') {
+                F.beautify(imageData, params.strength);
+                return params.brushes && params.brushes.length
+                    ? F.warp(imageData, params.brushes)
+                    : imageData;
+            }
+            return imageData;
+        }
+    }
+
     const TOOLS = {
         auto: {
             label: 'Làm đẹp tự động',
@@ -311,10 +393,11 @@
                 if (busy) return;
                 if (faceMissing) return notify('Công cụ này cần ảnh có khuôn mặt rõ', 'warning');
                 setBusy(true, 'Đang xử lý…');
+                // double-rAF cho spinner kịp vẽ; doApply async (lọc chạy trong Web Worker nền).
                 requestAnimationFrame(() =>
-                    requestAnimationFrame(() => {
+                    requestAnimationFrame(async () => {
                         try {
-                            doApply();
+                            await doApply();
                         } catch (e) {
                             console.error('[Web2BeautyStudio] apply lỗi:', e);
                             const m = /tainted|insecure|SecurityError/i.test(
@@ -328,12 +411,13 @@
                     })
                 );
             }
-            function doApply() {
+            async function doApply() {
                 const F = global.Web2BeautyFilters;
                 if (!F) return notify('Thiếu engine xử lý ảnh', 'error');
                 const v = readControls();
                 pushHistory();
 
+                // Kéo chân dùng canvas (stretchBand) → giữ ở main, nhanh, không freeze.
                 if (meta.legs) {
                     const out = F.stretchBand(work, legState.y0, legState.y1, v.factor || 1.12, {
                         seam: 6,
@@ -346,37 +430,34 @@
                 }
 
                 const imgData = wctx.getImageData(0, 0, work.width, work.height);
+                let out;
                 if (tool === 'smooth') {
-                    const mask = F.buildSkinMask(imgData);
-                    F.smoothSkin(imgData, mask, { intensity: v.intensity });
-                    wctx.putImageData(imgData, 0, 0);
+                    out = await processImageData('smooth', imgData, { intensity: v.intensity });
                 } else if (tool === 'tone') {
-                    const mask = F.buildSkinMask(imgData);
-                    F.adjustSkinTone(imgData, mask, {
+                    out = await processImageData('tone', imgData, {
                         brighten: v.brighten,
                         warmth: v.warmth,
                         saturation: -(v.even || 0),
                     });
-                    wctx.putImageData(imgData, 0, 0);
                 } else if (tool === 'auto') {
-                    F.beautify(imgData, v.strength);
-                    wctx.putImageData(imgData, 0, 0);
-                    if (det) {
-                        const brushes = global.Web2BeautyFace.buildAutoBrushes(det, v.strength);
-                        if (brushes.length) {
-                            const img2 = wctx.getImageData(0, 0, work.width, work.height);
-                            wctx.putImageData(F.warp(img2, brushes), 0, 0);
-                        }
-                    }
+                    // buildAutoBrushes (nhẹ) chạy main; beautify+warp (nặng) chạy Worker 1 lần.
+                    const brushes = det
+                        ? global.Web2BeautyFace.buildAutoBrushes(det, v.strength)
+                        : [];
+                    out = await processImageData('auto', imgData, {
+                        strength: v.strength,
+                        brushes,
+                    });
                 } else {
-                    // face tools
+                    // face tools (eyes/nose/face/lips): warp theo brush từ landmark.
                     const brushes = global.Web2BeautyFace.buildBrushes(det, tool, v.strength);
                     if (!brushes.length) {
                         notify('Không dựng được hiệu ứng cho ảnh này', 'warning');
                         return;
                     }
-                    wctx.putImageData(F.warp(imgData, brushes), 0, 0);
+                    out = await processImageData('warp', imgData, { brushes });
                 }
+                wctx.putImageData(out, 0, 0);
                 redraw();
                 notify('Đã áp dụng — bấm tiếp để tăng dần', 'success');
             }

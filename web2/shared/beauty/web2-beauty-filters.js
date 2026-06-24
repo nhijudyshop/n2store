@@ -393,4 +393,6 @@
         stretchBand,
         _sampleBilinear: sampleBilinear,
     };
-})(window);
+    // self = window (page) HOẶC worker global → module chạy được trong CẢ Web Worker
+    // (xử lý lọc nền, KHÔNG đứng UI). Chỉ stretchBand dùng canvas (gọi ở main-thread).
+})(typeof self !== 'undefined' ? self : window);
