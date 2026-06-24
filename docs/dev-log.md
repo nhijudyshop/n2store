@@ -2,6 +2,15 @@
 
 ## 2026-06-24
 
+### [feat] bg-remover: server TÁCH NỀN máy shop (free, on-device) theo pattern VieNeu
+
+User "được thì làm": dựng server tách nền free thay PhotoRoom trả phí.
+
+- **`bg-remover/`** (mới): app.py (FastAPI + rembg U-2-Net, `/health` + `/remove[?bg=hex]`) + serve.py (clone VieNeu: uvicorn + cloudflared tunnel + heartbeat **engine='bgremover'** 30s) + requirements.txt + install-windows.bat + run-mac.command + README. Cổng 8124 (VieNeu 8123 → chạy song song). rembg nhẹ hơn nadermx/backgroundremover (onnxruntime, CPU OK).
+- **Registry tái dùng**: máy bg-remover báo danh vào CHUNG `web2_machine_servers` (đã chuyển Postgres) với engine='bgremover'; trang lọc `/list?engine=bgremover`.
+- **Frontend**: shared `web2/shared/web2-bgremover.js` (`Web2BgRemover.listServers/removeBg/removeBgAuto`, autoload sidebar). ai-hub Tạo ảnh: mỗi ảnh kết quả có nút **✂️ Nền** → `removeBgAuto(src)` → card kết quả mới. Bump ai-image v20260624e.
+- ⚠ Python chưa test máy thật (no env) — py_compile PASS; user chạy .bat/.command verify. KHÔNG cần Render redeploy.
+
 ### [fix] web2/users: trang Phân quyền không scroll + đổi mật khẩu trong modal Sửa + hiện MK cột
 
 User báo: (1) `/web2/users/index.html` tab "Phân quyền" không scroll được; (2) modal "Sửa người dùng" có ô mật khẩu nhưng đổi không ăn; (3) muốn hiện mật khẩu user ở cột Mật khẩu.
