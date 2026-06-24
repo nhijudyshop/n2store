@@ -2,6 +2,15 @@
 
 ## 2026-06-24
 
+### [fix] web2-users: xóa user rồi tạo lại cùng username báo trùng → HỒI SINH bản inactive
+
+User: "tôi xóa user coi tạo lại báo trùng". DELETE là **soft-delete** (`is_active=FALSE`) → username vẫn chiếm chỗ trong DB → POST create cùng tên đụng unique constraint → 409 "đã tồn tại" (mà user lại không thấy trong list vì mặc định ẩn user vô hiệu).
+
+File: `render.com/routes/web2-users.js` (create handler) — **cần deploy web2-api** (auto-deploy on push).
+
+- Create giờ check username trước INSERT: nếu tồn tại + **đang active** → 409 thật; nếu tồn tại + **inactive** → **UPDATE hồi sinh** bản cũ (giữ `id` → referential integrity audit/KPI) với thông tin mới (password/displayName/email/phone/role/note), reset `permissions=NULL` (về mặc định vai trò) + `avatar=NULL` + `last_login_at=NULL` + `created_at=now`. Không tồn tại → INSERT như cũ. Giữ catch 23505 làm lưới an toàn race.
+- Audit ghi `revived:true` khi hồi sinh.
+
 ### [feat] web2 ai-presets: thêm nhóm "🎨 Chibi / Nhân vật" (ảnh thật → chibi/Brawl Stars/figurine)
 
 User hỏi github chuyển ảnh→chibi. Trả lời: Nano Banana (Tạo ảnh) đã làm được; thêm 5 preset chibi (needsImage): chibi-cute (Q-version), chibi-brawl (Brawl Stars game-art), chibi-figurine (Funko Pop), chibi-plush (thú nhồi bông), chibi-anime. Category mới `chibi`. Image presets 23→28. DiceBear avatar (modal hồ sơ) là seed-based KHÔNG nhận ảnh — khác hẳn. Bump web2-ai-presets v20260624f.

@@ -802,28 +802,64 @@ router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), asy
         const hash = await bcrypt.hash(password, 10);
         const pwdEnc = encryptPassword(password); // bản đọc-được để admin xem trên bảng
         const now = Date.now();
+        // DELETE là soft-delete (is_active=FALSE) → username vẫn chiếm chỗ. Nếu admin
+        // "Tạo lại" 1 username đã bị vô hiệu → HỒI SINH bản cũ với thông tin mới thay vì
+        // báo trùng (gốc bug "xóa user coi tạo lại báo trùng" 2026-06-24). Còn active
+        // mới thật sự trùng → 409.
+        const existing = await pool.query(
+            'SELECT id, is_active FROM web2_users WHERE username = $1',
+            [username]
+        );
+        if (existing.rows.length && existing.rows[0].is_active) {
+            return res.status(409).json({ error: `Username "${username}" đã tồn tại` });
+        }
         try {
-            const r = await pool.query(
-                `INSERT INTO web2_users
-                    (username, password_hash, password_enc, display_name, email, phone, role, is_active, note, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, $9)
-                 RETURNING *`,
-                [
-                    username,
-                    hash,
-                    pwdEnc,
-                    displayName,
-                    b.email || null,
-                    b.phone || null,
-                    role,
-                    b.note || null,
-                    now,
-                ]
-            );
+            let r;
+            if (existing.rows.length) {
+                // Revive: reset toàn bộ về user "mới" (permissions/avatar/last_login về mặc định).
+                r = await pool.query(
+                    `UPDATE web2_users SET
+                        password_hash = $2, password_enc = $3, display_name = $4,
+                        email = $5, phone = $6, role = $7, note = $8,
+                        is_active = TRUE, permissions = NULL, avatar = NULL,
+                        last_login_at = NULL, created_at = $9, updated_at = $9
+                     WHERE id = $1 RETURNING *`,
+                    [
+                        existing.rows[0].id,
+                        hash,
+                        pwdEnc,
+                        displayName,
+                        b.email || null,
+                        b.phone || null,
+                        role,
+                        b.note || null,
+                        now,
+                    ]
+                );
+            } else {
+                r = await pool.query(
+                    `INSERT INTO web2_users
+                        (username, password_hash, password_enc, display_name, email, phone, role, is_active, note, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, $9)
+                     RETURNING *`,
+                    [
+                        username,
+                        hash,
+                        pwdEnc,
+                        displayName,
+                        b.email || null,
+                        b.phone || null,
+                        role,
+                        b.note || null,
+                        now,
+                    ]
+                );
+            }
             _notify('create', r.rows[0].id);
             _auditUser(req, 'create', r.rows[0].id, {
                 username: r.rows[0].username,
                 role: r.rows[0].role,
+                revived: existing.rows.length > 0,
             });
             res.json({ success: true, user: mapRow(r.rows[0], { reveal: true }) });
         } catch (err) {
