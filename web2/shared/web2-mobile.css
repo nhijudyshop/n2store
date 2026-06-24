@@ -414,3 +414,215 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* =====================================================================
+ * [F04b] THANH MENU DƯỚI CÙNG cho ĐIỆN THOẠI (≤600px) + sheet Tài khoản
+ *  - Element do web2-sidebar.js inject (.w2-mobile-bottombar / .w2-acct-sheet).
+ *  - Ẩn MẶC ĐỊNH (desktop/tablet) — chỉ hiện ≤600px. An toàn desktop vì 2
+ *    element này chỉ phục vụ mobile.
+ *  - Cũng fix logout drawer: ép aside dùng 100dvh ở mobile (100vh trên trình
+ *    duyệt điện thoại tính cả vùng sau thanh URL → footer/Đăng xuất bị đẩy
+ *    khuất dưới đáy màn hình).
+ * ===================================================================== */
+.w2-mobile-bottombar,
+.w2-acct-sheet {
+    display: none;
+}
+/* Embed (iframe ?embed=1, vd Phân quyền trong trang Người dùng): KHÔNG hiện
+   thanh/sheet riêng của iframe — parent đã có. */
+body.w2-embed .w2-mobile-bottombar,
+body.w2-embed .w2-acct-sheet {
+    display: none !important;
+}
+
+@media (max-width: 900px) {
+    /* Drawer cao đúng vùng NHÌN THẤY (dvh) → footer + nút Đăng xuất luôn trong
+       màn hình, không bị thanh trình duyệt che. Fallback 100vh cho trình duyệt
+       cũ không hỗ trợ dvh. */
+    body:has(.web2-shell) .web2-aside {
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
+    }
+    body:has(.web2-shell) .web2-user-footer {
+        padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    }
+}
+
+@media (max-width: 600px) {
+    /* ── Thanh điều hướng dưới cùng ── */
+    .w2-mobile-bottombar {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9350;
+        background: #fff;
+        border-top: 1px solid rgba(15, 23, 42, 0.1);
+        box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.08);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    .w2-bb-item {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-height: 54px;
+        padding: 8px 4px 7px;
+        background: none;
+        border: 0;
+        color: #64748b;
+        font-size: 10.5px;
+        font-weight: 600;
+        line-height: 1.1;
+        text-decoration: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 120ms;
+    }
+    .w2-bb-item i {
+        width: 21px;
+        height: 21px;
+    }
+    .w2-bb-item.is-active {
+        color: #0068ff;
+    }
+    .w2-bb-item:active {
+        color: #0058da;
+    }
+
+    /* Phone: ẩn nút ☰ nổi (bottom bar đã có "Menu") + bỏ chừa 48px header. */
+    body:has(.web2-shell) .w2-mobile-menu-btn {
+        display: none;
+    }
+    body:has(.web2-shell) main > .page-header,
+    body:has(.web2-shell) main > header,
+    body:has(.web2-shell) main > .fbp-head,
+    body:has(.web2-shell) main > .w2-page-head,
+    body:has(.web2-shell) main > .sys-header,
+    body:has(.web2-shell) main > .kpi-page-head,
+    body:has(.web2-shell) main > .wz-page-head,
+    body:has(.web2-shell) main > .w2bh-head {
+        padding-left: 0;
+    }
+
+    /* Chừa đáy cho bottom bar (~54px + safe-area) → nội dung không bị che. */
+    body:has(.web2-shell) .web2-main,
+    body:has(.web2-shell) main.web2-main {
+        padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
+    /* ── Bottom sheet "Tài khoản" (Hồ sơ + Đăng xuất) ── */
+    .w2-acct-sheet.show {
+        display: block;
+    }
+    .w2-acct-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 9600;
+    }
+    .w2-acct-scrim {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+    }
+    .w2-acct-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #fff;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 14px calc(16px + env(safe-area-inset-bottom));
+        box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.25);
+        animation: w2sheetUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes w2sheetUp {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+    .w2-acct-grip {
+        width: 40px;
+        height: 4px;
+        border-radius: 2px;
+        background: #cbd5e1;
+        margin: 4px auto 12px;
+    }
+    .w2-acct-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 12px 12px;
+        border-bottom: 1px solid #eef2f7;
+        margin-bottom: 8px;
+    }
+    .w2-acct-av {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, #0058da, #2a96ff);
+        overflow: hidden;
+    }
+    .w2-acct-av.has-img {
+        background: #fff;
+    }
+    .w2-acct-av img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+    .w2-acct-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .w2-acct-sub {
+        font-size: 12px;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+    .w2-acct-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 14px 12px;
+        background: none;
+        border: 0;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+        text-align: left;
+        cursor: pointer;
+    }
+    .w2-acct-row i {
+        width: 20px;
+        height: 20px;
+    }
+    .w2-acct-row:active {
+        background: #f1f5f9;
+    }
+    .w2-acct-logout {
+        color: #dc2626;
+    }
+    .w2-acct-logout:active {
+        background: #fef2f2;
+    }
+}

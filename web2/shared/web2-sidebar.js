@@ -44,7 +44,7 @@
             if (document.querySelector('link[data-w2-mobile-css]')) return;
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = new URL('./web2-mobile.css?v=20260622c', SCRIPT_BASE_URL).toString();
+            link.href = new URL('./web2-mobile.css?v=20260624mob', SCRIPT_BASE_URL).toString();
             link.setAttribute('data-w2-mobile-css', '1');
             (document.head || document.documentElement).appendChild(link);
         } catch (_) {

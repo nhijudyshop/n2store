@@ -2,6 +2,19 @@
 
 ## 2026-06-24
 
+### [feat] Mobile: thanh menu dưới cùng cho điện thoại + fix nút Đăng xuất bị khuất
+
+User: "Trên điện thoại không có nút đăng xuất? → Có giao diện riêng cho điện thoại nên làm thanh menu cho điện thoại luôn đi". Chọn kiểu **bottom bar**.
+
+Files: `web2/shared/web2-sidebar.js` (bottom bar + sheet Tài khoản, bump mobile.css), `web2/shared/web2-mobile.css` (CSS bottom bar/sheet + dvh fix).
+
+- **Nguyên nhân logout khuất**: `.web2-aside { height: 100vh }`. Trên trình duyệt điện thoại `100vh` tính cả vùng sau thanh URL/toolbar → footer (pinned bottom) chứa nút Đăng xuất bị đẩy xuống **dưới mép màn hình nhìn thấy** → "không có nút đăng xuất". Fix: ở mobile ép `.web2-aside` dùng `100dvh` (dynamic viewport, fallback `100vh`) + `padding-bottom: env(safe-area-inset-bottom)` cho footer.
+- **Thanh menu dưới (≤600px)**: `web2-sidebar.js` inject `<nav class="w2-mobile-bottombar">` cố định đáy, 4 nút chạm-ngón-cái: **Tổng quan** (→ overview) · **Menu** (mở drawer đầy đủ) · **Thông báo** (→ notifications) · **Tài khoản** (mở bottom sheet). Ở phone **ẩn nút ☰ nổi** (bottom bar đã có Menu) + bỏ chừa 48px header + chừa `padding-bottom` cho main không bị che.
+- **Bottom sheet Tài khoản**: avatar + tên + @user·role, hai dòng **Hồ sơ tài khoản** (Web2UserProfile.open) + **Đăng xuất** (Web2Auth.logout) — vì modal hồ sơ chưa có nút Đăng xuất → đây là đường thoát rõ ràng trên điện thoại. Chưa đăng nhập → chuyển trang login.
+- **Cache-bust**: bump `web2-mobile.css?v=20260624mob` (inject 1 nguồn → lan mọi trang). CSS + JS đi cùng nhau khi sidebar.js revalidate.
+- **Embed (iframe ?embed=1)**: ẩn bottom bar/sheet để iframe (vd Phân quyền) không dựng thanh riêng.
+- **Verify** (Playwright 390×844, login thật): bottom bar `display:flex` fixed đáy (top 774 + h70 = 844, in-viewport) ✓; account sheet `display:block`, rows ["Hồ sơ tài khoản","Đăng xuất"], logout in-viewport ✓; **drawer footer logout footerBottom=winH=844, in-viewport ✓** (dvh fix); desktop 1440 bottom bar `display:none` (không lộ) ✓. 3 screenshot xác nhận layout đẹp.
+
 ### [perf] Làm đẹp khuôn mặt bớt "đứng/stuck" — giảm res xử lý (DETECT_MAX 640, MAX_WORK 1440)
 
 User: ai-photo "tải model xong stuck". Chẩn đoán (browser-test ảnh thật): mọi modal MỞ OK; engine load OK (opencv là Promise resolve ra Mat+inpaint; MediaPipe XNNPACK CPU; transformers RMBG). "Stuck" = **xử lý ĐỒNG BỘ chặn main-thread** trên ảnh lớn (detect MediaPipe + lọc smoothSkin/warp). Code lọc O(N) chuẩn (box-blur running-sum) + đã có `setBusy`+double-rAF; KHÔNG bug — chỉ nặng CPU. ⚠ Headless Chromium (software WASM, không SIMD) phóng đại freeze tới 60s+ → KHÔNG đại diện Chrome thật (ở đó ~dưới giây–vài giây).
