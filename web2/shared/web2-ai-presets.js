@@ -31,6 +31,7 @@
         { id: 'onmodel', label: '🧥 Mặc lên người (cần ảnh)' },
         { id: 'scene', label: '🖼️ Đổi nền / Phong cảnh (cần ảnh)' },
         { id: 'avatar', label: '👤 Ảnh đại diện (cần ảnh)' },
+        { id: 'chibi', label: '🎨 Chibi / Nhân vật (cần ảnh)' },
         { id: 'layout', label: '📐 Flat-lay / Bố cục' },
         { id: 'poster', label: '🎉 Poster / Khuyến mãi' },
     ];
@@ -227,6 +228,47 @@
             needsImage: false,
             source: 'youmind (Social Media Post)',
         },
+        // ── 🎨 Chibi / nhân vật (cần ảnh — biến ẢNH THẬT thành chibi/figurine bằng Nano Banana) ──
+        {
+            id: 'chibi-cute',
+            cat: 'chibi',
+            title: 'Ảnh → Chibi dễ thương (Q-version)',
+            prompt: 'Biến người trong ảnh thành nhân vật chibi dễ thương (Q-version): đầu to thân nhỏ, mắt to long lanh, nét vẽ tròn mềm, màu pastel tươi, GIỮ đặc điểm nhận diện khuôn mặt/kiểu tóc/trang phục, nền đơn giản, phong cách sticker đáng yêu.',
+            needsImage: true,
+            source: 'PicoTrex (chibi version) + youmind (Chibi/Q-Style)',
+        },
+        {
+            id: 'chibi-brawl',
+            cat: 'chibi',
+            title: 'Ảnh → Chibi kiểu game (Brawl Stars)',
+            prompt: 'Biến người trong ảnh thành nhân vật chibi phong cách game Brawl Stars / Supercell: đầu to thân nhỏ, mắt to biểu cảm, ĐƯỜNG VIỀN ĐẬM, màu sắc rực rỡ tương phản cao, tạo hình 3D game-art bóng bẩy, dáng pose năng động, GIỮ đặc điểm khuôn mặt/trang phục để nhận ra, nền đơn giản.',
+            needsImage: true,
+            source: 'community (Brawl Stars chibi)',
+        },
+        {
+            id: 'chibi-figurine',
+            cat: 'chibi',
+            title: 'Ảnh → Mô hình figurine / Funko Pop',
+            prompt: 'Biến người trong ảnh thành mô hình đồ chơi figurine sưu tầm phong cách Funko Pop: đầu to vuông, thân nhỏ, mắt đen tròn, chất liệu nhựa vinyl bóng, đặt trên bàn trưng bày có hộp blister phía sau, ánh sáng studio, GIỮ đặc điểm nhận diện + trang phục.',
+            needsImage: true,
+            source: 'PicoTrex (figurine/garage kit)',
+        },
+        {
+            id: 'chibi-plush',
+            cat: 'chibi',
+            title: 'Ảnh → Thú nhồi bông (plush toy)',
+            prompt: 'Biến chủ thể trong ảnh thành một con thú nhồi bông (plush toy) mềm mại dễ thương: chất liệu vải lông mịn, đường chỉ may, hình khối tròn đầy, bóng đổ mềm, nền xám nhạt đơn giản, giữ nét nhận diện đặc trưng.',
+            needsImage: true,
+            source: 'PicoTrex (No.12 Fluffy Plush)',
+        },
+        {
+            id: 'chibi-anime',
+            cat: 'chibi',
+            title: 'Ảnh → Anime / ảnh đại diện hoạt hình',
+            prompt: 'Vẽ lại người trong ảnh theo phong cách anime Nhật chất lượng cao: nét sạch, tô màu cel-shading, mắt to có hồn, tóc chi tiết, GIỮ đặc điểm khuôn mặt/kiểu tóc/trang phục, nền gradient nhẹ — hợp làm ảnh đại diện.',
+            needsImage: true,
+            source: 'youmind (Anime/Manga)',
+        },
     ];
 
     // Ảnh mẫu minh hoạ (CDN youmind, public) cho từng câu lệnh → card có hình cho dễ hình dung.
@@ -249,6 +291,8 @@
         'avatar-studio': _T + '1782200278004_thj6jq_HLbworvXEAE7zAJ.jpg',
         'avatar-id': _T + '1782028906257_7ytl5t_HLPN7PgagAArlFL.jpg',
         'avatar-pixar': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
+        'chibi-cute': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
+        'chibi-anime': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
         'layout-flatlay': _T + '1781941373581_vejcq0_HK-5lMlXkAAV8zn.jpg',
         'layout-bento':
             _T + '1768962051381_l9uih4_537980579-6f29d32a-c786-40c4-bd5a-79c640737496.png',

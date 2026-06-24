@@ -126,7 +126,7 @@
         if (!global.Web2Perm) inject('web2-perm.js', '20260624a');
         // Thư viện mẫu câu lệnh AI (ảnh + vai trò chat) — Web2AiPresets.pickImage/pickRole.
         // Dùng chung: ai-hub, fb-posts (caption), video-maker (kịch bản)… gọi được luôn.
-        if (!global.Web2AiPresets) inject('web2-ai-presets.js', '20260624e');
+        if (!global.Web2AiPresets) inject('web2-ai-presets.js', '20260624f');
         // Tách nền ảnh dùng máy shop tự host (free) — Web2BgRemover.removeBgAuto(input).
         if (!global.Web2BgRemover) inject('web2-bgremover.js', '20260624a');
     })();

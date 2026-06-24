@@ -2,6 +2,10 @@
 
 ## 2026-06-24
 
+### [feat] web2 ai-presets: thêm nhóm "🎨 Chibi / Nhân vật" (ảnh thật → chibi/Brawl Stars/figurine)
+
+User hỏi github chuyển ảnh→chibi. Trả lời: Nano Banana (Tạo ảnh) đã làm được; thêm 5 preset chibi (needsImage): chibi-cute (Q-version), chibi-brawl (Brawl Stars game-art), chibi-figurine (Funko Pop), chibi-plush (thú nhồi bông), chibi-anime. Category mới `chibi`. Image presets 23→28. DiceBear avatar (modal hồ sơ) là seed-based KHÔNG nhận ảnh — khác hẳn. Bump web2-ai-presets v20260624f.
+
 ### [feat] bg-remover: server TÁCH NỀN máy shop (free, on-device) theo pattern VieNeu
 
 User "được thì làm": dựng server tách nền free thay PhotoRoom trả phí.
