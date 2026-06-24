@@ -117,34 +117,57 @@
         return _cvP;
     }
 
-    // Inpaint TELEA trên canvas đầy đủ độ phân giải: mask = các rect (đã nở viền).
+    // Inpaint TELEA trên canvas đầy đủ độ phân giải. QUAN TRỌNG: trong mỗi ô user
+    // khoanh, chỉ mask NÉT LOGO (high-pass: chỗ khác nền) chứ KHÔNG mask cả ô — nhờ vậy
+    // TELEA lấp nét từ texture xung quanh, GIỮ vân nền (không bị smear/làm mờ cả vùng).
+    // Nền bận / không tách được nét rõ → fallback mask cả ô.
     function _inpaintCv(cv, canvas, rects) {
         const src = cv.imread(canvas); // RGBA
         const rgb = new cv.Mat();
         cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
-        const mask = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC1);
-        const white = new cv.Scalar(255);
+        const gray = new cv.Mat();
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+        const W = src.cols,
+            H = src.rows;
+        const mask = cv.Mat.zeros(H, W, cv.CV_8UC1);
         rects.forEach((r) => {
-            const x = Math.max(0, r.x);
-            const y = Math.max(0, r.y);
-            const p1 = new cv.Point(x, y);
-            const p2 = new cv.Point(Math.min(src.cols, x + r.w), Math.min(src.rows, y + r.h));
-            cv.rectangle(mask, p1, p2, white, -1);
+            const x = Math.max(0, r.x | 0);
+            const y = Math.max(0, r.y | 0);
+            const w = Math.min(W - x, r.w | 0);
+            const h = Math.min(H - y, r.h | 0);
+            if (w < 3 || h < 3) return;
+            const roiR = new cv.Rect(x, y, w, h);
+            const rm = mask.roi(roiR);
+            const g = gray.roi(roiR);
+            const bg = new cv.Mat();
+            let kb = Math.max(11, Math.round(Math.min(w, h) / 5));
+            if (kb % 2 === 0) kb++; // kernel lẻ
+            cv.GaussianBlur(g, bg, new cv.Size(kb, kb), 0); // ước lượng nền
+            const diff = new cv.Mat();
+            cv.absdiff(g, bg, diff); // high-pass: nét logo nổi lên
+            const tm = new cv.Mat();
+            cv.threshold(diff, tm, 18, 255, cv.THRESH_BINARY);
+            cv.dilate(tm, tm, cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5)));
+            const frac = cv.countNonZero(tm) / (w * h);
+            if (frac >= 0.004 && frac <= 0.55)
+                tm.copyTo(rm); // có nét rõ → chỉ xóa nét
+            else rm.setTo(new cv.Scalar(255)); // không rõ nét → xóa cả ô
+            g.delete();
+            bg.delete();
+            diff.delete();
+            tm.delete();
+            rm.delete();
         });
-        // nở mask phủ viền logo (anti-alias) để inpaint không sót rìa
-        const k = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-        cv.dilate(mask, mask, k);
         const dst = new cv.Mat();
-        cv.inpaint(rgb, mask, dst, 6, cv.INPAINT_TELEA);
+        cv.inpaint(rgb, mask, dst, 4, cv.INPAINT_TELEA);
         const out = new cv.Mat();
         cv.cvtColor(dst, out, cv.COLOR_RGB2RGBA);
         cv.imshow(canvas, out);
-        src.delete();
-        rgb.delete();
-        mask.delete();
-        k.delete();
-        dst.delete();
-        out.delete();
+        [src, rgb, gray, mask, dst, out].forEach((m) => {
+            try {
+                m.delete();
+            } catch (_) {}
+        });
     }
 
     // Tự dò vùng logo: chia lưới, tính mật độ cạnh (gradient luminance), gộp ô
