@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [feat] inventory-tracking — Quick-pick SP từ kho: popup canh giữa + multi-select + chèn nhiều dòng dưới
+
+User (3 ý): (1) chỉnh vị trí input khi bấm nút bút-chì ở ô STT; (2) nhập tìm → SP có **checkbox chọn nhiều** + nút **Xác nhận**; (3) Xác nhận **chèn các SP đã chọn thành dòng mới NẰM DƯỚI** dòng được bấm.
+
+Files: `inventory-tracking/js/product-quick-pick.js` (viết lại), `inventory-tracking/js/crud-operations.js` (+`insertProductRowsBelow`), `inventory-tracking/css/product-quick-pick.css`, `inventory-tracking/index.html`.
+
+- **Vị trí (1)**: bỏ dropdown nhỏ bám theo ô (dễ lệch) → **popup canh giữa màn hình** (overlay dim `.iqp-overlay` + card `.iqp-panel`, input 16px/cao 46px, nút to — iPad-friendly, đồng bộ style cell-edit popup).
+- **Multi-select (2)**: mỗi kết quả là `<label>` + checkbox `.iqp-check`; chọn lưu vào `Map _selected` (giữ qua nhiều lần search), footer "Xác nhận (N)" cập nhật realtime, disable khi N=0. Enter tick item highlight; click ngoài/Esc/✕ đóng.
+- **Chèn dưới (3)**: confirm → `window.insertProductRowsBelow(invoiceId, afterIdx, names[])` (crud-operations.js): build mỗi name thành 1 row mới (maSP=tên, field khác rỗng — như copyProductRow) → `splice(afterIdx+1, 0, ...newRows)` → `_persistSanPham` (save + flatten + re-render). Dòng được bấm GIỮ NGUYÊN.
+- **Verified browser (stub API, KHÔNG ghi prod)**: mở picker → overlay canh giữa; search "ao" → 20 kết quả đều có checkbox; chọn 2 → "Xác nhận (2)"; confirm → gọi insert đúng `(invoiceId, idx, [2 tên])`, overlay đóng. Insert data: before=1 → after=3, `[idx+1]=TEST-AAA`, `[idx+2]=TEST-BBB` (đúng vị trí dưới dòng bấm), `shipmentsApi.update` nhận mảng mới (stub) → reload xả test rows. Screenshot xác nhận UI.
+- Bump product-quick-pick.js/.css + crud-operations.js → 20260624c.
+
 ### [fix/feat] Chấm công — guard chống reload nền mất chỉnh sửa + heartbeat strip-only + in phiếu lương
 
 User: (1) gán NV → máy đẩy dữ liệu refresh bảng ~5s khi chưa Lưu → mất chỉnh sửa; (2) thêm nút in phiếu lương tháng chi tiết.
