@@ -2,6 +2,14 @@
 
 ## 2026-06-24
 
+### [fix+feat] web2: FIX VieNeu không kết nối (registry → Postgres) + ChatAnywhere chat + ảnh mẫu preset
+
+User: (1) thêm ChatAnywhere làm provider chat, (2) VieNeu chạy .bat mà không connect → fix, (3) preset có ảnh mẫu.
+
+- **🔴 FIX VieNeu "không kết nối"** — root cause (Explore agent trace): `web2-vieneu-registry.js` lưu **IN-MEMORY `Map()`** → web2-api chạy NHIỀU instance + redeploy xoá sạch → máy register vào instance A, browser GET /list trúng instance B → "không thấy máy" dù máy chạy (cùng lớp bug SSE cross-instance). **Fix: chuyển registry sang Postgres** (bảng `web2_machine_servers`, web2Db) → sống qua redeploy + chia sẻ giữa instance. Thêm cột `engine` + filter `/list?engine=` (tái dùng cho bg-remover sau). serve.py heartbeat 30s không đổi. Integration-test SQL (prune TTL 90s + engine filter) PASS.
+- **ChatAnywhere** (github chatanywhere/GPT_API_free) — thêm provider chat OpenAI-compatible FREE (GPT-4o-mini/4.1/3.5 + DeepSeek V3/R1), base `.org` (override `WEB2_CHATANYWHERE_BASE`), key `WEB2_CHATANYWHERE_API_KEY*` (lấy free qua GitHub OAuth ở repo, ~200 req/ngày). User OK license non-commercial (web nội bộ kho SP).
+- **Ảnh mẫu preset** — 21/23 câu lệnh ảnh có `thumb` (CDN youmind public) → card modal hiện hình minh hoạ (onerror ẩn graceful). Bump web2-ai-presets v20260624e.
+
 ### [refactor+feat] web2: promote thư viện mẫu AI → shared module + thêm vai trò chat + rename env Nano Banana
 
 User: (1) đổi env paid sang `WEB2_NANOBANANA_API_KEY`, (2) thêm prompt mẫu chat, (3) modular hoá.

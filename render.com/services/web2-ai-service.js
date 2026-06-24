@@ -88,6 +88,24 @@ const PROVIDERS = {
             // "no image input"). Đính ảnh dùng Gemini (👁 mọi model) hoặc Groq Llama-4 Scout.
         ],
     },
+    // ChatAnywhere (github chatanywhere/GPT_API_free) — proxy OpenAI-compatible FREE: GPT-4o-mini,
+    // GPT-4.1, DeepSeek V3/R1… Lấy key free qua GitHub OAuth ở repo. Giới hạn ~200 req/ngày/IP&key.
+    // Base URL: .org (quốc tế) / .tech (TQ) — override WEB2_CHATANYWHERE_BASE. Key WEB2_CHATANYWHERE_API_KEY*.
+    chatanywhere: {
+        label: 'ChatAnywhere (free GPT/DeepSeek)',
+        kind: 'openai',
+        envPrefixes: ['WEB2_CHATANYWHERE_API_KEY', 'CHATANYWHERE_API_KEY'],
+        baseURL: (process.env.WEB2_CHATANYWHERE_BASE || 'https://api.chatanywhere.org') + '/v1',
+        defaultModel: 'gpt-4o-mini',
+        models: [
+            { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
+            { id: 'gpt-4.1-mini', label: 'GPT-4.1 mini' },
+            { id: 'gpt-4.1-nano', label: 'GPT-4.1 nano (nhanh)' },
+            { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+            { id: 'deepseek-v3', label: 'DeepSeek V3' },
+            { id: 'deepseek-r1', label: 'DeepSeek R1 — suy luận' },
+        ],
+    },
     // ───────── Nano Banana (ẢNH) — pool key RIÊNG, TÁCH CHI PHÍ (2026-06-24) ─────────
     // internal:true → KHÔNG hiện trong chat UI / defaultProvider / listModels. Chỉ
     // image-service dùng (qua keysOf('nanobanana') + runWithKey('nanobanana', …)).

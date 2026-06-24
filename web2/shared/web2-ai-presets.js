@@ -229,6 +229,37 @@
         },
     ];
 
+    // Ảnh mẫu minh hoạ (CDN youmind, public) cho từng câu lệnh → card có hình cho dễ hình dung.
+    // Gắn rời để mảng IMAGE gọn; ảnh lỗi/hotlink chặn → onerror ẩn (card vẫn hiện chữ).
+    const _T = 'https://cms-assets.youmind.com/media/';
+    const THUMBS = {
+        'prod-white': _T + '1781684782153_2vzpgr_HK7T3TTXUAACV9f.jpg',
+        'prod-podium': _T + '1781941376253_wd8jy8_HLL_X5yaIAA0lE1.jpg',
+        'prod-spa': _T + '1782028899182_v0b03t_HLP-DxuakAA2AOk.jpg',
+        'prod-splash': _T + '1781770017583_qhtxdv_HK-5AiQbsAAq01T.jpg',
+        'fashion-studio': _T + '1780990824528_abcl0b_HKI60mUXgAAur67.jpg',
+        'fashion-store': _T + '1780645927302_7piitf_HJ8DE5JWsAAI0Kc.jpg',
+        'fashion-home': _T + '1780990823300_5pbthd_HKQyhUGa0AAq5ag.jpg',
+        'fashion-riviera': _T + '1782200281348_evr0na_HLZxwFTWsAAL14k.jpg',
+        'onmodel-keepface': _T + '1781857322969_m2vm3f_HLF2BMpWwAAEVhO.jpg',
+        'onmodel-product': _T + '1780560150781_xh95nv_HJ3DGgRXcAA4p4s.jpg',
+        'onmodel-flatlay-to-model': _T + '1780645919757_0jpqt5_HJ8WQ9WbIAApkYy.jpg',
+        'scene-white': _T + '1781684782153_2vzpgr_HK7T3TTXUAACV9f.jpg',
+        'scene-restore': _T + '1782028907000_r80lq8_HLPN7xGaQAAMyqY.jpg',
+        'avatar-studio': _T + '1782200278004_thj6jq_HLbworvXEAE7zAJ.jpg',
+        'avatar-id': _T + '1782028906257_7ytl5t_HLPN7PgagAArlFL.jpg',
+        'avatar-pixar': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
+        'layout-flatlay': _T + '1781941373581_vejcq0_HK-5lMlXkAAV8zn.jpg',
+        'layout-bento':
+            _T + '1768962051381_l9uih4_537980579-6f29d32a-c786-40c4-bd5a-79c640737496.png',
+        'poster-sale': _T + '1763885539326_yao7in_G6WBYReawAAcp2x.jpg',
+        'poster-tet': _T + '1767455034932_ivuvu0_G9V-MszakAEAIBw.jpg',
+        'poster-social': _T + '1780645919757_0jpqt5_HJ8WQ9WbIAApkYy.jpg',
+    };
+    IMAGE.forEach((p) => {
+        if (THUMBS[p.id]) p.thumb = THUMBS[p.id];
+    });
+
     // ───────────────────────── Vai trò chat (system prompt) ─────────────────────────
     // Pattern (theo x1xhlol/system-prompts): (1) định nghĩa vai trò, (2) năng lực, (3) giọng
     // điệu/ngôn ngữ, (4) ràng buộc, (5) định dạng output. Viết riêng cho shop thời trang VN.
@@ -385,12 +416,17 @@
         .aip-grid{overflow:auto;padding:12px 18px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
         .aip-card{border:1px solid var(--web2-border,#e2e8f0);border-radius:12px;padding:12px;cursor:pointer;
             background:var(--web2-surface,#fff);transition:border-color .15s,transform .12s,box-shadow .15s;display:flex;flex-direction:column;gap:6px}
+        .aip-card.has-thumb{padding:0;overflow:hidden}
+        .aip-card.has-thumb .aip-card-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px}
         .aip-card:hover{border-color:var(--web2-primary,#6366f1);transform:translateY(-2px);box-shadow:0 6px 18px rgba(99,102,241,.14)}
+        .aip-thumb{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;background:var(--web2-bg,#f1f5f9)}
+        .aip-thumb img{width:100%;height:100%;object-fit:cover;display:block}
         .aip-card h4{margin:0;font-size:.86rem;font-weight:700;line-height:1.3}
         .aip-card p{margin:0;font-size:.74rem;color:var(--web2-text-2,#64748b);line-height:1.4;
-            display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .aip-tag{align-self:flex-start;font-size:.66rem;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4f46e5;font-weight:600}
         .aip-tag.need{background:#fef3c7;color:#b45309}
+        .aip-tag.on-thumb{position:absolute;top:6px;left:6px;background:rgba(255,255,255,.92);box-shadow:0 1px 4px rgba(0,0,0,.18)}
         .aip-empty{padding:30px;text-align:center;color:var(--web2-text-3,#94a3b8);grid-column:1/-1}`;
         const s = document.createElement('style');
         s.textContent = css;
@@ -461,10 +497,12 @@
                 ? list
                       .map(
                           (p) =>
-                              `<div class="aip-card" data-id="${p.id}">
-                                <span class="aip-tag ${p.needsImage ? 'need' : ''}">${p.needsImage ? '🖼 cần ảnh gốc' : '✏️ tạo mới'}</span>
-                                <h4>${_esc(p.title)}</h4>
-                                <p>${_esc(p.prompt)}</p>
+                              `<div class="aip-card ${p.thumb ? 'has-thumb' : ''}" data-id="${p.id}">
+                                ${p.thumb ? `<div class="aip-thumb"><img src="${_esc(p.thumb)}" alt="" loading="lazy" onerror="this.closest('.aip-thumb').remove()"><span class="aip-tag ${p.needsImage ? 'need' : ''} on-thumb">${p.needsImage ? '🖼 cần ảnh gốc' : '✏️ tạo mới'}</span></div>` : `<span class="aip-tag ${p.needsImage ? 'need' : ''}">${p.needsImage ? '🖼 cần ảnh gốc' : '✏️ tạo mới'}</span>`}
+                                <div class="aip-card-body">
+                                    <h4>${_esc(p.title)}</h4>
+                                    <p>${_esc(p.prompt)}</p>
+                                </div>
                             </div>`
                       )
                       .join('')
