@@ -215,7 +215,7 @@
 
     async function onShow() {
         if (!inited) init();
-        // Cần Gemini (Nano Banana) đã cấu hình key + user có QUYỀN dùng (ảnh trả phí).
+        // Cần Gemini (Nano Banana) đã cấu hình key + user có QUYỀN dùng.
         const provs = H().state.status?.image?.providers || [];
         const gem = provs.find((p) => p.id === 'gemini');
         const warn = el('aihTryWarn');
@@ -235,7 +235,7 @@
                     if (j.ok && j.canUse === false) {
                         warn.hidden = false;
                         warn.textContent =
-                            '🔒 Bạn chưa được cấp quyền dùng Nano Banana (ảnh AI trả phí) — liên hệ admin.';
+                            '🔒 Bạn chưa được cấp quyền dùng Nano Banana — liên hệ admin.';
                     } else if (j.ok && !j.unlimited && typeof j.remaining === 'number') {
                         warn.hidden = false;
                         warn.style.color = 'var(--web2-text-2, #64748b)';

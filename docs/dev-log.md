@@ -12,6 +12,7 @@ Files: `web2/shared/web2-ai-presets.js`, `web2/shared/web2-user-profile.js`, `we
 - **Task 3 (chibi)**: xoá 5 mẫu chibi-\* (chibi-cute/brawl/figurine/plush/anime) + category `chibi` khỏi `web2-ai-presets.js` (chúng cần Nano Banana trả phí). Thêm 6 style **DiceBear chibi/cute FREE** (adventurer/big-smile/miniavs/micah/personas/croodles) dẫn đầu picker avatar `web2-user-profile.js` (18 style, default `adventurer`). DiceBear = generator avatar bằng seed, KHÔNG tốn API. Verify: 6 ảnh chibi load OK (naturalWidth 150, 0 broken).
 - **Task 4 (lightbox)**: bug "ảnh to dưới footer" KHÔNG repro trên code hiện tại (đã fix bởi commit 03:12 quản lý `display:none`). Hardening thêm: inject CSS guard `#web2ImageLightbox{position:fixed!important}` + `[hidden]{display:none!important}` (overlay KHÔNG bao giờ rớt về document flow), fix **race close-rồi-mở-lại-trong-180ms** (clear `_closeTimer` khi open → tránh ẩn nhầm ảnh mới). Verify: open=fixed top:0, reopen-after-race visible, close=display:none, 0 ảnh in-flow.
 - Bump version: `web2-ai-presets.js` 20260624f→h, `web2-user-profile.js` a→b, `web2-image-lightbox.js` a→b (sidebar autoload).
+- **Bỏ chữ "trả phí"** (user: "bỏ mấy chữ trả phí đi"): gỡ "(ảnh trả phí)"/"là ảnh AI trả phí" khỏi UI ai-hub (`index.html` keyhint, `ai-image.js` quota hint + comment, `ai-tryon.js` warn + comment). Nano Banana giờ chỉ ghi "cần quyền + giới hạn lượt/ngày". Bump `ai-image.js` e→f, `ai-tryon.js` c→d. Verify browser: 0 chữ "trả phí" hiển thị.
 
 ### [change] web2/users: hạ mật khẩu tối thiểu 8 → 6 ký tự
 

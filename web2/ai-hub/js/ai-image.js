@@ -240,7 +240,7 @@
         }
     }
 
-    // Hiển thị quota Nano Banana (ảnh trả phí) còn lại / hôm nay (hoặc cảnh báo thiếu quyền).
+    // Hiển thị quota Nano Banana còn lại / hôm nay (hoặc cảnh báo thiếu quyền).
     async function refreshQuota() {
         const hint = document.getElementById('aihQuotaHint');
         if (!hint) return;
@@ -254,8 +254,8 @@
             hint.hidden = false;
             hint.textContent =
                 j.canUse === false
-                    ? '🔒 Bạn chưa có quyền dùng Nano Banana (ảnh AI trả phí) — liên hệ admin.'
-                    : `🍌 Nano Banana (ảnh trả phí): còn ${j.remaining}/${j.limit} lượt hôm nay.`;
+                    ? '🔒 Bạn chưa có quyền dùng Nano Banana — liên hệ admin.'
+                    : `🍌 Nano Banana: còn ${j.remaining}/${j.limit} lượt hôm nay.`;
         } catch {
             hint.hidden = true;
         }
@@ -375,7 +375,7 @@
             if (!j.ok) throw new Error(j.error || 'Tạo ảnh thất bại');
             const srcUrl = j.url || j.dataUrl;
             renderCard(card, srcUrl, prompt, j.provider);
-            if (provider === 'gemini') refreshQuota(); // ảnh trả phí → cập nhật lượt còn lại
+            if (provider === 'gemini') refreshQuota(); // Nano Banana → cập nhật lượt còn lại
         } catch (e) {
             const msg =
                 e.name === 'TimeoutError' || e.name === 'AbortError'
