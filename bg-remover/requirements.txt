@@ -1,0 +1,7 @@
+# Server tách nền máy shop — rembg (U-2-Net, onnxruntime, CPU OK).
+rembg[cpu]
+onnxruntime
+fastapi
+uvicorn
+python-multipart
+pillow

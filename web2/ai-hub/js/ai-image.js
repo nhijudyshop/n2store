@@ -203,6 +203,23 @@
         }
     }
 
+    // ✂️ Tách nền ảnh (kết quả) qua máy shop tự host (Web2BgRemover) → card kết quả mới.
+    async function removeBgFromCard(src, prompt) {
+        const gallery = document.getElementById('aihGallery');
+        const card = document.createElement('div');
+        card.className = 'aih-imgcard loading';
+        card.innerHTML = '<div class="aih-spinner"></div><span>Đang tách nền…</span>';
+        gallery.prepend(card);
+        try {
+            const dataUrl = await global.Web2BgRemover.removeBgAuto(src);
+            renderCard(card, dataUrl, (prompt || '') + ' (đã tách nền)', 'tách nền');
+        } catch (e) {
+            card.classList.remove('loading');
+            card.innerHTML = `<div style="padding:14px;text-align:center;color:var(--web2-danger);font-size:.78rem">⚠️ ${H().escapeHtml(e.message || String(e))}</div>`;
+            H().toast('Tách nền: ' + (e.message || e), 'warning');
+        }
+    }
+
     async function onShow() {
         if (!inited) init();
         // Tự phục hồi nếu /status fail lúc boot → providers rỗng → dropdown trống (kẹt vĩnh viễn
@@ -391,6 +408,14 @@
             open.onclick = () => window.open(src, '_blank');
             bar.appendChild(dl);
             bar.appendChild(open);
+            // ✂️ Tách nền qua máy shop (free, on-device) — chỉ hiện nếu module có mặt.
+            if (global.Web2BgRemover) {
+                const cut = document.createElement('button');
+                cut.textContent = '✂️ Nền';
+                cut.title = 'Tách nền bằng máy shop (free)';
+                cut.onclick = () => removeBgFromCard(src, prompt);
+                bar.appendChild(cut);
+            }
             card.appendChild(bar);
         };
         img.onerror = () => {
