@@ -1,0 +1,129 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Sửa ảnh AI — Web 2.0</title>
+        <meta name="theme-color" content="#0068ff" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t6" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./ai-photo.css?v=20260624a" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="ap-wrap">
+                    <header class="ap-head">
+                        <h1><i data-lucide="wand-sparkles"></i> Sửa ảnh AI</h1>
+                        <p>
+                            Xóa/đổi nền (BiRefNet) · xóa logo/watermark · thêm logo/watermark · làm
+                            đẹp khuôn mặt · chỉnh nâng cao Photopea. Chạy 100% trên máy, miễn phí,
+                            không gửi ảnh đi đâu.
+                        </p>
+                    </header>
+
+                    <!-- Nguồn ảnh -->
+                    <section class="ap-input" id="apDrop" tabindex="0">
+                        <input type="file" id="apFile" accept="image/*" hidden />
+                        <div class="ap-empty" id="apEmpty">
+                            <i data-lucide="image-plus"></i>
+                            <div>Dán ảnh (Ctrl/⌘+V) · kéo-thả · hoặc bấm chọn ảnh</div>
+                        </div>
+                        <img id="apSrc" class="ap-src" alt="ảnh nguồn" hidden />
+                        <span class="ap-meta" id="apMeta" hidden></span>
+                    </section>
+
+                    <!-- Công cụ ảnh -->
+                    <section class="ap-tools" id="apTools" hidden>
+                        <div class="ap-group-h">🖼️ Công cụ ảnh</div>
+                        <div class="ap-grid">
+                            <button class="ap-tool" data-tool="bg">
+                                <i data-lucide="scissors"></i><span>Xóa / Đổi nền</span>
+                            </button>
+                            <button class="ap-tool" data-tool="erase">
+                                <i data-lucide="eraser"></i><span>Xóa logo / WM</span>
+                            </button>
+                            <button class="ap-tool" data-tool="watermark">
+                                <i data-lucide="stamp"></i><span>Thêm logo / WM</span>
+                            </button>
+                            <button class="ap-tool" data-tool="advanced">
+                                <i data-lucide="layers"></i><span>Nâng cao (Photopea)</span>
+                            </button>
+                        </div>
+
+                        <div class="ap-group-h">✨ Làm đẹp khuôn mặt</div>
+                        <div class="ap-grid">
+                            <button class="ap-tool" data-tool="auto">
+                                <i data-lucide="sparkles"></i><span>Tự động</span>
+                            </button>
+                            <button class="ap-tool" data-tool="smooth">
+                                <i data-lucide="droplets"></i><span>Mịn da</span>
+                            </button>
+                            <button class="ap-tool" data-tool="tone">
+                                <i data-lucide="palette"></i><span>Màu da</span>
+                            </button>
+                            <button class="ap-tool" data-tool="eyes">
+                                <i data-lucide="eye"></i><span>Mắt to</span>
+                            </button>
+                            <button class="ap-tool" data-tool="nose">
+                                <i data-lucide="triangle"></i><span>Mũi thon</span>
+                            </button>
+                            <button class="ap-tool" data-tool="face">
+                                <i data-lucide="scan-face"></i><span>Mặt V-line</span>
+                            </button>
+                            <button class="ap-tool" data-tool="lips">
+                                <i data-lucide="smile"></i><span>Môi</span>
+                            </button>
+                            <button class="ap-tool" data-tool="legs">
+                                <i data-lucide="move-vertical"></i><span>Kéo chân</span>
+                            </button>
+                        </div>
+                        <p class="ap-note">
+                            Bấm nhiều lần để tăng dần · kết quả chỉnh chồng tiếp được.
+                        </p>
+                    </section>
+
+                    <!-- Kết quả -->
+                    <section class="ap-result" id="apResult" hidden>
+                        <div class="ap-group-h">✅ Ảnh đã chỉnh</div>
+                        <div class="ap-result-img" id="apResultWrap"></div>
+                        <div class="ap-actions">
+                            <a class="ap-btn primary" id="apDownload" download="sua-anh-ai.png">
+                                <i data-lucide="download"></i> Tải PNG
+                            </a>
+                            <button class="ap-btn" id="apUseSrc">
+                                <i data-lucide="repeat"></i> Dùng làm ảnh nguồn (chỉnh tiếp)
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
+        <script src="../shared/web2-bgremover.js?v=20260624a"></script>
+        <script src="../shared/web2-bg-scene.js?v=20260624c"></script>
+        <script src="../shared/web2-logo-eraser.js?v=20260619a"></script>
+        <script src="../shared/web2-watermark.js?v=20260624a"></script>
+        <script src="../shared/web2-image-editor.js?v=20260619d"></script>
+        <script src="../shared/beauty/web2-beauty-filters.js?v=20260619b"></script>
+        <script src="../shared/beauty/web2-beauty-face.js?v=20260619c"></script>
+        <script src="../shared/beauty/web2-beauty-studio.js?v=20260619c"></script>
+        <script src="./js/ai-photo.js?v=20260624a"></script>
+        <script>
+            (function () {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'ai-photo' });
+                if (window.lucide) lucide.createIcons();
+                if (window.AiPhoto) AiPhoto.init();
+            })();
+        </script>
+    </body>
+</html>

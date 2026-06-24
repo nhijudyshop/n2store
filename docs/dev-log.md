@@ -2,6 +2,18 @@
 
 ## 2026-06-24
 
+### [feat] Trang "Sửa ảnh AI" mới (group AI) thay photo-editor cũ — gom mọi công cụ ảnh
+
+User: "photo-editor cũ/dở → xóa, làm trang mới bên group AI, gồm tất cả tính năng + model github tốt nhất (license kệ vì nội bộ)".
+
+Files: **NEW** `web2/ai-photo/` (index.html + js/ai-photo.js + ai-photo.css), **NEW** `web2/shared/web2-bg-scene.js`; sửa `web2/shared/web2-sidebar.js` (thêm "Sửa ảnh AI 🪄" vào group AI, bỏ "Chỉnh sửa ảnh" khỏi Đa dụng + route list); **XÓA** `web2/photo-editor/`.
+
+- **Trang tool-grid** điều phối các module dùng chung (KHÔNG dựng lại): `Web2BgScene` (xóa/đổi nền), `Web2LogoEraser` (xóa logo/WM), `Web2Watermark` (thêm logo/WM), `Web2BeautyStudio` (8 tool làm đẹp), `Web2ImageEditor` (nâng cao/Photopea). Input dán/kéo-thả/chọn; kết quả → chỉnh chồng tiếp.
+- **Web2BgScene** (xóa nền in-browser): transformers.js 3.8.1 pipeline `background-removal`. ⚠ Bug đã fix: pipeline KHÔNG có ở 3.0.2 (phải 3.8.1); BiRefNet_lite load được nhưng INFERENCE ném lỗi WASM (số 240595976) → refactor thử từng model load+inference trong CÙNG try, fallback, cache pipe chạy được. Model: **RMBG-1.4** (proven) → modnet fallback. Verify: cutout RMBG-1.4 ra PNG alpha 161KB ✓. + composite nền màu/ảnh/sinh-AI-Pollinations-free, server rembg (BiRefNet) nếu có máy.
+- **Verify browser**: 6 module load, 12 tool, set ảnh → tools hiện, cutout RMBG-1.4 OK, UI sạch (screenshot). bg-remover/app.py default → birefnet-general-lite (commit trước).
+
+## 2026-06-24
+
 ### [feat] Chấm công — nhóm 3a (widget Hôm nay) + nhóm 2 (Chốt lương + khoá kỳ)
 
 Files: `cham-cong-app.js`, `cham-cong-payroll.js`, `cham-cong-api.js`, `render.com/routes/web2-attendance.js`, `index.html`.

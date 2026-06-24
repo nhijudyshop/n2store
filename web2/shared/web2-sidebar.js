@@ -171,6 +171,10 @@
                     label: 'Trợ lý AI theo trang ✨',
                     our: '../web2/ai-assistant/index.html',
                 },
+                {
+                    label: 'Sửa ảnh AI 🪄',
+                    our: '../web2/ai-photo/index.html',
+                },
             ],
         },
         {
@@ -188,10 +192,6 @@
                 {
                     label: 'Tạo card sản phẩm 🖼️',
                     our: '../web2/product-card/index.html',
-                },
-                {
-                    label: 'Chỉnh sửa ảnh 🪄',
-                    our: '../web2/photo-editor/index.html',
                 },
                 {
                     label: 'Làm đẹp video ✨',
@@ -531,7 +531,7 @@
         'web2/product-counter/index.html',
         'web2/product-card/index.html',
         'web2/video-maker/index.html',
-        'web2/photo-editor/index.html',
+        'web2/ai-photo/index.html',
         'web2/video-beauty/index.html',
         'web2/ai-hub/index.html',
         'web2/users-permissions/index.html',
