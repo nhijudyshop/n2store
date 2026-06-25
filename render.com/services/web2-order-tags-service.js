@@ -29,7 +29,7 @@ const TRIGGERS = [
         id: 'cho_hang',
         label: 'Chờ hàng',
         group: 'Tồn kho / Sản phẩm',
-        desc: 'Đơn có ≥1 SP đang chờ hàng (web2_products.status = CHO_MUA — tồn 0, chờ NCC giao). Đơn này KHÔNG tạo được PBH, chỉ tạo Phiếu soạn hàng.',
+        desc: 'Giỏ hàng có ≥1 SP đang chờ hàng (web2_products.status = CHO_MUA — tồn 0, chờ NCC giao). Giỏ này KHÔNG tạo được PBH, chỉ tạo Phiếu soạn hàng.',
     },
     {
         id: 'am_ma',
@@ -41,13 +41,13 @@ const TRIGGERS = [
         id: 'het_hang',
         label: 'Hết hàng (tồn 0)',
         group: 'Tồn kho / Sản phẩm',
-        desc: 'Đơn có ≥1 SP tồn kho ≤ 0 (không tính SP chờ hàng).',
+        desc: 'Đơn/giỏ có ≥1 SP tồn kho ≤ 0 (không tính SP chờ hàng).',
     },
     {
         id: 'mua_1_phan',
         label: 'Mua 1 phần',
         group: 'Tồn kho / Sản phẩm',
-        desc: 'Đơn có ≥1 SP trạng thái MUA_1_PHAN (đã nhận một phần từ NCC, còn chờ phần còn lại).',
+        desc: 'Đơn/giỏ có ≥1 SP trạng thái MUA_1_PHAN (đã nhận một phần từ NCC, còn chờ phần còn lại).',
     },
     // PBH / Trạng thái
     {
@@ -66,7 +66,7 @@ const TRIGGERS = [
         id: 'is_draft',
         label: 'Giỏ hàng',
         group: 'PBH / Trạng thái',
-        desc: 'Đơn đang ở trạng thái Giỏ hàng (chưa tạo PBH).',
+        desc: 'Bản ghi đang ở trạng thái Giỏ hàng (chưa tạo PBH).',
     },
     {
         id: 'is_confirmed',
@@ -78,39 +78,39 @@ const TRIGGERS = [
         id: 'is_cancelled',
         label: 'Đã huỷ',
         group: 'PBH / Trạng thái',
-        desc: 'Đơn đã huỷ.',
+        desc: 'Đơn/giỏ đã huỷ.',
     },
     // Thanh toán
     {
         id: 'chua_nhan_ck',
         label: 'Chưa thanh toán',
         group: 'Thanh toán',
-        desc: 'Giỏ hàng chưa thanh toán đủ (chưa có CK xác nhận + số dư ví KH < tổng đơn).',
+        desc: 'Giỏ hàng chưa thanh toán đủ (chưa có CK xác nhận + số dư ví KH < tổng giỏ).',
     },
     {
         id: 'da_nhan_ck',
         label: 'Đã thanh toán',
         group: 'Thanh toán',
-        desc: 'Đơn đã thanh toán đủ — có CK xác nhận hoặc số dư ví KH ≥ tổng đơn (CK / ví / cọc nạp sẵn).',
+        desc: 'Đơn/giỏ đã thanh toán đủ — có CK xác nhận hoặc số dư ví KH ≥ tổng tiền (CK / ví / cọc nạp sẵn).',
     },
     {
         id: 'co_coc',
         label: 'Có đặt cọc',
         group: 'Thanh toán',
-        desc: 'Đơn có tiền đặt cọc > 0.',
+        desc: 'Đơn/giỏ có tiền đặt cọc > 0.',
     },
     // Giao hàng / Địa chỉ
     {
         id: 'thieu_dia_chi',
         label: 'Thiếu địa chỉ',
         group: 'Giao hàng',
-        desc: 'Đơn chưa có địa chỉ giao hàng.',
+        desc: 'Đơn/giỏ chưa có địa chỉ giao hàng.',
     },
     {
         id: 'thieu_sdt',
         label: 'Thiếu SĐT',
         group: 'Giao hàng',
-        desc: 'Đơn chưa có số điện thoại.',
+        desc: 'Đơn/giỏ chưa có số điện thoại.',
     },
     {
         id: 'ship_tinh',
@@ -129,39 +129,39 @@ const TRIGGERS = [
         id: 'gop_don',
         label: 'Đơn gộp',
         group: 'Cấu trúc đơn',
-        desc: 'Đơn được gộp từ nhiều đơn (merge).',
+        desc: 'Đơn/giỏ được gộp từ nhiều bản ghi (merge).',
     },
     {
         id: 'don_tach',
         label: 'Đơn tách',
         group: 'Cấu trúc đơn',
-        desc: 'Đơn tách (split_index ≥ 2 — vd 31-2, 31-3).',
+        desc: 'Đơn/giỏ tách (split_index ≥ 2 — vd 31-2, 31-3).',
     },
     {
         id: 'da_in',
         label: 'Đã in bill',
         group: 'Cấu trúc đơn',
-        desc: 'Đơn đã in bill/phiếu ≥ 1 lần (chống in trùng).',
+        desc: 'Đơn/giỏ đã in bill/phiếu ≥ 1 lần (chống in trùng).',
     },
     // Kênh
     {
         id: 'tu_livestream',
         label: 'Từ Livestream',
         group: 'Kênh',
-        desc: 'Đơn từ kênh livestream (web2_livestream).',
+        desc: 'Đơn/giỏ từ kênh livestream (web2_livestream).',
     },
     {
         id: 'tu_inbox',
         label: 'Từ Inbox',
         group: 'Kênh',
-        desc: 'Đơn từ kênh inbox (web2_inbox).',
+        desc: 'Đơn/giỏ từ kênh inbox (web2_inbox).',
     },
     // KPI
     {
         id: 'kpi_user',
         label: 'KPI User (người nhận KPI)',
         group: 'KPI',
-        desc: 'Pill ĐỘNG hiện TÊN nhân viên được tính KPI cho đơn. Livestream: theo dải STT đã phân công ở web2_kpi_assignments (khớp 100% dashboard KPI). Inbox: người tạo đơn (created_by, tính 100% SL). Bấm pill xem nguồn, cách resolve, base (lúc chốt) vs SL hiện tại, SL upsell + tiền KPI (×5.000đ/SP). Đơn livestream có STT KHÔNG nằm trong dải nào → pill ĐỎ báo lỗi chia dải (admin cần chia lại range cho đủ).',
+        desc: 'Pill ĐỘNG hiện TÊN nhân viên được tính KPI cho đơn/giỏ. Livestream: theo dải STT đã phân công ở web2_kpi_assignments (khớp 100% dashboard KPI). Inbox: người tạo đơn (created_by, tính 100% SL). Bấm pill xem nguồn, cách resolve, base (lúc chốt) vs SL hiện tại, SL upsell + tiền KPI (×5.000đ/SP). Bản ghi livestream có STT KHÔNG nằm trong dải nào → pill ĐỎ báo lỗi chia dải (admin cần chia lại range cho đủ).',
     },
 ];
 

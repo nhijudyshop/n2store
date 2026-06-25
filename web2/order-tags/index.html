@@ -1,11 +1,11 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Cấu hình TAG đơn hàng (auto theo trigger), dùng ở cột "Thẻ" trang Đơn Web. -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Cấu hình TAG Đơn Web (giỏ hàng chưa PBH + đơn hàng đã PBH; auto theo trigger), dùng ở cột "Thẻ" trang Đơn Web. -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
-        <title>TAG đơn hàng - WEB 2.0</title>
+        <title>TAG Đơn Web (giỏ hàng + đơn hàng) - WEB 2.0</title>
         <meta name="web2-db" content="render" />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -445,19 +445,20 @@
             <main class="main-content">
                 <div id="pageRoot">
                     <div class="ot-hint">
-                        🏷️ <strong>TAG đơn hàng</strong> tự động gắn vào cột <strong>Thẻ</strong> ở
+                        🏷️ <strong>TAG Đơn Web</strong> (giỏ hàng chưa PBH + đơn hàng đã PBH) tự
+                        động gắn vào cột <strong>Thẻ</strong> ở
                         <strong>Đơn Web (native-orders)</strong> theo <strong>trigger</strong>. Mỗi
                         thẻ chọn 1 trigger — vd <code>Phiếu bán hàng</code> (khi tạo PBH thành
-                        công), <code>Chờ hàng</code> (đơn có SP chờ hàng → KHÔNG tạo được PBH, chỉ
-                        tạo Phiếu soạn hàng), <code>Âm mã</code> (SP không đủ tồn, nhiều đơn giữ
-                        vượt tồn). Tag được <strong>tính tự động</strong> mỗi lần tải đơn — không
-                        gắn tay, không lưu cứng nên luôn đúng thực tế.
+                        công), <code>Chờ hàng</code> (giỏ hàng có SP chờ hàng → KHÔNG tạo được PBH,
+                        chỉ tạo Phiếu soạn hàng), <code>Âm mã</code> (SP không đủ tồn, nhiều giỏ
+                        hàng giữ vượt tồn). Tag được <strong>tính tự động</strong> mỗi lần tải danh
+                        sách Đơn Web — không gắn tay, không lưu cứng nên luôn đúng thực tế.
                     </div>
 
                     <div class="ot-header">
                         <div class="ot-title">
                             <i data-lucide="tags" style="width: 22px; height: 22px"></i>
-                            TAG đơn hàng
+                            TAG Đơn Web
                             <span class="counter-pill" id="otCount">— thẻ</span>
                         </div>
                         <div class="ot-actions">

@@ -1,6 +1,6 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 //
-// Cấu hình TAG đơn hàng — CRUD bảng web2_order_tags qua /api/web2-order-tags.
+// Cấu hình TAG Đơn Web (giỏ hàng/đơn hàng) — CRUD bảng web2_order_tags qua /api/web2-order-tags.
 // Mỗi thẻ gắn 1 trigger (registry server). Hiển thị card + modal có live preview pill.
 // Pill render dùng chung Web2OrderTagPill (cùng renderer với cột "Thẻ" native-orders).
 (function () {
@@ -516,7 +516,7 @@
 
     async function removeTag(code) {
         const ok = window.Popup
-            ? await window.Popup.danger('Xoá thẻ này? Đơn sẽ không còn gắn thẻ này nữa.', {
+            ? await window.Popup.danger('Xoá thẻ này? Đơn/giỏ sẽ không còn gắn thẻ này nữa.', {
                   title: `Xoá "${code}"?`,
                   okText: 'Xoá',
               })

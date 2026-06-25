@@ -2,6 +2,16 @@
 
 ## 2026-06-25
 
+### [order-tags][render] Audit vòng 3 — reframe TOÀN BỘ chữ "đơn hàng" trang order-tags (workflow)
+
+User: '"trang order-tags thấy rất nhiều chữ đơn hàng"'. Bulk text ấy = **20 mô tả trigger** (render từ backend `/triggers`) + tiêu đề/intro/heading, đa số mở đầu "Đơn…". Dùng **Workflow** (ultracode): 3 nguồn × (classify → adversarial verify) đối chiếu TỪNG chuỗi với **predicate ground-truth** (khi nào trigger fire) → 6 agent, 23 sửa verbatim, áp bằng script (match-once, 23/23 OK, 0 fail).
+
+- **Quy tắc**: predicate fire chỉ khi `draft`/chưa-PBH ⇒ "Giỏ hàng"; chỉ khi confirmed/PBH ⇒ giữ "Đơn hàng"; cả hai ⇒ trung tính "Đơn/giỏ" hoặc "Bản ghi" (KHÔNG để "đơn hàng" trơ trọi gây hiểu đã chốt).
+- **Catalog `web2-order-tags-service.js` (16 desc)**: `cho_hang`→"Giỏ hàng…" (chờ hàng ⇒ không lên PBH = giỏ); `is_draft` desc→"Bản ghi đang ở trạng thái Giỏ hàng"; BOTH (`het_hang`,`mua_1_phan`,`co_coc`,`thieu_dia_chi/sdt`,`gop_don`,`don_tach`,`da_in`,`tu_livestream/inbox`,`da_nhan_ck`,`kpi_user`,`is_cancelled`)→"Đơn/giỏ". **Giữ** ORDER-only (`pbh_created`,`pbh_chua_tt`,`is_confirmed` = đã PBH = "Đơn hàng").
+- **`index.html`**: `<title>` + heading "TAG đơn hàng"→"TAG Đơn Web (giỏ hàng + đơn hàng)"; intro làm rõ tag áp cả giỏ (chưa PBH) lẫn đơn (đã PBH); ví dụ Chờ hàng/Âm mã→"giỏ hàng".
+- **`order-tags-app.js`**: confirm xoá "Đơn sẽ không…"→"Đơn/giỏ…". Header #Note 2 file →"TAG Đơn Web".
+- Verify: `node --check` OK; browser localhost — title/heading/intro reframe live, 0 lỗi console. Backend desc cần web2-api redeploy → trigger list live. Status ✅
+
 ### [order-tags][web2/shared][render] Audit vòng 2 — sót trang order-tags + shared modules
 
 User: '"vẫn sót trang order-tags → audit không kĩ toàn bộ web 2.0"'. Sweep lại TOÀN BỘ web2/ + render backend cho mọi nhãn native-order CHƯA-PBH. Tìm & sửa 7 chỗ sót (giữ nguyên domain khác: PBH/hóa đơn nháp, so-order NCC nháp, returns nháp, Web 1.0 customer-hub).
