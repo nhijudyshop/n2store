@@ -40,7 +40,12 @@
             s.src = src;
             s.async = false;
             s.onload = () => resolve();
-            s.onerror = () => reject(new Error('load ' + src));
+            // Lỗi mạng tạm → XOÁ cache promise (không kẹt reject vĩnh viễn) → mở lại tool
+            // sau còn retry được, khỏi phải F5.
+            s.onerror = () => {
+                delete _ls[src];
+                reject(new Error('load ' + src));
+            };
             (document.head || document.documentElement).appendChild(s);
         });
         return _ls[src];
@@ -48,7 +53,7 @@
 
     // Công cụ ngoài chat (mount vào panel): Ghép đồ · Card/Video · AI viết mô tả.
     // Mỗi tool tự lazy-load module shared khi mở lần đầu (không nặng trang lúc boot).
-    const TOOL_VER = '20260625a';
+    const TOOL_VER = '20260625b';
     const TOOL_DEFS = {
         tryon: {
             label: '👕 Ghép đồ',
@@ -87,6 +92,7 @@
     };
     let _mode = 'chat'; // 'chat' | 'tryon' | 'content' | 'describe'
     const _tools = {}; // mode → mounted instance (mount 1 lần, giữ lại)
+    const _mounting = {}; // mode → đang lazy-load/mount (chặn double-mount khi click nhanh)
 
     const CFG_KEY = 'web2_ai_assistant';
     const HIST_PREFIX = 'web2_ai_hist:'; // + pathname (persist hội thoại theo trang)
@@ -1017,19 +1023,24 @@
         tool.querySelectorAll('.w2aa-toolpane').forEach(
             (p) => (p.hidden = p.dataset.tool !== mode)
         );
-        if (_tools[mode]) return; // đã mount → giữ nguyên state
+        // Đã mount HOẶC đang mount (lazy-load dở) → KHÔNG mount lần 2 (click nhanh 2 lần
+        // khi đang tải module qua mạng sẽ tạo 2 instance, instance đầu bị mồ côi listener/abort).
+        if (_tools[mode] || _mounting[mode]) return;
         const pane = tool.querySelector(`.w2aa-toolpane[data-tool="${mode}"]`);
         const def = TOOL_DEFS[mode];
+        _mounting[mode] = true;
         pane.innerHTML = '<div class="w2aa-toolload">Đang tải công cụ…</div>';
         try {
             await def.ensure();
-            if (_mode !== mode) return; // user đã đổi chế độ khi đang tải
+            if (_mode !== mode || _tools[mode]) return; // user đã đổi chế độ / đã mount khi đang tải
             pane.innerHTML = '';
             _tools[mode] = def.mount(pane);
         } catch (e) {
             pane.innerHTML = `<div class="w2aa-toolerr">⚠️ Không tải được công cụ: ${esc(
                 e.message || e
             )}</div>`;
+        } finally {
+            _mounting[mode] = false;
         }
     }
 

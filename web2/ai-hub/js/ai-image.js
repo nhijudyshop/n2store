@@ -165,7 +165,9 @@
         if (f) f.value = '';
     }
 
-    // #2 — Nút AI viết mô tả: nhập ngắn → LLM mở rộng thành prompt chi tiết tạo ảnh.
+    // #2 — Nút "AI viết mô tả": nhập ngắn → mở rộng thành prompt EN chi tiết tạo ảnh.
+    // Điều phối module shared Web2AiDescribe (web2/shared/web2-ai-describe.js) — 1 NGUỒN
+    // dùng chung với widget ✨; KHÔNG tự dựng lại call /complete ở đây.
     async function enhancePrompt() {
         const ta = document.getElementById('aihImgPrompt');
         const seed = ta.value.trim();
@@ -175,24 +177,9 @@
         btn.disabled = true;
         btn.innerHTML = 'Đang viết…';
         try {
-            // /complete = failover gemini→groq→openrouter (1 provider quá tải vẫn chạy);
-            // maxTokens cao để prompt không bị cắt giữa chừng (model suy luận đốt token).
-            const r = await fetch(H().API() + '/complete', {
-                method: 'POST',
-                headers: H().authHeaders(true),
-                body: JSON.stringify({
-                    providers: ['gemini', 'groq', 'openrouter'],
-                    // 2026-06-24 (user request): user nhập tiếng Việt → trả prompt
-                    // bằng TIẾNG ANH (image model ăn prompt tiếng Anh tốt hơn nhiều).
-                    system: 'You are an expert at writing prompts for AI fashion/product image generation. The user gives a SHORT description (usually in Vietnamese). Expand it into ONE detailed prompt (1-3 sentences) IN ENGLISH: clearly state the product, setting/background, lighting, camera angle, style, and material. Output ONLY the final English prompt — no explanation, no markdown, no extra line breaks, no Vietnamese.',
-                    messages: [{ role: 'user', content: seed }],
-                    maxTokens: 1024,
-                    temperature: 0.8,
-                }),
-            });
-            const j = await r.json();
-            if (!j.ok || !j.text) throw new Error(j.error || 'AI không trả nội dung');
-            ta.value = j.text.trim();
+            if (!global.Web2AiDescribe) throw new Error('Module viết mô tả chưa sẵn sàng');
+            const text = await global.Web2AiDescribe.describe({ seed, kind: 'image-prompt' });
+            ta.value = text;
             H().toast('AI đã viết mô tả chi tiết ✨', 'success');
         } catch (e) {
             H().toast('Lỗi AI viết mô tả: ' + (e.message || e), 'error');

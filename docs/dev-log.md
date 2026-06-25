@@ -2,6 +2,22 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI: thêm 3 CÔNG CỤ dùng chung vào widget ✨ (Ghép đồ · Card/Video · AI viết mô tả)
+
+User: trên `web2/ai-hub` — "hình 2 (Ghép đồ), hình 3 (Tạo Card/Video) cho dùng chung, module AI viết mô tả như hình 1". Chọn **"Trong nút ✨ Trợ lý AI nổi"** → 3 tính năng vốn khoá trong ai-hub giờ tách thành module shared + surface trong widget nổi MỌI trang Web 2.0. ai-hub cũng REUSE chính module shared (1 nguồn, KHÔNG fork).
+
+**3 module shared MỚI** (`web2/shared/`, mountable, tự chứa auth/base + degrade mượt):
+
+- `web2-ai-describe.js` (`window.Web2AiDescribe`): "AI viết mô tả" — nhập ngắn → `/api/web2-ai/complete` mở rộng. API `describe({seed,kind})` (kind: image-prompt EN · product-desc · fb-caption · generic), `attach({button,input,kind})` (gắn nút+textarea kiểu hình 1), `mountPanel(el,{kinds})`.
+- `web2-tryon.js` (`window.Web2Tryon.mount(el,{compact})`): Ghép đồ Nano Banana (người + 1..5 áo + phong cảnh) — tách từ ai-tryon.js, dùng Web2VideoStock/AiPresets nếu có, quota-warn, nén ảnh ≤1280.
+- `web2-content-maker.js` (`window.Web2ContentMaker.mount(el,{compact})`): Tạo Card/Bài đăng/Video từ data — điều phối Web2HtmlSkill + Web2VideoRender (đã shared). **Tự lazy-load deps** (html-skill, video-render, DOMPurify, html2canvas) → drop-in mọi trang.
+
+**Widget** `web2-ai-assistant.js`: thêm thanh chế độ `.w2aa-modes` (Hỏi đáp · Ghép đồ · Card/Video · Viết mô tả). Mỗi tool **lazy-load module shared khi mở lần đầu** (KHÔNG nặng boot — widget có mặt mọi trang), mount 1 lần vào toolpane riêng (giữ state), panel **tự rộng** (880px) cho ghép đồ/card-video. Base lazy-load suy từ `document.currentScript.src`. Hỏi/Đọc-DB tự về chế độ Hỏi đáp. Bump autoload `v=20260625d`.
+
+**ai-hub reuse** (1 nguồn): `ai-tryon.js`/`ai-html.js` thành thin-wrapper mount `Web2Tryon`/`Web2ContentMaker` vào `#aihTryMount`/`#aihHtml`; `ai-image.js` enhancePrompt gọi `Web2AiDescribe.describe({kind:'image-prompt'})`. Bỏ ~430 dòng logic trùng. index.html load 3 module shared + mount-height CSS.
+
+**Verify** (browser localhost, console-first): 4 mode tab render ✓; describe lazy-load + 4 kind + textarea/button ✓; tryon lazy-load + VideoStock + panel rộng + 2 nút kho ảnh + preset ✓; content lazy-load CẢ deps (html-skill/video-render/DOMPurify/html2canvas) + 6 skill + preview ✓; switch về chat khôi phục composer + un-wide ✓; **0 console error** suốt. ⚠ AI call live 401 = session test `admin/admin@@` là LEGACY login (không phải web2-users) → endpoint web2-ai từ chối; request shape giống hệt ai-hub đang chạy prod. node --check 8/8 file OK.
+
 ### [web2/shared] Trợ lý AI: ĐỌC DB THÔNG MINH + audit 23 trang → 19 DB_SOURCES
 
 User: "AI đọc DB có thông minh không? DB nhiều có sao?" + "audit toàn bộ trang/dữ liệu (đọc system dashboard) thêm cho hợp lý".

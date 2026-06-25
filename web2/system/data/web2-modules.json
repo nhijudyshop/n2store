@@ -1,18 +1,18 @@
 {
-    "generatedAt": "2026-06-24T10:30:55.979Z",
+    "generatedAt": "2026-06-25T04:45:11.989Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
-        "sharedModules": 126,
+        "sharedModules": 134,
         "pages": 43,
         "backendRoutes": 57,
         "backendServices": 35,
-        "frontendFiles": 422,
-        "functions": 3341
+        "frontendFiles": 431,
+        "functions": 3412
     },
     "sharedByCategory": {
+        "other": 37,
         "beauty": 3,
         "chat": 35,
-        "other": 29,
         "popup-ui": 6,
         "format-util": 13,
         "qr-barcode": 3,
@@ -33,12 +33,23 @@
     },
     "shared": [
         {
+            "file": "web2/shared/beauty/web2-beauty-face-worker.js",
+            "name": "web2-beauty-face-worker",
+            "globals": [],
+            "purpose": "WEB2.0 — MODULE worker: nhận diện khuôn mặt NỀN (không đứng UI).",
+            "api": [],
+            "lines": 57,
+            "consumerCount": 0,
+            "consumerPages": [],
+            "category": "other"
+        },
+        {
             "file": "web2/shared/beauty/web2-beauty-face.js",
             "name": "Web2BeautyFace",
             "globals": ["Web2BeautyFace"],
             "purpose": "Face landmarks detection for beauty effects",
             "api": [],
-            "lines": 365,
+            "lines": 448,
             "consumerCount": 4,
             "consumerPages": ["web2/video-beauty"],
             "category": "beauty"
@@ -49,8 +60,8 @@
             "globals": ["Web2BeautyFilters"],
             "purpose": "Beauty pixel processing filters engine",
             "api": [],
-            "lines": 397,
-            "consumerCount": 4,
+            "lines": 399,
+            "consumerCount": 5,
             "consumerPages": ["web2/video-beauty"],
             "category": "beauty"
         },
@@ -60,10 +71,21 @@
             "globals": ["Web2BeautyStudio"],
             "purpose": "Beauty studio UI editor",
             "api": [],
-            "lines": 524,
+            "lines": 607,
             "consumerCount": 1,
             "consumerPages": ["web2/ai-photo"],
             "category": "beauty"
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-worker.js",
+            "name": "web2-beauty-worker",
+            "globals": [],
+            "purpose": "WEB2.0 — Web Worker xử lý lọc làm đẹp NỀN (không đứng UI).",
+            "api": [],
+            "lines": 45,
+            "consumerCount": 0,
+            "consumerPages": [],
+            "category": "other"
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
@@ -208,9 +230,31 @@
             "globals": ["Web2AiAssistant"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 395,
-            "consumerCount": 2,
+            "lines": 1134,
+            "consumerCount": 3,
             "consumerPages": ["web2/ai-assistant"],
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-ai-describe.js",
+            "name": "Web2AiDescribe",
+            "globals": ["Web2AiDescribe"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 298,
+            "consumerCount": 2,
+            "consumerPages": ["web2/ai-hub"],
+            "category": "other"
+        },
+        {
+            "file": "web2/shared/web2-ai-page-registry.js",
+            "name": "Web2CkReview",
+            "globals": ["Web2CkReview", "Web2UnreadPanel", "Web2AiPageRegistry"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 1669,
+            "consumerCount": 5,
+            "consumerPages": ["native-orders", "web2/ck-dashboard"],
             "category": "other"
         },
         {
@@ -264,7 +308,7 @@
             "purpose": "Audit log display",
             "api": [],
             "lines": 380,
-            "consumerCount": 19,
+            "consumerCount": 20,
             "consumerPages": [
                 "native-orders",
                 "so-order",
@@ -292,7 +336,7 @@
             "purpose": "Token storage and page guard",
             "api": [],
             "lines": 246,
-            "consumerCount": 127,
+            "consumerCount": 132,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -359,8 +403,8 @@
             "purpose": "WEB2.0 shared module.",
             "api": [],
             "lines": 325,
-            "consumerCount": 1,
-            "consumerPages": ["web2/ai-photo"],
+            "consumerCount": 2,
+            "consumerPages": ["web2/ai-photo", "web2/product-card"],
             "category": "other"
         },
         {
@@ -514,7 +558,7 @@
             "purpose": "CK verification review",
             "api": [],
             "lines": 494,
-            "consumerCount": 2,
+            "consumerCount": 3,
             "consumerPages": ["native-orders", "web2/ck-dashboard"],
             "category": "other"
         },
@@ -528,6 +572,17 @@
             "consumerCount": 1,
             "consumerPages": [],
             "category": "sidebar-nav"
+        },
+        {
+            "file": "web2/shared/web2-content-maker.js",
+            "name": "Web2ContentMaker",
+            "globals": ["Web2ContentMaker"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 341,
+            "consumerCount": 2,
+            "consumerPages": ["web2/ai-hub"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-customer-chat-core.js",
@@ -708,7 +763,7 @@
             "purpose": "Facebook Graph API client",
             "api": [],
             "lines": 120,
-            "consumerCount": 8,
+            "consumerCount": 9,
             "consumerPages": ["web2/fb-ads-stats", "web2/fb-insights", "web2/fb-posts"],
             "category": "other"
         },
@@ -772,6 +827,25 @@
                 "web2/reconcile"
             ],
             "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-html-skill.js",
+            "name": "Web2HtmlSkill",
+            "globals": ["Web2HtmlSkill"],
+            "purpose": "WEB2.0 shared — sinh HTML đẹp từ data bằng AI free.",
+            "api": [
+                "Web2HtmlSkill.skills() → [{id,label,emoji,surface,size,hint}]",
+                "Web2HtmlSkill.skill(id) → meta 1 skill",
+                "Web2HtmlSkill.generate({skillId,data,onDelta,signal,extra}) → Promise<htmlString>",
+                "Web2HtmlSkill.cleanHtml(raw) → bỏ ```fences / text thừa",
+                "Web2HtmlSkill.renderToIframe(iframeEl, html) → srcdoc sandbox",
+                "Web2HtmlSkill.exportPng(iframeEl, filename) → html2canvas (nếu có) → tải PNG",
+                "Web2HtmlSkill.exportHtml(html, filename) → tải .html"
+            ],
+            "lines": 327,
+            "consumerCount": 3,
+            "consumerPages": ["web2/ai-hub", "web2/product-card"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-idb-store.js",
@@ -856,7 +930,7 @@
             "purpose": "KPI utilities",
             "api": [],
             "lines": 97,
-            "consumerCount": 4,
+            "consumerCount": 5,
             "consumerPages": ["native-orders", "web2/kpi"],
             "category": "kpi"
         },
@@ -877,7 +951,7 @@
             "globals": ["Web2LogoEraser"],
             "purpose": "Logo removal from images",
             "api": [],
-            "lines": 379,
+            "lines": 496,
             "consumerCount": 3,
             "consumerPages": ["web2/ai-photo", "web2/product-card"],
             "category": "image"
@@ -1026,7 +1100,7 @@
             "purpose": "Order tag pill component",
             "api": [],
             "lines": 93,
-            "consumerCount": 2,
+            "consumerCount": 3,
             "consumerPages": ["native-orders", "web2/order-tags"],
             "category": "popup-ui"
         },
@@ -1174,7 +1248,7 @@
             "purpose": "Products cache with Firestore sync",
             "api": [],
             "lines": 324,
-            "consumerCount": 22,
+            "consumerCount": 23,
             "consumerPages": [
                 "so-order",
                 "web2/fb-posts",
@@ -1258,7 +1332,7 @@
             "globals": ["Web2Sidebar"],
             "purpose": "Main sidebar navigation",
             "api": [],
-            "lines": 853,
+            "lines": 945,
             "consumerCount": 16,
             "consumerPages": [
                 "web2/cham-cong",
@@ -1286,7 +1360,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "lines": 605,
-            "consumerCount": 5,
+            "consumerCount": 6,
             "consumerPages": [],
             "category": "other"
         },
@@ -1410,13 +1484,24 @@
             "category": "format-util"
         },
         {
+            "file": "web2/shared/web2-tryon.js",
+            "name": "Web2Tryon",
+            "globals": ["Web2Tryon"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "lines": 402,
+            "consumerCount": 2,
+            "consumerPages": ["web2/ai-hub"],
+            "category": "other"
+        },
+        {
             "file": "web2/shared/web2-unread-panel.js",
             "name": "Web2UnreadPanel",
             "globals": ["Web2UnreadPanel"],
             "purpose": "Unread messages panel",
             "api": [],
             "lines": 151,
-            "consumerCount": 1,
+            "consumerCount": 2,
             "consumerPages": ["web2/ck-dashboard"],
             "category": "other"
         },
@@ -1486,9 +1571,24 @@
             "purpose": "Variants cache with Firestore",
             "api": [],
             "lines": 253,
-            "consumerCount": 12,
+            "consumerCount": 13,
             "consumerPages": ["so-order", "web2/products", "web2/variants"],
             "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-video-render.js",
+            "name": "Web2VideoRender",
+            "globals": ["Web2VideoRender"],
+            "purpose": "WEB2.0 shared — render HTML→MP4 qua máy shop (HyperFrames).",
+            "api": [
+                "Web2VideoRender.listMachines() → [{name,url,ageSec}]",
+                "Web2VideoRender.pickOnline() → url máy online đầu tiên | null",
+                "Web2VideoRender.render({html, machineUrl?, signal}) → { blob, url } (object URL MP4)"
+            ],
+            "lines": 91,
+            "consumerCount": 5,
+            "consumerPages": ["web2/ai-hub", "web2/video-maker"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-vieneu.js",
@@ -1983,9 +2083,9 @@
         },
         {
             "page": "web2/ai-hub",
-            "fileCount": 5,
-            "totalLines": 1873,
-            "globals": ["AiChat", "AiHub", "AiImage", "AiKeys", "AiTryon"],
+            "fileCount": 6,
+            "totalLines": 1669,
+            "globals": ["AiChat", "AiHtml", "AiHub", "AiImage", "AiKeys", "AiTryon"],
             "oversized": [],
             "usesShared": [
                 {
@@ -1997,15 +2097,35 @@
                     "category": "format-util"
                 },
                 {
+                    "name": "Web2AiDescribe",
+                    "category": "other"
+                },
+                {
                     "name": "Web2AiPresets",
                     "category": "other"
                 },
                 {
                     "name": "Web2BgRemover",
                     "category": "other"
+                },
+                {
+                    "name": "Web2ContentMaker",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2HtmlSkill",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Tryon",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2VideoRender",
+                    "category": "other"
                 }
             ],
-            "usesSharedCount": 4
+            "usesSharedCount": 9
         },
         {
             "page": "web2/ai-photo",
@@ -2896,16 +3016,24 @@
         {
             "page": "web2/product-card",
             "fileCount": 2,
-            "totalLines": 811,
+            "totalLines": 955,
             "globals": ["Web2ProductCard", "ProductCardPage"],
             "oversized": [],
             "usesShared": [
+                {
+                    "name": "Web2BgScene",
+                    "category": "other"
+                },
                 {
                     "name": "Web2Escape",
                     "category": "format-util"
                 },
                 {
                     "name": "Web2FbShare",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2HtmlSkill",
                     "category": "other"
                 },
                 {
@@ -2925,7 +3053,7 @@
                     "category": "qr-barcode"
                 }
             ],
-            "usesSharedCount": 6
+            "usesSharedCount": 8
         },
         {
             "page": "web2/product-counter",
@@ -3182,8 +3310,8 @@
         },
         {
             "page": "web2/shared",
-            "fileCount": 126,
-            "totalLines": 35348,
+            "fileCount": 134,
+            "totalLines": 39694,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -3196,20 +3324,28 @@
                 "Web2Page",
                 "Popup",
                 "Web2AiAssistant",
+                "Web2AiDescribe",
+                "Web2CkReview",
+                "Web2UnreadPanel",
+                "Web2AiPageRegistry",
                 "Web2AiPresets",
                 "AiPresets",
                 "Web2ApiFetch",
                 "Web2Api",
-                "Web2AttendanceInstaller",
-                "Web2AuditLog",
-                "WEB2_CONFIG",
-                "API_CONFIG",
-                "Web2Auth"
+                "Web2AttendanceInstaller"
             ],
             "oversized": [
                 {
+                    "file": "web2/shared/web2-ai-assistant.js",
+                    "lines": 1134
+                },
+                {
+                    "file": "web2/shared/web2-ai-page-registry.js",
+                    "lines": 1669
+                },
+                {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 853
+                    "lines": 945
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
@@ -3326,7 +3462,7 @@
         {
             "page": "web2/system",
             "fileCount": 5,
-            "totalLines": 1447,
+            "totalLines": 1481,
             "globals": ["SystemModules", "SystemServices", "SystemSSE", "SystemThirdParty"],
             "oversized": [],
             "usesShared": [
@@ -3489,11 +3625,15 @@
                     "category": "format-util"
                 },
                 {
+                    "name": "Web2VideoRender",
+                    "category": "other"
+                },
+                {
                     "name": "Web2Vieneu",
                     "category": "voice-tts"
                 }
             ],
-            "usesSharedCount": 7
+            "usesSharedCount": 8
         },
         {
             "page": "web2/zalo",
@@ -3598,7 +3738,7 @@
                 "file": "render.com/routes/services-overview.js",
                 "kind": "route",
                 "purpose": "SERVICES OVERVIEW — tổng hợp DB stats + service inventory",
-                "lines": 329
+                "lines": 383
             },
             {
                 "file": "render.com/routes/wallet-deposits.js",
@@ -3790,7 +3930,7 @@
                 "file": "render.com/routes/web2-users.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 USERS — user account system riêng cho Web 2.0",
-                "lines": 1301
+                "lines": 1312
             },
             {
                 "file": "render.com/routes/web2-variants.js",

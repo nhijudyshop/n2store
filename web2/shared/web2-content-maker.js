@@ -58,7 +58,12 @@
                 s.dataset.w2cmLoaded = '1';
                 resolve();
             };
-            s.onerror = () => reject(new Error('load ' + src));
+            // Lỗi mạng tạm → XOÁ cache promise (KHÔNG kẹt reject vĩnh viễn) để lần sau
+            // mở lại tool còn retry được, khỏi phải F5.
+            s.onerror = () => {
+                delete _loading[src];
+                reject(new Error('load ' + src));
+            };
             (document.head || document.documentElement).appendChild(s);
         });
         return _loading[src];
@@ -300,12 +305,25 @@
                 renderBtn.disabled = !state.html || !isVideo();
             }
         }
+        // "Mở tab" xem trước HTML do AI sinh. KHÔNG mở blob:/data: trực tiếp ở tab mới —
+        // blob: thừa hưởng ORIGIN app → <script> trong HTML (AI có thể bị prompt-inject từ
+        // data dán vào) chạy với quyền app, đọc được token web2 trong localStorage. Thay vào
+        // đó nhúng HTML vào IFRAME sandbox="allow-scripts" (KHÔNG allow-same-origin → opaque
+        // origin): script vẫn chạy (vd GSAP xem video) nhưng KHÔNG chạm được origin/token app.
         function openTab() {
             if (!state.html) return;
-            const blob = new Blob([state.html], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-            setTimeout(() => URL.revokeObjectURL(url), 4000);
+            const w = window.open('', '_blank');
+            if (!w) return toast('Trình duyệt chặn popup — cho phép rồi thử lại', 'warning');
+            const srcdoc = state.html.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            w.document.write(
+                '<!doctype html><meta charset="utf-8"><title>Xem trước nội dung</title>' +
+                    '<style>html,body{margin:0;height:100%;background:#0f172a}' +
+                    'iframe{border:0;display:block;width:100vw;height:100vh}</style>' +
+                    '<iframe sandbox="allow-scripts" srcdoc="' +
+                    srcdoc +
+                    '"></iframe>'
+            );
+            w.document.close();
         }
 
         wrap.querySelectorAll('.w2cm-skill').forEach((b) =>
