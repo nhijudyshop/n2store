@@ -713,6 +713,49 @@ router.post('/accounts/:key/disconnect', requireWeb2Admin, async (req, res) => {
     }
 });
 
+// ── Focus-lease (2026-06-25): tab công cụ (web2/zalo | jt-tracking) đang FOCUS gửi
+// heartbeat giữ phiên; mất focus/đóng → release → server nhường chat.zalo.me (hết
+// spam "Đổi thiết bị"). KHÔNG admin-gate (chỉ là tín hiệu hiện diện), owner-scoped
+// nhẹ qua cache. Xem reference_zalo_focus_lease.
+function _ownsAccountCached(req, key) {
+    // owner từ header (fetch) HOẶC body._owner (sendBeacon lúc đóng tab — không set được header).
+    const owner =
+        _owner(req) ||
+        (req.body && typeof req.body._owner === 'string'
+            ? req.body._owner.trim().slice(0, 80)
+            : null);
+    if (!owner) return false;
+    const known = _ownerByAccount.get(key);
+    // known === undefined: chưa biết chủ (slot vừa tạo / cache chưa nạp) → cho qua best-effort.
+    return known === undefined || known === null || known === owner;
+}
+
+// Heartbeat khi tab công cụ focus → gia hạn lease. Trả {connected} để FE biết có cần
+// acquire (login-cookie) hay chỉ giữ.
+router.post('/accounts/:key/lease', (req, res) => {
+    try {
+        if (!_ownsAccountCached(req, req.params.key))
+            return res.status(403).json({ success: false, error: 'not_owner' });
+        const r = zca.touchLease(req.params.key);
+        res.json({ success: true, ...r });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Tab công cụ mất focus / đóng → nhường phiên ngay (beacon khi đóng tab).
+router.post('/accounts/:key/release', (req, res) => {
+    try {
+        if (!_ownsAccountCached(req, req.params.key))
+            return res.status(403).json({ success: false, error: 'not_owner' });
+        const r = zca.releaseLease(req.params.key);
+        _notify(_ownerTopic(req.params.key, 'accounts'), 'update', req.params.key);
+        res.json({ success: true, ...r });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // (Route /primary đã GỠ 2026-06-23 — per-máy owner-scoped: không có TK chính toàn
 // cục. Mỗi máy dùng account của chính mình; tin KH 1-1 = account đang connected của máy.)
 

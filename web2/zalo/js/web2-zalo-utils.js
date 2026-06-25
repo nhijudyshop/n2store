@@ -115,6 +115,7 @@
         disconnected: 'Ngắt kết nối',
         banned: 'Bị khoá',
         kicked: 'Bị giành phiên (mở nơi khác?)',
+        yielded: 'Đang nhường chat.zalo.me',
         reconnecting: 'Đang kết nối lại…',
         error: 'Lỗi',
         offline: 'Offline',

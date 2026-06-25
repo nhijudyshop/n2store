@@ -50,6 +50,12 @@ const KICK_CAP = 4; // số lần bị kick LIÊN TIẾP trước khi nghỉ dà
 const KICK_COOLDOWN_MS = 10 * 60 * 1000; // nghỉ sau khi đụng trần kick (TK đang mở nơi khác)
 const RECONNECT_COOLDOWN_MS = 3000; // chờ WS cũ đóng hẳn trước re-login (tránh tự-kick)
 const MAX_RECONNECT_ATTEMPTS = 10; // sau ngần này lần fail (cookie hết hạn?) → bỏ cuộc, chờ login lại tay (tránh hammer Zalo → ban)
+// ── Focus-lease (2026-06-25): Zalo Web = 1 phiên/TK → công cụ + chat.zalo.me đá nhau.
+// Giải: server CHỈ giữ phiên zca-js khi 1 tab công cụ (web2/zalo | jt-tracking) đang
+// FOCUS gửi heartbeat "lease". Hết lease (user rời tab / đóng / crash) → tự NHƯỜNG
+// (graceful disconnect, status 'yielded', KHÔNG re-login) → chat.zalo.me dùng được,
+// hết spam "Đổi thiết bị". Khi focus lại → tab gửi lease + login-cookie lại (lấy phiên).
+const LEASE_TTL_MS = 75 * 1000; // lease sống 75s; tab heartbeat ~25s → dư biên 1 nhịp lỡ
 let _watchdogTimer = null;
 
 const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -429,10 +435,15 @@ function _attachListener(accountKey, api) {
         const cur = _sessions.get(accountKey) || {};
         cur.lastCloseCode = code;
         _sessions.set(accountKey, cur);
+        // Chủ động nhường (_yield) / ngắt (disconnect) → giữ nguyên status, KHÔNG đặt
+        // 'disconnected', KHÔNG reconnect (tránh ghi đè 'yielded' bởi onclose async).
+        if (cur.yielded || cur.disposed) return;
         _setStatus(accountKey, 'disconnected', `closed ${code} ${reason || ''}`);
         _scheduleReconnect(accountKey, code); // tự sống lại (không đợi watchdog)
     });
     listener.onError?.((err) => {
+        const cur = _sessions.get(accountKey) || {};
+        if (cur.yielded || cur.disposed) return;
         _setStatus(accountKey, 'error', String(err?.message || err).slice(0, 200));
         _scheduleReconnect(accountKey, 1006); // lỗi WS = abnormal → backoff reconnect
     });
@@ -502,6 +513,8 @@ async function _afterLogin(accountKey, api, label, opts) {
     s.consecutiveKicks = 0;
     s.disposed = false;
     s.gaveUp = false;
+    s.yielded = false; // login = 1 tab công cụ vừa "lấy phiên" → đang muốn giữ
+    s.leaseUntil = now() + LEASE_TTL_MS; // cấp lease ban đầu; heartbeat của tab sẽ gia hạn
     clearTimeout(s.reconnectTimer);
     s.reconnectTimer = null;
     _sessions.set(accountKey, s);
@@ -519,9 +532,16 @@ async function _afterLogin(accountKey, api, label, opts) {
 // Lên lịch reconnect theo close code. 1006/network = backoff lũy thừa; 3000/3003
 // (DuplicateConnection/KickConnection — bị giành phiên) = reconnect chậm + đếm
 // liên tiếp, đụng trần KICK_CAP thì nghỉ dài (TK đang mở ở máy khác → tránh "đấu").
+// "Wanted" = đang có 1 tab công cụ focus (lease còn hạn) muốn giữ phiên. Hết lease /
+// đã yield / đã dispose → KHÔNG còn muốn → KHÔNG fight với chat.zalo.me nữa.
+function _isWanted(s) {
+    return !!s && !s.yielded && !s.disposed && !!s.leaseUntil && now() <= s.leaseUntil;
+}
+
 function _scheduleReconnect(accountKey, code) {
     const s = _sessions.get(accountKey);
     if (!s || s.reconnecting || s.disposed) return;
+    if (!_isWanted(s)) return; // hết lease (user rời tab công cụ) → nhường, KHÔNG re-login
     if (!s.creds) return; // chưa có creds (phiên RAM) → đợi user đăng nhập lại từ trình duyệt
     if (s.reconnectTimer) return; // đã có lịch
     const isKick = code === 3000 || code === 3003;
@@ -574,6 +594,7 @@ function _scheduleReconnect(accountKey, code) {
 async function _doReconnect(accountKey) {
     const s = _sessions.get(accountKey);
     if (!s || s.reconnecting || s.disposed || !s.creds) return;
+    if (!_isWanted(s)) return; // lease hết hạn ngay trước khi tới lượt → nhường, đừng login lại
     s.reconnecting = true;
     _sessions.set(accountKey, s);
     _setStatus(accountKey, 'reconnecting'); // SSE web2:zalo:accounts → UI hiện "đang kết nối lại"
@@ -609,6 +630,13 @@ function startWatchdog() {
 async function _watchdogTick() {
     for (const [key, s] of _sessions.entries()) {
         if (s.disposed || s.reconnecting) continue;
+        if (s.yielded) continue; // đã nhường — chờ tab công cụ focus lại (lease) mới giữ phiên
+        // Hết lease (không tab công cụ nào focus) → NHƯỜNG: đóng listener, không re-login,
+        // để chat.zalo.me dùng được. Đây cũng là failsafe khi tab crash/đóng mà không kịp release.
+        if (!_isWanted(s)) {
+            if (s.api || s.listener || s.reconnectTimer) _yield(key);
+            continue;
+        }
         // Per-máy: mỗi phiên trong RAM là account của 1 máy → watchdog chăm MỌI phiên
         // (keepAlive + re-login chủ động + tự sống lại bằng s.creds trong RAM).
         try {
@@ -661,7 +689,13 @@ async function loginWithCredentials(accountKey, credentials, label, opts) {
         throw new Error('Credentials không đủ (cookie/imei/userAgent)');
     }
     const existing = _sessions.get(accountKey);
-    if (existing?.api) return { status: 'connected', alreadyConnected: true };
+    if (existing?.api) {
+        // Đã kết nối → re-acquire (focus lại) chỉ cần gia hạn lease, KHÔNG login lại (tránh
+        // popup "Đổi thiết bị" thừa).
+        existing.leaseUntil = now() + LEASE_TTL_MS;
+        existing.yielded = false;
+        return { status: 'connected', alreadyConnected: true };
+    }
     // GUARD chống đăng nhập đua (boot restore vs manual POST cùng accountKey): đặt sentinel
     // `connecting` TRƯỚC khi await zalo.login → caller thứ 2 short-circuit, tránh 2 phiên/2 listener.
     if (existing?.connecting) return { status: 'connecting', alreadyConnecting: true };
@@ -1064,6 +1098,52 @@ function disconnect(accountKey) {
     return { success: true };
 }
 
+// ── Focus-lease API (gọi từ route /lease & /release) ─────────────────────
+// touchLease: tab công cụ đang focus → gia hạn lease (giữ phiên). Chỉ tác động phiên
+// đã tồn tại trong RAM; KHÔNG tự login (login do browser /login-cookie vì cần creds).
+// Trả {connected} để FE biết có cần acquire (login-cookie) hay không.
+function touchLease(accountKey) {
+    const s = _sessions.get(accountKey);
+    if (!s) return { leased: false, connected: false, status: 'offline' };
+    if (s.disposed) return { leased: false, connected: false, status: 'disconnected' };
+    s.leaseUntil = now() + LEASE_TTL_MS;
+    s.yielded = false;
+    // Phiên còn creds RAM nhưng rớt (không api) → để watchdog/ scheduleReconnect tự nối lại
+    // ngay (đã wanted trở lại). Không api + không creds → cần browser login-cookie.
+    if (!s.api && s.creds && !s.reconnecting && !s.reconnectTimer)
+        _scheduleReconnect(accountKey, 1006);
+    return { leased: true, connected: !!s.api, status: s.status || 'offline' };
+}
+
+// _yield: NHƯỜNG phiên cho chat.zalo.me — đóng listener, KHÔNG re-login. Giữ creds/info/
+// expectedUid trong RAM để focus lại nối nhanh + guard danh tính. Phiên KHÔNG bị xoá.
+function _yield(accountKey) {
+    const s = _sessions.get(accountKey);
+    if (!s) return { released: false };
+    s.yielded = true;
+    s.leaseUntil = 0;
+    s.reconnectAttempt = 0;
+    s.consecutiveKicks = 0;
+    clearTimeout(s.reconnectTimer);
+    s.reconnectTimer = null;
+    try {
+        s.listener?.stop?.();
+    } catch {}
+    s.listener = null;
+    s.api = null;
+    _setStatus(
+        accountKey,
+        'yielded',
+        'Đã nhường phiên cho chat.zalo.me (không có tab công cụ đang mở)'
+    );
+    return { released: true };
+}
+
+// releaseLease: tab công cụ mất focus / đóng → nhường ngay (không đợi lease hết hạn).
+function releaseLease(accountKey) {
+    return _yield(accountKey);
+}
+
 // Health 1 phiên (cho UI đèn sức khoẻ + observability "không bị văng").
 function _health(k, s) {
     return {
@@ -1123,6 +1203,8 @@ module.exports = {
     getGroupsInfo,
     getOwnUid,
     disconnect,
+    touchLease,
+    releaseLease,
     status,
     statusAll,
     startWatchdog,

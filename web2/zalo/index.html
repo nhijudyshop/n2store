@@ -395,6 +395,8 @@
 
         <!-- Page scripts -->
         <script src="../shared/web2-zalo-api.js?v=20260623own"></script>
+        <!-- Focus-lease: giữ phiên Zalo khi tab này focus, nhường chat.zalo.me khi rời -->
+        <script src="../shared/web2-zalo-presence.js?v=20260625lease"></script>
         <!-- Chat đầy đủ (WZChat.*) — load TRƯỚC app để app delegate -->
         <script src="../shared/zalo-chat/chat-store.js?v=20260613L"></script>
         <script src="../shared/zalo-chat/lightbox.js?v=20260613L"></script>
@@ -407,8 +409,8 @@
         <script src="../shared/zalo-chat/chat-actions.js?v=20260622p4"></script>
         <script src="../shared/zalo-chat/chat-view.js?v=20260622p4"></script>
         <!-- Page app — tách module (utils → accounts → chat → lookup-zns → app), app LAST -->
-        <script src="js/web2-zalo-utils.js?v=20260623noqr"></script>
-        <script src="js/web2-zalo-accounts.js?v=20260623own"></script>
+        <script src="js/web2-zalo-utils.js?v=20260625lease"></script>
+        <script src="js/web2-zalo-accounts.js?v=20260625lease"></script>
         <script src="js/web2-zalo-notify.js?v=20260622p2"></script>
         <script src="js/web2-zalo-chat.js?v=20260622p2"></script>
         <script src="js/web2-zalo-lookup-zns.js?v=20260622p3"></script>
@@ -418,6 +420,8 @@
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
+            // Giữ phiên Zalo khi đang ở trang này; rời tab/đóng → nhường chat.zalo.me.
+            if (window.Web2ZaloPresence) window.Web2ZaloPresence.start();
         </script>
     </body>
 </html>

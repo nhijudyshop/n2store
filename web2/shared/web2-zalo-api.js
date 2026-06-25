@@ -100,6 +100,33 @@
         disconnect(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/disconnect`, { method: 'POST' });
         },
+        // Focus-lease: heartbeat giữ phiên khi tab công cụ đang focus. Trả {connected}.
+        lease(key) {
+            return _fetch(`/accounts/${encodeURIComponent(key)}/lease`, { method: 'POST' });
+        },
+        // Nhường phiên cho chat.zalo.me khi mất focus / đóng tab.
+        release(key) {
+            return _fetch(`/accounts/${encodeURIComponent(key)}/release`, { method: 'POST' });
+        },
+        // Release tin cậy lúc đóng tab (pagehide) — sendBeacon không huỷ khi tab unload.
+        // Gửi cả 2 base (worker + direct) cho chắc; owner header đi kèm trong body vì
+        // sendBeacon không set custom header → server đọc owner từ body fallback.
+        releaseBeacon(key) {
+            try {
+                const path = `/accounts/${encodeURIComponent(key)}/release`;
+                const payload = JSON.stringify({ _owner: _zaloOwner() });
+                const blob = new Blob([payload], { type: 'application/json' });
+                let ok = false;
+                for (const base of [BASE, DIRECT]) {
+                    try {
+                        ok = navigator.sendBeacon(base + path, blob) || ok;
+                    } catch {}
+                }
+                return ok;
+            } catch {
+                return false;
+            }
+        },
         deleteAccount(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}`, { method: 'DELETE' });
         },

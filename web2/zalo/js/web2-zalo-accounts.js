@@ -58,14 +58,24 @@
         const total = state.accounts.length;
         const reconnecting = state.accounts.some((a) => a.status === 'reconnecting');
         const kicked = state.accounts.some((a) => a.status === 'kicked');
-        const dot = conn ? 'connected' : reconnecting ? 'reconnecting' : total ? 'error' : '';
+        const yielded = state.accounts.some((a) => a.status === 'yielded');
+        // yielded = đang nhường chat.zalo.me (bình thường) → dùng dot trung tính, KHÔNG đỏ.
+        const dot = conn
+            ? 'connected'
+            : reconnecting || yielded
+              ? 'reconnecting'
+              : total
+                ? 'error'
+                : '';
         el.innerHTML = `<span class="wz-dot ${dot}"></span><span class="wz-rail-health-n">${conn}/${total}</span>`;
         el.title =
             res && res.zcaAvailable === false
                 ? 'zca-js chưa sẵn sàng trên server'
                 : kicked
                   ? 'Có tài khoản bị giành phiên (mở Zalo Web nơi khác?)'
-                  : `${conn}/${total} tài khoản Zalo đang kết nối`;
+                  : yielded && !conn
+                    ? 'Đang nhường chat.zalo.me — quay lại tab Zalo/J&T để nghe lại'
+                    : `${conn}/${total} tài khoản Zalo đang kết nối`;
     }
 
     function accCardHtml(a) {
@@ -117,9 +127,15 @@
             t === 'personal' && a.status === 'connected'
                 ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Tài khoản của <b>MÁY NÀY</b> — máy khác không thấy/dùng. Đang nghe realtime; máy chủ <b>không lưu phiên</b> (chỉ giữ RAM): rớt nhẹ tự nối lại; máy chủ khởi động lại → đăng nhập lại từ trình duyệt.</div>`
                 : '';
-        // Hướng dẫn đăng nhập (TK cá nhân chưa kết nối): mở chat.zalo.me rồi Đăng nhập Zalo.
+        // Đang NHƯỜNG (focus-lease): công cụ tạm nhả phiên để chat.zalo.me dùng được. Quay
+        // lại tab này (hoặc tab J&T) → tự nghe Zalo lại. Bình thường, KHÔNG phải lỗi.
+        const yieldHint =
+            t === 'personal' && a.status === 'yielded'
+                ? `<div class="wz-live-hint"><i data-lucide="pause"></i> Đang <b>nhường phiên cho chat.zalo.me</b> (bạn đang ở tab khác). Quay lại <b>tab này</b> hoặc tab <b>Vận đơn J&T</b> → công cụ tự nghe Zalo lại. Vậy <b>chat.zalo.me dùng được bình thường</b>, không còn báo "Đổi thiết bị".</div>`
+                : '';
+        // Hướng dẫn đăng nhập (TK cá nhân chưa kết nối, KHÔNG phải trạng thái nhường): mở chat.zalo.me rồi Đăng nhập Zalo.
         const loginGuide =
-            t === 'personal' && a.status !== 'connected'
+            t === 'personal' && a.status !== 'connected' && a.status !== 'yielded'
                 ? `<div class="wz-login-guide"><i data-lucide="info"></i> <span>Tài khoản của <b>MÁY NÀY</b>. Đăng nhập <a href="https://chat.zalo.me/" target="_blank" rel="noopener"><b>chat.zalo.me</b></a> trên trình duyệt máy này (đúng tài khoản), rồi bấm <b>Đăng nhập Zalo</b>. Máy chủ không lưu mật khẩu/phiên.</span></div>`
                 : '';
         return `<div class="wz-acc-card">
@@ -132,7 +148,7 @@
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
             <div class="wz-statustxt"><span class="wz-dot ${esc(eff)}"></span>${esc(stLabel)}${a.statusMsg && a.status !== 'kicked' ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
-            ${kickWarn}${liveHint}${loginGuide}
+            ${kickWarn}${liveHint}${yieldHint}${loginGuide}
             <div class="wz-acc-actions">${acts.join('')}</div>
         </div>`;
     }

@@ -2,6 +2,21 @@
 
 ## 2026-06-25
 
+### [render][web2/zalo][web2/jt-tracking] FIX spam "Đổi thiết bị" — FOCUS-LEASE phiên Zalo
+
+User: đăng nhập Zalo ở `web2/zalo` → chat.zalo.me spam liên tục popup **"Đổi thiết bị"**, không dùng được.
+
+**Nguyên nhân (RCA, workflow 4 agent + tự xác minh)**: Zalo Web = **1 phiên/tài khoản**. Công cụ (zca-js trong render.com) và chat.zalo.me cùng 1 TK → đá nhau (close `3000` DuplicateConnection / `3003` KickConnection, [`zca-js/dist/apis/listen.js:14-15`]). `_doReconnect` cũ gọi **FULL `zalo.login()` mỗi lần kick** → mỗi login = 1 popup; state `kicked` KHÔNG terminal (nghỉ 10ph rồi retry mãi) → spam liên tục. imei reuse đúng (extension đọc `z_uuid`) — KHÔNG phải bug imei. Không có boot-restore (session=NULL từ 2026-06-23).
+
+**Giải pháp (user chọn)**: "Khi user FOCUS tab `web2/zalo` hoặc `web2/jt-tracking` → lấy phiên; không focus → nhường chat.zalo.me." = **focus-lease**.
+
+- **Backend** `services/web2-zalo-zca.js`: thêm `LEASE_TTL_MS=75s`, `_isWanted(s)` (lease còn hạn + !yielded + !disposed), `touchLease()`/`releaseLease()`(=`_yield`: đóng listener, status `yielded`, KHÔNG re-login, GIỮ creds RAM). Gate `_scheduleReconnect`/`_doReconnect`/`_watchdogTick` theo `_isWanted` → hết lease/yield = KHÔNG fight. `_afterLogin` cấp lease + clear yielded; login short-circuit (đã connected) chỉ gia hạn lease (không login lại → không popup thừa). **FIX guard `onClosed`/`onError`**: bỏ qua khi `yielded`/`disposed` (tránh `stop()`→onclose async ghi đè 'yielded' bằng 'disconnected' + tránh reconnect).
+- **Route** `routes/web2-zalo.js`: `POST /accounts/:key/lease` (heartbeat) + `/release` (nhường) owner-scoped (cache, fallback `body._owner` cho sendBeacon). KHÔNG admin-gate.
+- **Client shared** `web2/shared/web2-zalo-presence.js` (MỚI, `Web2ZaloPresence`): focus(visible+hasFocus) → acquire (lease → chưa connected thì creds extension → login-cookie silent) + heartbeat 25s; blur (debounce 3s)/pagehide(sendBeacon) → release. 1 nguồn cho cả 2 trang. `ZaloApi.lease/release/releaseBeacon` mới.
+- **UI**: status `yielded` → label "Đang nhường chat.zalo.me" + hint thân thiện (không phải lỗi), rail dot trung tính (không đỏ). Wire `Web2ZaloPresence.start()` vào `web2/zalo` + `web2/jt-tracking` (thêm `web2-zalo-api.js` cho jt-tracking).
+
+**Verify**: backend smoke (exports) ✓; test state-machine fake-zca 6/6 PASS (login→yield→no-fight→re-acquire→onClosed-guard) ✓; test client orchestration fake-DOM 4/4 PASS (acquire-on-focus, release-on-blur, re-focus không re-login, debounce) ✓; browser-load 2 trang: `Web2ZaloPresence` loaded + `start()` chạy, 0 lỗi module (401 status là auth test-harness, không liên quan) ✓. node --check toàn bộ OK. Backend → Render `web2-api` (~3-4′), frontend → GH Pages. Status ✅ — MEMORY `reference_zalo_focus_lease`.
+
 ### [web2/shared] Web2CustomerChat realtime như live-chat (SSE web2:messages)
 
 User: "realtime như live-chat". Chat KH nhúng (`Web2CustomerChat` mở từ customers/jt-tracking/balance-history/native-orders) trước đây chỉ `loadMessages` lúc mở → tin KH mới không hiện tới khi đóng/mở lại (gap LOW audit SSE).
