@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `20a5b02` — auto: session update
-**Last updated**: 2026-06-25 22:04:24 +07
-**Latest session**: [`RESUME:20260625-220424-20a5b02`](../20260625-220424-20a5b02.md)
-**Summary**: auto: session update
+**Latest commit**: `881c19b` — fix(web2/bill): PBH thermal QR sạch (bỏ mã giữa QR) + mã PBH dưới QR
+**Last updated**: 2026-06-25 22:08:50 +07
+**Latest session**: [`RESUME:20260625-220850-881c19b`](../20260625-220850-881c19b.md)
+**Summary**: PBH bill QR sạch + mã dưới QR; tem SP P1 verify real (in tem thật)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-25 22:04
+- [`docs/`](./docs.md) — updated 2026-06-25 22:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -60,7 +62,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
 - [`render.com/`](./render.com.md) — updated 2026-06-25 19:23
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-25 22:02
+- [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
@@ -80,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 22:02
+- [`web2/`](./web2.md) — updated 2026-06-25 22:08
