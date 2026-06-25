@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `308ce60` — fix(web2): unique theo mã triệt để — default by:'code' + modal/supplier-wallet variant-aware
-**Last updated**: 2026-06-25 19:45:28 +07
-**Latest session**: [`RESUME:20260625-194528-308ce60`](../20260625-194528-308ce60.md)
-**Summary**: Audit unique-theo-mã 8 surface (7/8 sạch) + fix triệt để: default by:code, modal+supplier-wallet variant-aware
+**Latest commit**: `b1008b1` — fix(web2/live-control): picker 'Chờ hàng' tìm theo MÃ + tên (thiếu match code)
+**Last updated**: 2026-06-25 19:59:12 +07
+**Latest session**: [`RESUME:20260625-195912-b1008b1`](../20260625-195912-b1008b1.md)
+**Summary**: Tìm SP theo mã+tên: fix picker Chờ hàng thiếu match code; các search khác đã đúng
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-25 19:45
+- [`docs/`](./docs.md) — updated 2026-06-25 19:59
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -82,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 19:45
+- [`web2/`](./web2.md) — updated 2026-06-25 19:59
