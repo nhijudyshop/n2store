@@ -173,17 +173,15 @@
                         'display:flex;flex-direction:row;align-items:center;gap:0.6mm;width:100%;flex:0 0 auto;min-height:0;overflow:hidden;';
                     const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;`;
                     const qrBox = `width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
-                    const codeUnder = `width:${qrMm}mm;`;
                     const rightCol =
                         'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.3mm;overflow:hidden;';
                     const nameBand = `flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;font-size:${fs}px;line-height:${nameLineH}px;max-height:${nameLineH * 2}px;overflow:hidden;overflow-wrap:normal;word-break:keep-all;`;
 
                     labelInner += `<div class="barcode_label" style="${outerStyle}">`;
-                    // ── HÀNG TRÊN: QR + mã | (biến thể → giá) ──
+                    // ── HÀNG TRÊN: QR | (biến thể → giá) ──
                     labelInner += `<div style="${row1}">`;
                     labelInner += `<div class="ql-qr-col" style="${qrColStyle}">`;
                     labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}</div>`;
-                    labelInner += `<div class="ql-qr-code" style="${codeUnder}font-size:${fsCodeOv}px;line-height:1;letter-spacing:0.2px;margin-top:0.3mm;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     labelInner += `</div>`;
                     labelInner += `<div class="ql-text" style="${rightCol}">`;
                     if (showVariant && vShort) {
@@ -194,6 +192,10 @@
                     }
                     labelInner += `</div>`; // /ql-text (cột phải)
                     labelInner += `</div>`; // /row1
+                    // ── MÃ SP: HÀNG RIÊNG full-width, canh TRÁI, KHÔNG cắt — mã DÀI
+                    //    chạy dài qua bên phải (user yêu cầu). fitText chỉ thu khi vượt
+                    //    CẢ bề ngang tem (không bó theo bề ngang QR nữa).
+                    labelInner += `<div class="ql-qr-code" style="flex:0 0 auto;width:100%;font-size:${fsCodeOv}px;line-height:1;letter-spacing:0.2px;margin-top:0.3mm;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     // ── BĂNG TÊN full-width (tên dài hiện nhiều hơn) ──
                     if (showProductName) {
                         labelInner += `<div class="barcode-pname ql-qr-nameband" style="${nameBand}"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
@@ -374,7 +376,7 @@ html, body {
 .ql-qr-code {
     margin-top: 0.3mm;
     color: #000;
-    text-align: center;
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
 }

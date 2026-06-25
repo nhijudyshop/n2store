@@ -15,6 +15,8 @@ Theo yêu cầu: (1) tên xuống vị trí giá để DÀI HƠN, giá lên vị
 
 **Verify** (Playwright MCP trang Sản phẩm THẬT, data thật + 1 synthetic stress): overlap −1.5px (không đè), tên dài full 2 dòng, giá+biến thể cột phải đọc được, **decode 90px OK** cả mã 17 ký tự. Cache-bust render `p6`. Status ✅
 
+**Follow-up (p7)**: MÃ SP KHÔNG bó theo bề ngang QR + KHÔNG cắt — tách HÀNG RIÊNG full-width canh TRÁI, mã dài chạy dài qua phải (fitText chỉ thu khi vượt CẢ bề ngang tem). Verify trang thật: "KHAOKHOACDATWEEDL" (17 ký tự) hiện đủ full-width clipped=false, "HCSSE57929" canh trái. Cache-bust `p7`.
+
 ### [web2/products] Tem SP "2 tem" → bố cục price-tag HOÀN HẢO (giá hero + tên 2 dòng sạch + biến thể gọn)
 
 Iterate bố cục tem QR (`buildLabelHTML`) cho đẹp + hoàn hảo, verify bằng Playwright MCP (render `buildLabelHTML` thật + decode QR ở size in).
