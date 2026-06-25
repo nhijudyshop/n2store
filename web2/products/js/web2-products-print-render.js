@@ -147,53 +147,46 @@
                 // cellW (cột die-cut) → tem canh GIỮA trong cột vật lý của nó.
                 let labelInner = '';
                 if (isQr && !hideBarcode) {
-                    // 2026-06-09: layout QR — cột TRÁI = QR + mã SP DƯỚI QR:
-                    //   • BIẾN THỂ canh GIỮA QR (logo-style, nền trắng cho dễ đọc).
-                    //   • MÃ SP nằm NGAY DƯỚI QR, canh giữa, BỀ RỘNG = bề rộng QR
-                    //     (margin trái/phải trùng mép QR). Auto thu nhỏ font cho vừa.
-                    // EC=H bù lại module biến thể che giữa. Tên + giá ở cột BÊN PHẢI.
+                    // P1 (2026-06-25): bố cục THÔNG MINH cho tem QR.
+                    //   • Cột TRÁI = QR SẠCH (KHÔNG bake biến thể) + MÃ SP ngay dưới QR.
+                    //   • Cột PHẢI xếp dọc canh giữa: TÊN (≤2 dòng, tự thu nhỏ) →
+                    //     BIẾN THỂ (chip xám, 1 dòng) → GIÁ (đậm, TO NHẤT). Hierarchy
+                    //     bán lẻ: giá nổi nhất, biến thể rõ ràng. Biến thể tách khỏi QR
+                    //     ⇒ dễ đọc + QR đẹp + quét nhạy hơn (EC thấp, module to hơn).
                     const qrMm =
                         Math.round(
-                            Math.min(labelW * 0.52, (labelH - padTop - padBottom) * 0.96) * 10
+                            Math.min(labelW * 0.5, (labelH - padTop - padBottom) * 0.9) * 10
                         ) / 10;
                     const rowStyle =
                         labelStyle +
                         'flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;';
-                    // Cột QR: QR vuông + mã SP dưới, cả 2 rộng đúng qrMm → mã canh
-                    // giữa & 2 mép trùng mép QR.
-                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:0.6mm;`;
-                    const qrBox = `position:relative;width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
+                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:0.7mm;`;
+                    const qrBox = `width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
                     const codeUnder = `width:${qrMm}mm;`;
                     const txtCol =
                         'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;text-align:left;overflow:hidden;';
-                    const codeLeft = `flex:0 0 auto;font-size:${fsCode}px;line-height:${lineHCode}px;text-align:left;white-space:nowrap;`;
-                    // Overlay/under fonts: nhỏ hơn fsCode để biến thể che ít module
-                    // + mã SP dưới gọn. Biến thể hơi to + đậm cho rõ.
-                    const fsVarOv = Math.max(5, Math.round(fsCode * 0.85));
-                    // Mã SP dưới QR to hơn (0.72→0.9 × fsCode); auto-fit fitText vẫn
-                    // thu nhỏ nếu mã dài tràn bề rộng QR.
                     const fsCodeOv = Math.max(5, Math.round(fsCode * 0.9));
+                    const fsVar = fsCode; // biến thể = cỡ mã
+                    const fsPrice = Math.max(fs, Math.round(fs * 1.08)); // GIÁ to nhất
+                    // Tên TỐI ĐA 2 dòng (chừa chỗ biến thể + giá ở cột phải).
+                    const nameP1 = `overflow-wrap:normal;word-break:keep-all;overflow:hidden;line-height:${nameLineH}px;max-height:${nameLineH * 2}px;`;
                     labelInner += `<div class="barcode_label" style="${rowStyle}">`;
                     labelInner += `<div class="ql-qr-col" style="${qrColStyle}">`;
-                    labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}`;
-                    // Biến thể: nếu đã BAKE vào giữa QR (Web2QR.centerLabel) thì KHÔNG
-                    // vẽ overlay HTML nữa. Chỉ fallback overlay khi QR davidshimjs
-                    // (baked=false) — giữ biến thể hiển thị dù lib chính lỗi.
-                    if (showVariant && label.variant && !qrEntry.baked) {
-                        labelInner += `<div class="ql-qr-variant" style="font-size:${fsVarOv}px;line-height:1;">${escapeHtml(label.variant)}</div>`;
-                    }
-                    labelInner += `</div>`;
+                    labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}</div>`;
                     // Mã SP DƯỚI QR — canh giữa, rộng = QR, nowrap, auto thu nhỏ.
                     labelInner += `<div class="ql-qr-code" style="${codeUnder}font-size:${fsCodeOv}px;line-height:1;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     labelInner += `</div>`;
                     labelInner += `<div class="ql-text" style="${txtCol}">`;
                     if (showProductName) {
-                        labelInner += `<div class="barcode-pname" style="${nameStyleQr}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                        labelInner += `<div class="barcode-pname" style="${nameP1}font-size:${fs}px;text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
+                    }
+                    if (showVariant && label.variant) {
+                        // BIẾN THỂ = chip riêng (fitText auto thu nhỏ nếu dài).
+                        labelInner += `<div class="ql-qr-var" style="font-size:${fsVar}px;">${escapeHtml(label.variant)}</div>`;
                     }
                     if (showPrice) {
-                        // class ql-qr-price → fitText auto thu nhỏ cho VỪA bề ngang
-                        // cột chữ (giá dài 1.081.500 không bị cắt mất số/“đ”).
-                        labelInner += `<div class="ql-qr-price" style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        // GIÁ đậm, to nhất (hierarchy bán lẻ). fitText thu nhỏ nếu tràn.
+                        labelInner += `<div class="ql-qr-price" style="font-size:${fsPrice}px;font-weight:800;line-height:1.05;margin-top:0.3mm;text-align:left;white-space:nowrap;"><span class="barcode-price">${displayPrice}${currencyStr}</span></div>`;
                     }
                     labelInner += `</div></div>`;
                 } else if (printType === 'new') {
@@ -375,6 +368,23 @@ html, body {
     white-space: nowrap;
     overflow: hidden;
 }
+/* P1 (2026-06-25): BIẾN THỂ = chip riêng ở cột chữ (không bake giữa QR nữa) —
+   nền xám nhạt, in nhiệt vẫn rõ (raster threshold → viền chip mảnh). */
+.ql-qr-var {
+    align-self: flex-start;
+    max-width: 100%;
+    background: #ededed;
+    color: #000;
+    font-style: italic;
+    font-weight: 700;
+    border-radius: 1.5px;
+    padding: 0 1.2px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 0.3mm;
+}
 
 /* === Screen preview only (không in) === */
 @media screen {
@@ -438,7 +448,7 @@ ${SCRIPT_OPEN}>
     // theo % cạnh QR) → mã/biến thể DÀI hiện đủ, không tràn che thêm module QR.
     // nowrap để scrollWidth phản ánh tràn. Giảm dần 0.5px, min 3.5px.
     function fitText(){
-        document.querySelectorAll('.ql-qr-variant, .ql-qr-code, .ql-qr-price').forEach(function(el){
+        document.querySelectorAll('.ql-qr-variant, .ql-qr-var, .ql-qr-code, .ql-qr-price').forEach(function(el){
             var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||6;
             while(el.scrollWidth > el.clientWidth + 0.5 && fs > 3.5 && guard < 40){
                 fs -= 0.5; el.style.fontSize = fs + 'px'; guard++;

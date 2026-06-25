@@ -262,7 +262,13 @@
         // suy ra dim từ viewBox để canvas vuông đúng tỉ lệ
         const vb = svg.match(/viewBox="0 0 (\d+) /);
         const dimUnits = vb ? parseInt(vb[1], 10) : 33;
-        return _svgToDataUrl(svg, opts.pxPerCell || 12, dimUnits);
+        // opts.size = TỔNG px ảnh đích (tiện cho caller chỉ biết kích thước cuối,
+        // vd product-card 256px). Suy ra pxPerCell từ size; nếu không có size thì
+        // dùng pxPerCell (default 12). Trước đây 'size' bị bỏ qua → ảnh QR nhỏ.
+        const pxPerCell = opts.size
+            ? Math.max(1, Math.round(opts.size / dimUnits))
+            : opts.pxPerCell || 12;
+        return _svgToDataUrl(svg, pxPerCell, dimUnits);
     }
 
     // Thẻ QR + caption mã (đen trắng) — dùng in tem SP / PBH.

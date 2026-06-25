@@ -477,11 +477,11 @@
             try {
                 await loadQrLib();
                 qrMap = {};
-                // 2026-06-09: BIẾN THỂ bake THẲNG vào GIỮA QR qua Web2QR.centerLabel
-                // (hộp chữ nhật trắng + halo cách module — giống bill PBH, đẹp & nhất
-                // quán). EC tự lên 'H'. Key theo code+variant (cùng code khác biến thể
-                // → QR khác). Fallback davidshimjs (genQrDataUrl) KHÔNG bake được →
-                // baked=false → buildLabelHTML vẽ overlay HTML cũ thay thế.
+                // P1 (2026-06-25): QR SẠCH — biến thể KHÔNG bake giữa QR nữa mà
+                // thành DÒNG RIÊNG ở cột chữ (xem buildLabelHTML). QR sạch = đẹp hơn
+                // + EC mặc định 'M' (module TO hơn 'H') = quét nhạy hơn trên tem 25mm.
+                // Key vẫn theo code+variant để khớp render (nội dung QR = mã SP, giống
+                // nhau giữa các biến thể nên render ra QR như nhau — vô hại).
                 const wantVariant = !!opts.showVariant;
                 const seen = new Set();
                 for (const l of labels) {
@@ -492,18 +492,13 @@
                     seen.add(key);
                     if (window.Web2QR) {
                         try {
-                            const qrOpts = { style: 'rounded', margin: 2, pxPerCell: 12 };
-                            if (variant) {
-                                qrOpts.centerLabel = variant; // → tự ec 'H'
-                                // 2026-06-09: biến thể tem SP NGẮN (M/L/28) → phóng
-                                // TO chữ giữa QR. centerMaxW 0.55→0.72 + font clamp
-                                // 2.6→5.4 module. EC 'H' vẫn quét (verify decode).
-                                qrOpts.centerMaxW = 0.72;
-                                qrOpts.centerFontMax = 5.4;
-                            } else qrOpts.ec = 'H'; // không biến thể vẫn giữ dung sai cao
                             qrMap[key] = {
-                                src: await window.Web2QR.toDataUrl(l.code, qrOpts),
-                                baked: !!variant,
+                                src: await window.Web2QR.toDataUrl(l.code, {
+                                    style: 'rounded',
+                                    margin: 2,
+                                    pxPerCell: 12,
+                                }),
+                                baked: false,
                             };
                             continue;
                         } catch (e) {

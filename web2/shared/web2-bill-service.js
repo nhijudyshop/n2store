@@ -80,8 +80,12 @@
                     margin: 2,
                     centerLabel: String(value),
                 });
-                const src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-                return `<img class="b-qr" src="${src}" alt="${_esc(value)}" />`;
+                // 2026-06-25: NHÚNG SVG vector TRỰC TIẾP (thay <img src=data:svg>).
+                // html2canvas raster vector ở đúng độ phân giải in (72mm→576 chấm) →
+                // module bo góc + mắt finder SẮC NÉT, không vỡ hạt như khi <img> bị
+                // nearest-neighbor (image-rendering:pixelated). Kích thước do CSS .b-qr
+                // (38mm) điều khiển; viewBox giữ tỉ lệ vuông + nét.
+                return svg.replace(/^<svg /, '<svg class="b-qr" ');
             }
         } catch (e) {
             console.warn('[Web2Bill] Web2QR render failed, fallback:', e.message);

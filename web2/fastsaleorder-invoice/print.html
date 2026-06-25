@@ -186,7 +186,25 @@
                 border: 1px solid #fecaca;
                 border-radius: 6px;
             }
+            /* QR mã PBH ở header (A4 laser → in đẹp, quét tra cứu đơn). */
+            .invoice-qr {
+                margin-top: 10px;
+                display: flex;
+                justify-content: flex-end;
+            }
+            .invoice-qr svg {
+                width: 26mm;
+                height: 26mm;
+            }
+            @media print {
+                .invoice-qr svg {
+                    width: 24mm;
+                    height: 24mm;
+                }
+            }
         </style>
+        <script src="../shared/qrcode.min.js?v=20260607qr"></script>
+        <script src="../shared/web2-qr.js?v=20260625qr"></script>
     </head>
     <body>
         <div class="print-shell" id="printShell">
@@ -275,6 +293,7 @@
                                 <div class="num">${esc(o.number)}</div>
                                 <div class="date">Ngày: ${fmtDate(o.dateInvoice)}</div>
                                 <div class="date">STT: ${o.displayStt ?? '—'}</div>
+                                <div class="invoice-qr" id="invQr"></div>
                             </div>
                         </div>
 
@@ -339,6 +358,23 @@
                             Phiếu in lần ${o.printCount + 1} · Cảm ơn quý khách. Mọi thắc mắc xin liên hệ shop.
                         </div>
                     `;
+
+                    // QR mã PBH (góc phải header) — A4 laser in nét, quét tra cứu đơn.
+                    // Theo kiểu QR chung (Web2QR rounded + mắt finder bo). QR optional:
+                    // lib lỗi → bỏ qua, không chặn render hoá đơn.
+                    try {
+                        if (window.Web2QR) {
+                            await window.Web2QR.ready();
+                            const qrBox = document.getElementById('invQr');
+                            if (qrBox)
+                                qrBox.innerHTML = window.Web2QR.toSvg(String(o.number), {
+                                    style: 'rounded',
+                                    margin: 2,
+                                });
+                        }
+                    } catch (e) {
+                        /* QR optional */
+                    }
 
                     // Auto increment print count via API (fire-and-forget).
                     // Trang print standalone không nạp web2-auth → đọc token trực tiếp

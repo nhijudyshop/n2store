@@ -2,6 +2,23 @@
 
 ## 2026-06-25
 
+### [web2] Audit mã QR/Barcode in bill → QR đẹp + bố cục tem SP "2 tem" thông minh (P1)
+
+Audit chuyên sâu + browser-test (BarcodeDetector decode + thermal 1-bit threshold) toàn bộ mã in của Web 2.0, làm đẹp QR + sắp lại bố cục tem SP.
+
+**Phân loại mã** (browser-test thực): PBH thermal QR (`Web2QR` styled, decorative, in) · tem SP QR (`Web2QR`, in) · A4 hoá đơn (TRƯỚC: KHÔNG có mã) · Code128 (fallback) · **VietQR `Web2QrModal`** (FUNCTIONAL bank-transfer, screen-only → KHÔNG đụng) · scanner/pack-counter/label-ocr (input, không in). Decode test 8 biến thể QR @304px (38mm) + 1-bit B&W: **8/8 PASS** (kể cả dots & rounded r0.45) → headroom lớn ở 38mm.
+
+**Files**:
+
+- `web2/products/js/web2-products-print-render.js` + `web2-products-print-modal.js`: **bố cục tem SP P1** — QR SẠCH (biến thể KHÔNG bake giữa QR nữa) + mã SP dưới QR; cột phải xếp dọc **TÊN (≤2 dòng) → BIẾN THỂ (chip xám) → GIÁ (đậm, to nhất)**. Hierarchy bán lẻ: giá nổi nhất, biến thể dễ đọc. QR sạch → EC mặc định 'M' (module to hơn) → quét nhạy hơn trên tem 25mm. +CSS `.ql-qr-var`, +fitText cho `.ql-qr-var`.
+- `web2/shared/web2-bill-service.js`: PBH thermal QR **nhúng SVG vector trực tiếp** (thay `<img src=data:svg>` + `image-rendering:pixelated`) → module bo góc + mắt finder SẮC NÉT khi html2canvas raster 576 chấm (không vỡ hạt).
+- `web2/fastsaleorder-invoice/print.html`: **thêm QR mã PBH** (Web2QR rounded) góc phải header A4 (laser in đẹp, quét tra cứu đơn) + load qrcode/web2-qr.
+- `web2/printer-settings/index.html`: load `web2-qr.js` → "In thử" PBH dùng QR styled GIỐNG bill thật (trước thiếu lib → rơi về QR thô).
+- `web2/shared/web2-qr.js`: `toDataUrl` thêm hỗ trợ `opts.size` (TỔNG px) — fix bug `product-card` truyền `{size:256}` bị bỏ qua.
+- Cache-bust: products/fastsaleorder-invoice/product-card/printer-settings (`web2-qr 20260625qr`, print-render/modal `20260625p1`, bill-service `20260625qr`).
+
+**Verify** (browser, BarcodeDetector): PBH bill QR qua **đúng đường raster html2canvas** → decode `NJ-20260625-0084` ✓; tem SP QR @100px (12.5mm thật) → `KHOAOTRANGM` ✓ + `KHAOKHOACDATWEEDL` ✓; A4 QR render ✓. Bố cục P1 screenshot: biến thể chip rõ, giá to đậm, QR sạch. Kiểu QR = bo góc + mắt finder bo (user chọn). VietQR giữ nguyên (functional). Thuần frontend → GH Pages. Status ✅
+
 ### [web2/shared] Audit CSS Web 2.0 → animation tăng tương tác + skeleton loading kiểu GitHub
 
 Audit toàn bộ CSS Web 2.0 (46 trang, ~31.9k dòng, workflow 11 agent song song) → áp dụng animation tăng tương tác + skeleton loading. Doc: [`docs/web2/WEB2-CSS-ANIM-AUDIT.md`](web2/WEB2-CSS-ANIM-AUDIT.md).
