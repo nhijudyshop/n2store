@@ -55,39 +55,34 @@ if (window.Web2Skeleton && !tbody.querySelector('tr[data-...]')) {
 // render path post-fetch dùng innerHTML= → tự ghi đè skeleton.
 ```
 
-### 2.3. Đã wire skeleton vào 20 trang (✅)
+### 2.3. Đã wire skeleton vào 30 trang (✅)
 
-`products`, `variants`, `customers`, `customer-wallet`, `fastsaleorder-invoice`, `fastsaleorder-delivery`, `fastsaleorder-refund`, `balance-history`, `chi-tieu`, `users`, `returns`, `live-tv`, `live-control`, `fb-posts`, `zalo`, `jt-tracking`, `multi-tool`, `order-tags`, `ai-hub`, `video-maker`.
+**Đợt 1 (20 trang)**: `products`, `variants`, `customers`, `customer-wallet`, `fastsaleorder-invoice`, `fastsaleorder-delivery`, `fastsaleorder-refund`, `balance-history`, `chi-tieu`, `users`, `returns`, `live-tv`, `live-control`, `fb-posts`, `zalo`, `jt-tracking`, `multi-tool`, `order-tags`, `ai-hub`, `video-maker`.
 
-> `reconcile` **đã có** `.w2-skel` inline sẵn (skip, không đụng).
+**Đợt 2 (10 trang)**: `purchase-refund` (#prSourceList, #prList), `cham-cong` (3 tab), `fb-ads-stats`, `fb-insights`, `system` (#sdDbGrid/#sdServiceGrid/#sdProcGrid/#ssTopicsList), `ck-dashboard` (4 cột), `pancake-settings` (pages+accounts), `ai-assistant` (test-out + provider-status), `report-delivery` (KPI+2 bảng), `users-permissions` (#permBody).
 
-Mỗi trang: thêm `<script src="../shared/web2-skeleton.js?v=…">` + đổi loading-placeholder sang `Web2Skeleton.X()` defensive. Verify: `node --check` pass toàn bộ + browser-test (products/customers/pbh/order-tags) data render OK, skeleton KHÔNG bị kẹt, 0 console error.
+> `reconcile` **đã có** `.w2-skel` inline sẵn (skip).
 
-## 3. Backlog — trang chưa wire skeleton (làm dần)
+Mỗi trang: thêm `<script src="../shared/web2-skeleton.js?v=…">` + đổi loading-placeholder sang `Web2Skeleton.X()` defensive, **guard first-load** (chỉ khi container rỗng) + **clear ở nhánh lỗi/early-return**. Verify: `node --check` pass toàn bộ + 2 vòng adversarial review (workflow) bắt + fix flash/stuck bug + browser-test (~8 trang) data render OK, skeleton KHÔNG kẹt, 0 console error.
 
-> Đã có skeleton sẵn (không cần đụng): `supplier-wallet`, `supplier-debt` (bảng chính), `kpi`, `dashboard`, `notifications`, `report-revenue`, `delivery-zone`, `audit-log`.
+### 2.4. Trang CỐ TÌNH skip (render đồng bộ → skeleton vô nghĩa / flash)
 
-Còn lại (dùng pattern §2.2; trang inline-IIFE/page-builder cần cẩn thận hơn):
+Audit đợt 2 phát hiện 6 trang KHÔNG nên wire (render đồng bộ từ state in-memory, không có khoảng fetch → skeleton sẽ flash 0ms hoặc đè data, là anti-pattern):
 
-| Trang             | Container                                                                    | Shape            | Render fn                                           |
-| ----------------- | ---------------------------------------------------------------------------- | ---------------- | --------------------------------------------------- |
-| payment-confirm   | `#pcSignals`, `#pcUnread`                                                    | list             | renderSignals/renderUnread (payment-confirm-app.js) |
-| purchase-refund   | `#prSourceList`, `#prList`, `#prDetail`                                      | list/detail      | render\*() purchase-refund-render.js                |
-| cham-cong         | `#ccBody` (3 tab)                                                            | grid/table       | renderTimesheet/payroll/employees                   |
-| fb-ads-stats      | `#fbaContent`                                                                | stats            | render() fb-ads-stats.js                            |
-| fb-insights       | `#fbiBody`                                                                   | stats/list       | render() fb-insights.js                             |
-| ai-photo          | `#apResultWrap`                                                              | detail           | result injection ai-photo.js                        |
-| photo-studio      | `.ps-batch-thumb`                                                            | grid             | batch thumb photo-studio-ui.js                      |
-| video-beauty      | `.vb-stagewrap`                                                              | detail           | loadFile() video-beauty.js                          |
-| product-card      | `#pcardDrop`                                                                 | list             | search handler product-card.js                      |
-| system            | `#sdDbGrid`, `#sdServiceGrid`, `#sdProcGrid`, `.sd-cost-strip`, `#sseTopics` | cards/stats/list | system-services.js / system-app.js                  |
-| ck-dashboard      | `#ckdPending/#ckdWait/#ckdIntents/#ckdHistory`                               | list/cards       | loadCol()/loadHistory()                             |
-| pancake-settings  | `.ps-page-list`, `.ps-account-list`, …                                       | list             | render\*() pancake-settings-render.js               |
-| ai-assistant      | `.aam-test-out`, `#aamProvStatus`                                            | detail/stats     | send/status handlers                                |
-| supplier-debt     | `.sd-detail-panel` (expand row)                                              | detail           | detailPanelHtml()                                   |
-| supplier-wallet   | `.sw-table tbody` (drawer)                                                   | table            | renderPurchases/renderHistory                       |
-| report-delivery   | `#rdKpi/#rdGroupTable/#rdCarrierTable`                                       | stats/table      | inline IIFE                                         |
-| users-permissions | `#permBody`                                                                  | table            | inline IIFE                                         |
+| Trang                              | Lý do skip                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| `payment-confirm`                  | RETIRED 2026-06-06 — redirect stub sang ck-dashboard, không load app-script |
+| `ai-photo` `#apResultWrap`         | inject ảnh đồng bộ; tool modal tự có progress riêng                         |
+| `photo-studio` `.ps-batch-thumb`   | đã có spinner per-thumb + counter — wire generic là regression              |
+| `product-card` `#pcardDrop`        | search in-memory (`Web2ProductsCache.findByName`) đồng bộ, không fetch      |
+| `supplier-debt` `.sd-detail-panel` | expand row render đồng bộ từ state, không fetch                             |
+| `supplier-wallet` drawer table     | render drawer đồng bộ từ state đã load                                      |
+
+## 3. Backlog — trang chưa wire (đã có skeleton sẵn / để dành)
+
+> Đã có skeleton sẵn (không đụng): `supplier-wallet` + `supplier-debt` (bảng chính), `kpi`, `dashboard`, `notifications`, `report-revenue`, `delivery-zone`, `audit-log`.
+
+Còn lại 1 target lẻ: `purchase-refund` `#prDetail` (detail slip — agent skip vì render gắn liền slip-select, làm sau nếu cần). `video-beauty` `.vb-stagewrap` (canvas video — skeleton không hợp).
 
 ## 4. Cache-bust
 
