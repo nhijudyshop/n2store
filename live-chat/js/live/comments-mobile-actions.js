@@ -27,8 +27,8 @@
     const newpill = LCM.newpill;
     const pickerEl = LCM.pickerEl;
 
-    // Đếm SỐ ĐƠN đã tạo (distinct khách có has_order) theo page → badge trên chip
-    // Store/House + tổng ở "Đã tạo đơn". Đếm trên ALL (không phụ thuộc filter/cap).
+    // Đếm SỐ GIỎ đã tạo (distinct khách có has_order) theo page → badge trên chip
+    // Store/House + tổng ở "Đã tạo giỏ". Đếm trên ALL (không phụ thuộc filter/cap).
     function updateOrderCounts() {
         const cs = document.getElementById('cntStore');
         const ch = document.getElementById('cntHouse');

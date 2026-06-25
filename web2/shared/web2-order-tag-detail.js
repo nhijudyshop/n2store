@@ -120,7 +120,7 @@
     }
 
     function statusLabel(s) {
-        if (s === 'draft') return 'nháp · đang giữ';
+        if (s === 'draft') return 'giỏ hàng · đang giữ';
         if (s === 'confirmed') return 'đơn hàng · đã lên PBH';
         if (s === 'cancelled') return 'đã huỷ';
         return s || '';

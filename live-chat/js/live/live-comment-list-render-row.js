@@ -61,7 +61,7 @@
             const sessionInfoRaw = state.sessionIndexMap.get(fromId);
             const sessionInfo = sessionInfoRaw?.source === 'NATIVE_WEB' ? sessionInfoRaw : null;
             const sessionIndexBadge = sessionInfo
-                ? `<span class="session-index-badge" title="STT đơn web: ${liveAttr(sessionInfo.index)}${sessionInfo.code ? ' | Mã: ' + liveAttr(sessionInfo.code) : ''}">${SharedUtils.escapeHtml(String(sessionInfo.index))}</span>`
+                ? `<span class="session-index-badge" title="STT giỏ hàng: ${liveAttr(sessionInfo.index)}${sessionInfo.code ? ' | Mã: ' + liveAttr(sessionInfo.code) : ''}">${SharedUtils.escapeHtml(String(sessionInfo.index))}</span>`
                 : '';
             // Comment đã được merge vào đơn này chưa?
             const isCommentInOrder =
@@ -69,7 +69,7 @@
                 Array.isArray(sessionInfo.commentIds) &&
                 sessionInfo.commentIds.includes(id);
             const orderBadge = sessionInfo?.code
-                ? `<span class="order-code-badge" title="Đơn web ${liveAttr(sessionInfo.code)}" style="background:#e8f2ff;color:#0058da;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" data-action="order-detail" data-from-id="${liveAttr(fromId)}">${SharedUtils.escapeHtml(sessionInfo.code)}</span>`
+                ? `<span class="order-code-badge" title="Giỏ hàng ${liveAttr(sessionInfo.code)}" style="background:#e8f2ff;color:#0058da;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" data-action="order-detail" data-from-id="${liveAttr(fromId)}">${SharedUtils.escapeHtml(sessionInfo.code)}</span>`
                 : '';
 
             // Gradient placeholder

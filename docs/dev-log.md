@@ -2,6 +2,16 @@
 
 ## 2026-06-25
 
+### [web2 toàn cục][render] Audit vòng 4 — quét 107 file: 18 nhãn native-cart sót (workflow)
+
+User: '"các trang khác có thiếu sót như vậy không?"'. **Workflow quét TOÀN BỘ 107 file** Web 2.0 (frontend + backend native-order) — 12 bucket × (scan → adversarial verify), đối chiếu predicate/ngữ cảnh. Rate-limit server làm fan-out song song fail 2 lần → **rewrite chạy TUẦN TỰ** (1 agent/lần) + resume cache → hoàn tất 24 agent, 0 fail. Kết quả: **18 mislabel thật** (5 HIGH / 5 MED / 8 LOW comment), áp script match-once 18/18.
+
+- **HIGH (nhãn status user thấy)**: `web2/products/web2-product-detail.js` + `web2-products-render.js` (usage "đơn web" của SP: draft 'Nháp'→'Giỏ hàng'); `web2/shared/web2-order-tag-detail.js` (`draft`→'giỏ hàng · đang giữ'); `live-comment-list-state.js` (badge `🛒 N đơn`→'giỏ hàng'); `render.com/routes/native-orders.js` (CSV export STATUS_LABEL draft→'Giỏ hàng', confirmed→'Đơn hàng').
+- **MED**: live-comment-list-render-row (tooltip STT/mã badge "đơn web"→"giỏ hàng"); live-stats-panel ("Đơn đã tạo"→"Giỏ đã tạo"); kpi-dashboard ("Dự báo = giỏ hàng chưa thành PBH").
+- **LOW (comment)**: comments-mobile-actions/state, packing-slip (3), order-tags-service (2) — đồng bộ "đơn nháp/Đã tạo đơn" → giỏ.
+- **Loại đúng (KHÔNG đổi)**: `draft:'Nháp'` ở purchase-refund / fastsaleorder-refund (PBH) / supplier-wallet (NCC) / fb-posts = **khác domain**, "Nháp" đúng. "Đơn Web" tên feature. confirmed/PBH = "Đơn hàng".
+- Verify: `node --check` 12 file OK; grep cuối không còn native-draft→'Nháp'; products page localhost 0 lỗi. Backend (native-orders CSV + comment) cần web2-api redeploy. Status ✅
+
 ### [order-tags][render] Audit vòng 3 — reframe TOÀN BỘ chữ "đơn hàng" trang order-tags (workflow)
 
 User: '"trang order-tags thấy rất nhiều chữ đơn hàng"'. Bulk text ấy = **20 mô tả trigger** (render từ backend `/triggers`) + tiêu đề/intro/heading, đa số mở đầu "Đơn…". Dùng **Workflow** (ultracode): 3 nguồn × (classify → adversarial verify) đối chiếu TỪNG chuỗi với **predicate ground-truth** (khi nào trigger fire) → 6 agent, 23 sửa verbatim, áp bằng script (match-once, 23/23 OK, 0 fail).

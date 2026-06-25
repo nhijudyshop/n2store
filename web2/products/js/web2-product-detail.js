@@ -345,7 +345,7 @@
             groups.get(k).items.push(e);
         }
         const statusColors = { draft: '#64748b', confirmed: '#0ea5e9', sent: '#16a34a' };
-        const statusLabels = { draft: 'Nháp', confirmed: 'Đơn hàng', sent: 'Đã gửi' };
+        const statusLabels = { draft: 'Giỏ hàng', confirmed: 'Đơn hàng', sent: 'Đã gửi' };
         let totalQty = 0;
         entries.forEach((e) => (totalQty += Number(e.qty) || 0));
 

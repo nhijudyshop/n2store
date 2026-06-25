@@ -121,6 +121,10 @@
 .w2t-ta:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.14)}
 .w2t-preset{border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:8px;padding:4px 9px;font-size:.74rem;cursor:pointer}
 .w2t-preset:hover{border-color:#6366f1;color:#4f46e5}
+.w2t-label-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.w2t-ai{border:1px solid #c7d2fe;background:#eef2ff;color:#4f46e5;border-radius:8px;padding:4px 9px;font-size:.74rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.w2t-ai:hover{background:#e0e7ff}
+.w2t-ai:disabled{opacity:.6;cursor:not-allowed}
 .w2t-go{border:none;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-radius:11px;padding:11px 14px;font-weight:600;font-size:.9rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .w2t-go:disabled{opacity:.6;cursor:not-allowed}
 .w2t-note{font-size:.72rem;color:#94a3b8;line-height:1.4}

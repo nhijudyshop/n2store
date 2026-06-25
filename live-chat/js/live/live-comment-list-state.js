@@ -69,14 +69,14 @@
             if (!oel) {
                 oel = document.createElement('span');
                 oel.id = 'liveOrderTotal';
-                oel.title = 'Số đơn web đã tạo trong (các) livestream đang chọn';
+                oel.title = 'Số giỏ hàng đã tạo trong (các) livestream đang chọn';
                 oel.style.cssText =
                     'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;font-size:12px;font-weight:700;color:#15803d;white-space:nowrap;flex-shrink:0;';
                 // Chèn ngay SAU badge comment.
                 if (el.nextSibling) slot.insertBefore(oel, el.nextSibling);
                 else slot.appendChild(oel);
             }
-            oel.innerHTML = `🛒 ${this._orderCount().toLocaleString('vi-VN')} đơn`;
+            oel.innerHTML = `🛒 ${this._orderCount().toLocaleString('vi-VN')} giỏ hàng`;
 
             // Bảng "Thông tin Livestream" (cột Video) — cập nhật theo cùng nhịp
             // render comment (event-driven, debounce nội bộ, KHÔNG poller).

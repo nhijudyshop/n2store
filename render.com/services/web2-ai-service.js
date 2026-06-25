@@ -261,6 +261,16 @@ async function _httpError(r, providerLabel) {
     // auth để XOAY sang key kế (không thì rotation ném ngay ở key đầu, bỏ phí key tốt sau).
     if (/api[\s_-]?key (not found|not valid|invalid)|API_KEY_INVALID|invalid api key/i.test(d))
         err._auth = true;
+    // Tài khoản / tổ chức bị hạn chế (vd Groq HTTP 400 code "organization_restricted":
+    // "Organization has been restricted"; hoặc account suspended/disabled/deactivated) →
+    // coi như _auth để XOAY sang key/org kế. KHÔNG để 1 key org hỏng ném ngay ở key đầu
+    // (kéo sập cả pool dù còn key org khác chạy — gốc bug "Test OK nhưng chat lỗi").
+    if (
+        /organization[\s_-]?restricted|organization has been restricted|account (has been )?(restricted|suspended|disabled|deactivated|terminated)/i.test(
+            d
+        )
+    )
+        err._auth = true;
     if (/quota|rate.?limit|exhausted|resource has been exhausted|too many requests/i.test(d))
         err._quota = true;
     return err;

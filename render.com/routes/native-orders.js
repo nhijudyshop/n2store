@@ -1534,8 +1534,8 @@ router.get('/export', async (req, res) => {
         );
 
         const STATUS_LABEL = {
-            draft: 'Nháp',
-            confirmed: 'Đã XN',
+            draft: 'Giỏ hàng',
+            confirmed: 'Đơn hàng',
             cancelled: 'Đã hủy',
             delivered: 'Đã giao',
         };

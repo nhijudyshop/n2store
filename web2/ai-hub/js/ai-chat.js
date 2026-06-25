@@ -540,6 +540,13 @@
 
     // Đọc SSE từ /chat/stream. Trả true nếu xong sạch. Fallback /chat non-stream nếu stream fail.
     async function doStream(c, onDelta) {
+        // Theo dõi đã phát chữ nào chưa → quyết định có fallback non-stream được không
+        // (tránh nhân đôi nội dung nếu đã stream một phần rồi mới lỗi).
+        let gotDelta = false;
+        const emit = (t) => {
+            if (t) gotDelta = true;
+            onDelta(t);
+        };
         const body = JSON.stringify({
             provider: c.provider,
             model: c.model,
@@ -581,8 +588,20 @@
                 try {
                     data = JSON.parse(dm[1]);
                 } catch {}
-                if (ev[1] === 'delta') onDelta(data.text || '');
+                if (ev[1] === 'delta') emit(data.text || '');
                 else if (ev[1] === 'error') errored = data;
+            }
+        }
+        // Stream lỗi / rỗng mà CHƯA phát chữ nào → thử lại NON-STREAM /chat. Nút "Test"
+        // (cũng dùng /chat non-stream) chạy cho MỌI provider → nếu đường streaming qua
+        // proxy/SSE trục trặc nhưng non-stream OK thì chat vẫn ra chữ. Gốc bug user báo:
+        // "Test OK nhưng chat chỉ Gemini được". KHÔNG fallback nếu user chủ động dừng.
+        if (!gotDelta && !abortCtrl.signal.aborted) {
+            try {
+                return await fallback(c, onDelta);
+            } catch (e) {
+                if (e.name === 'AbortError') throw e;
+                throw new Error((errored && errored.error) || e.message || 'Lỗi AI');
             }
         }
         if (errored) throw new Error(errored.error || 'Lỗi AI');

@@ -227,7 +227,7 @@ const PREDICATES = {
 //   - choHang : có SP status CHO_MUA.
 //   - mua1Phan: có SP status MUA_1_PHAN.
 //   - hetHang : có SP (không phải CHO_MUA) tồn ≤ 0.
-//   - amMa    : đơn NHÁP có SP (không phải CHO_MUA) mà tổng SL giữ ở các đơn nháp
+//   - amMa    : giỏ hàng (chưa PBH) có SP (không phải CHO_MUA) mà tổng SL giữ ở các giỏ
 //               > tồn kho hiện tại. Lưu ý: tạo PBH ĐÃ trừ web2_products.stock →
 //               held_drafts > stock_hiện_tại ⇔ (held_drafts + đã_lên_PBH) > tồn_gốc.
 // ---------------------------------------------------------------------------
@@ -251,7 +251,7 @@ function orderProductFlags(o, ctx) {
         const held = ctx.heldByCode.get(code) || 0;
         if (held > ps.stock) amMa = true;
     }
-    if (o.status !== 'draft') amMa = false; // âm mã chỉ áp cho đơn nháp đang tranh tồn.
+    if (o.status !== 'draft') amMa = false; // âm mã chỉ áp cho giỏ hàng (chưa PBH) đang tranh tồn.
     return { choHang, hetHang, mua1Phan, amMa };
 }
 

@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Phiếu Soạn Hàng cho đơn NHÁP (native-orders).
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Phiếu Soạn Hàng cho giỏ hàng (native-orders chưa PBH).
 // =====================================================
 // PHIẾU SOẠN HÀNG — native-orders (Web 2.0)
 //
@@ -9,7 +9,7 @@
 //     (đơn gộp "243 + 678").
 //   - Modal TỰ DỰNG động (không cần sửa index.html).
 //
-// Workflow: đơn NHÁP → "In bill" → modal Phiếu Soạn Hàng → tick "Chờ Hàng" +
+// Workflow: giỏ hàng → "In bill" → modal Phiếu Soạn Hàng → tick "Chờ Hàng" +
 // ghi chú từng SP → in (iframe). Ghi chú in: SP tick Chờ Hàng → thêm "CHỜ HÀNG" đậm.
 // =====================================================
 (function (global) {
@@ -291,7 +291,7 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         _products = Array.isArray(order.products) ? order.products.slice() : [];
         _stt = opts.sttDisplay != null ? String(opts.sttDisplay) : String(order.displayStt || '');
         // onClose: fire 1 lần khi modal đóng (hủy/in xong) → dùng để xếp hàng in
-        // nhiều đơn nháp tuần tự (chọn mix trạng thái).
+        // nhiều giỏ hàng tuần tự (chọn mix trạng thái).
         _onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
         // onPrint(order): fire khi bấm IN → ghi số lần in.
         _onPrint = typeof opts.onPrint === 'function' ? opts.onPrint : null;

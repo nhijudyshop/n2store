@@ -113,7 +113,7 @@
             { ico: '❤️', lbl: 'Lượt thích', val: s.likes, cls: 'c-likes' },
             { ico: '🔁', lbl: 'Chia sẻ', val: s.shares, cls: 'c-shares' },
             { ico: '📞', lbl: 'SĐT thu', val: s.phones, cls: 'c-phones' },
-            { ico: '🛒', lbl: 'Đơn đã tạo', val: s.orders, cls: 'c-orders' },
+            { ico: '🛒', lbl: 'Giỏ đã tạo', val: s.orders, cls: 'c-orders' },
             { ico: '🙈', lbl: 'Đã ẩn', val: s.hidden, cls: 'c-hidden' },
         ];
 

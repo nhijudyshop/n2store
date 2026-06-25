@@ -123,7 +123,7 @@
         const html = `
             <div class="kpi-leaderboard">
                 <p style="margin:0 0 8px;font-size:12px;color:#64748b;">
-                    <strong>Dự báo</strong> = đơn chưa thành đơn hàng · <strong>Thực</strong> = đơn đã thành PBH · 5.000đ/SP ${scopeBadge}
+                    <strong>Dự báo</strong> = giỏ hàng chưa thành PBH · <strong>Thực</strong> = đơn đã thành PBH · 5.000đ/SP ${scopeBadge}
                 </p>
                 <table class="data-table">
                     <thead>

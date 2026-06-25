@@ -192,7 +192,7 @@
     }
     // Đơn web (native-orders) tạo từ desktop (kéo SP vào comment) → đồng bộ xuống
     // mobile realtime qua SSE web2:native-orders. NATIVE: fbUserId → {stt, code}.
-    // "Đã tạo đơn" = has_order Pancake HOẶC có đơn native.
+    // "Đã tạo giỏ" = has_order Pancake HOẶC có giỏ native.
     let NATIVE = {};
     const nativeOrder = (c) => (c && c.fb_id ? NATIVE[String(c.fb_id)] : null) || null;
     const ordered = (c) =>
@@ -208,7 +208,7 @@
         other: 'st-known',
     };
     // Trạng thái KH = LUÔN lấy ở KHO web2_customers (w.status) → nhãn VN (LiveStatus
-    // shared). KHÔNG để "Đã tạo đơn" đè trạng thái — order là badge RIÊNG (xem cardHtml).
+    // shared). KHÔNG để "Đã tạo giỏ" đè trạng thái — giỏ là badge RIÊNG (xem cardHtml).
     function statusOf(c) {
         const w = whInfo(c);
         if (w) {

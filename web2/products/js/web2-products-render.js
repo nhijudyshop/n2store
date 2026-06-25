@@ -428,7 +428,7 @@
                 const statusColor = statusColors[item.status] || '#64748b';
                 const statusLabel =
                     item.status === 'draft'
-                        ? 'Nháp'
+                        ? 'Giỏ hàng'
                         : item.status === 'confirmed'
                           ? 'Đơn hàng'
                           : item.status === 'sent'
