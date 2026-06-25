@@ -111,6 +111,10 @@ downloads/n2store-session/console-*.json
 downloads/n2store-session/smoke-report-*.json
 .extension-last-published-version
 
+# Playwright MCP storageState (chứa JWT loginindex_auth/web2_auth) — KHÔNG commit
+downloads/n2store-session/auth-state*.json
+.chrome-n2store-debug/
+
 # Barcode comparison test (TPOS vs JsBarcode) — local only
 downloads/n2store-session/barcode-compare*.html
 downloads/n2store-session/barcode-compare-*.png

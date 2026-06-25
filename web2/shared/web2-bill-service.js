@@ -72,20 +72,20 @@
         // davidshimjs canvas / Code128 nếu Web2QR hoặc QR lib thiếu.
         try {
             if (global.Web2QR && typeof global.QRCode === 'function') {
-                // 2026-06-09: mã PBH đặt GIỮA QR (hộp chữ nhật trắng, cách module 1
-                // khoảng nhỏ cho dễ đọc). centerLabel tự nâng EC lên 'H' (phục hồi
-                // 30%) để máy vẫn quét được dù che vùng giữa. → bỏ dòng mã dưới QR.
+                // 2026-06-25: QR SẠCH — KHÔNG bake mã PBH vào GIỮA QR nữa (user yêu
+                // cầu). Mã PBH in DƯỚI QR (HRI mono, .b-qr-num) cho dễ đọc + đối chiếu.
+                // QR sạch ⇒ EC mặc định 'M' (module to hơn 'H') ⇒ quét nhạy hơn + đẹp.
                 const svg = global.Web2QR.toSvg(String(value), {
                     style: 'rounded',
                     margin: 2,
-                    centerLabel: String(value),
                 });
-                // 2026-06-25: NHÚNG SVG vector TRỰC TIẾP (thay <img src=data:svg>).
-                // html2canvas raster vector ở đúng độ phân giải in (72mm→576 chấm) →
-                // module bo góc + mắt finder SẮC NÉT, không vỡ hạt như khi <img> bị
-                // nearest-neighbor (image-rendering:pixelated). Kích thước do CSS .b-qr
-                // (38mm) điều khiển; viewBox giữ tỉ lệ vuông + nét.
-                return svg.replace(/^<svg /, '<svg class="b-qr" ');
+                // NHÚNG SVG vector TRỰC TIẾP (thay <img src=data:svg>): html2canvas
+                // raster vector ở đúng độ phân giải in (72mm→576 chấm) → module bo góc
+                // + mắt finder SẮC NÉT. Kích thước do CSS .b-qr (38mm) điều khiển.
+                return (
+                    svg.replace(/^<svg /, '<svg class="b-qr" ') +
+                    `<div class="b-qr-num">${_esc(value)}</div>`
+                );
             }
         } catch (e) {
             console.warn('[Web2Bill] Web2QR render failed, fallback:', e.message);

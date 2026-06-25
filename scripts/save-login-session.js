@@ -32,6 +32,12 @@ const WEB2_USER = get('web2-user', USER);
 const WEB2_PASS = get('web2-pass', PASS);
 const SKIP_WEB2 = args.includes('--no-web2');
 const SECRET_FILE = get('secret-file', path.join(__dirname, '..', 'serect_dont_push.txt'));
+// Playwright MCP đọc storageState (cookie + localStorage) qua flag --storage-state.
+// Xuất luôn file này để Claude Code (Playwright MCP) "vào thẳng" không cần login lại.
+const STATE_OUT = get(
+    'state-out',
+    path.join(__dirname, '..', 'downloads', 'n2store-session', 'auth-state.json')
+);
 
 const host = new URL(BASE).host.replace(/[^\w.-]/g, '_');
 const SECTION = `## n2store_session_${host}`;
@@ -101,6 +107,18 @@ const log = (...m) => console.log(`[${ts()}]`, ...m);
 
     const cookies = await ctx.cookies();
     snapshot.cookies = cookies;
+
+    // Xuất Playwright storageState chuẩn cho Playwright MCP (--storage-state).
+    // Phải gọi TRƯỚC browser.close(). Lỗi → best-effort, vẫn lưu block secret.
+    try {
+        fs.mkdirSync(path.dirname(STATE_OUT), { recursive: true });
+        await ctx.storageState({ path: STATE_OUT });
+        log(
+            `Wrote Playwright storageState → ${STATE_OUT} (dùng cho Playwright MCP --storage-state).`
+        );
+    } catch (e) {
+        log('storageState export skipped:', e.message);
+    }
 
     await browser.close();
 
