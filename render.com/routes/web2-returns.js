@@ -40,14 +40,14 @@ let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
     _notifyClients = notifyClients;
 }
-function _notify(action, code, extra) {
+function _notify(action, code, _extra) {
     if (!_notifyClients) return;
     try {
-        _notifyClients(
-            'web2:returns',
-            { action, code: code || null, ts: Date.now(), ...(extra || {}) },
-            'update'
-        );
+        // Audit SSE 2026-06-25: KHÔNG spread _extra (chỉ từng mang { phone }) vào
+        // payload broadcast 'web2:returns' — lệch convention {action,id,ts} + lộ SĐT
+        // KH cho mọi subscriber (client chỉ reload tab, không đọc payload). SĐT chỉ
+        // đi qua _notifyWallet → topic riêng 'web2:wallet:<phone>'.
+        _notifyClients('web2:returns', { action, code: code || null, ts: Date.now() }, 'update');
         // Thu về đổi tồn kho → Kho SP tự refresh (badge thu về, tồn).
         _notifyClients(
             'web2:products',

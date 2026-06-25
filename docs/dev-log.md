@@ -2,6 +2,28 @@
 
 ## 2026-06-25
 
+### [so-order] FIX REGRESSION: `_rowToKhoMatch is not defined` — xóa/sửa lô vỡ
+
+User báo "Không xóa được so-order" + console `Uncaught ReferenceError: _rowToKhoMatch is not defined at so-order-delete.js:197 (_finalizeDeleteShipment)`.
+
+**Nguyên nhân**: commit `eaf9213a4` (Wave 3 tách `so-order-app.js` → 23 module IIFE riêng). Hàm `_rowToKhoMatch` (gốc local trong scope monolith) trở thành `SO._rowToKhoMatch` (so-order-kho-sync.js:242), nhưng **5 chỗ gọi vẫn để bare `_rowToKhoMatch`** (chỉ modal-submit prefix đúng) → ReferenceError mọi đường xóa/sửa qty: deleteRow, deleteShipment, deleteTab, bulk-edit, inline-edit.
+
+**Fix**: bare `_rowToKhoMatch(r)` → `SO._rowToKhoMatch(r)` ở 5 site (so-order-delete.js ×2, so-order-settings.js, so-order-bulk-edit.js, so-order-inline-edit.js). Verify: node --check 4 file OK + browser eval `typeof SO._rowToKhoMatch==='function'` ✓, chạy lại đúng biểu thức `.map(r=>({...SO._rowToKhoMatch(r),delta}))` từng throw → `mapOk:true, err:null`. Cache-bust so-order/index.html `?v=…b`. Status ✅ (commit auto `c9495a30a`).
+
+### [web2 nhiều trang][render] Audit SSE — vá 6 MED + 4 LOW gap realtime (workflow 18 agent)
+
+Workflow audit SSE (9 nhóm × audit+adversarial-verify, 18 agent, ~51′) hoàn tất → **16 gap xác minh (0 HIGH / 6 MED / 10 LOW)**. Vá các gap thật (trừ Web2CustomerChat embedded — cần xác nhận chủ đích quick-view):
+
+- **MED Live Control dropdown chiến dịch** (`live-control.js`): onSse bỏ qua `web2:live-comments` action `campaign` → dropdown stale tới F5. Thêm branch debounce `loadCampaigns()`.
+- **MED Livestream Poller danh sách page** (`livestream-poller/index.html`): SSE chỉ reload stat, không reload pages. Thêm nhánh action `poller-pages` → `loadPages()`.
+- **MED FB-posts connect/disconnect** (`fb-posts-app.js`): handler không gọi `loadStatus()` → pill + page-chips (cả tab Soạn bài) stale. Thêm nhánh connect/disconnect → `loadStatus()` (phủ luôn LOW composer chips).
+- **MED Quick replies** (`web2-quick-reply.js`) + **MED Mẫu tin nhắn** (`web2-msg-template-core.js`): publisher wired nhưng KHÔNG ai subscribe → thêm `Web2SSE.subscribe` revalidate cache cross-máy.
+- **MED KPI phân khoảng STT** (`v2/kpi.js`): PUT /employee-ranges UPSERT nhưng không broadcast → thêm `_notifyClients('web2:kpi-dashboard', {action,campaign,ts})`. **LOW** + assignments.html nạp `web2-sse-bridge.js` + `kpi-assignments.js` subscribe reload ranges/history.
+- **LOW returns PII** (`web2-returns.js`): bỏ spread `{phone}` khỏi payload `web2:returns` (lệch convention + lộ SĐT, không ai đọc); SĐT giữ ở `_notifyWallet` topic `web2:wallet:<phone>`.
+- **LOW Zalo accounts** (`web2-zalo-app.js`): debounce `refAcc` 500ms (gom burst, đối xứng refList).
+
+Verify: node --check toàn bộ file JS OK. Status ✅
+
 ### [web2 toàn cục][render] Audit SSE realtime toàn bộ Web 2.0
 
 Rà soát toàn bộ chuỗi SSE Web 2.0 (publish→wire→subscribe→reload-completeness→topic-match) — 42 trang subscribe, ~44 route publish, ~39 module wired. Workflow background chết (0 output) → audit thủ công deterministic + đọc handler.

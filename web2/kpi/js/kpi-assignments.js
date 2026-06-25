@@ -410,6 +410,24 @@
             sel.value = urlParam;
             onCampaignChange(urlParam);
         }
+
+        // Audit SSE 2026-06-25: admin khác lưu phân khoảng STT (PUT /employee-ranges
+        // → broadcast 'web2:kpi-dashboard') → reload ranges + history của chiến dịch
+        // đang xem để không phải F5. Debounce 600ms gom burst.
+        if (window.Web2SSE?.subscribe) {
+            let _sseT = null;
+            window.Web2SSE.subscribe('web2:kpi-dashboard', () => {
+                clearTimeout(_sseT);
+                _sseT = setTimeout(async () => {
+                    if (!STATE.currentCampaign) return;
+                    await loadRanges(STATE.currentCampaign);
+                    await loadHistory(STATE.currentCampaign);
+                    renderRangesTable();
+                    renderStats();
+                    renderHistory();
+                }, 600);
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', init);

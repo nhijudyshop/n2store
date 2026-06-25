@@ -97,9 +97,11 @@
         <script src="../shared/web2-kpi.js?v=20260621kpi"></script>
         <script src="../shared/web2-user-info.js?v=20260531kpi"></script>
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
+        <!-- Audit SSE 2026-06-25: bridge để nhận 'web2:kpi-dashboard' (admin lưu phân khoảng ở máy khác). -->
+        <script src="../shared/web2-sse-bridge.js?v=20260625sse"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
         </script>
-        <script src="js/kpi-assignments.js?v=20260621kpi"></script>
+        <script src="js/kpi-assignments.js?v=20260625sse"></script>
     </body>
 </html>

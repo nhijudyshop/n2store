@@ -150,7 +150,14 @@
         // Per-máy: topic owner-scoped (TK cá nhân + tin của MÁY này) + topic global
         // (OA dùng chung + admin reset). owner = UUID trình duyệt.
         const own = (window.Web2ZaloOwner && window.Web2ZaloOwner()) || '_none';
-        const refAcc = () => WZApp.loadAccounts();
+        // Audit SSE 2026-06-25: debounce refAcc giống refList — loadAccounts() là
+        // full fetch (status + renderAccounts + autoRenewZalo); burst (login/status
+        // flip liên tiếp, bulk tracked-changed) trước đây gọi không gom → phí fetch.
+        let _accT;
+        const refAcc = () => {
+            clearTimeout(_accT);
+            _accT = setTimeout(() => WZApp.loadAccounts(), 500);
+        };
         window.Web2SSE.subscribe(`web2:zalo:${own}:accounts`, refAcc);
         window.Web2SSE.subscribe('web2:zalo:accounts', refAcc); // OA/reset chung
         // CHỈ refresh DANH SÁCH hội thoại ở đây (debounce). Tin của hội thoại

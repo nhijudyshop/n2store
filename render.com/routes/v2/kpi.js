@@ -726,6 +726,25 @@ router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) 
 
         // Ranges đổi → invalidate scope cache mọi user.
         invalidateScopeCache();
+        // Audit SSE 2026-06-25: đổi phân khoảng STT làm thay đổi scope/attribution
+        // KPI của NV → leaderboard/dashboard (web2/dashboard + web2/kpi subscribe
+        // 'web2:kpi-dashboard') phải auto-refresh, trước đây phải F5. Payload chỉ
+        // {action,campaign,ts} — không PII.
+        if (_notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:kpi-dashboard',
+                    {
+                        action: prevRanges?.length ? 'assignment-update' : 'assignment-create',
+                        campaign: name,
+                        ts: Date.now(),
+                    },
+                    'update'
+                );
+            } catch (e) {
+                console.warn('[web2-kpi] employee-ranges _notify failed:', e?.message);
+            }
+        }
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
