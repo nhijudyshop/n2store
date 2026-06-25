@@ -264,6 +264,23 @@
             e.target.value = '';
         });
 
+        // 📋 Dán ảnh (Ctrl+V) + kéo-thả cho ô "Ảnh người" + "Ảnh quần áo" — nâng cấp
+        // file input SẴN CÓ qua module shared Web2ImagePaste (1 NGUỒN, KHÔNG fork). Ảnh
+        // dán/thả được bơm vào input.files + dispatch change → handler nén/preview ở trên
+        // chạy y như chọn file. Hover/focus vào ô nào thì Ctrl+V rơi vào ô đó.
+        if (global.Web2ImagePaste && global.Web2ImagePaste.enhance) {
+            const personFile = $('.w2t-person-file');
+            const garmentFile = $('.w2t-garment-file');
+            global.Web2ImagePaste.enhance(personFile, {
+                dropZone: personFile.closest('.w2t-field'),
+                hintText: 'hoặc DÁN ảnh (Ctrl+V) / kéo-thả ảnh người vào đây',
+            });
+            global.Web2ImagePaste.enhance(garmentFile, {
+                dropZone: garmentFile.closest('.w2t-field'),
+                hintText: `hoặc DÁN/kéo-thả ảnh quần áo (Ctrl+V) — tối đa ${MAX_GARMENTS}`,
+            });
+        }
+
         // kho ảnh free (chỉ hiện khi Web2VideoStock có mặt)
         if (hasStock()) {
             const ps = $('.w2t-person-stock');
