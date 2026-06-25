@@ -2,6 +2,15 @@
 
 ## 2026-06-25
 
+### [web2/products][render][so-order] Fix SSE hiện SP mới (không F5) + địa danh luôn nhận diện
+
+Browser-test so-order (Điền ngẫu nhiên → Lưu Nháp) → audit → fix (user báo 2 bug):
+
+- **Bug 1 — "phải F5 mới thấy SP tạo bên so-order"**: handler SSE `web2:products` coi action `upsert-pending` là update → `_updateRowsBatch` patch-in-place, code chưa on-page → `handled=true` → KHÔNG reload → SP mới vô hình. **Fix** `web2-products-app.js`: `upsert-pending` có code chưa nằm trong data → `debouncedFullLoad()`. Verify live: tạo SP qua API → bảng tự 14→15, `loadCalls=1`, KHÔNG F5, badge ĐỊA DANH=HƯƠNG CHÂU.
+- **Bug 2 — địa danh không nhận diện cho SP cũ** (note='HƯƠNG CHÂU', region=null): backfill 1-lần/boot bỏ sót SP tạo sau boot + `ILIKE '%HƯƠNG CHÂU%'` không khớp note do Unicode NFC/NFD. **Fix**: (a) backfill `region` từ PREFIX MÃ (HN/HC, ASCII) un-gate mỗi boot; (b) `mapRow`/`mapItem` fallback `regionFromCode(code)` read-time → region LUÔN đúng dù chưa backfill. Verify live: 12/12 SP có region.
+- **so-order random NCC**: bỏ HÀ NỘI/HƯƠNG CHÂU khỏi list NCC (đó là địa danh).
+- Verify flow so-order Lưu Nháp (token web2 hợp lệ): order lưu OK + kho-sync tạo SP `region=HƯƠNG CHÂU` note sạch + SSE `web2:products upsert-pending` fire, 0 lỗi/warn. Account browser-test web2 = trong serect (admin/admin!!).
+
 ### [live-control][live-tv][products][so-order][render] ĐỊA DANH riêng + TV NCC/Bán/Cọc/Còn
 
 User (trang **live-control**, nhầm tên so-order/native-orders): (1) địa danh nhập hàng (Hà Nội/Hương Châu) là field RIÊNG — Sổ Order đang nhầm nhét vào **ghi chú**, web2_products chưa có field địa danh → tách ra; thêm chip lọc + badge địa danh vào panel "Thêm sản phẩm" có toggle ẩn/hiện. (2) Board "Trên TV" + màn TV hiện **NCC / Bán / Cọc / Còn**.
