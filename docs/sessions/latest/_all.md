@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `26f3c2b` — auto: session update
-**Last updated**: 2026-06-25 09:42:12 +07
-**Latest session**: [`RESUME:20260625-094212-26f3c2b`](../20260625-094212-26f3c2b.md)
+**Latest commit**: `4330b7c` — auto: session update
+**Last updated**: 2026-06-25 09:49:51 +07
+**Latest session**: [`RESUME:20260625-094951-4330b7c`](../20260625-094951-4330b7c.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-24 20:20
+- [`docs/`](./docs.md) — updated 2026-06-25 09:49
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
