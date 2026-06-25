@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7f8dd21` — auto: session update
-**Last updated**: 2026-06-25 12:32:25 +07
-**Latest session**: [`RESUME:20260625-123225-7f8dd21`](../20260625-123225-7f8dd21.md)
-**Summary**: auto: session update
+**Latest commit**: `2d25653` — fix(web2/effects): hover-zoom "ảnh to hiện cuối trang" trên trang không nạp web2-effects.css
+**Last updated**: 2026-06-25 12:32:54 +07
+**Latest session**: [`RESUME:20260625-123254-2d25653`](../20260625-123254-2d25653.md)
+**Summary**: fix hover-zoom ảnh dump cuối trang (web2-effects tự inject CSS popup) trên trang thiếu web2-effects.css
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
