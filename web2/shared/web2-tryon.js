@@ -295,6 +295,7 @@
                 button: aiBtn,
                 input: $('.w2t-prompt'),
                 kind: 'generic',
+                lang: 'en', // mô tả phong cảnh/chi tiết tiếng ANH (model ảnh hiểu tốt hơn)
             });
         }
 

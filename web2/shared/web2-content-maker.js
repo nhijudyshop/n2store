@@ -355,7 +355,12 @@
         if (global.Web2AiDescribe && global.Web2AiDescribe.attach) {
             const aiBtn = $('.w2cm-ai');
             aiBtn.hidden = false;
-            global.Web2AiDescribe.attach({ button: aiBtn, input: dataEl, kind: 'generic' });
+            global.Web2AiDescribe.attach({
+                button: aiBtn,
+                input: dataEl,
+                kind: 'generic',
+                lang: 'en', // viết mô tả bằng tiếng ANH (theo yêu cầu)
+            });
         }
 
         const onResize = () => fitPreview();

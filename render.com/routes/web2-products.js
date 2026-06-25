@@ -196,6 +196,12 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS origin_currency VARCHAR(8),
                 ADD COLUMN IF NOT EXISTS origin_rate     NUMERIC(14,4);
 
+            -- Migration 080: ĐỊA DANH nhập hàng (Sổ Order tab: HÀ NỘI/HƯƠNG CHÂU) —
+            -- field RIÊNG, KHÁC note (ghi chú). Trước đây so-order nhét địa danh vào
+            -- note (sai, user báo) → backfill 080 bên dưới tách địa danh khỏi ghi chú.
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS region VARCHAR(60);
+
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
 
@@ -291,8 +297,32 @@ async function ensureTables(pool) {
             END $$;
         `);
 
+        // Migration 080: tách ĐỊA DANH (HÀ NỘI/HƯƠNG CHÂU) từ note → region; dọn note.
+        // Self-gated (native_orders_migrations). Web2.0 beta → an toàn dọn note.
+        await pool.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM native_orders_migrations WHERE name='080_region_from_note') THEN
+                    UPDATE web2_products
+                       SET region = CASE
+                                      WHEN note ILIKE '%HÀ NỘI%'    THEN 'HÀ NỘI'
+                                      WHEN note ILIKE '%HƯƠNG CHÂU%' THEN 'HƯƠNG CHÂU'
+                                      ELSE region END
+                     WHERE (region IS NULL OR region = '')
+                       AND (note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%');
+                    UPDATE web2_products
+                       SET note = NULLIF(BTRIM(regexp_replace(
+                                     regexp_replace(note, '(HÀ NỘI|HƯƠNG CHÂU)', '', 'gi'),
+                                     '\\s*\\|\\s*\\|\\s*', ' | ', 'g'), ' |'), '')
+                     WHERE note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%';
+                    INSERT INTO native_orders_migrations(name) VALUES ('080_region_from_note');
+                    RAISE NOTICE 'Migration 080: region tách từ note';
+                END IF;
+            END $$;
+        `);
+
         _ensuredPools.add(pool);
-        console.log('[WEB2-PRODUCTS] Tables created/verified (+ migration 078)');
+        console.log('[WEB2-PRODUCTS] Tables created/verified (+ migration 078, 080)');
     } catch (error) {
         console.error('[WEB2-PRODUCTS] Table creation error:', error.message);
     }
@@ -311,6 +341,8 @@ function mapRow(row) {
         imageUrl: row.image_url,
         stock: row.stock,
         note: row.note,
+        // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — RIÊNG note (ghi chú)
+        region: row.region || null,
         tags: row.tags || [],
         isActive: !!row.is_active,
         createdBy: row.created_by,
@@ -652,11 +684,11 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             const r = await client.query(
                 `INSERT INTO web2_products
                  (code, name, price, image_url, stock, note, tags, is_active,
-                  original_price, barcode, category, variant, supplier,
+                  original_price, barcode, category, variant, supplier, region,
                   created_by, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, true,
-                         $8, $9, $10, $11, $12,
-                         $13, $14, $14)
+                         $8, $9, $10, $11, $12, $13,
+                         $14, $15, $15)
                  RETURNING *`,
                 [
                     b.code.trim(),
@@ -671,6 +703,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     b.category ? b.category.trim() : null,
                     b.variant ? String(b.variant).trim() : null,
                     b.supplier ? String(b.supplier).trim() : null,
+                    b.region ? String(b.region).trim() : null,
                     b.createdBy || null,
                     now,
                 ]
@@ -727,6 +760,8 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             // Migration 068
             variant: 'variant',
             supplier: 'supplier',
+            // địa danh nhập hàng (RIÊNG note)
+            region: 'region',
         };
         const sets = [];
         const params = [];
@@ -1410,12 +1445,12 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                         `INSERT INTO web2_products
                             (code, name, price, image_url, stock, note, tags, is_active,
                              original_price, barcode, category, variant,
-                             status, pending_qty, supplier,
+                             status, pending_qty, supplier, region,
                              origin_currency, origin_rate,
                              created_by, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, 0, $5, '[]'::jsonb, TRUE,
                                  $6, NULL, NULL, $7,
-                                 'CHO_MUA', $8, $9,
+                                 'CHO_MUA', $8, $9, $13,
                                  $11, $12,
                                  'so-order', $10, $10)
                          RETURNING *`,
@@ -1432,6 +1467,7 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                             now,
                             originCur,
                             originRate,
+                            it.region ? String(it.region).trim() : null,
                         ]
                     );
                     const row = r.rows[0];
@@ -1478,15 +1514,20 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                 else if (newPending > 0) newStatus = 'MUA_1_PHAN';
                 else newStatus = 'DANG_BAN';
                 const newSupplier = row.supplier || supplier;
+                // địa danh sticky: chỉ điền nếu SP chưa có (không ghi đè) — KHÔNG nhét note.
+                const newRegion =
+                    (row.region && String(row.region).trim()) ||
+                    (it.region ? String(it.region).trim() : null);
                 const r2 = await client.query(
                     `UPDATE web2_products
                        SET pending_qty = $1,
                            status      = $2,
                            supplier    = $3,
-                           updated_at  = $4
-                     WHERE code = $5
+                           region      = $4,
+                           updated_at  = $5
+                     WHERE code = $6
                      RETURNING *`,
-                    [newPending, newStatus, newSupplier, now, row.code]
+                    [newPending, newStatus, newSupplier, newRegion, now, row.code]
                 );
                 const updated_row = r2.rows[0];
                 updated++;
