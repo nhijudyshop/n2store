@@ -297,27 +297,36 @@ async function ensureTables(pool) {
             END $$;
         `);
 
-        // Migration 080 (AUTO-HEAL — KHÔNG gate): tách ĐỊA DANH (HÀ NỘI/HƯƠNG CHÂU)
-        // từ note → region cho MỌI SP region rỗng mà note có địa danh (so-order CŨ
-        // nhét địa danh vào note). Idempotent: chạy xong region set + note dọn → lần
-        // sau no-op. ensureTables chỉ chạy 1 lần/boot (_ensuredPools) → mỗi deploy
-        // tự lành SP cũ. SP mới từ so-order ghi thẳng region (không cần backfill).
-        // KHÔNG gate (trước đây gate 1-lần làm SP tạo sau migration không được lành).
+        // Migration 080 (AUTO-HEAL — KHÔNG gate): backfill ĐỊA DANH (region) cho SP
+        // cũ do so-order nhét địa danh vào note. ensureTables chạy 1 lần/boot → mỗi
+        // deploy tự lành. SP mới từ so-order ghi thẳng region (không cần backfill).
+        //
+        // ⚠ DÙNG PREFIX MÃ (ASCII) làm nguồn chính: so-order sinh mã HN..=Hà Nội,
+        // HC..=Hương Châu theo tab. KHÔNG match note bằng ILIKE '%HƯƠNG CHÂU%' vì
+        // chữ Việt trong note có thể khác Unicode-normalize (NFC/NFD) → ILIKE không
+        // khớp (bug thật: HC* note='HƯƠNG CHÂU' không lành). Prefix mã thuần ASCII
+        // nên luôn khớp.
         await pool.query(`
             UPDATE web2_products
                SET region = CASE
-                              WHEN note ILIKE '%HÀ NỘI%'    THEN 'HÀ NỘI'
-                              WHEN note ILIKE '%HƯƠNG CHÂU%' THEN 'HƯƠNG CHÂU'
+                              WHEN code LIKE 'HN%' THEN 'HÀ NỘI'
+                              WHEN code LIKE 'HC%' THEN 'HƯƠNG CHÂU'
                               ELSE region END
              WHERE (region IS NULL OR region = '')
-               AND (note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%')
+               AND (code LIKE 'HN%' OR code LIKE 'HC%')
         `);
+        // Dọn note = địa danh (so-order cũ) — so khớp normalize() Unicode-an-toàn.
+        // Bọc EXCEPTION để KHÔNG vỡ ensureTables nếu normalize() thiếu (region đã set
+        // ở query trên rồi → đây chỉ là dọn note phụ).
         await pool.query(`
-            UPDATE web2_products
-               SET note = NULLIF(BTRIM(regexp_replace(
-                             regexp_replace(note, '(HÀ NỘI|HƯƠNG CHÂU)', '', 'gi'),
-                             '\\s*\\|\\s*\\|\\s*', ' | ', 'g'), ' |'), '')
-             WHERE note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%'
+            DO $$
+            BEGIN
+                UPDATE web2_products SET note = NULL
+                 WHERE region IS NOT NULL AND note IS NOT NULL AND btrim(note) <> ''
+                   AND normalize(upper(btrim(note)), NFC) IN
+                       (normalize('HÀ NỘI', NFC), normalize('HƯƠNG CHÂU', NFC));
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END $$
         `);
 
         _ensuredPools.add(pool);
