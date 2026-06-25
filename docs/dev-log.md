@@ -2,6 +2,21 @@
 
 ## 2026-06-25
 
+### [web2/products] Tem SP "2 tem" → bố cục price-tag HOÀN HẢO (giá hero + tên 2 dòng sạch + biến thể gọn)
+
+Iterate bố cục tem QR (`buildLabelHTML`) cho đẹp + hoàn hảo, verify bằng Playwright MCP (render `buildLabelHTML` thật + decode QR ở size in).
+
+**Vấn đề bản P1 cũ** (đo computed style): cột phải chỉ ~12mm → GIÁ nowrap bị fitText thu còn **10.5px** (không nổi); biến thể dài "Màu Xám Đen / Size 36" thu còn **3.5px** (không đọc nổi); tên dài nhồi **3-4 dòng tí hon** (fitName cũ fit theo box px, không theo số dòng).
+
+**Files** `web2/products/js/web2-products-print-render.js`:
+
+- **Bố cục price-tag (P2)**: HÀNG TRÊN = [QR sạch + mã SP dưới] | [TÊN ≤2 dòng + BIẾN THỂ chip]; **BĂNG GIÁ full-width dưới cùng** (kẻ vạch trên) → giá in **TO NHẤT** (16.5–18px, hero) vì rộng cả tem. QR `min(labelW*0.48, (labelH-pad)*0.6)` ≈ 12mm.
+- **`fitName` viết lại**: thu nhỏ tới khi **≤2 DÒNG THẬT** (đo `round(scrollHeight/lineHeight)`, không phải fit box px) → clip cứng đúng 2 dòng ở line-height cuối. Hết cảnh tên 3-4 dòng tí hon.
+- **Biến thể rút gọn**: bỏ tiền tố "Màu"/"Size"/"cỡ"/"sz" → "Màu Xám Đen / Size 36" thành "Xám Đen / 36" (đọc được). +CSS `.ql-qr-priceband`, +fitText cho band.
+- Cache-bust `web2-products-print-render.js?v=20260625p2`.
+
+**Verify** (Playwright MCP, BarcodeDetector, render engine THẬT): 6 SP edge-case (tên ngắn/dài, biến thể dài, giá tới 1.250.000, mã 24 ký tự) → **decode 6/6 PASS ở 88px** (chặt hơn ~96px khổ in 12mm) → quét chắc có dư địa. Giá hero rõ, tên 2 dòng sạch, biến thể đọc được. Thuần frontend → GH Pages. Status ✅
+
 ### [scripts] Browser-test cho AI agent tự verify → Playwright MCP + Chrome DevTools MCP (thay REPL điều khiển tay)
 
 Research toàn cảnh GitHub (workflow 4 agent: Playwright MCP / Chrome DevTools MCP / browser-use+Stagehand / fit-analysis) cho nhu cầu "Claude Code tự test web để code đúng". **Kết luận**: dùng **Playwright MCP** làm verify gate chính (deterministic, 0 cost LLM thứ 2 vì agent đã là LLM) + **Chrome DevTools MCP** debug console/network/perf + reuse `n2store-extension`. **KHÔNG** dùng browser-use/Stagehand (tốn LLM riêng + non-deterministic → sai bản chất verify gate). Giữ nguyên smoke 144 trang + DB migration (deterministic batch). Chỉ thay phần REPL điều khiển tay (`n2store-browser-session.js` nav/eval/click) bằng MCP tool.

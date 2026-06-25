@@ -13,6 +13,10 @@ build/
 # Logs
 *.log
 **/logs/
+
+# Playwright MCP output (screenshots/snapshots khi browser-test)
+.playwright-mcp/
+label-lab-*.png
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

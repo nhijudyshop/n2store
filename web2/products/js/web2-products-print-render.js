@@ -147,48 +147,57 @@
                 // cellW (cột die-cut) → tem canh GIỮA trong cột vật lý của nó.
                 let labelInner = '';
                 if (isQr && !hideBarcode) {
-                    // P1 (2026-06-25): bố cục THÔNG MINH cho tem QR.
-                    //   • Cột TRÁI = QR SẠCH (KHÔNG bake biến thể) + MÃ SP ngay dưới QR.
-                    //   • Cột PHẢI xếp dọc canh giữa: TÊN (≤2 dòng, tự thu nhỏ) →
-                    //     BIẾN THỂ (chip xám, 1 dòng) → GIÁ (đậm, TO NHẤT). Hierarchy
-                    //     bán lẻ: giá nổi nhất, biến thể rõ ràng. Biến thể tách khỏi QR
-                    //     ⇒ dễ đọc + QR đẹp + quét nhạy hơn (EC thấp, module to hơn).
+                    // P2 "price-tag" (2026-06-25): bố cục HOÀN HẢO cho tem QR 25×21mm.
+                    //   • HÀNG TRÊN (flex row): [QR SẠCH + MÃ SP dưới QR]  |  [TÊN ≤2 dòng + BIẾN THỂ].
+                    //   • BĂNG GIÁ full-width DƯỚI CÙNG (kẻ vạch trên): GIÁ TO NHẤT (hero).
+                    //     Lý do: cột phải chỉ ~12mm → để giá ở băng riêng rộng CẢ TEM mới in
+                    //     to được (trước đây giá nowrap bị fitText thu nhỏ còn 10px).
+                    //   • Biến thể RÚT GỌN (bỏ "Màu"/"Size") cho vừa cột hẹp (trước "Màu
+                    //     Xám Đen / Size 36" bị thu còn 3.5px không đọc nổi).
                     const qrMm =
                         Math.round(
-                            Math.min(labelW * 0.5, (labelH - padTop - padBottom) * 0.9) * 10
+                            Math.min(labelW * 0.48, (labelH - padTop - padBottom) * 0.6) * 10
                         ) / 10;
-                    const rowStyle =
+                    const fsCodeOv = Math.max(5, Math.round(fsCode * 0.85));
+                    const fsVar = Math.max(5, Math.round(fsCode * 0.95));
+                    const fsPrice = Math.round(fs * 1.5); // băng full-width → giá HERO
+                    const vShort = String(label.variant || '')
+                        .replace(/\b(màu|mau|size|sz|cỡ)\s*:?\s*/gi, '')
+                        .replace(/\s{2,}/g, ' ')
+                        .trim();
+                    const outerStyle =
                         labelStyle +
-                        'flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;';
-                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:0.7mm;`;
+                        'flex-direction:column;justify-content:flex-start;text-align:left;';
+                    const row1 =
+                        'display:flex;flex-direction:row;align-items:center;gap:0.6mm;width:100%;flex:1 1 auto;min-height:0;overflow:hidden;';
+                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;`;
                     const qrBox = `width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
                     const codeUnder = `width:${qrMm}mm;`;
                     const txtCol =
-                        'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;text-align:left;overflow:hidden;';
-                    const fsCodeOv = Math.max(5, Math.round(fsCode * 0.9));
-                    const fsVar = fsCode; // biến thể = cỡ mã
-                    const fsPrice = Math.max(fs, Math.round(fs * 1.08)); // GIÁ to nhất
-                    // Tên TỐI ĐA 2 dòng (chừa chỗ biến thể + giá ở cột phải).
+                        'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.4mm;overflow:hidden;';
                     const nameP1 = `overflow-wrap:normal;word-break:keep-all;overflow:hidden;line-height:${nameLineH}px;max-height:${nameLineH * 2}px;`;
-                    labelInner += `<div class="barcode_label" style="${rowStyle}">`;
+
+                    labelInner += `<div class="barcode_label" style="${outerStyle}">`;
+                    // ── HÀNG TRÊN: QR + mã | tên + biến thể ──
+                    labelInner += `<div style="${row1}">`;
                     labelInner += `<div class="ql-qr-col" style="${qrColStyle}">`;
                     labelInner += `<div class="barcode-image ql-qr" style="${qrBox}">${barcodeImg}</div>`;
-                    // Mã SP DƯỚI QR — canh giữa, rộng = QR, nowrap, auto thu nhỏ.
-                    labelInner += `<div class="ql-qr-code" style="${codeUnder}font-size:${fsCodeOv}px;line-height:1;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
+                    labelInner += `<div class="ql-qr-code" style="${codeUnder}font-size:${fsCodeOv}px;line-height:1;letter-spacing:0.2px;margin-top:0.3mm;"><${bTag}>${escapeHtml(label.code)}</${bTag}></div>`;
                     labelInner += `</div>`;
                     labelInner += `<div class="ql-text" style="${txtCol}">`;
                     if (showProductName) {
                         labelInner += `<div class="barcode-pname" style="${nameP1}font-size:${fs}px;text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
-                    if (showVariant && label.variant) {
-                        // BIẾN THỂ = chip riêng (fitText auto thu nhỏ nếu dài).
-                        labelInner += `<div class="ql-qr-var" style="font-size:${fsVar}px;">${escapeHtml(label.variant)}</div>`;
+                    if (showVariant && vShort) {
+                        labelInner += `<div class="ql-qr-var" style="font-size:${fsVar}px;">${escapeHtml(vShort)}</div>`;
                     }
+                    labelInner += `</div>`; // /ql-text
+                    labelInner += `</div>`; // /row1
+                    // ── BĂNG GIÁ full-width (hero) ──
                     if (showPrice) {
-                        // GIÁ đậm, to nhất (hierarchy bán lẻ). fitText thu nhỏ nếu tràn.
-                        labelInner += `<div class="ql-qr-price" style="font-size:${fsPrice}px;font-weight:800;line-height:1.05;margin-top:0.3mm;text-align:left;white-space:nowrap;"><span class="barcode-price">${displayPrice}${currencyStr}</span></div>`;
+                        labelInner += `<div class="ql-qr-priceband" style="font-size:${fsPrice}px;"><span class="barcode-price">${displayPrice}${currencyStr}</span></div>`;
                     }
-                    labelInner += `</div></div>`;
+                    labelInner += `</div>`; // /barcode_label
                 } else if (printType === 'new') {
                     // PrintNew — 2-column table
                     labelInner = `<div class="barcode_label" style="${labelStyle}"><table border="0" style="width:100%;height:100%;"><tr><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-code">${escapeHtml(label.code)}</div>${showPrice ? `<div class="barcode-price">${displayPrice}${currencyStr}</div>` : ''}</td><td style="width:50%;text-align:center;vertical-align:middle"><div class="barcode-image">${!hideBarcode ? barcodeImg : ''}</div></td></tr></table></div>`;
@@ -378,12 +387,24 @@ html, body {
     font-style: italic;
     font-weight: 700;
     border-radius: 1.5px;
-    padding: 0 1.2px;
-    line-height: 1.25;
+    padding: 0 1.4px;
+    line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 0.3mm;
+}
+/* P2 (2026-06-25): BĂNG GIÁ full-width dưới cùng — giá HERO, kẻ vạch tách. */
+.ql-qr-priceband {
+    flex: 0 0 auto;
+    width: 100%;
+    text-align: center;
+    font-weight: 800;
+    line-height: 1;
+    border-top: 1px solid #000;
+    margin-top: 0.4mm;
+    padding-top: 0.5mm;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
 }
 
 /* === Screen preview only (không in) === */
@@ -448,47 +469,41 @@ ${SCRIPT_OPEN}>
     // theo % cạnh QR) → mã/biến thể DÀI hiện đủ, không tràn che thêm module QR.
     // nowrap để scrollWidth phản ánh tràn. Giảm dần 0.5px, min 3.5px.
     function fitText(){
-        document.querySelectorAll('.ql-qr-variant, .ql-qr-var, .ql-qr-code, .ql-qr-price').forEach(function(el){
+        document.querySelectorAll('.ql-qr-variant, .ql-qr-var, .ql-qr-code, .ql-qr-price, .ql-qr-priceband').forEach(function(el){
             var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||6;
             while(el.scrollWidth > el.clientWidth + 0.5 && fs > 3.5 && guard < 40){
                 fs -= 0.5; el.style.fontSize = fs + 'px'; guard++;
             }
         });
     }
-    // 2026-06-09: TÊN SP để font TO (giao diện to hơn) nhưng tên DÀI thì tự thu nhỏ
-    // cho VỪA hộp 3 dòng (max-height) → không cắt chữ. Tên ngắn giữ font to. Giảm
-    // font + line-height đồng bộ 0.5px tới khi scrollHeight<=clientHeight, min 6px.
+    // 2026-06-25: TÊN SP — thu nhỏ font tới khi VỪA ĐÚNG ≤2 DÒNG SẠCH (KHÔNG nhồi
+    // nhiều dòng tí hon vào hộp như bản cũ — đo theo box px nên tên dài thành 3-4
+    // dòng nhỏ xíu). Đo SỐ DÒNG THẬT = round(scrollHeight/lineHeight), giảm 0.5px
+    // tới khi ≤2 dòng + không tràn ngang; rồi clip cứng đúng 2 dòng ở line-height
+    // cuối. Tên ngắn giữ font to. → bố cục đều, đẹp, dễ đọc.
     function fitName(){
-        var MIN_FS = 6; // sàn font dễ đọc cho raster nhiệt
+        var MIN_FS = 6, MAX_LINES = 2; // sàn font dễ đọc cho raster nhiệt
         document.querySelectorAll('.barcode-pname').forEach(function(el){
             var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||10;
-            var lh=parseFloat(getComputedStyle(el).lineHeight)||fs+2;
-            var ratio = lh/fs;
-            function tooTall(){ return el.scrollHeight > el.clientHeight + 0.5; }
-            // tooWide: 1 từ đơn rộng hơn cột (overflow-wrap:normal nên KHÔNG bẻ
-            // giữa từ → từ tràn ngang) → scrollWidth > clientWidth.
+            var ratio = (parseFloat(getComputedStyle(el).lineHeight)||fs+2)/fs;
+            function lh(){ return fs*ratio; }
+            function lines(){ return Math.max(1, Math.round(el.scrollHeight / lh())); }
             function tooWide(){ return el.scrollWidth > el.clientWidth + 0.5; }
-            // Thu nhỏ khi tràn CHIỀU CAO (quá số dòng max-height) HOẶC CHIỀU NGANG
-            // (1 từ rộng hơn cột). guard 60 cho 2 chiều cùng cần giảm.
-            while((tooTall() || tooWide()) && fs > MIN_FS && guard < 60){
+            while((lines() > MAX_LINES || tooWide()) && fs > MIN_FS && guard < 80){
                 fs -= 0.5; el.style.fontSize = fs + 'px';
-                el.style.lineHeight = (fs*ratio).toFixed(1) + 'px';
-                guard++;
+                el.style.lineHeight = lh().toFixed(1) + 'px'; guard++;
             }
-            // CỨU CÁNH CUỐI: font đã chạm sàn mà 1 token bệnh lý (không khoảng
-            // trắng, vd SKU/từ dài) vẫn rộng hơn cột → cho phép bẻ giữa từ còn hơn
-            // bị cắt cụt mép phải (overflow:hidden). Bật break rồi chạy lại pass
-            // chiều cao vì bẻ thêm dòng có thể vượt max-height.
+            // 1 token dài (SKU/từ không khoảng trắng) vẫn tràn ngang → cho bẻ giữa từ.
             if (tooWide()){
-                el.style.overflowWrap = 'anywhere';
-                el.style.wordBreak = 'break-word';
-                guard = 0;
-                while(tooTall() && fs > MIN_FS && guard < 60){
+                el.style.overflowWrap = 'anywhere'; el.style.wordBreak = 'break-word'; guard = 0;
+                while((lines() > MAX_LINES || tooWide()) && fs > MIN_FS && guard < 80){
                     fs -= 0.5; el.style.fontSize = fs + 'px';
-                    el.style.lineHeight = (fs*ratio).toFixed(1) + 'px';
-                    guard++;
+                    el.style.lineHeight = lh().toFixed(1) + 'px'; guard++;
                 }
             }
+            // Clip cứng ĐÚNG 2 dòng ở line-height cuối (tên cực dài đã chạm sàn font).
+            el.style.maxHeight = (lh() * MAX_LINES + 0.5).toFixed(1) + 'px';
+            el.style.overflow = 'hidden';
         });
     }
     function init(){ draw(); fitText(); fitName(); }
