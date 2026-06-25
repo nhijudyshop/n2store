@@ -609,7 +609,7 @@
             model: m.model || undefined,
             messages,
             system: systemPrompt(),
-            maxTokens: 1100,
+            maxTokens: 4000, // đủ rộng cho câu trả lời dài (tránh cụt giữa chừng)
         });
         let res;
         try {
@@ -669,7 +669,7 @@
         const r = await fetch(API() + path, {
             method: 'POST',
             headers: authHeaders(true),
-            body: JSON.stringify({ ...body, system: systemPrompt(), maxTokens: 1000 }),
+            body: JSON.stringify({ ...body, system: systemPrompt(), maxTokens: 4000 }),
             signal: _abort?.signal,
         });
         if (r.status === 401) throw authErr();
@@ -747,8 +747,8 @@
 .w2aa-head b{font-size:.94rem;color:#0f172a;flex:1;line-height:1.2}
 .w2aa-head .w2aa-sub{font-size:.66rem;color:#64748b;font-weight:500}
 .w2aa-ico{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px}
-.w2aa-x,.w2aa-gear{border:none;background:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;color:#475569;font-size:16px}
-.w2aa-x:hover,.w2aa-gear:hover{background:#eef2f5}
+.w2aa-x,.w2aa-gear,.w2aa-clear{border:none;background:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;color:#475569;font-size:15px}
+.w2aa-x:hover,.w2aa-gear:hover,.w2aa-clear:hover{background:#eef2f5}
 .w2aa-modelbar{display:flex;align-items:center;gap:6px;padding:6px 13px;border-bottom:1px solid #f1f5f9;background:#fafbff}
 .w2aa-modelbar label{font-size:.66rem;color:#94a3b8;font-weight:600}
 .w2aa-model{flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:4px 7px;font-size:.72rem;color:#334155;background:#fff;cursor:pointer}
@@ -924,6 +924,7 @@
             <div class="w2aa-head">
               <div class="w2aa-ico">✨</div>
               <b>Trợ lý AI trang này<div class="w2aa-sub">Đọc dữ liệu trang • AI miễn phí</div></b>
+              <button class="w2aa-clear" title="Xóa đoạn chat">🗑️</button>
               <button class="w2aa-gear" title="Cấu hình AI">⚙️</button>
               <button class="w2aa-x" title="Đóng">×</button>
             </div>
@@ -959,6 +960,13 @@
 
         fab.addEventListener('click', () => (panel.classList.contains('open') ? close() : open()));
         wrap.querySelector('.w2aa-x').addEventListener('click', close);
+        wrap.querySelector('.w2aa-clear').addEventListener('click', () => {
+            if (!history.length) return;
+            if (_busy) return; // đang trả lời thì không xóa
+            history = [];
+            saveHistory();
+            render();
+        });
         wrap.querySelector('.w2aa-gear').addEventListener('click', () => {
             const base = location.pathname.includes('/web2/')
                 ? '../ai-assistant/index.html'

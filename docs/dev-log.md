@@ -2,6 +2,17 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI: fix "đứt câu trả lời" (stream từng chữ) + nút xóa chat + bỏ Groq
+
+User: "widget hay bị đứt câu trả lời — AI viết ra từng chữ mà widget không làm vậy nên bị đứt" + "cho nút xóa đoạn chat". Root cause: 23 trang auto=Groq (đang bị KHOÁ org) → stream Groq lỗi → rơi xuống `/complete` NON-STREAM (1 cục, cap maxTokens 1000) → không gõ từng chữ + cụt câu dài.
+
+Fix `web2/shared/web2-ai-page-registry.js` + `web2-ai-assistant.js`:
+
+- **Đổi TOÀN BỘ 32 trang Groq → Gemini** (gpt-oss-120b→gemini-2.5-flash, llama-8b→gemini-2.5-flash-lite). Gemini stream `/chat/stream` gõ từng chữ + ổn định + không bị khoá. Bỏ HẲN phụ thuộc Groq trong registry.
+- **maxTokens 1100/1000 → 4000** (cả callAiStream + \_postAi) → câu trả lời dài không bị cắt.
+- **Nút 🗑️ Xóa đoạn chat** ở header (cạnh ⚙️/×): clear history + saveHistory + render (chặn khi đang trả lời).
+- Xác minh: `_md` markdown KHÔNG phải bug — dùng NUL sentinel (`\0(\d+)\0`) cho code-block placeholder nên giữ số thật (test giữ 5/11/mã đơn). Bump v=20260625f. providers registry = {gemini:32}.
+
 ### [web2/shared] Fix hover-zoom "ảnh to hiện cuối trang" trên trang KHÔNG nạp web2-effects.css (ai-hub…)
 
 User (ai-hub Tạo ảnh): bấm/rê ảnh trong gallery → ảnh không phóng to nổi mà **hiện full-size cuối trang** (không backdrop). Root cause: `web2-effects.js` (hover-zoom) được **autoload MỌI trang** qua sidebar, NHƯNG `web2-effects.css` (chứa `.w2fx-zoom-popup{position:fixed…}`) chỉ `<link>` ở 3 trang (products/variants/returns) — ai-hub KHÔNG có. Thiếu CSS → popup `.w2fx-zoom-popup` về `position:static` → rớt document flow, ảnh clone full-size cuối `<body>`.

@@ -21,7 +21,7 @@
     'use strict';
     if (global.Web2AiPageRegistry) return;
 
-    // Model free mặc định (xoay key, tiếng Việt tốt). Trang nặng tính toán → groq gpt-oss-120b;
+    // Model free mặc định (xoay key, tiếng Việt tốt). Trang nặng tính toán → gemini-2.5-flash (Groq bị khoá org + Gemini stream tốt hơn);
     // chat/cảm xúc → gemini; trang nhẹ → llama-8b (xem field model mỗi entry).
     const DEFAULT_MODEL = { provider: 'gemini', model: 'gemini-2.5-flash' };
 
@@ -159,7 +159,7 @@
         },
         {
             match: '/native-orders/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.NativeOrders?.STATE?.orders',
@@ -202,7 +202,7 @@
         },
         {
             match: '/web2/balance-history/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.W2BH?.state?.rows',
@@ -255,7 +255,7 @@
         },
         {
             match: '/web2/customer-wallet/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.Web2CustomerWalletApp?.state?.rows',
@@ -308,7 +308,7 @@
         },
         {
             match: '/web2/supplier-wallet/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'Object.values(window.__SW?.walletState?.wallets || {})',
@@ -356,7 +356,7 @@
         },
         {
             match: '/so-order/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.SoOrder?.state',
@@ -414,7 +414,7 @@
         },
         {
             match: '/web2/kpi/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -446,7 +446,7 @@
         },
         {
             match: '/web2/reconcile/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.RC?.STATE?.items || []',
@@ -542,7 +542,7 @@
         },
         {
             match: '/web2/fastsaleorder-invoice/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.PbhState?.STATE?.orders',
@@ -585,7 +585,7 @@
         },
         {
             match: '/web2/fastsaleorder-delivery/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -617,7 +617,7 @@
         },
         {
             match: '/web2/fastsaleorder-refund/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -649,7 +649,7 @@
         },
         {
             match: '/web2/supplier-debt/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.__SupplierDebt?.STATE?.rows',
@@ -697,7 +697,7 @@
         },
         {
             match: '/web2/returns/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.ReturnsCore?.STATE?.list || []',
@@ -755,7 +755,7 @@
         },
         {
             match: '/web2/purchase-refund/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.PurchaseRefund?.state?.SOURCE_STATE?.items',
@@ -851,7 +851,7 @@
         },
         {
             match: '/web2/fb-ads-stats/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -915,7 +915,7 @@
         },
         {
             match: '/web2/ck-dashboard/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -947,7 +947,7 @@
         },
         {
             match: '/web2/dashboard/',
-            model: { provider: 'groq', model: 'llama-3.1-8b-instant' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
             accessors: [
                 {
                     expr: "(()=>{const c=window.Chart?.getChart?.('chartRevenue');if(!c)return null;const ds=c.data?.datasets?.[0]?.data||[];return (c.data?.labels||[]).map((date,i)=>({date,amount:ds[i]??0}));})()",
@@ -995,7 +995,7 @@
         },
         {
             match: '/web2/overview/',
-            model: { provider: 'groq', model: 'llama-3.1-8b-instant' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
             accessors: [],
             suggestions: [
                 {
@@ -1027,7 +1027,7 @@
         },
         {
             match: '/web2/report-delivery/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -1059,7 +1059,7 @@
         },
         {
             match: '/web2/report-revenue/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -1123,7 +1123,7 @@
         },
         {
             match: '/web2/cham-cong/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.ChamCong?.state',
@@ -1166,7 +1166,7 @@
         },
         {
             match: '/web2/chi-tieu/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
                     expr: 'window.ChiTieu?.state?.vouchers',
@@ -1351,7 +1351,7 @@
         },
         {
             match: '/web2/payment-confirm/',
-            model: { provider: 'groq', model: 'openai/gpt-oss-120b' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],
             suggestions: [
                 {
@@ -1383,7 +1383,7 @@
         },
         {
             match: '/web2/users/',
-            model: { provider: 'groq', model: 'llama-3.1-8b-instant' },
+            model: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
             accessors: [],
             suggestions: [
                 {
