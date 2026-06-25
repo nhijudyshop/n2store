@@ -439,8 +439,10 @@
 .w2aa-modelbar label{font-size:.66rem;color:#94a3b8;font-weight:600}
 .w2aa-model{flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:4px 7px;font-size:.72rem;color:#334155;background:#fff;cursor:pointer}
 .w2aa-body{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
-.w2aa-quicks{display:flex;flex-wrap:wrap;gap:6px}
-.w2aa-quick{border:1px solid #dbe2ea;background:#fff;border-radius:999px;padding:6px 11px;font-size:.74rem;cursor:pointer;color:#334155}
+.w2aa-quicks-bar{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid #f1f5f9;background:#fff;flex:0 0 auto;scrollbar-width:thin}
+.w2aa-quicks-bar::-webkit-scrollbar{height:5px}.w2aa-quicks-bar::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
+.w2aa-quicks-bar:empty{display:none}
+.w2aa-quick{border:1px solid #dbe2ea;background:#fff;border-radius:999px;padding:6px 11px;font-size:.74rem;cursor:pointer;color:#334155;white-space:nowrap;flex:0 0 auto}
 .w2aa-quick:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
 .w2aa-msg{position:relative;max-width:90%;padding:9px 12px;border-radius:13px;font-size:.84rem;line-height:1.5;word-break:break-word}
 .w2aa-msg.user{align-self:flex-end;background:#6366f1;color:#fff;border-bottom-right-radius:4px;white-space:pre-wrap}
@@ -493,22 +495,29 @@
         return `<div class="w2aa-msg ai" data-mi="${i}">${inner}${copy}</div>`;
     }
 
-    function render() {
-        const body = _root.querySelector('.w2aa-body');
+    // Thanh gợi ý CỐ ĐỊNH (luôn hiện, cuộn ngang) — không mất sau khi chat.
+    function renderQuicks() {
+        const bar = _root && _root.querySelector('.w2aa-quicks-bar');
+        if (!bar) return;
         const sugs = pageSuggestions();
-        const quicks =
-            '<div class="w2aa-quicks">' +
-            sugs
-                .map((q, i) => `<button class="w2aa-quick" data-q="${i}">${esc(q.label)}</button>`)
-                .join('') +
-            '</div>';
-        const msgs = history.length
-            ? history.map((m, i) => bubbleHtml(m, i)).join('')
-            : '<div class="w2aa-empty">Hỏi bất cứ gì về dữ liệu trang — hoặc bấm gợi ý bên dưới.</div>';
-        body.innerHTML = (history.length ? '' : quicks + '<div style="height:4px"></div>') + msgs;
-        body.querySelectorAll('[data-q]').forEach((b) =>
+        bar.innerHTML = sugs
+            .map(
+                (q, i) =>
+                    `<button class="w2aa-quick" data-q="${i}" title="${esc(q.prompt).slice(0, 120)}">${esc(q.label)}</button>`
+            )
+            .join('');
+        bar.querySelectorAll('[data-q]').forEach((b) =>
             b.addEventListener('click', () => ask(sugs[+b.dataset.q].prompt))
         );
+    }
+
+    function render() {
+        renderQuicks(); // gợi ý luôn hiện ở thanh cố định
+        const body = _root.querySelector('.w2aa-body');
+        const msgs = history.length
+            ? history.map((m, i) => bubbleHtml(m, i)).join('')
+            : '<div class="w2aa-empty">Hỏi bất cứ gì về dữ liệu trang — hoặc bấm gợi ý phía trên.</div>';
+        body.innerHTML = msgs;
         body.querySelectorAll('[data-copy]').forEach((b) =>
             b.addEventListener('click', () => {
                 const m = history[+b.dataset.copy];
@@ -573,6 +582,7 @@
               <button class="w2aa-x" title="Đóng">×</button>
             </div>
             <div class="w2aa-modelbar">${buildModelBar()}</div>
+            <div class="w2aa-quicks-bar"></div>
             <div class="w2aa-body"></div>
             <div class="w2aa-foot">
               <textarea class="w2aa-input" rows="1" placeholder="Hỏi về số liệu / khách / đơn trên trang…"></textarea>

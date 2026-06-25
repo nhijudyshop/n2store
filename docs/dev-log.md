@@ -2,6 +2,12 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI: gợi ý LUÔN HIỆN (thanh chip cố định, không mất sau khi chat)
+
+User: "luôn hiện gợi ý như hình 1; hình 2 tương tác xong mất gợi ý". Trước đây `render()` chỉ hiện gợi ý khi chưa có hội thoại (`history.length ? '' : quicks`) → chat 1 câu là chip biến mất.
+
+Fix `web2/shared/web2-ai-assistant.js`: tách gợi ý ra **thanh chip CỐ ĐỊNH** `.w2aa-quicks-bar` (giữa model-bar và khung chat, cuộn ngang, `flex:0 0 auto` → luôn hiện bất kể scroll/hội thoại). `renderQuicks()` riêng, gọi mỗi `render()`. Body chỉ còn messages. Hover chip = tooltip prompt đầy đủ. Bump sidebar v=20260625b. Verify harness: 6 chip trước chat = 6 chip sau chat ✓.
+
 ### [web2/shared] Trợ lý AI widget — NÂNG CẤP LỚN: gợi ý + đọc data sâu + model theo trang + streaming + fix bug (audit 37-agent)
 
 User: "audit toàn bộ + debug + browser test từng trang + thêm gợi ý/lệnh mẫu + phát triển rộng + đọc dữ liệu chi tiết hơn → hoàn thiện → lặp tới hoàn hảo" + "xem model AI free, ưu tiên cái nào, cho đổi auto theo trang hoặc thủ công".
