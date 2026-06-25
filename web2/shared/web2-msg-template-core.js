@@ -261,4 +261,17 @@
     W2MT._toast = _toast;
     W2MT._refreshIcons = _refreshIcons;
     W2MT._sleep = _sleep;
+
+    // ─── Realtime cross-machine (Audit SSE 2026-06-25) ────────────
+    // Route web2-msg-templates broadcast 'web2:msg-templates' trên
+    // create/update/delete (đã wire server.js) nhưng trước đây KHÔNG ai subscribe
+    // → mẫu tin tạo/sửa/xoá ở máy A không lan tới modal đang mở ở máy B tới khi
+    // reload. Subscribe 1 lần → revalidate cache cross-machine (debounce gom burst).
+    if (window.Web2SSE?.subscribe) {
+        let _tplSseT = null;
+        window.Web2SSE.subscribe('web2:msg-templates', () => {
+            clearTimeout(_tplSseT);
+            _tplSseT = setTimeout(() => _loadTemplates(), 500);
+        });
+    }
 })();

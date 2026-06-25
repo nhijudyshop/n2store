@@ -83,7 +83,7 @@
                 ok = await ctrl.result;
             }
             if (!ok) return;
-            const adj = { ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) };
+            const adj = { ...SO._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) };
             window.SoOrderStorage.deleteRow(SO.state, tab.id, shipmentId, rowId);
             SO.notify('Đã xóa dòng', 'info');
             if (adj.name && adj.delta !== 0) SO.adjustKhoPending([adj]);
@@ -194,7 +194,7 @@
             }
         }
         const adjustments = rows
-            .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
+            .map((r) => ({ ...SO._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
             .filter((a) => a.name && a.delta !== 0);
         window.SoOrderStorage.deleteShipment(SO.state, tab.id, shipmentId);
         SO.notify('Đã xóa lô', 'info');

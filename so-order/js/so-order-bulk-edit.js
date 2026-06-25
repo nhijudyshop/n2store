@@ -72,7 +72,7 @@
             const oldQty = Number(r.qty) || 0;
             const delta = (Number(value) || 0) - oldQty;
             if (delta !== 0) {
-                pendingAdj = { ..._rowToKhoMatch(r), delta };
+                pendingAdj = { ...SO._rowToKhoMatch(r), delta };
             }
         }
         window.SoOrderStorage.updateRow(SO.state, tab.id, shipmentId, rowId, { [field]: value });

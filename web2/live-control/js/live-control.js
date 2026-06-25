@@ -460,6 +460,7 @@
     }
 
     // ── SSE ───────────────────────────────────────────
+    var _campSseTimer = null;
     function onSse(msg) {
         var d = (msg && msg.data) || {};
         if (msg.topic === 'web2:campaign-products') {
@@ -468,6 +469,16 @@
         } else if (msg.topic === 'web2:products') {
             scheduleBoard();
             if (state.pickerTab === 'pending') loadPicker();
+        } else if (msg.topic === 'web2:live-comments') {
+            // Audit SSE 2026-06-25: chiến dịch tạo/xoá/gán ở máy khác → dropdown
+            // <select id=lcCampaign> đứng yên tới khi F5 (trước đây bỏ qua topic
+            // này). loadCampaigns() tự giữ lựa chọn hiện tại (cur = sel.value).
+            if (d.action === 'campaign') {
+                clearTimeout(_campSseTimer);
+                _campSseTimer = setTimeout(function () {
+                    loadCampaigns();
+                }, 600);
+            }
         }
     }
 

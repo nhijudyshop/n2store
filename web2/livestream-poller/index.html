@@ -376,7 +376,17 @@
                 setInterval(loadStat, 15000);
                 if (window.Web2SSE?.subscribe) {
                     let _statTimer = null;
-                    window.Web2SSE.subscribe('web2:live-comments', () => {
+                    let _pagesTimer = null;
+                    window.Web2SSE.subscribe('web2:live-comments', (msg) => {
+                        const action = msg && msg.data && msg.data.action;
+                        // Audit SSE 2026-06-25: thêm/xoá/bật-tắt trang poller ở máy
+                        // khác (_notify('poller-pages')) → danh sách page config phải
+                        // reload, trước đây chỉ reload stat → stale tới khi F5.
+                        if (action === 'poller-pages') {
+                            clearTimeout(_pagesTimer);
+                            _pagesTimer = setTimeout(loadPages, 600);
+                            return;
+                        }
                         clearTimeout(_statTimer);
                         _statTimer = setTimeout(loadStat, 800); // debounce gom burst
                     });

@@ -641,6 +641,18 @@
     // kick off background fetch (non-blocking)
     loadReplies();
 
+    // Audit SSE 2026-06-25: route web2-quick-replies broadcast 'web2:quick-replies'
+    // trên create/update/delete (đã wire server.js) nhưng KHÔNG ai subscribe →
+    // thêm/sửa/xoá ở máy A không lan tới autocomplete/modal đang mở ở máy B tới khi
+    // reload. Subscribe 1 lần → revalidate cache cross-machine (debounce gom burst).
+    if (global.Web2SSE?.subscribe) {
+        let _qrSseT = null;
+        global.Web2SSE.subscribe('web2:quick-replies', () => {
+            clearTimeout(_qrSseT);
+            _qrSseT = setTimeout(() => loadReplies(true), 500);
+        });
+    }
+
     global.Web2QuickReply = {
         loadReplies,
         getReplies,

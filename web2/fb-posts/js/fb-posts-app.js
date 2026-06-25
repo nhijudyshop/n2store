@@ -222,9 +222,18 @@
     function setupSSE() {
         if (!window.Web2SSE || !window.Web2SSE.subscribe) return;
         let t;
-        const unsub = window.Web2SSE.subscribe('web2:fb-posts', () => {
+        const unsub = window.Web2SSE.subscribe('web2:fb-posts', (msg) => {
+            const action = msg && msg.data && msg.data.action;
             clearTimeout(t);
             t = setTimeout(() => {
+                // Audit SSE 2026-06-25: connect/disconnect ở máy khác đổi trạng thái
+                // kết nối FB toàn shop → pill + danh sách page (cả page-chips ở tab
+                // Soạn bài) phải refresh. loadStatus() tự gọi renderActive() nên phủ
+                // mọi tab; trước đây chỉ render drafts/list → pill + chips stale tới F5.
+                if (action === 'connect' || action === 'disconnect') {
+                    loadStatus();
+                    return;
+                }
                 if (state.activeTab === 'drafts') window.FBPostsDrafts.render();
                 else if (state.activeTab === 'list') window.FBPostsList.render();
             }, 600);

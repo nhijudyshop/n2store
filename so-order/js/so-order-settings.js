@@ -170,7 +170,7 @@
             if (!ok) return;
             // Trừ pending cho rows trước khi delete tab.
             const adjustments = allRows
-                .map((r) => ({ ..._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
+                .map((r) => ({ ...SO._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
                 .filter((a) => a.name && a.delta !== 0);
             if (window.SoOrderStorage.deleteTab(SO.state, tabId)) {
                 if (adjustments.length) SO.adjustKhoPending(adjustments);
