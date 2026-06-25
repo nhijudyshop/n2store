@@ -43,6 +43,10 @@
             window.WZApp.zaloNotify && !_firstConvLoad && !state.conv.search
                 ? WZApp.zaloNotify.snapshot()
                 : null;
+        // Lần đầu nạp (container rỗng) → skeleton GitHub-style trong lúc fetch.
+        if (_firstConvLoad && !state.conv.list.length && window.Web2Skeleton) {
+            window.Web2Skeleton.list('#wzConvList', { count: 8, avatar: true });
+        }
         try {
             const res = await window.ZaloApi.conversations({
                 accountKey: state.conv.accountKey,

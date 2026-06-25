@@ -114,6 +114,12 @@
     // ── Board (SP trong chiến dịch) ───────────────────
     async function loadBoard() {
         if (!state.campaignId) return;
+        // Skeleton chỉ ở lần tải đầu (board đang trống) — không nháy khi re-poll.
+        if (!state.board.length) {
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.cards('#lcBoard', { count: 6 });
+            }
+        }
         try {
             var items = await window.Web2Campaign.listProducts(state.campaignId);
             state.addedCodes = new Set(items.map((i) => i.code));

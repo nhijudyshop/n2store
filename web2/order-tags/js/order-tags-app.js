@@ -137,7 +137,11 @@
     // ---------- list ----------
     async function load() {
         const grid = $('otGrid');
-        grid.innerHTML = '<div class="ot-empty">Đang tải…</div>';
+        if (window.Web2Skeleton) {
+            window.Web2Skeleton.cards(grid, { count: 8 });
+        } else {
+            grid.innerHTML = '<div class="ot-empty">Đang tải…</div>';
+        }
         try {
             const data = await apiGet('/list');
             STATE.records = data.records || [];

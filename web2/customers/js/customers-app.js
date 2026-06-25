@@ -23,6 +23,14 @@
         const loadingEl = document.getElementById('wcLoadingIndicator');
         if (loadingEl) loadingEl.hidden = false;
         const body = $('#wcTableBody');
+        // Skeleton rows only on the INITIAL load (no real data rendered yet).
+        if (body && !(state.rows && state.rows.length)) {
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.rows(body, { rows: 9, cols: 8 });
+            } else {
+                body.innerHTML = `<tr><td colspan="8"><div class="wc-loading">Đang tải…</div></td></tr>`;
+            }
+        }
         try {
             const res = await window.CustomersApi.list({
                 search: state.search,

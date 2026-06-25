@@ -2,6 +2,21 @@
 
 ## 2026-06-25
 
+### [web2/shared] Audit CSS Web 2.0 → animation tăng tương tác + skeleton loading kiểu GitHub
+
+Audit toàn bộ CSS Web 2.0 (46 trang, ~31.9k dòng, workflow 11 agent song song) → áp dụng animation tăng tương tác + skeleton loading. Doc: [`docs/web2/WEB2-CSS-ANIM-AUDIT.md`](web2/WEB2-CSS-ANIM-AUDIT.md).
+
+**Phát hiện**: file global thật = `web2-theme.css` (49/52 trang); ~40 trang có nút/tab/chip/row đổi nền-viền `:hover` **quên `transition`** (giật) + thiếu `:active` press; ~40 trang thiếu `prefers-reduced-motion`; loading state đa số là text "Đang tải…"/blank/spinner (chỉ 7 trang có skeleton).
+
+**Files**:
+
+- `web2/shared/web2-theme.css`: +block GLOBAL INTERACTION POLISH (baseline transition cho `button:not(.btn)`/`a`/`[role=tab/button]`, `:active scale(.97)` press, `:focus-visible` ring, input transition) + `.btn` base thêm `transform`+`box-shadow` (hover-lift/press hết snap) + **GLOBAL `@media (prefers-reduced-motion: reduce)`** clamp (1 block phủ ~40 trang). Theo ELEMENT/role, KHÔNG `[class*=]` (né `.data-table`).
+- `web2/shared/web2-skeleton.js` (MỚI): `Web2Skeleton` self-contained (tự inject CSS) GitHub-style shimmer. API `rows/list/cards/grid/stats/detail/lines/html/clear`. `rows()` trả `<tr><td>` cho `<tbody>` (giữ cột).
+- Wire skeleton 20 trang (defensive `if(window.Web2Skeleton){…}else{markup cũ}`, chỉ lần tải đầu): products, variants, customers, customer-wallet, fastsaleorder-invoice/delivery/refund, balance-history, chi-tieu, users, returns, live-tv, live-control, fb-posts, zalo, jt-tracking, multi-tool, order-tags, ai-hub, video-maker. (`reconcile` đã có `.w2-skel` → skip.)
+- Cache-bust `web2-theme.css?v=20260625anim` toàn bộ trang link (53 file).
+
+**Verify**: `node --check` pass toàn bộ JS sửa; browser-test (products screenshot skeleton 12-cột chuẩn; customers 50 rows / pbh / order-tags data render OK, skeleton KHÔNG kẹt, 0 error); button computed `transition` có transform/box-shadow + reduced-motion net loaded. Workflow review 19 JS edit (adversarial: stuck-skeleton/wrong-container/re-render flash). Thuần frontend → GH Pages. Status ✅
+
 ### [web2/shared] AI widget: ẩn khối suy luận <think> của reasoning model
 
 Widget AI (mọi trang) hiện ĐÚNG kết quả nhưng **lọt khối `<think>…</think>`** của reasoning model (qwen3/gpt-oss trong cascade) vào bong bóng chat — user thấy "Final check… [Proceeds] </think>" trước câu trả lời.

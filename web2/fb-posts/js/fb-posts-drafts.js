@@ -77,7 +77,13 @@
     async function load(status) {
         const listEl = document.getElementById('fbpDraftList');
         if (!listEl) return;
-        listEl.innerHTML = '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải…</div>';
+        const isFirstLoad = !listEl.querySelector('.fbp-day');
+        if (isFirstLoad && window.Web2Skeleton) {
+            window.Web2Skeleton.list(listEl, { count: 6, avatar: true });
+        } else {
+            listEl.innerHTML =
+                '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải…</div>';
+        }
         try {
             const r = await Api().drafts(status || 'all');
             if (!r.success) {

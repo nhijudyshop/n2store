@@ -13,6 +13,11 @@
 
     async function load() {
         try {
+            // Initial load (container still empty): show GitHub-style skeleton while fetching.
+            const box = $('jtList');
+            if (box && !box.children.length && !S.state.list.length) {
+                if (window.Web2Skeleton) window.Web2Skeleton.list(box, { count: 7 });
+            }
             const q = new URLSearchParams();
             if (S.state.status !== 'all') q.set('status', S.state.status);
             if (S.state.search) q.set('search', S.state.search);

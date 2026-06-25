@@ -245,12 +245,18 @@
         const gallery = document.getElementById('aihGallery');
         const btn = document.getElementById('aihImgHistory');
         if (btn) btn.disabled = true;
+        // Skeleton chỉ khi gallery rỗng (lần tải đầu) — bị render path ghi đè sau khi fetch xong.
+        const showedSkeleton = gallery && !gallery.children.length;
+        if (showedSkeleton && window.Web2Skeleton) {
+            window.Web2Skeleton.grid(gallery, { count: 9 });
+        }
         try {
             const r = await fetch(H().API() + '/images?limit=40', {
                 headers: H().authHeaders(false),
             });
             const j = await r.json();
             if (!j.ok) throw new Error(j.error || 'Lỗi tải lịch sử');
+            if (showedSkeleton) gallery.innerHTML = ''; // dọn skeleton trước khi đổ ảnh thật
             gallery.querySelectorAll('.aih-imgcard.history').forEach((e) => {
                 if (e._objUrl) URL.revokeObjectURL(e._objUrl); // dọn objectURL cũ tránh leak
                 e.remove();
@@ -259,6 +265,7 @@
             j.images.forEach((im) => gallery.appendChild(renderHistoryCard(im)));
             H().toast(`Đã tải ${j.images.length} ảnh đã lưu`, 'success');
         } catch (e) {
+            if (showedSkeleton) gallery.innerHTML = ''; // dọn skeleton khi lỗi, tránh kẹt
             H().toast('Lỗi tải ảnh đã lưu: ' + (e.message || e), 'error');
         } finally {
             if (btn) btn.disabled = false;

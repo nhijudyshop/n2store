@@ -32,6 +32,11 @@
         if (STATE.customerId) params.set('customerId', String(STATE.customerId));
         params.set('page', STATE.page);
         params.set('limit', STATE.limit);
+        // Initial-load skeleton: only when tbody has no real data rows yet
+        // (avoid flashing skeleton over already-present data on re-render).
+        if (window.Web2Skeleton && !tbody().querySelector('tr[data-number]')) {
+            window.Web2Skeleton.rows(tbody(), { rows: 8, cols: 11 });
+        }
         try {
             // Sprint 5 KPI: scope auto-applied backend nếu user có x-web2-token + assignments.
             const r = await _fetch(`${WORKER}/api/fast-sale-orders/load?${params}`);

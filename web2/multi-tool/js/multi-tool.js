@@ -513,6 +513,10 @@
 
     async function loadJobs() {
         const pageId = $('boostPage').value;
+        const jobsEl = $('boostJobs');
+        if (jobsEl && !jobsEl.innerHTML.trim() && window.Web2Skeleton) {
+            window.Web2Skeleton.list(jobsEl, { count: 5 });
+        }
         try {
             const qs = `limit=20${pageId ? `&pageId=${encodeURIComponent(pageId)}` : ''}`;
             const r = await fetch(`${BOOST_API()}/jobs?${qs}`, { headers: authHeaders() });

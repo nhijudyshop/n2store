@@ -19,7 +19,11 @@
         const items = state.rows;
 
         if (state.loading) {
-            dom.list.innerHTML = `<div class="cw-loading">Đang tải…</div>`;
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.cards(dom.list, { count: 8 });
+            } else {
+                dom.list.innerHTML = `<div class="cw-loading">Đang tải…</div>`;
+            }
             dom.empty.hidden = true;
             return;
         }

@@ -134,8 +134,12 @@
         const TTS = global.Web2VideoTTS;
         const foot = $('#vmLibFoot');
         if (!_piperCatalog) {
-            $('#vmLibList').innerHTML =
-                '<div class="vm-lib-loading">Đang nạp danh sách giọng…</div>';
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.list('#vmLibList', { count: 6 });
+            } else {
+                $('#vmLibList').innerHTML =
+                    '<div class="vm-lib-loading">Đang nạp danh sách giọng…</div>';
+            }
             try {
                 _piperCatalog = await TTS.listPiperCatalog();
                 _fillLangFilter();
