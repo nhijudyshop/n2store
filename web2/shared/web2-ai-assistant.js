@@ -816,9 +816,22 @@
         document.head.appendChild(st);
     }
 
-    // markdown nhẹ + AN TOÀN (escape TRƯỚC, format SAU).
+    // Bỏ khối suy luận của reasoning model (qwen3, gpt-oss…) — KHÔNG hiện cho user.
+    // Xử lý 3 ca: (1) cặp <think>…</think> hoàn chỉnh; (2) lone </think> (mở trước/
+    // không bắt được — strip tới hết tag); (3) lone <think> mở chưa đóng (streaming →
+    // giấu phần đang nghĩ tới khi </think> tới). Áp TRƯỚC esc nên match tag thô.
+    function stripThink(s) {
+        s = String(s == null ? '' : s).replace(/<think>[\s\S]*?<\/think>/gi, '');
+        const close = s.search(/<\/think>/i);
+        if (close !== -1) s = s.slice(close + 8); // '</think>'.length = 8
+        const open = s.search(/<think>/i);
+        if (open !== -1) s = s.slice(0, open);
+        return s.trim();
+    }
+
+    // markdown nhẹ + AN TOÀN (escape TRƯỚC, format SAU). Bỏ <think> reasoning trước.
     function _md(s) {
-        let t = esc(s);
+        let t = esc(stripThink(s));
         const blocks = [];
         t = t.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, l, c) => {
             blocks.push('<pre>' + c.replace(/\n$/, '') + '</pre>');
@@ -1118,7 +1131,8 @@
                 .slice(-8)
                 .map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }));
             const reply = await callAiStream(msgs, onDelta);
-            history[history.length - 1] = { role: 'ai', content: reply };
+            // Lưu content ĐÃ bỏ <think> → history/context-gửi-lại-AI/nút copy đều sạch.
+            history[history.length - 1] = { role: 'ai', content: stripThink(reply) };
         } catch (e) {
             if (e.name === 'AbortError')
                 history[history.length - 1] = { role: 'ai', content: '⏹ Đã dừng.' };

@@ -2,6 +2,14 @@
 
 ## 2026-06-25
 
+### [web2/shared] AI widget: ẩn khối suy luận <think> của reasoning model
+
+Widget AI (mọi trang) hiện ĐÚNG kết quả nhưng **lọt khối `<think>…</think>`** của reasoning model (qwen3/gpt-oss trong cascade) vào bong bóng chat — user thấy "Final check… [Proceeds] </think>" trước câu trả lời.
+
+**Fix** (`web2-ai-assistant.js`): thêm `stripThink(s)` xử lý 3 ca — (1) cặp `<think>…</think>` hoàn chỉnh; (2) lone `</think>` (mở trước/không bắt được → cắt tới hết tag); (3) lone `<think>` mở chưa đóng (streaming → giấu phần đang nghĩ tới khi `</think>` tới). Áp trong `_md()` (TRƯỚC esc) cho mọi render + streaming, và lưu `content: stripThink(reply)` lúc finalize → history/context-gửi-lại-AI/nút-copy đều sạch. Bump inject version `web2-ai-assistant.js`+registry → `20260625recon` (sidebar).
+
+**Verify**: stripThink unit-test 5/5 (gồm đúng ca ảnh chụp: reasoning + lone `</think>` + bullet → chỉ còn bullet). node --check OK. Thuần frontend → GH Pages. Status ✅
+
 ### [so-order][web2/shared] AI widget: đối chiếu Sổ Order ⇄ Kho SP TÍNH SẴN (hết "xin data")
 
 User hỏi AI widget so-order "đối chiếu SP đã order chưa có mã trong kho" → AI **xin user paste** `window.Web2ProductsCache.getAll()` thay vì tự đọc.
