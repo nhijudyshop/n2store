@@ -131,7 +131,9 @@
         if (!global.Web2BgRemover) inject('web2-bgremover.js', '20260624a');
         // Trợ lý AI theo trang (nút nổi ✨) — đọc dữ liệu đang hiển thị → AI free rà soát
         // số liệu/phép tính, phân tích cảm xúc khách, soát đơn. Cấu hình ở web2/ai-assistant.
-        if (!global.Web2AiAssistant) inject('web2-ai-assistant.js', '20260624a');
+        // Registry THEO TRANG (gợi ý + accessor đọc data sâu + model auto) — load TRƯỚC widget.
+        if (!global.Web2AiPageRegistry) inject('web2-ai-page-registry.js', '20260625a');
+        if (!global.Web2AiAssistant) inject('web2-ai-assistant.js', '20260625a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.

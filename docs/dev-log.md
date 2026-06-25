@@ -2,6 +2,22 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI widget — NÂNG CẤP LỚN: gợi ý + đọc data sâu + model theo trang + streaming + fix bug (audit 37-agent)
+
+User: "audit toàn bộ + debug + browser test từng trang + thêm gợi ý/lệnh mẫu + phát triển rộng + đọc dữ liệu chi tiết hơn → hoàn thiện → lặp tới hoàn hảo" + "xem model AI free, ưu tiên cái nào, cho đổi auto theo trang hoặc thủ công".
+
+**Phát hiện (browser test + workflow 32 trang)**: widget mount đúng mọi trang nhưng (1) 5 gợi ý GENERIC giống nhau mọi trang (vô nghĩa theo ngữ cảnh); (2) chỉ đọc DOM → **bảng ảo/phân trang mất data** (products chỉ 5 dòng dù kho nhiều SP → AI tưởng "chỉ 5 SP"); kpi/reconcile/live-chat context rỗng. Audit thêm 2 HIGH privacy (PII/JWT lộ qua innerText), history phình DOM gây lag, 401 ẩn body 200, tắt widget không thật tắt.
+
+**Files**: NEW `web2/shared/web2-ai-page-registry.js` (registry 32 trang, pure-data); rewrite `web2/shared/web2-ai-assistant.js` (394→~715 dòng); `web2/shared/web2-sidebar.js` (load registry TRƯỚC widget, bump v=20260625a).
+
+- **Registry theo trang** (`Web2AiPageRegistry`, auto-gen từ workflow): mỗi trang = { match, model, accessors[{expr,desc,shape}], suggestions[{label,prompt}], note }. `matchPage` longest-prefix. **192 gợi ý theo ngữ cảnh** (products: "SP tồn âm/0", "SP thiếu giá", "SP trùng tên"; variants: "thiếu viết tắt", "viết tắt trùng"; …), fallback GENERIC.
+- **Đọc dữ liệu SÂU** (mục tiêu "chi tiết hơn"): 18/32 trang có **dataAccessor** đọc cache/state JS (`Web2ProductsCache.getAll()`, `Web2VariantsCache.getAllIncludingInactive()`, `NativeOrders.STATE`…) → FULL dataset (không bị phân trang). Resolve AN TOÀN bằng **path-walk (KHÔNG eval chuỗi)** + try/catch; báo tổng N mục; cảnh báo bảng DOM virtual để AI không kết luận "tổng sai" từ data 1 phần.
+- **Model AI free theo trang** (user request): auto map — nặng tính toán (balance/reconcile/kpi/ví/PBH…) → **groq gpt-oss-120b**; chat/cảm xúc (live-chat) → **gemini-2.5-flash**; nhẹ (overview/dashboard) → **llama-3.1-8b-instant**; default → gemini-2.5-flash. **Dropdown chọn model thủ công** ngay trong panel (🤖 Auto / 5 model) + tương thích config cũ (empty provider=auto, có provider=manual).
+- **Streaming reply** (P0, backend `/chat/stream` đã có flushHeaders → không timeout) + fallback non-stream. **PII redaction** (SĐT/email/JWT/fb_id → mask, giữ số tiền). **Fix bug**: history cap 40 + patch bubble cuối (hết lag), placeholder cờ `pending` (hết lẫn ⏳ vào history), 401 ẩn body 200 + guard `_authRedirecting`, tắt widget = đóng panel + chặn open/ask, persist history theo trang, nút copy, markdown tốt hơn (heading/list/code), ẩn ở trang nhạy cảm (pancake-settings/zalo/system/users-permissions).
+- **Verify**: 26/26 Node unit-test pass (registry matching + model theo trang + resolveExpr path-walk + redactPII). ⚠ Browser E2E live BỊ CHẶN: session `web2_auth` hết hạn + admin prod đổi pass (seed `admin@@` không còn đúng) → cần user web2 thật để test gọi AI thật trên trang.
+- **Model free hiện có** (`web2-ai-service.js`): gemini (2.5-flash 👁/lite/latest, 1500/ngày), groq (gpt-oss-20b/120b, llama-3.3-70b/3.1-8b/4-scout), openrouter (gpt-oss/deepseek-v3/r1/llama/qwen3-235b), chatanywhere (gpt-4o-mini/4.1/3.5/deepseek). Failover: gemini→groq→openrouter.
+- Status: ✅ code + unit-test; 🔄 chờ session web2 để browser E2E.
+
 ### [render][web2/system] Tab "Dịch vụ & Hệ thống": Render = TẤT CẢ PAID (đúng plan thật từ API)
 
 User báo lỗi ai-hub `⚠️ Customer 360 proxy failed: Request timeout after 15000ms` → trace ra `handleCustomer360Proxy` chỉ là proxy CHUNG (tên gây hiểu lầm) cho ~40 route; request chat AI (`/api/web2-ai/chat/stream` → web2-api) không trả headers trong 15s nên Cloudflare Worker cắt. User xác nhận **"render đều là paid server hết"** → không idle-sleep, timeout chỉ do redeploy/restart.
