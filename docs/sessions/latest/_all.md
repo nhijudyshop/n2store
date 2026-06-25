@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `340ec94` — auto: session update
-**Last updated**: 2026-06-25 21:31:34 +07
-**Latest session**: [`RESUME:20260625-213134-340ec94`](../20260625-213134-340ec94.md)
-**Summary**: auto: session update
+**Latest commit**: `f574d59` — chore: remove accidentally-committed temp QR audit harness (TEMP scratch, unlinked)
+**Last updated**: 2026-06-25 21:39:16 +07
+**Latest session**: [`RESUME:20260625-213916-f574d59`](../20260625-213916-f574d59.md)
+**Summary**: chore: remove accidentally-committed temp QR audit harness (TEMP scratch, unlinked)
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 22 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-25 21:16
+- [`docs/`](./docs.md) — updated 2026-06-25 21:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
