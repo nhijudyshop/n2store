@@ -2,6 +2,16 @@
 
 ## 2026-06-25
 
+### [web2/shared][render] Trợ lý AI: CASCADE model mạnh→yếu (xoay mọi key free) + thêm model mạnh
+
+User: "key Groq mới + tất cả key free cứ dùng model mạnh nhất tới yếu nhất hỗ trợ web 2.0". Đã workflow xếp hạng 47 model free (web search benchmark) → build cascade.
+
+- **Backend `web2-ai-service.js`**: thêm 3 model mạnh vào registry (backend chỉ chấp nhận model có trong list): gemini-2.5-pro, qwen/qwen3.6-27b (Groq, VN xuất sắc + vision), qwen/qwen3-next-80b-a3b-instruct:free (OpenRouter).
+- **Widget `web2-ai-assistant.js`**: `MODEL_CASCADE` mạnh→yếu + `callAiStream` thử lần lượt (stream từng chữ), model lỗi/hết quota → tự rơi xuống model kế; hết cascade → `/complete` non-stream. 401/abort → throw ngay. Manual → 1 model pinned (không cascade). Dropdown "Auto (mạnh→yếu)".
+    - Cascade: gemini-2.5-pro → qwen3.6-27b(groq) → gemini-2.5-flash → gpt-oss-120b(groq) → qwen3-next-80b(OR) → llama-3.3-70b(OR) → gemini-2.5-flash-lite. Xoay 3 provider/4 key free.
+- **Xếp hạng 47 model** (Artificial Analysis + LMArena, list thật từ /models): top S = nemotron-3-ultra-550b(88,VN khá) + gemini-2.5-pro(88,VN xuất sắc); A = qwen3-coder-480b(80), gpt-oss-120b(78,VN TB), gemini-2.5-flash(74), qwen3.6-27b(72,VN xuất sắc). Caveat: ChatAnywhere alias không chắc thật; OpenRouter free rate-limit; reasoning chậm/tốn token.
+- Verify: cascade 4/4 Node test (pro lỗi→qwen3.6, hết→/complete, 401→throw, manual→1 model). Bump v=20260625g. Push → web2-api auto-redeploy nạp key Groq mới + 3 model.
+
 ### [web2/shared] Trợ lý AI: fix "đứt câu trả lời" (stream từng chữ) + nút xóa chat + bỏ Groq
 
 User: "widget hay bị đứt câu trả lời — AI viết ra từng chữ mà widget không làm vậy nên bị đứt" + "cho nút xóa đoạn chat". Root cause: 23 trang auto=Groq (đang bị KHOÁ org) → stream Groq lỗi → rơi xuống `/complete` NON-STREAM (1 cục, cap maxTokens 1000) → không gõ từng chữ + cụt câu dài.

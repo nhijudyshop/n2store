@@ -40,6 +40,7 @@ const PROVIDERS = {
         defaultModel: 'gemini-2.5-flash',
         // Gemini đều multimodal → vision:true (nhận ảnh + PDF).
         models: [
+            { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro 👁 (mạnh nhất)', vision: true },
             { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash 👁', vision: true },
             {
                 id: 'gemini-2.5-flash-lite',
@@ -56,6 +57,11 @@ const PROVIDERS = {
         baseURL: 'https://api.groq.com/openai/v1',
         defaultModel: 'openai/gpt-oss-20b',
         models: [
+            {
+                id: 'qwen/qwen3.6-27b',
+                label: 'Qwen3.6 27B 👁 (mới · tiếng Việt tốt)',
+                vision: true,
+            },
             { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (OpenAI mở · giống ChatGPT)' },
             { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (mạnh hơn)' },
             { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
@@ -83,6 +89,10 @@ const PROVIDERS = {
             { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek V3' },
             { id: 'deepseek/deepseek-r1-0528:free', label: 'DeepSeek R1 — suy luận' },
             { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B' },
+            {
+                id: 'qwen/qwen3-next-80b-a3b-instruct:free',
+                label: 'Qwen3-Next 80B (nhanh · context dài)',
+            },
             { id: 'qwen/qwen3-235b-a22b:free', label: 'Qwen3 235B' },
             // ⚠ OpenRouter free vision đã CHẾT 2026 (qwen2.5-vl:free → paid; llama-4-*:free →
             // "no image input"). Đính ảnh dùng Gemini (👁 mọi model) hoặc Groq Llama-4 Scout.

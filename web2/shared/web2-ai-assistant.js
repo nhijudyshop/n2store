@@ -106,7 +106,7 @@
 
     // Model free hiển thị trong dropdown nhanh (đổi thủ công). '' provider = Auto theo trang.
     const MODEL_OPTIONS = [
-        { v: 'auto', label: '🤖 Auto (theo trang)' },
+        { v: 'auto', label: '🤖 Auto (mạnh→yếu)' },
         { v: 'gemini|gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
         { v: 'groq|openai/gpt-oss-120b', label: 'GPT-OSS 120B (mạnh)' },
         { v: 'groq|llama-3.1-8b-instant', label: 'Llama 3.1 8B (nhanh)' },
@@ -602,29 +602,38 @@
         return e;
     }
 
-    async function callAiStream(messages, onDelta) {
-        const m = pageModel();
-        const body = JSON.stringify({
-            provider: m.provider || 'gemini',
-            model: m.model || undefined,
-            messages,
-            system: systemPrompt(),
-            maxTokens: 4000, // đủ rộng cho câu trả lời dài (tránh cụt giữa chừng)
+    // Cascade model THEO SỨC MẠNH (mạnh→yếu), xoay MỌI key free. Auto → thử lần lượt;
+    // model lỗi/hết quota → tự rơi xuống model kế. Thủ công → 1 model pinned (không cascade).
+    const MODEL_CASCADE = [
+        { provider: 'gemini', model: 'gemini-2.5-pro' }, // mạnh nhất, VN xuất sắc
+        { provider: 'groq', model: 'qwen/qwen3.6-27b' }, // VN xuất sắc + nhanh + vision
+        { provider: 'gemini', model: 'gemini-2.5-flash' }, // workhorse ổn định 1500/ngày
+        { provider: 'groq', model: 'openai/gpt-oss-120b' }, // mạnh + rất nhanh
+        { provider: 'openrouter', model: 'qwen/qwen3-next-80b-a3b-instruct:free' }, // nhanh, context dài
+        { provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct:free' }, // dự phòng nhà CC khác
+        { provider: 'gemini', model: 'gemini-2.5-flash-lite' }, // lưới cuối, nhanh nhất
+    ];
+    function cascadeList() {
+        if (!cfg.autoModel && cfg.provider) return [{ provider: cfg.provider, model: cfg.model }];
+        return MODEL_CASCADE;
+    }
+
+    // Stream 1 model: trả text nếu OK; ném lỗi nếu model này hỏng (để cascade thử model kế).
+    async function _streamOne(messages, onDelta, m) {
+        const res = await fetch(API() + '/chat/stream', {
+            method: 'POST',
+            headers: authHeaders(true),
+            body: JSON.stringify({
+                provider: m.provider,
+                model: m.model || undefined,
+                messages,
+                system: systemPrompt(),
+                maxTokens: 4000,
+            }),
+            signal: _abort?.signal,
         });
-        let res;
-        try {
-            res = await fetch(API() + '/chat/stream', {
-                method: 'POST',
-                headers: authHeaders(true),
-                body,
-                signal: _abort?.signal,
-            });
-        } catch (e) {
-            if (e.name === 'AbortError') throw e;
-            return callAiOnce(messages); // mạng lỗi → thử non-stream
-        }
         if (res.status === 401) throw authErr();
-        if (!res.ok || !res.body) return callAiOnce(messages);
+        if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let buf = '';
@@ -656,12 +665,24 @@
         if (errored) {
             if (errored.code === 401 || /unauthor|hết hạn|token/i.test(errored.error || ''))
                 throw authErr();
-            // Provider lỗi (vd Groq restricted) → fallback non-stream + auto-failover provider.
-            if (!acc.trim()) return callAiOnce(messages);
             throw new Error(errored.error || 'Lỗi AI');
         }
-        if (!acc.trim()) return callAiOnce(messages); // stream rỗng → thử non-stream
+        if (!acc.trim()) throw new Error('rỗng');
         return acc;
+    }
+
+    // Cascade: thử mạnh→yếu (stream từng chữ), model nào được thì dùng. Hết → non-stream /complete.
+    async function callAiStream(messages, onDelta) {
+        const list = cascadeList();
+        for (let idx = 0; idx < list.length; idx++) {
+            try {
+                return await _streamOne(messages, onDelta, list[idx]);
+            } catch (e) {
+                if (e.code === 401 || e.name === 'AbortError') throw e;
+                // model lỗi/hết quota → thử model kế (yếu hơn); model sau reset hiển thị.
+            }
+        }
+        return callAiOnce(messages); // tất cả stream lỗi → non-stream (backend tự xoay)
     }
 
     async function _postAi(body) {
