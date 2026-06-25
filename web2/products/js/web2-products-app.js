@@ -81,6 +81,18 @@
                 return;
             }
 
+            // upsert-pending (so-order "Lưu (Nháp)") có thể TẠO SP MỚI. Nếu có code
+            // CHƯA nằm trong data trang hiện tại → SP mới → full reload để HIỆN NGAY.
+            // (patch-in-place bỏ qua code không on-page → SP mới vô hình đến khi F5 —
+            // bug user báo 2026-06-25 "phải F5 mới thấy SP tạo bên so order").
+            if (
+                action === 'upsert-pending' &&
+                affected.some((c) => !STATE.products.some((p) => p.code === c))
+            ) {
+                debouncedFullLoad();
+                return;
+            }
+
             // Mọi action update-like (update / confirm-purchase / confirm-purchase-partial
             // / upsert-pending / adjust-stock / adjust-pending / mark-printed): patch
             // CHỈ các row bị đổi tại chỗ → KHÔNG full reload → KHÔNG giật bảng.

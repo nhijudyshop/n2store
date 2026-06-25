@@ -339,6 +339,16 @@ async function ensureTables(pool) {
 // -----------------------------------------------------
 // Helpers
 // -----------------------------------------------------
+// ĐỊA DANH từ PREFIX MÃ (so-order: HN..=Hà Nội, HC..=Hương Châu). Dùng làm fallback
+// read-time khi region chưa set (SP cũ tạo bằng frontend cũ chưa kịp backfill/boot) →
+// địa danh LUÔN nhận diện đúng, không phụ thuộc timing backfill.
+function regionFromCode(code) {
+    const c = String(code || '').toUpperCase();
+    if (c.startsWith('HN')) return 'HÀ NỘI';
+    if (c.startsWith('HC')) return 'HƯƠNG CHÂU';
+    return null;
+}
+
 function mapRow(row) {
     if (!row) return null;
     return {
@@ -349,8 +359,9 @@ function mapRow(row) {
         imageUrl: row.image_url,
         stock: row.stock,
         note: row.note,
-        // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — RIÊNG note (ghi chú)
-        region: row.region || null,
+        // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — RIÊNG note (ghi chú).
+        // Fallback prefix mã khi region rỗng (SP cũ chưa backfill) → luôn nhận diện.
+        region: row.region || regionFromCode(row.code),
         tags: row.tags || [],
         isActive: !!row.is_active,
         createdBy: row.created_by,

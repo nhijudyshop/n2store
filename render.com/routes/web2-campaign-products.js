@@ -77,6 +77,14 @@ async function ensureTables(pool) {
 // Map JOIN row (web2_campaign_products × web2_products) → object cho client.
 // Field SP giữ đúng tên camelCase như Web2ProductsCache (code/name/imageUrl/stock/
 // pendingQty/status/supplier/variant/returnQty/price) để consumer dùng chung shape.
+// ĐỊA DANH từ prefix mã (HN=Hà Nội, HC=Hương Châu) — fallback khi region chưa set.
+function regionFromCode(code) {
+    const c = String(code || '').toUpperCase();
+    if (c.startsWith('HN')) return 'HÀ NỘI';
+    if (c.startsWith('HC')) return 'HƯƠNG CHÂU';
+    return null;
+}
+
 function mapItem(row) {
     return {
         code: row.product_code,
@@ -87,8 +95,9 @@ function mapItem(row) {
         returnQty: Number(row.return_qty) || 0,
         status: row.status || 'DANG_BAN',
         supplier: row.supplier || null,
-        // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — cho chip lọc/badge picker
-        region: row.region || null,
+        // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — cho chip lọc/badge picker.
+        // Fallback prefix mã khi region rỗng (SP cũ chưa backfill).
+        region: row.region || regionFromCode(row.product_code),
         variant: row.variant || null,
         price: Number(row.price || 0),
         // sold (BÁN = SL trong giỏ KH, gồm cả cọc) + coc (CỌC = SL giỏ có đặt cọc)
