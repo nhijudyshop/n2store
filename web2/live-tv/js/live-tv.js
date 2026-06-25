@@ -146,8 +146,8 @@
                     return i.code;
                 })
             );
-            // name+supplier+region: 2 SP khác NCC/địa danh trùng tên = 2 card riêng.
-            state.groups = window.Web2VariantGroup.group(items, { by: 'name+supplier+region' });
+            // by:'code' — unique theo mã SP: mỗi mã 1 card, KHÔNG gom biến thể.
+            state.groups = window.Web2VariantGroup.group(items, { by: 'code' });
             render();
             $('ltvSync').textContent = 'Cập nhật ' + fmtTime(Date.now());
             $('ltvLiveDot').classList.add('is-live');

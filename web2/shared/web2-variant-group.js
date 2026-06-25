@@ -75,8 +75,18 @@
         return p && (p.imageUrl || p.image_url || (Array.isArray(p.images) && p.images[0]) || '');
     }
 
-    const VALID_BY = { name: 1, 'name+supplier': 1, 'name+supplier+region': 1 };
+    const VALID_BY = { name: 1, 'name+supplier': 1, 'name+supplier+region': 1, code: 1 };
     function buildKey(p, by) {
+        // by:'code' → MỖI mã sản phẩm là 1 item riêng (KHÔNG gom biến thể). Dùng khi
+        // user muốn "tất cả SP unique theo mã" (tránh trộn SP khác mã/NCC/địa danh).
+        if (by === 'code') {
+            const c = String(p.code == null ? '' : p.code)
+                .trim()
+                .toLowerCase();
+            if (c) return c;
+            // SP chưa có mã → fallback name+variant để vẫn unique từng dòng.
+            return `${normalizeName(p.name)}|${normalizeName(p.variant)}`;
+        }
         const nkey = normalizeName(p.name);
         if (!nkey) return '';
         if (by === 'name+supplier') return `${nkey}|${normalizeName(p.supplier)}`;

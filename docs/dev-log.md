@@ -2,6 +2,19 @@
 
 ## 2026-06-25
 
+### [web2/live-control][live-tv][shared] FIX gom SP sai — unique theo MÃ sản phẩm
+
+User báo bug: picker live-control hiện "QUẦN SHORT KAKI · 2 biến thể · **chờ 34**" nhưng thực ra là **2 SP khác mã** (`HCQUANXDU31` HƯƠNG CHÂU chờ 16 + `HNQUANGHI33` HÀ NỘI chờ 18) bị gom vì `Web2VariantGroup.group` dùng `by:'name'` (gom theo TÊN). User chốt: **"tất cả sản phẩm unique theo mã sản phẩm"**.
+
+**Fix:**
+
+- `web2-variant-group.js`: thêm `by:'code'` (key = mã SP chuẩn hoá, fallback name+variant nếu thiếu mã) → MỖI mã = 1 item, KHÔNG gom biến thể.
+- 4 call-site đổi `by:'name'` → `by:'code'`: live-control board (`loadBoard`), picker pending + all-SP (`loadPicker`), live-tv (`loadGroups`).
+- `pickerItemHtml`: nhóm 1-mã hiện **biến thể (Màu/Size) + chip MÃ SP** thay cho "1 biến thể" vô nghĩa (CSS `.lc-pcode`). Region badge + chờ N vẫn hiện per-mã.
+- Bump cache-bust `?v=20260625uniq` (live-control + live-tv pages).
+
+**Verify (browser, data thật prod)**: `Web2ProductsApi.listPending()` → 2 SP QUẦN SHORT KAKI; `group(by:'name')` = 1 nhóm pending **[34]** (bug cũ); `group(by:'code')` = **2 nhóm**: {HƯƠNG CHÂU, chờ 16, HCQUANXDU31} + {HÀ NỘI, chờ 18, HNQUANGHI33}. ✓ node --check 3 file OK. Thuần frontend → GH Pages. Status ✅
+
 ### [render][web2/zalo][web2/jt-tracking] FIX spam "Đổi thiết bị" — FOCUS-LEASE phiên Zalo
 
 User: đăng nhập Zalo ở `web2/zalo` → chat.zalo.me spam liên tục popup **"Đổi thiết bị"**, không dùng được.

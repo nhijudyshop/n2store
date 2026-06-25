@@ -117,9 +117,9 @@
         try {
             var items = await window.Web2Campaign.listProducts(state.campaignId);
             state.addedCodes = new Set(items.map((i) => i.code));
-            // name+supplier+region: KHÔNG trộn 2 SP khác NCC/địa danh trùng tên
-            // (vd QUẦN SHORT KAKI HƯƠNG CHÂU vs HÀ NỘI = 2 SP riêng, không gộp 34).
-            state.board = window.Web2VariantGroup.group(items, { by: 'name+supplier+region' });
+            // by:'code' — MỖI mã SP là 1 item riêng (unique theo mã). KHÔNG gom biến
+            // thể: 2 SP khác mã (HCQUANXDU31 vs HNQUANGHI33) = 2 card riêng, không gộp 34.
+            state.board = window.Web2VariantGroup.group(items, { by: 'code' });
             renderBoard();
             refreshPickerAddedFlags();
         } catch (e) {
@@ -298,18 +298,14 @@
             var groups;
             if (state.pickerTab === 'pending') {
                 var jp = await window.Web2ProductsApi.listPending();
-                groups = window.Web2VariantGroup.group((jp && jp.items) || [], {
-                    by: 'name+supplier+region',
-                });
+                groups = window.Web2VariantGroup.group((jp && jp.items) || [], { by: 'code' });
             } else {
                 var jl = await window.Web2ProductsApi.list({
                     search: state.search || undefined,
                     activeOnly: true,
                     limit: 300,
                 });
-                groups = window.Web2VariantGroup.group((jl && jl.products) || [], {
-                    by: 'name+supplier+region',
-                });
+                groups = window.Web2VariantGroup.group((jl && jl.products) || [], { by: 'code' });
             }
             // Lọc client theo search cho tab pending (server không filter tên).
             if (state.pickerTab === 'pending' && state.search) {
@@ -369,11 +365,16 @@
         var img = g.imageUrl
             ? '<img class="lc-pimg" src="' + esc(safeImg(g.imageUrl)) + '" alt="" />'
             : '<span class="lc-pimg" style="display:grid;place-items:center">📦</span>';
+        var v0 = (g.variants && g.variants[0]) || {};
         var meta = [];
         if (state.showRegion && g.region)
             meta.push('<span class="lc-region-badge">📍 ' + esc(g.region) + '</span>');
         if (g.suppliers && g.suppliers.length) meta.push(esc(g.suppliers.join(', ')));
-        meta.push(g.variantCount + ' biến thể');
+        // Unique theo mã (by:'code') → mỗi item 1 mã: hiện BIẾN THỂ (Màu/Size) + MÃ SP
+        // để phân biệt rõ 2 SP trùng tên khác mã. Nhóm cũ (>1) vẫn hiện "N biến thể".
+        if (g.variantCount > 1) meta.push(g.variantCount + ' biến thể');
+        else if (v0.variant) meta.push(esc(v0.variant));
+        if (v0.code) meta.push('<span class="lc-pcode">' + esc(v0.code) + '</span>');
         if (g.totalPending > 0) meta.push('<span class="cho">chờ ' + g.totalPending + '</span>');
         if (g.totalStock > 0) meta.push('tồn ' + g.totalStock);
         return (

@@ -454,6 +454,15 @@
     color: #b45309;
     font-weight: 700;
 }
+.lc-pcode {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 0 5px;
+}
 .lc-addbtn {
     flex: 0 0 auto;
     border: none;
