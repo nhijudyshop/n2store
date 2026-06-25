@@ -35,7 +35,7 @@ const TRIGGERS = [
         id: 'am_ma',
         label: 'Âm mã',
         group: 'Tồn kho / Sản phẩm',
-        desc: 'Đơn nháp có SP mà tổng SL đang giữ ở các đơn nháp + đã lên PBH vượt tồn kho (over-sell). Vd tồn 2, đơn A giữ 1 + PBH B 2 → âm mã.',
+        desc: 'Giỏ hàng có SP mà tổng SL đang giữ ở các giỏ hàng + đã lên PBH vượt tồn kho (over-sell). Vd tồn 2, giỏ A giữ 1 + PBH B 2 → âm mã.',
     },
     {
         id: 'het_hang',
@@ -64,9 +64,9 @@ const TRIGGERS = [
     },
     {
         id: 'is_draft',
-        label: 'Đơn nháp',
+        label: 'Giỏ hàng',
         group: 'PBH / Trạng thái',
-        desc: 'Đơn đang ở trạng thái Nháp (chưa tạo PBH).',
+        desc: 'Đơn đang ở trạng thái Giỏ hàng (chưa tạo PBH).',
     },
     {
         id: 'is_confirmed',
@@ -85,7 +85,7 @@ const TRIGGERS = [
         id: 'chua_nhan_ck',
         label: 'Chưa thanh toán',
         group: 'Thanh toán',
-        desc: 'Đơn nháp chưa thanh toán đủ (chưa có CK xác nhận + số dư ví KH < tổng đơn).',
+        desc: 'Giỏ hàng chưa thanh toán đủ (chưa có CK xác nhận + số dư ví KH < tổng đơn).',
     },
     {
         id: 'da_nhan_ck',

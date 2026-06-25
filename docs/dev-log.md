@@ -2,6 +2,18 @@
 
 ## 2026-06-25
 
+### [order-tags][web2/shared][render] Audit vòng 2 — sót trang order-tags + shared modules
+
+User: '"vẫn sót trang order-tags → audit không kĩ toàn bộ web 2.0"'. Sweep lại TOÀN BỘ web2/ + render backend cho mọi nhãn native-order CHƯA-PBH. Tìm & sửa 7 chỗ sót (giữ nguyên domain khác: PBH/hóa đơn nháp, so-order NCC nháp, returns nháp, Web 1.0 customer-hub).
+
+- **`render.com/services/web2-order-tags-service.js`** (catalog auto-tag, FE đọc qua `/api/web2-order-tags/triggers`): trigger `is_draft` label "Đơn nháp" → **"Giỏ hàng"** + desc; desc `am_ma` + `chua_nhan_ck` "đơn nháp" → "giỏ hàng". Giữ `id` (no migration). Pill native-orders dùng `name||label` → fallback label mới.
+- **`web2/shared/web2-order-tag-detail.js`**: popup âm-mã "Tổng đang giữ (các đơn nháp)" → "(các giỏ hàng)".
+- **`web2/shared/web2-ai-page-registry.js`**: nhãn quick-prompt "📦 Đơn nháp chưa lên PBH" → "📦 Giỏ hàng chưa lên PBH" (prompt body giữ `status==='draft'`).
+- **`web2/shared/web2-customer-detail-modal.js`**: bảng đơn KH render `x.status` THÔ ("draft") → map nhãn (draft→Giỏ hàng/confirmed→Đơn hàng/…).
+- **`web2/report-revenue/index.html`**: KPI Đơn Web "X nháp" → "X giỏ hàng" (giữ pie `pbh.states` = trạng thái PBH riêng).
+- **`render.com/routes/native-orders.js`**: lỗi API tách/gộp "đơn nháp" → "giỏ hàng (chưa PBH)".
+- Verify: `node --check` 5 file OK; sweep còn lại chỉ PBH/so-order/returns/Web1 (đúng, khác domain). Backend (order-tags-service + native-orders route) cần web2-api redeploy → pill/lỗi live. Status ✅
+
 ### [live-chat][native-orders] Thuật ngữ: bản ghi CHƯA PBH = "Giỏ hàng" (không gọi "đơn" gây nhầm)
 
 User: '"live-chat khi kéo SP/tạo → là tạo GIỎ HÀNG cho khách chứ đừng ghi đơn hàng dễ nhầm lẫn → qua native-orders vẫn là giỏ hàng nếu chưa tạo PBH"'. Audit 2 trang chính + sweep toàn bộ trang liên quan. Mô hình chuẩn xác lập: **`draft` (chưa PBH) = Giỏ hàng (cart)**, **`confirmed` (đã có PBH) = Đơn hàng (order)**. Chỉ đổi NHÃN user-facing; **giữ nguyên** mã nội bộ (`draft`/`confirmed`, `NATIVE_WEB`, topic `web2:native-orders`, hàm `createOrder`/`NativeOrdersApi`, tên feature "Đơn Web"), thống kê đơn-hàng thật của KH, và tab "Đơn hàng" Pancake.

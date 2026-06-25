@@ -182,7 +182,7 @@
                     prompt: "Quét autoTags của từng đơn trong window.NativeOrders.STATE.orders: liệt kê các đơn có thẻ cảnh báo (trigger liên quan 'SP chờ hàng' hoặc 'SP âm mã'). Ghi mã đơn, tên khách, tên thẻ và các sản phẩm (products[].name + productCode) đang vướng. Nhóm theo loại thẻ để biết đơn nào cần chờ hàng, đơn nào bị âm kho.",
                 },
                 {
-                    label: '📦 Đơn nháp chưa lên PBH',
+                    label: '📦 Giỏ hàng chưa lên PBH',
                     prompt: "Từ window.NativeOrders.STATE.orders, lọc đơn status==='draft' hoặc status==='confirmed' nhưng chưa có pbhTotal (chưa tạo phiếu bán hàng). Liệt kê mã đơn, khách, SĐT, tổng tiền, số SP (totalQuantity). Chỉ ra đơn nào đã đủ điều kiện lên PBH (có SP, có địa chỉ) và đơn nào còn thiếu địa chỉ/SĐT.",
                 },
                 {

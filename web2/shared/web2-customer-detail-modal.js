@@ -285,7 +285,7 @@
                           ),
                           ...native.map(
                               (x) =>
-                                  `<tr><td>Đơn Web</td><td>${esc(x.code || '')}</td><td>${esc(x.status || '')}</td><td class="num">${fmtVnd(x.totalAmount || 0)}₫</td><td>${fmtDate(x.createdAt)}</td></tr>`
+                                  `<tr><td>Đơn Web</td><td>${esc(x.code || '')}</td><td>${esc({ draft: 'Giỏ hàng', confirmed: 'Đơn hàng', cancelled: 'Đã hủy', delivered: 'Đã giao' }[x.status] || x.status || '')}</td><td class="num">${fmtVnd(x.totalAmount || 0)}₫</td><td>${fmtDate(x.createdAt)}</td></tr>`
                           ),
                       ].join('')}</tbody></table>`
                     : '<div class="w2cd-empty">Chưa có đơn hàng</div>'

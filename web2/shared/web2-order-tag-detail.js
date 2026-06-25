@@ -153,7 +153,7 @@
     }
     function prodSub(trigger, p) {
         if (trigger === 'am_ma')
-            return `Tồn kho: <strong>${vnNum(p.stock)}</strong> · Tổng đang giữ (các đơn nháp): <strong>${vnNum(p.held)}</strong>${p.orderQty ? ` · đơn này giữ ×${vnNum(p.orderQty)}` : ''}`;
+            return `Tồn kho: <strong>${vnNum(p.stock)}</strong> · Tổng đang giữ (các giỏ hàng): <strong>${vnNum(p.held)}</strong>${p.orderQty ? ` · giỏ này giữ ×${vnNum(p.orderQty)}` : ''}`;
         if (p.orderQty) return `Đặt trong đơn này: ×${vnNum(p.orderQty)}`;
         return '';
     }

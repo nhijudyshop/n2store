@@ -2550,7 +2550,7 @@ router.post('/:code/split-order', requireWeb2AuthSoft, async (req, res) => {
             await client.query('ROLLBACK');
             return res
                 .status(400)
-                .json({ error: 'invalid_status', message: 'Chỉ tách được đơn nháp' });
+                .json({ error: 'invalid_status', message: 'Chỉ tách được giỏ hàng (chưa PBH)' });
         }
 
         // Compute split_index cho new order = MAX(split_index)+1 across same display_stt
@@ -2682,7 +2682,7 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
         if (nonDraft.length) {
             await client.query('ROLLBACK');
             return res.status(400).json({
-                error: `Chỉ gộp được đơn nháp. Đơn không hợp lệ: ${nonDraft.join(', ')}`,
+                error: `Chỉ gộp được giỏ hàng (chưa PBH). Đơn không hợp lệ: ${nonDraft.join(', ')}`,
             });
         }
         const phones = new Set(src.rows.map((r) => (r.phone || '').trim()));
