@@ -116,6 +116,22 @@
         if (!file || !file.type.startsWith('video/'))
             return notify('Hãy chọn file video', 'warning');
         state.file = file;
+        // GitHub-style skeleton trong lúc decode video. #vbStage chứa <canvas> SỐNG
+        // → tuyệt đối KHÔNG đụng; chỉ vẽ skeleton-frame 16:9 vào placeholder #vbEmpty.
+        const _emptyEl = $('#vbEmpty');
+        const _emptyHtml = _emptyEl ? _emptyEl.innerHTML : '';
+        if (_emptyEl) {
+            window.Web2Skeleton?.injectCss?.();
+            _emptyEl.hidden = false;
+            _emptyEl.innerHTML = window.Web2Skeleton
+                ? '<div class="w2sk" style="width:min(560px,80vw);aspect-ratio:16/9;border-radius:12px;margin-bottom:12px"></div><p style="color:#94a3b8;font-size:13px">Đang nạp video…</p>'
+                : '<p style="color:#94a3b8;font-size:13px">Đang nạp video…</p>';
+        }
+        const _restoreEmpty = () => {
+            if (!_emptyEl) return;
+            _emptyEl.innerHTML = _emptyHtml;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        };
         if (state._url) {
             try {
                 URL.revokeObjectURL(state._url);
@@ -130,7 +146,10 @@
             v.onloadedmetadata = res;
             v.onerror = res;
         });
-        if (!v.videoWidth) return notify('Không đọc được video (codec?)', 'error');
+        if (!v.videoWidth) {
+            _restoreEmpty(); // gỡ skeleton, trả lại prompt upload (tránh kẹt)
+            return notify('Không đọc được video (codec?)', 'error');
+        }
         setupOutputSize();
         await new Promise((res) => {
             const d = () => {
@@ -141,6 +160,7 @@
             v.currentTime = 0.01;
         });
         drawCurrent();
+        _restoreEmpty(); // trả prompt gốc cho lần upload sau, trước khi ẩn
         $('#vbEmpty').hidden = true;
         $('#vbStage').hidden = false;
         $('#vbControls').hidden = false;

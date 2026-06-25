@@ -82,7 +82,8 @@ Audit đợt 2 phát hiện 6 trang KHÔNG nên wire (render đồng bộ từ s
 
 > Đã có skeleton sẵn (không đụng): `supplier-wallet` + `supplier-debt` (bảng chính), `kpi`, `dashboard`, `notifications`, `report-revenue`, `delivery-zone`, `audit-log`.
 
-Còn lại 1 target lẻ: `purchase-refund` `#prDetail` (detail slip — agent skip vì render gắn liền slip-select, làm sau nếu cần). `video-beauty` `.vb-stagewrap` (canvas video — skeleton không hợp).
+- ✅ `video-beauty` — wire skeleton-frame 16:9 vào `#vbEmpty` trong lúc decode video (`loadFile()` await metadata+seek). KHÔNG đụng `#vbStage` (chứa `<canvas>` sống); restore prompt gốc khi lỗi/xong.
+- ⏭️ `purchase-refund` `#prDetail` — **render ĐỒNG BỘ** (`STATE.items.find()` → `innerHTML` ngay, KHÔNG fetch) → skeleton sẽ flash 0ms → **cố tình KHÔNG wire** (wire = regression).
 
 ## 4. Cache-bust
 
