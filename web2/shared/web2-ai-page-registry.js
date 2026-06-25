@@ -1476,6 +1476,173 @@
                 desc: 'Toàn bộ phiếu bán hàng (PBH) từ database — mỗi mục 1 PBH: số phiếu (number), khách, tổng tiền, còn nợ (residual), trạng thái (state).',
             },
         ],
+        '/web2/customers/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ Kho Khách Hàng (DB)',
+                endpoint: '/api/web2/customers/list',
+                params: { limit: 500 },
+                dataPath: 'data',
+                desc: 'Mỗi bản ghi = 1 khách hàng warehouse Web 2.0 (bảng web2_customers). Field chính: id, phone (SĐT chính 10 số, UNIQUE), name (tên KH), address, fbId, globalId, alt_phones (mảng SĐT phụ), status (Normal/Bom/Warning/Danger/VIP), tier, source, tags, fb_page_id, pancake_page_id, is_active, updated_at.',
+                hasMoreField: 'hasMore',
+            },
+        ],
+        '/web2/customer-wallet/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ Ví khách hàng (DB)',
+                endpoint: '/api/web2/customer-wallet/aggregate',
+                params: { filter: 'all', sort: 'balance-desc', limit: 500, offset: 0 },
+                dataPath: 'data',
+                desc: 'Mỗi bản ghi = 1 thẻ ví/công nợ của 1 khách hàng (gom theo SĐT từ PBH fast_sale_orders + Đơn Web native_orders + ví web2_customer_wallets). Field chính: phone (SĐT), name (tên KH), totalPurchased (Tổng mua), paidAmount (Đã thu), returnedAmount (Đã trả), balance (Còn nợ = Tổng mua − Đã thu), walletBalance (số dư ví), totalDeposited, totalWithdrawn, pbhCount (số PBH), nativeCount (số đơn web), custom',
+            },
+        ],
+        '/web2/returns/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ phiếu Thu về (DB)',
+                endpoint: '/api/web2-returns/list',
+                params: { limit: 500 },
+                dataPath: 'returns',
+                desc: 'Mỗi bản ghi là 1 phiếu thu về (goods return). Field chính: code (mã phiếu), customerName, phone, method (khach_gui/shipper_gui), issue (van_de_khach/van_de_shipper), subType (thu_ve_1_phan), reason, items (mảng SP trả: productCode/productName/quantity/price), walletCredited (ví cộng cho khách), codReduction, stockStatus (applied/pending/approved), billStatus (queued/consumed), status (active/cance',
+                hasMoreField: 'hasMore',
+            },
+        ],
+        '/web2/purchase-refund/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ phiếu trả hàng NCC (DB)',
+                endpoint: '/api/web2/purchase-refund/list',
+                params: { limit: 2000 },
+                dataPath: 'records',
+                desc: "Mỗi bản ghi là 1 phiếu trả hàng NCC (web2_records, entity_slug='purchase-refund'). Field chính: code (mã phiếu), name, created_at, data (JSONB chứa supplier/NCC, products[], status: draft|sent|approved|refunded|rejected|cancelled, reason, refundMethod: cash|bank|debt_offset|replace, qty, amount, history[]). mapRow trải data ra ngoài: {code, name, created_at, updated_at, is_active, data:{...}}.",
+                hasMoreField: 'hasMore',
+            },
+        ],
+        '/web2/fastsaleorder-delivery/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ Phiếu giao hàng (DB)',
+                endpoint: '/api/delivery-invoices/load',
+                params: { limit: 1000 },
+                dataPath: 'orders',
+                desc: 'Mỗi bản ghi là 1 phiếu giao hàng (delivery invoice) tạo từ PBH. Field chính: number (mã phiếu), fso (PBH gốc {number}), partner {name, phone, address}, carrier {name, trackingRef}, totalQuantity, cashOnDelivery (COD), state (pending/shipping/delivered/returned/cancel), dateDelivery, stateHistory[]. Lọc thêm: ?state=, ?search=, ?fsoNumber=.',
+                hasMoreField: 'hasMore',
+            },
+        ],
+        '/web2/fastsaleorder-refund/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ phiếu trả hàng (DB)',
+                endpoint: '/api/refunds/load',
+                params: { limit: 1000 },
+                dataPath: 'orders',
+                desc: 'Mỗi bản ghi là 1 phiếu trả hàng (refund) của Web 2.0. Field chính: number (số phiếu), displayStt, fso/fso_number (số PBH gốc), partner.name + partner.phone (khách hàng), refundMode (cash/wallet/exchange), totalQuantity (SL trả), amountRefund (tiền hoàn), state (draft/approved/completed/cancel), dateRefund (ngày), reason, stateHistory (lịch sử đổi trạng thái: from→to, by, at). Lọc được qua params s',
+                hasMoreField: 'hasMore',
+            },
+        ],
+        '/web2/cham-cong/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ lượt chấm công (DB)',
+                endpoint: '/api/web2-attendance/records',
+                params: { start: '2020-01-01', end: '2099-12-31', limit: 1500 },
+                dataPath: 'items',
+                desc: 'Mỗi bản ghi = 1 lượt chấm công của máy DG-600. Field chính: id, device_user_id (PIN máy), check_time (giờ chấm GMT+7), date_key (YYYY-MM-DD), type (0=Vào, 1=Ra), verify_mode, source. Dùng để dựng bảng công + bảng lương theo nhân viên/ngày.',
+            },
+        ],
+        '/web2/chi-tieu/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ phiếu thu/chi Sổ quỹ (DB)',
+                endpoint: '/api/web2-cashbook/vouchers',
+                params: { limit: 500 },
+                dataPath: 'items',
+                desc: 'Mỗi bản ghi = 1 phiếu thu/chi (voucher) trong sổ quỹ Web 2.0. Field chính: id, code (mã phiếu), type (receipt=phiếu thu | payment_cn=chi cá nhân | payment_kd=chi kinh doanh), fund_type (cash/bank/ewallet), voucher_time (TIMESTAMPTZ ISO), amount (số tiền VND), category (danh mục), source_code (nguồn), person_name (đối tượng KH/NCC/NV), collector (nhân viên xử lý), note (ghi chú), image_id (ảnh hoá ',
+            },
+        ],
+        '/web2/ck-dashboard/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ tín hiệu CK (DB)',
+                endpoint: '/api/web2/payment-signals',
+                params: { status: 'all', limit: 500, offset: 0 },
+                dataPath: 'data',
+                desc: 'Mỗi bản ghi = 1 tín hiệu Chuyển Khoản (web2_payment_signals) của Dashboard đối soát CK. Field chính: id, status (pending/confirmed/dismissed), customerName, psid, phone, keyword, rawMessage (tin khách báo CK), createdAt (epoch ms), orderCode + order{total} (đơn đã khớp), matchedTxId (GD SePay khớp), confirmedBy (người duyệt), history[] (timeline thao tác: detect/confirm/approve/dismiss/link/notify',
+                hasMoreField: 'hasMore',
+            },
+        ],
+        '/web2/audit-log/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ Lịch sử thao tác (DB)',
+                endpoint: '/api/web2/audit-log/list',
+                params: { limit: 500, offset: 0 },
+                dataPath: 'items',
+                desc: "Mỗi bản ghi = 1 thao tác Web 2.0 (union 4 bảng audit + event-sink). Field chính: entity (loại: product/pbh/reconcile/wallet/customer/return/...), entity_id (mã đơn/SP/KH...), action (hành động), user_name + user_id (người thao tác), source_page (trang nguồn), changes (JSON diff thay đổi), created_at (thời gian, GMT+7). Có thêm field 'total' = tổng số dòng khớp filter, 'viewer.scope' (all=admin/sel",
+            },
+        ],
+        '/web2/notifications/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ thông báo (DB)',
+                endpoint: '/api/web2/notifications/list',
+                params: { limit: 200, unreadOnly: 0 },
+                dataPath: 'items',
+                desc: 'Mỗi bản ghi là 1 thông báo Web 2.0 từ bảng web2_notifications. Field chính: id, user_id, type, entity_type, entity_id, title, body, severity, url, read_at (NULL = chưa đọc), created_at. Sort created_at DESC.',
+            },
+        ],
+        '/web2/jt-tracking/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ vận đơn J&T (DB)',
+                endpoint: '/api/web2-jt-tracking/list',
+                params: { limit: 1000 },
+                dataPath: 'data',
+                desc: 'Mỗi bản ghi = 1 vận đơn J&T tracking trong bảng web2_jt_tracking. Field chính: billcode (mã đơn), cellphone, status (delivered/delivering/transit/returned/problem/pending/not_found), latest_event, latest_at, latest_at_text, event_count, source, note, last_fetched_at, approved_at, zalo_conv_id, src_message (chứa tên KH + SĐT + nội dung dòng dán Zalo), src_at, created_at, updated_at.',
+            },
+        ],
+        '/web2/payment-confirm/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ tín hiệu xác nhận CK (DB)',
+                endpoint: '/api/web2/payment-signals',
+                params: { status: 'all', limit: 500, offset: 0 },
+                dataPath: 'data',
+                desc: 'Mỗi bản ghi = 1 tín hiệu KH báo đã chuyển khoản (web2_payment_signals). Field chính: id, status (pending|confirmed|dismissed), customerName, psid, phone, keyword, rawMessage, createdAt, confirmedBy, matched_order_type/orderType (native|fast_sale), matched_order_code/orderCode, order (đơn enrich: name,total,phone,status), history[] (detect/confirm/dismiss/link + userName + ts).',
+                hasMoreField: 'meta.hasMore',
+            },
+        ],
+        '/web2/reconcile/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ PBH đối soát (DB)',
+                endpoint: '/api/reconcile/list',
+                params: { state: 'all', limit: 500 },
+                dataPath: 'items',
+                desc: 'Mỗi bản ghi = 1 Phiếu bán hàng (PBH / fast_sale_order) đang đối soát đóng gói. Field chính: number (mã PBH NJ-YYYYMMDD-NNNN), displayStt/mergedDisplayStt (STT đơn), partner_name/partner_phone/partner_address (KH), state (draft/confirmed/done), fulfillment_state (pending/picking/picked/packed/shipped/delivered/cancelled), fulfillment_picked_lines, order_lines (SP), amount_total, date_invoice. Sắp x',
+            },
+        ],
+        '/web2/fb-ads-stats/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ Sổ quảng cáo FB nhập tay (DB)',
+                endpoint: '/api/web2-fb-posts/ad-entries',
+                params: { limit: 1500 },
+                dataPath: 'entries',
+                desc: 'Mỗi bản ghi = 1 dòng sổ quảng cáo Facebook nhập tay (bảng web2_fb_ad_entries). Field chính: id, entry_date (ngày, YYYY-MM-DD), page_id, post_id/post_message/post_picture/post_permalink/post_type (bài hoặc đợt live đã gắn), ad_spend (tiền quảng cáo, đồng), orders (số đơn), revenue (doanh thu), reach (tiếp cận), messages (tin nhắn), note (ghi chú), created_by. Trang tính CP/đơn = ad_spend/orders, RO',
+            },
+        ],
+        '/live-chat/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ comment livestream (DB)',
+                endpoint: '/api/web2-live-comments',
+                params: { limit: 5000 },
+                dataPath: 'data',
+                desc: 'Mỗi bản ghi = 1 comment livestream (web2_live_comments). Field chính: id, post_id, page_id, page_name, campaign_id, fb_id, customer_name, message, created_time, phone, address, has_order, avatar, updated_at. Trả newest-first (ORDER BY created_time DESC).',
+            },
+        ],
     };
     function dbSourcesFor(pathname) {
         const p = String(pathname || (global.location && global.location.pathname) || '');

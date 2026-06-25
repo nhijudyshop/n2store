@@ -2,6 +2,18 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI: ĐỌC DB THÔNG MINH + audit 23 trang → 19 DB_SOURCES
+
+User: "AI đọc DB có thông minh không? DB nhiều có sao?" + "audit toàn bộ trang/dữ liệu (đọc system dashboard) thêm cho hợp lý".
+
+**(1) Reducer THÔNG MINH** (`web2/shared/web2-ai-assistant.js`): thay đọc "thô" (cắt cụt ~30 dòng đầu). Hàm `encodeArray`: data nhỏ (vừa budget) → RAW đầy đủ; data LỚN → `summarizeDataset` = TÓM TẮT THỐNG KÊ (mỗi field số: tổng/min/max + đếm ÂM/0/trống; field phân loại: value→count; + MẪU dòng "có vấn đề" số âm). → AI thấy bức tranh TOÀN BẢNG dù DB lớn, không phụ thuộc số dòng. Áp cho cả accessor block lẫn DB block. `fetchDbSource` loop-fetch: CHỈ loop khi spec có `hasMoreField` (page-based, hỗ trợ nested `meta.hasMore`); endpoint offset/không phân trang → fetch 1 lần (tránh refetch trùng vô hạn); cap `MAX_DB_ROWS=5000`.
+
+**(2) Audit 23 trang dữ liệu** (workflow 24-agent, đọc system dashboard `web2-modules.json` làm bản đồ) → phân loại: full-cache (accessor đủ: supplier-wallet/supplier-debt/kpi/so-order), none (order-tags/fb-insights), **paginated → cần DB_SOURCE (16 trang)**. Thêm vào registry `DB_SOURCES` (tổng 19): customers `/api/web2/customers/list`(data,hasMore), customer-wallet `/aggregate`(data), returns `/api/web2-returns/list`(returns,hasMore), purchase-refund(records,hasMore), fastsaleorder-delivery `/api/delivery-invoices/load`(orders,hasMore), fastsaleorder-refund `/api/refunds/load`(orders,hasMore), cham-cong(items), chi-tieu(items), ck-dashboard+payment-confirm `/api/web2/payment-signals`(data), audit-log(items), notifications(items), jt-tracking(data), reconcile(items), fb-ads-stats(entries), live-chat `/api/web2-live-comments`(data). Endpoint+dataPath verify từ backend route.
+
+**Verify** (Node, browser bị tranh chấp session): reducer 7/7 (data 3000 dòng → tổng+ÂM=140+đếm status); fetchDbSource 5/5 (hasMore→loop, no-hasMore/offset→1 lần, nested meta.hasMore, 401→throw); dbSourcesFor 19 entries. Bump v=20260625d.
+
+⚠ Tách module: web2-ai-assistant.js ~1100 dòng (gồm feature "AI tools" Ghép đồ/Card/Video/Viết mô tả thêm song song) — nên tách sau. ai-hub/\* + 3 module tools (web2-tryon/content-maker/ai-describe) để commit riêng.
+
 ### [web2/shared] Trợ lý AI: ĐỌC DATABASE qua API app (Option B) — trang phân trang thấy TOÀN BỘ bảng
 
 User hỏi "AI coi database không?" → giải thích: chỉ đọc data browser (kho SP/biến thể/KH = full vì cache tải hết; giao dịch/đơn/PBH phân trang `pageSize:50` → chỉ thấy 1 trang). User chọn **Option B: AI đọc qua API đọc sẵn của app** (an toàn, qua auth/phân quyền, KHÔNG SQL thô).

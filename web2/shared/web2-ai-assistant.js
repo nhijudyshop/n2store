@@ -22,6 +22,72 @@
     'use strict';
     if (global.Web2AiAssistant) return;
 
+    // ── Base resolve + lazy script loader (cho 3 công cụ: ghép đồ / card-video / viết mô tả) ──
+    // currentScript = thẻ <script> của file này (web2/shared/) → suy ra base lazy-load.
+    const SELF_SRC = (document.currentScript && document.currentScript.src) || '';
+    function sharedBase() {
+        if (SELF_SRC) return SELF_SRC.replace(/[^/]*$/, ''); // .../web2/shared/
+        const tag = document.querySelector('script[src*="/web2/shared/"]');
+        return tag ? tag.src.replace(/web2\/shared\/[^/]*$/, 'web2/shared/') : '';
+    }
+    const web2Base = () => sharedBase().replace(/shared\/$/, ''); // .../web2/
+    const _ls = {};
+    function loadScript(src) {
+        if (!src) return Promise.reject(new Error('no src'));
+        if (_ls[src]) return _ls[src];
+        _ls[src] = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = false;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('load ' + src));
+            (document.head || document.documentElement).appendChild(s);
+        });
+        return _ls[src];
+    }
+
+    // Công cụ ngoài chat (mount vào panel): Ghép đồ · Card/Video · AI viết mô tả.
+    // Mỗi tool tự lazy-load module shared khi mở lần đầu (không nặng trang lúc boot).
+    const TOOL_VER = '20260625a';
+    const TOOL_DEFS = {
+        tryon: {
+            label: '👕 Ghép đồ',
+            wide: true,
+            async ensure() {
+                if (!global.Web2Tryon)
+                    await loadScript(sharedBase() + 'web2-tryon.js?v=' + TOOL_VER);
+                if (!global.Web2VideoStock) {
+                    try {
+                        await loadScript(
+                            web2Base() + 'video-maker/js/video-stock.js?v=' + TOOL_VER
+                        );
+                    } catch (_) {}
+                }
+            },
+            mount: (pane) => global.Web2Tryon.mount(pane, { compact: true }),
+        },
+        content: {
+            label: '🎬 Card/Video',
+            wide: true,
+            async ensure() {
+                if (!global.Web2ContentMaker)
+                    await loadScript(sharedBase() + 'web2-content-maker.js?v=' + TOOL_VER);
+            },
+            mount: (pane) => global.Web2ContentMaker.mount(pane, { compact: true }),
+        },
+        describe: {
+            label: '✍️ Viết mô tả',
+            wide: false,
+            async ensure() {
+                if (!global.Web2AiDescribe)
+                    await loadScript(sharedBase() + 'web2-ai-describe.js?v=' + TOOL_VER);
+            },
+            mount: (pane) => global.Web2AiDescribe.mountPanel(pane, {}),
+        },
+    };
+    let _mode = 'chat'; // 'chat' | 'tryon' | 'content' | 'describe'
+    const _tools = {}; // mode → mounted instance (mount 1 lần, giữ lại)
+
     const CFG_KEY = 'web2_ai_assistant';
     const HIST_PREFIX = 'web2_ai_hist:'; // + pathname (persist hội thoại theo trang)
     const MAX_CTX = 8000; // ký tự context tối đa gửi AI
@@ -174,21 +240,52 @@
     const _dbData = {};
     const DB_BUDGET = 5200; // ký tự cho khối dữ liệu DB (ưu tiên cao nhất)
 
+    const MAX_DB_ROWS = 5000; // cap tổng dòng tải về (tránh tải vô hạn DB cực lớn)
+
+    function _dataAt(j, dataPath) {
+        let data = j;
+        for (const k of String(dataPath || '')
+            .split('.')
+            .filter(Boolean))
+            data = data?.[k];
+        return Array.isArray(data) ? data : null;
+    }
+
+    function _hasMore(j, field) {
+        let v = j;
+        for (const k of String(field || '')
+            .split('.')
+            .filter(Boolean))
+            v = v?.[k];
+        return !!v;
+    }
+
+    // Đọc full bảng: CHỈ loop nhiều trang khi spec có hasMoreField (page-based + backend báo
+    // còn trang); endpoint offset/không phân trang → fetch 1 lần với limit lớn (tránh refetch
+    // trùng). Cap MAX_DB_ROWS.
     async function fetchDbSource(spec) {
         try {
-            const url = new URL(workerBase() + spec.endpoint);
-            Object.entries(spec.params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
-            const r = await fetch(url.toString(), { headers: authHeaders(false) });
-            if (r.status === 401) throw authErr();
-            if (!r.ok) return null;
-            const j = await r.json().catch(() => null);
-            if (!j) return null;
-            let data = j;
-            for (const k of String(spec.dataPath || '')
-                .split('.')
-                .filter(Boolean))
-                data = data?.[k];
-            return Array.isArray(data) ? data : null;
+            const limit = (spec.params && spec.params.limit) || 1500;
+            let page = (spec.params && spec.params.page) || 1;
+            const canPage = !!spec.hasMoreField;
+            const all = [];
+            for (let i = 0; i < 30 && all.length < MAX_DB_ROWS; i++) {
+                const url = new URL(workerBase() + spec.endpoint);
+                Object.entries(spec.params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+                if (canPage) url.searchParams.set('page', page);
+                url.searchParams.set('limit', limit);
+                const r = await fetch(url.toString(), { headers: authHeaders(false) });
+                if (r.status === 401) throw authErr();
+                if (!r.ok) break;
+                const j = await r.json().catch(() => null);
+                if (!j) break;
+                const data = _dataAt(j, spec.dataPath);
+                if (!data || !data.length) break;
+                all.push(...data);
+                if (!canPage || !_hasMore(j, spec.hasMoreField)) break;
+                page++;
+            }
+            return all.length ? all : null;
         } catch (e) {
             if (e.code === 401) throw e;
             return null;
@@ -209,6 +306,7 @@
         if (!specs.length) return;
         ensureUi();
         _root.querySelector('.w2aa-panel').classList.add('open');
+        if (_mode !== 'chat') showMode('chat');
         history.push({
             role: 'ai',
             content: '⏳ Đang đọc toàn bộ dữ liệu từ database…',
@@ -246,17 +344,111 @@
         }
     }
 
-    // Encode mảng data → text gọn theo budget (báo tổng N, cắt nếu dài).
-    function _arrayToContext(arr, label, desc, budget) {
+    // Encode mảng data THÔNG MINH:
+    //  - Nhỏ (raw JSON vừa budget) → gửi RAW đầy đủ (AI thấy mọi dòng).
+    //  - Lớn → TÓM TẮT THỐNG KÊ (tổng/min/max/đếm theo trạng thái + đếm bất thường) +
+    //    MẪU dòng "có vấn đề" (số âm / nhiều ô trống), thay vì cắt cụt 30 dòng đầu.
+    // → AI thấy bức tranh TOÀN BẢNG dù DB lớn, không phụ thuộc số dòng.
+    function encodeArray(arr, label, desc, budget) {
         const N = arr.length;
-        let rows = arr;
-        let json = JSON.stringify(rows);
-        if (json.length > budget) {
-            const per = Math.max(1, Math.floor(json.length / Math.max(1, N)));
-            rows = arr.slice(0, Math.max(5, Math.floor(budget / per)));
-            json = JSON.stringify(rows) + ` /*…đã cắt, tổng ${N} bản ghi*/`;
+        if (!N) return `${label}: 0 bản ghi.`;
+        const raw = JSON.stringify(arr);
+        if (raw.length <= budget) {
+            return `${label} (${N} bản ghi — ĐẦY ĐỦ) — ${(desc || '').slice(0, 150)}:\n${raw}`;
         }
-        return `${label} (${N} bản ghi) — ${(desc || '').slice(0, 160)}:\n${json}`;
+        return summarizeDataset(arr, label, desc, budget);
+    }
+
+    function summarizeDataset(arr, label, desc, budget) {
+        const N = arr.length;
+        const sample = arr.slice(0, 1000); // phân tích trên tối đa 1000 dòng
+        const fields = {};
+        for (const row of sample) {
+            if (!row || typeof row !== 'object') continue;
+            for (const k of Object.keys(row)) {
+                const v = row[k];
+                const f =
+                    fields[k] ||
+                    (fields[k] = {
+                        n: 0,
+                        nullc: 0,
+                        num: 0,
+                        sum: 0,
+                        min: Infinity,
+                        max: -Infinity,
+                        neg: 0,
+                        zero: 0,
+                        vals: {},
+                    });
+                f.n++;
+                if (v == null || v === '') {
+                    f.nullc++;
+                    continue;
+                }
+                if (typeof v === 'number' && isFinite(v)) {
+                    f.num++;
+                    f.sum += v;
+                    if (v < f.min) f.min = v;
+                    if (v > f.max) f.max = v;
+                    if (v < 0) f.neg++;
+                    if (v === 0) f.zero++;
+                } else {
+                    const s = String(v).slice(0, 30);
+                    if (Object.keys(f.vals).length < 25) f.vals[s] = (f.vals[s] || 0) + 1;
+                }
+            }
+        }
+        const lines = [
+            `${label} — TỔNG ${N} bản ghi${N > sample.length ? ` (thống kê trên ${sample.length} đầu)` : ''}. ${(desc || '').slice(0, 150)}`,
+        ];
+        for (const k of Object.keys(fields)) {
+            const f = fields[k];
+            if (f.num > f.n * 0.6) {
+                lines.push(
+                    `• ${k} (số): tổng=${Math.round(f.sum).toLocaleString('vi-VN')}, min=${f.min}, max=${f.max}` +
+                        (f.neg ? `, ÂM=${f.neg}` : '') +
+                        (f.zero ? `, =0:${f.zero}` : '') +
+                        (f.nullc ? `, trống:${f.nullc}` : '')
+                );
+            } else {
+                const distinct = Object.keys(f.vals);
+                if (distinct.length && distinct.length <= 15) {
+                    const top = distinct
+                        .sort((a, b) => f.vals[b] - f.vals[a])
+                        .map((v) => `${v}:${f.vals[v]}`)
+                        .join(', ');
+                    lines.push(`• ${k}: ${top}` + (f.nullc ? ` (trống:${f.nullc})` : ''));
+                } else if (f.nullc) {
+                    lines.push(`• ${k}: ${f.nullc}/${f.n} trống`);
+                }
+            }
+        }
+        // Mẫu dòng "có vấn đề" (số âm / nhiều ô trống) + vài dòng đầu.
+        const flagged = arr
+            .filter(
+                (r) =>
+                    r &&
+                    typeof r === 'object' &&
+                    Object.values(r).some((v) => typeof v === 'number' && v < 0)
+            )
+            .slice(0, 8);
+        const head = arr.slice(0, 5);
+        const seen = new Set();
+        const samples = [...flagged, ...head]
+            .filter((r) => {
+                const k = JSON.stringify(r);
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            })
+            .slice(0, 12);
+        if (samples.length)
+            lines.push(
+                `Mẫu dòng${flagged.length ? ' (gồm dòng có số ÂM)' : ''}: ${JSON.stringify(samples)}`
+            );
+        let out = lines.join('\n');
+        if (out.length > budget) out = out.slice(0, budget) + '…';
+        return out;
     }
 
     // ───────── Thu thập NGỮ CẢNH trang ─────────
@@ -299,7 +491,7 @@
             let dbBudget = DB_BUDGET;
             for (const src of dbLoaded) {
                 if (dbBudget <= 200) break;
-                const txt = _arrayToContext(
+                const txt = encodeArray(
                     src.data,
                     '═══ DỮ LIỆU TỪ DATABASE: ' + src.label,
                     src.desc,
@@ -327,23 +519,19 @@
             let txt;
             if (Array.isArray(val)) {
                 if (!val.length) continue;
-                const N = val.length;
-                let rows = val;
-                let json = JSON.stringify(rows);
-                if (json.length > accBudget) {
-                    // cắt số dòng cho vừa budget (vẫn báo tổng N để AI không tưởng kho nhỏ)
-                    const per = Math.max(1, Math.floor(json.length / N));
-                    rows = val.slice(0, Math.max(5, Math.floor(accBudget / per)));
-                    json = JSON.stringify(rows) + ` /*…đã cắt, tổng ${N} mục*/`;
-                }
-                txt = `(${N} mục) ${a.shape ? 'shape: ' + a.shape.slice(0, 240) : ''}\n` + json;
-            } else if (typeof val === 'object') {
-                txt = JSON.stringify(val);
+                // encodeArray: nhỏ → raw đầy đủ; lớn → tóm tắt thống kê + mẫu (không cắt cụt).
+                const lbl =
+                    'DỮ LIỆU ĐẦY ĐỦ' + (a.shape ? ' [shape: ' + a.shape.slice(0, 180) + ']' : '');
+                txt = encodeArray(val, lbl, a.desc, accBudget);
             } else {
-                txt = String(val);
+                txt =
+                    'DỮ LIỆU ĐẦY ĐỦ — ' +
+                    (a.desc || '').slice(0, 90) +
+                    ':\n' +
+                    (typeof val === 'object' ? JSON.stringify(val) : String(val));
+                if (txt.length > accBudget) txt = txt.slice(0, accBudget) + '…';
             }
-            if (txt.length > accBudget) txt = txt.slice(0, accBudget) + '…';
-            parts.push('DỮ LIỆU ĐẦY ĐỦ — ' + (a.desc || '').slice(0, 90) + ':\n' + txt);
+            parts.push(txt);
             accBudget -= txt.length;
             gotAccessor = true;
         }
@@ -570,7 +758,21 @@
 .w2aa-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.14)}
 .w2aa-send{border:none;background:#6366f1;color:#fff;width:40px;height:40px;border-radius:11px;cursor:pointer;font-size:17px;flex:0 0 auto}
 .w2aa-send:disabled{opacity:.5;cursor:not-allowed}
-@media(max-width:560px){.w2aa-panel{right:10px;left:10px;width:auto;bottom:78px}.w2aa-fab{right:12px;bottom:12px}}`;
+.w2aa-modes{display:flex;gap:5px;padding:7px 10px;border-bottom:1px solid #eef2f5;background:#fff;overflow-x:auto;flex:0 0 auto;scrollbar-width:none}
+.w2aa-modes::-webkit-scrollbar{display:none}
+.w2aa-mode{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:5px 11px;font-size:.74rem;font-weight:600;color:#475569;cursor:pointer;white-space:nowrap;flex:0 0 auto;transition:background .12s,border-color .12s,color .12s}
+.w2aa-mode:hover{border-color:#c7d2fe;color:#4f46e5}
+.w2aa-mode.is-on{border-color:transparent;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.w2aa-chat{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.w2aa-chat[hidden]{display:none}
+.w2aa-tool{flex:1;display:flex;min-height:0;overflow:hidden}
+.w2aa-tool[hidden]{display:none}
+.w2aa-toolpane{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.w2aa-toolpane[hidden]{display:none}
+.w2aa-toolload,.w2aa-toolerr{padding:26px 18px;text-align:center;font-size:.84rem;color:#64748b}
+.w2aa-toolerr{color:#dc2626}
+.w2aa-panel--wide{width:min(880px,calc(100vw - 28px));height:min(720px,calc(100vh - 92px))}
+@media(max-width:560px){.w2aa-panel,.w2aa-panel--wide{right:10px;left:10px;width:auto;bottom:78px;height:min(78vh,calc(100vh - 96px))}.w2aa-fab{right:12px;bottom:12px}}`;
         document.head.appendChild(st);
     }
 
@@ -706,12 +908,25 @@
               <button class="w2aa-gear" title="Cấu hình AI">⚙️</button>
               <button class="w2aa-x" title="Đóng">×</button>
             </div>
-            <div class="w2aa-modelbar">${buildModelBar()}</div>
-            <div class="w2aa-quicks-bar"></div>
-            <div class="w2aa-body"></div>
-            <div class="w2aa-foot">
-              <textarea class="w2aa-input" rows="1" placeholder="Hỏi về số liệu / khách / đơn trên trang…"></textarea>
-              <button class="w2aa-send" title="Gửi">➤</button>
+            <nav class="w2aa-modes" role="tablist" aria-label="Chế độ trợ lý AI">
+              <button class="w2aa-mode is-on" data-mode="chat">💬 Hỏi đáp</button>
+              <button class="w2aa-mode" data-mode="tryon">👕 Ghép đồ</button>
+              <button class="w2aa-mode" data-mode="content">🎬 Card/Video</button>
+              <button class="w2aa-mode" data-mode="describe">✍️ Viết mô tả</button>
+            </nav>
+            <div class="w2aa-chat">
+              <div class="w2aa-modelbar">${buildModelBar()}</div>
+              <div class="w2aa-quicks-bar"></div>
+              <div class="w2aa-body"></div>
+              <div class="w2aa-foot">
+                <textarea class="w2aa-input" rows="1" placeholder="Hỏi về số liệu / khách / đơn trên trang…"></textarea>
+                <button class="w2aa-send" title="Gửi">➤</button>
+              </div>
+            </div>
+            <div class="w2aa-tool" hidden>
+              <div class="w2aa-toolpane" data-tool="tryon" hidden></div>
+              <div class="w2aa-toolpane" data-tool="content" hidden></div>
+              <div class="w2aa-toolpane" data-tool="describe" hidden></div>
             </div>
           </section>`;
         document.body.appendChild(wrap);
@@ -739,6 +954,10 @@
                 saveCfg({ autoModel: false, provider, model: model || '' });
             }
         });
+        // Chuyển chế độ: Hỏi đáp ↔ Ghép đồ ↔ Card/Video ↔ Viết mô tả.
+        wrap.querySelectorAll('.w2aa-mode').forEach((b) =>
+            b.addEventListener('click', () => showMode(b.dataset.mode))
+        );
         send.addEventListener('click', () => {
             const v = input.value.trim();
             if (v) {
@@ -765,11 +984,53 @@
         ensureUi();
         loadHistory();
         _root.querySelector('.w2aa-panel').classList.add('open');
-        render();
-        setTimeout(() => _root.querySelector('.w2aa-input')?.focus(), 50);
+        showMode(_mode); // khôi phục chế độ đang chọn (chat hoặc 1 công cụ)
     }
     function close() {
         if (_root) _root.querySelector('.w2aa-panel').classList.remove('open');
+    }
+
+    // Chuyển chế độ panel: 'chat' (hỏi đáp) hoặc 1 công cụ (tryon/content/describe).
+    // Công cụ lazy-load module shared + mount 1 lần vào toolpane riêng (giữ state).
+    async function showMode(mode) {
+        if (!_root) return;
+        if (!TOOL_DEFS[mode] && mode !== 'chat') mode = 'chat';
+        _mode = mode;
+        const panel = _root.querySelector('.w2aa-panel');
+        const chat = _root.querySelector('.w2aa-chat');
+        const tool = _root.querySelector('.w2aa-tool');
+        _root
+            .querySelectorAll('.w2aa-mode')
+            .forEach((b) => b.classList.toggle('is-on', b.dataset.mode === mode));
+        const wide = mode !== 'chat' && TOOL_DEFS[mode]?.wide;
+        panel.classList.toggle('w2aa-panel--wide', !!wide);
+
+        if (mode === 'chat') {
+            chat.hidden = false;
+            tool.hidden = true;
+            render();
+            setTimeout(() => _root.querySelector('.w2aa-input')?.focus(), 40);
+            return;
+        }
+        chat.hidden = true;
+        tool.hidden = false;
+        tool.querySelectorAll('.w2aa-toolpane').forEach(
+            (p) => (p.hidden = p.dataset.tool !== mode)
+        );
+        if (_tools[mode]) return; // đã mount → giữ nguyên state
+        const pane = tool.querySelector(`.w2aa-toolpane[data-tool="${mode}"]`);
+        const def = TOOL_DEFS[mode];
+        pane.innerHTML = '<div class="w2aa-toolload">Đang tải công cụ…</div>';
+        try {
+            await def.ensure();
+            if (_mode !== mode) return; // user đã đổi chế độ khi đang tải
+            pane.innerHTML = '';
+            _tools[mode] = def.mount(pane);
+        } catch (e) {
+            pane.innerHTML = `<div class="w2aa-toolerr">⚠️ Không tải được công cụ: ${esc(
+                e.message || e
+            )}</div>`;
+        }
     }
 
     let _busy = false;
@@ -780,6 +1041,7 @@
         _busy = true;
         ensureUi();
         _root.querySelector('.w2aa-panel').classList.add('open');
+        if (_mode !== 'chat') showMode('chat'); // câu hỏi luôn hiển thị ở chế độ Hỏi đáp
         const askedPath = location.pathname;
         history.push({ role: 'user', content: text });
         history.push({ role: 'ai', content: '', pending: true });

@@ -132,8 +132,10 @@
         // Trợ lý AI theo trang (nút nổi ✨) — đọc dữ liệu đang hiển thị → AI free rà soát
         // số liệu/phép tính, phân tích cảm xúc khách, soát đơn. Cấu hình ở web2/ai-assistant.
         // Registry THEO TRANG (gợi ý + accessor đọc data sâu + model auto) — load TRƯỚC widget.
-        if (!global.Web2AiPageRegistry) inject('web2-ai-page-registry.js', '20260625c');
-        if (!global.Web2AiAssistant) inject('web2-ai-assistant.js', '20260625c');
+        if (!global.Web2AiPageRegistry) inject('web2-ai-page-registry.js', '20260625d');
+        // Widget ✨ giờ có thêm 3 công cụ (Ghép đồ · Card/Video · Viết mô tả) lazy-load
+        // module shared khi mở — không nạp sẵn ở boot. Bump version để cache mới.
+        if (!global.Web2AiAssistant) inject('web2-ai-assistant.js', '20260625d');
     })();
 
     // Group definitions matching WEB2 sidebar structure.
