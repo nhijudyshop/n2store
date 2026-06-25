@@ -363,6 +363,32 @@
     background: #e8f2ff;
     color: #0068ff;
 }
+/* Nút THÊM ĐỊA CHỈ/SĐT thủ công cho tin KH — xanh lá, HIỆN SẴN (dễ thấy) để bấm
+   thêm thủ công khi auto-detect bỏ sót. */
+.w2cp-addr-btn {
+    border: none;
+    background: #dcfce7;
+    color: #16a34a;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    flex-shrink: 0;
+    transition:
+        background 0.15s,
+        transform 0.1s;
+}
+.w2cp-addr-btn:hover {
+    background: #bbf7d0;
+    transform: scale(1.1);
+}
+.w2cp-root.is-readonly .w2cp-addr-btn {
+    display: none;
+}
 .w2cp-row.is-flash .w2cp-bubble {
     animation: w2cp-flash 1s ease;
 }

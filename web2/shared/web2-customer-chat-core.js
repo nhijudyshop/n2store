@@ -14,7 +14,7 @@
     const _selfSrc = (document.currentScript && document.currentScript.src) || '';
     const SHARED_BASE =
         _selfSrc.replace(/\/web2-customer-chat-core\.js(?:\?.*)?$/, '') || '../shared';
-    const PANEL_VER = '20260615';
+    const PANEL_VER = '20260626addr2';
     const WORKER =
         (global.Web2Chat && global.Web2Chat._internal && global.Web2Chat._internal.WORKER_URL) ||
         (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||

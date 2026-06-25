@@ -451,6 +451,42 @@
                             'error'
                         );
                 });
+            } else if (a === 'add-msg-entity' && st.adapter && st.adapter.onAddEntity) {
+                // THÊM THỦ CÔNG: user bấm nút trên 1 tin KH → rút địa chỉ/SĐT từ ĐÚNG tin
+                // đó. Ưu tiên detector; bỏ sót (format lạ) → fallback: bỏ SĐT khỏi từng
+                // dòng + bỏ dòng "Vietnam"/tên KH, gộp phần còn lại làm địa chỉ. User đã
+                // chủ động chọn tin nên tin tưởng; native-orders vẫn confirm khi ghi đè.
+                const PHONE_RE = /(?:\+?84|0)\s?(?:\d[\s.\-]?){9}/g;
+                const id = act.getAttribute('data-msg-id');
+                const msg = (st.messages || []).find((m) => String(m.id) === String(id));
+                const text = (msg && (msg.message || msg.text || msg.content)) || '';
+                const D = global.Web2ChatEntityDetect;
+                let address = D ? D.addresses(text)[0] || '' : '';
+                const phone = D ? D.phones(text)[0] || '' : '';
+                if (!address) {
+                    const nm = (nameOf(st.conv) || '').trim().toLowerCase();
+                    const parts = String(text)
+                        .split(/[\n\r]+/)
+                        .map((s) => s.replace(PHONE_RE, '').trim())
+                        .filter(Boolean)
+                        .filter((l) => !/^vi[eệ]t\s?nam$/i.test(l))
+                        .filter((l, i) => !(i === 0 && nm && l.toLowerCase() === nm));
+                    address = parts
+                        .join(parts.length > 1 ? ', ' : ' ')
+                        .replace(/\s{2,}/g, ' ')
+                        .trim();
+                }
+                if (!address && !phone) {
+                    if (global.notificationManager && global.notificationManager.show)
+                        global.notificationManager.show('Tin này không có địa chỉ/SĐT', 'info');
+                    return;
+                }
+                Promise.resolve(
+                    st.adapter.onAddEntity({ phone, address, name: nameOf(st.conv) })
+                ).catch((e) => {
+                    if (global.notificationManager && global.notificationManager.show)
+                        global.notificationManager.show('Thêm lỗi: ' + (e && e.message), 'error');
+                });
             }
         }
 

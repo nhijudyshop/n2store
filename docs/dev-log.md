@@ -16,6 +16,8 @@ Yêu cầu: trong module chat Pancake, tự nhận diện địa chỉ trong tin
 
 **Verify** (Playwright MCP, native-orders thật): detector trên mẫu thật → `addresses("Phan Nguyen\\n+84905321191\\n38a/5/4 nguyễn hữu thọ\\nhoà thuận tây\\nhải châu\\nđà nẵng\\nVietnam")` = `["38a/5/4 nguyễn hữu thọ, hoà thuận tây, hải châu, đà nẵng"]` (gộp đúng, bỏ tên/SĐT/Vietnam), chit-chat "túi đen nhé em" → `[]` (no false-positive), địa chỉ 1 dòng vẫn OK. Mount panel với adapter có onAddEntity → **thanh "Phát hiện" hiện**, nút "Thêm vào đơn", click → `onAddEntity({phone:'0905321191', address:'38a/5/4 …, đà nẵng', name:'Phan Nguyen'})`. Status ✅
 
+**Follow-up — NÚT THỦ CÔNG trên từng tin KH** (auto-detect bỏ sót 1 số format/tin tách dòng → user yêu cầu nút bấm thủ công): thêm nút 📍 xanh (`.w2cp-addr-btn`, `data-w2cp-act="add-msg-entity"`) trên MỖI tin KH (incoming) trông như có địa chỉ/SĐT (có chữ số + đủ dài) khi adapter có onAddEntity. Click → rút địa chỉ/SĐT từ ĐÚNG tin đó (detector → fallback gộp dòng bỏ SĐT/Vietnam/tên) → `onAddEntity`. Files: `web2-chat-panel-render.js` (renderMessage +addrBtn), `web2-chat-panel.css` (+.w2cp-addr-btn), `web2-chat-panel-compose.js` (+handler add-msg-entity), `web2-customer-chat-core.js` PANEL_VER→20260626addr2. Verify Playwright MCP: nút hiện trên tin địa chỉ, KHÔNG hiện trên "túi đen nhé em" (no digit) / tin outgoing; click → `onAddEntity({phone, address:'38a/5/4 …, đà nẵng', name})`. ⚠ Không test được tin Pancake THẬT headless: page access_token hết hạn (`error_code 102 Invalid access_token`) — auto-refresh chỉ chạy ở môi trường live/extension; logic đã verify với text đúng format thật. Status ✅
+
 ## 2026-06-25
 
 ### [web2/products] Tem SP "2 tem" → ĐỔI CHỖ tên↔giá (tên xuống băng full-width, giá+biến thể lên cạnh QR)

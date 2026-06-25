@@ -205,10 +205,18 @@
                 mode === 'full'
                     ? `<button class="w2cp-reply-btn" data-w2cp-act="reply" data-msg-id="${esc(m.id || '')}" title="Trả lời tin này"><i data-lucide="corner-up-left" style="width:12px;height:12px;"></i></button>`
                     : '';
+            // Nút THÊM THỦ CÔNG cho tin KH (incoming) trông như có địa chỉ/SĐT (có CHỮ SỐ
+            // + đủ dài) → fallback khi auto-detect bỏ sót (format lạ / địa chỉ tách nhiều
+            // tin). Chỉ hiện khi adapter có onAddEntity (vd native-orders → "Thêm vào đơn").
+            const addrCand = !out && /\d/.test(txt) && txt.replace(/\s/g, '').length >= 8;
+            const addrBtn =
+                mode === 'full' && addrCand && st.adapter && st.adapter.onAddEntity
+                    ? `<button class="w2cp-addr-btn" data-w2cp-act="add-msg-entity" data-msg-id="${esc(m.id || '')}" title="Thêm địa chỉ/SĐT trong tin này vào đơn"><i data-lucide="map-pin" style="width:12px;height:12px;"></i></button>`
+                    : '';
             const bubble =
                 body || media ? `<div class="w2cp-bubble">${quoted(m)}${body}${media}</div>` : '';
             return `<div class="w2cp-row ${out ? 'is-out' : 'is-in'}" data-msg-id="${esc(m.id || '')}">
-                <div class="w2cp-wrap">${av}${bubble}${replyBtn}</div>
+                <div class="w2cp-wrap">${av}${bubble}${replyBtn}${addrBtn}</div>
                 ${react}
                 <div class="w2cp-time">${esc(fmtTime(m.inserted_at || m.created_time || m.timestamp))}</div>
             </div>`;
