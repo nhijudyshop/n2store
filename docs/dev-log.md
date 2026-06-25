@@ -2,6 +2,15 @@
 
 ## 2026-06-25
 
+### [web2/live-control] FIX tìm SP trong picker thiếu match MÃ — tìm theo mã + tên
+
+User: "các chức năng tìm kiếm sản phẩm là tìm kiếm theo unique mã sản phẩm" + "tìm theo mã + theo tên sản phẩm". Audit mọi entry tìm SP:
+
+- ✅ SẴN ĐÚNG (match mã + tên, kết quả per-code): `Web2ProductsCache.findByName` (name OR code), `Web2ProductPicker` (getAll per-code + findByName), so-order suggest (`findByName`), backend `web2-products /list` (`code ILIKE OR name ILIKE`), native-orders picker (client `code||name`, backend /list), live-control tab "Tất cả SP" (server /list).
+- 🔧 **GAP** — live-control picker tab "Chờ hàng (Sổ Order)" lọc CLIENT chỉ match `g.name` + `g.supplier`, **THIẾU mã** (dù placeholder "tên / mã / NCC") → gõ mã SP không ra. **Fix**: thêm `g.variants.some(v => code.includes(q))` → tìm theo MÃ + TÊN (+NCC). Bump `live-control.js?v=20260625srch`.
+
+**Verify (browser, data thật)**: tìm `"hnquanghi33"` (mã) → `[HNQUANGHI33]` ✓ (trước = rỗng); tìm `"quần short"` (tên) → `[HCQUANXDU31, HNQUANGHI33]` ✓ (2 SP, mỗi mã 1 kết quả). node --check OK. Thuần frontend → GH Pages. Status ✅
+
 ### [shared][so-order][supplier-wallet] Audit unique-theo-mã toàn Web 2.0 + fix triệt để (default by:'code')
 
 Workflow audit 8 surface SP (10 agent, find + adversarial verify): **7/8 sạch**, tìm 1 bug thật + 1 hardening. User chốt "fix triệt để lỗi hiện tại và tương lai, mặc định by:'code'".

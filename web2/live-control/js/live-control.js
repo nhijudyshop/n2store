@@ -308,11 +308,18 @@
                 groups = window.Web2VariantGroup.group((jl && jl.products) || [], { by: 'code' });
             }
             // Lọc client theo search cho tab pending (server không filter tên).
+            // Tìm theo MÃ SP + TÊN (+ NCC) — khớp placeholder "tên / mã / NCC".
+            // Trước đây thiếu match MÃ → gõ mã SP không ra (bug 2026-06-25).
             if (state.pickerTab === 'pending' && state.search) {
                 var q = state.search.toLowerCase();
                 groups = groups.filter(
                     (g) =>
                         g.name.toLowerCase().includes(q) ||
+                        (g.variants || []).some((v) =>
+                            String(v.code || '')
+                                .toLowerCase()
+                                .includes(q)
+                        ) ||
                         (g.supplier || '').toLowerCase().includes(q)
                 );
             }
