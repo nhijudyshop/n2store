@@ -6,8 +6,13 @@
 // (user1) nhìn 1 card = 1 sản phẩm, đỡ rối khi cùng loại nhiều màu/size.
 //
 // web2_products lưu PHẲNG (không có product-template) → việc gom là của FRONTEND.
-// Khoá gom mặc định = `name` chuẩn hoá (các biến thể do so-order tách ra chung
-// name). Tuỳ chọn gom theo name+supplier để tránh trộn 2 SP khác NCC trùng tên.
+// Khoá gom = `name` chuẩn hoá (các biến thể màu/size do so-order tách ra chung
+// name). Tuỳ chọn gom theo name+supplier hoặc name+supplier+region để tránh trộn
+// 2 SP KHÁC nguồn (khác NCC / khác ĐỊA DANH nhập hàng) chỉ vì trùng tên.
+//   ⚠ Bug 2026-06-25: 2 SP khác mã + khác địa danh (HCQUANXDU31 HƯƠNG CHÂU vs
+//   HNQUANGHI33 HÀ NỘI) bị gom chung "QUẦN SHORT KAKI · chờ 34" (16+18). Biến thể
+//   thật = cùng name+NCC+địa danh, chỉ khác màu/size (cùng 1 lô so-order) → key
+//   'name+supplier+region' tách đúng 2 SP khác nguồn, vẫn gom biến thể cùng nguồn.
 //
 // API (window.Web2VariantGroup):
 //   group(products, opts) → [{ key, name, imageUrl, supplier, suppliers[],
@@ -15,7 +20,8 @@
 //       variants: [{ code, variant, stock, pendingQty, returnQty, status,
 //                    supplier, imageUrl, ...orig }] }]
 //   normalizeName(s) → string  (khoá gom)
-// opts: { by: 'name' | 'name+supplier' (default 'name'), sortVariants: bool=true }
+// opts: { by: 'name' | 'name+supplier' | 'name+supplier+region' (default 'name'),
+//         sortVariants: bool=true }
 // =====================================================
 (function (global) {
     'use strict';
@@ -69,18 +75,27 @@
         return p && (p.imageUrl || p.image_url || (Array.isArray(p.images) && p.images[0]) || '');
     }
 
+    const VALID_BY = { name: 1, 'name+supplier': 1, 'name+supplier+region': 1 };
+    function buildKey(p, by) {
+        const nkey = normalizeName(p.name);
+        if (!nkey) return '';
+        if (by === 'name+supplier') return `${nkey}|${normalizeName(p.supplier)}`;
+        if (by === 'name+supplier+region')
+            return `${nkey}|${normalizeName(p.supplier)}|${normalizeName(p.region)}`;
+        return nkey;
+    }
+
     function group(products, opts) {
         opts = opts || {};
-        const by = opts.by === 'name+supplier' ? 'name+supplier' : 'name';
+        const by = VALID_BY[opts.by] ? opts.by : 'name';
         const sortVariants = opts.sortVariants !== false;
         const list = Array.isArray(products) ? products : [];
         const map = new Map(); // key → group
 
         for (const p of list) {
             if (!p) continue;
-            const nkey = normalizeName(p.name);
-            if (!nkey) continue;
-            const key = by === 'name+supplier' ? `${nkey}|${normalizeName(p.supplier)}` : nkey;
+            const key = buildKey(p, by);
+            if (!key) continue;
             let g = map.get(key);
             if (!g) {
                 g = {

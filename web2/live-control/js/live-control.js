@@ -117,7 +117,9 @@
         try {
             var items = await window.Web2Campaign.listProducts(state.campaignId);
             state.addedCodes = new Set(items.map((i) => i.code));
-            state.board = window.Web2VariantGroup.group(items, { by: 'name' });
+            // name+supplier+region: KHÔNG trộn 2 SP khác NCC/địa danh trùng tên
+            // (vd QUẦN SHORT KAKI HƯƠNG CHÂU vs HÀ NỘI = 2 SP riêng, không gộp 34).
+            state.board = window.Web2VariantGroup.group(items, { by: 'name+supplier+region' });
             renderBoard();
             refreshPickerAddedFlags();
         } catch (e) {
@@ -296,14 +298,18 @@
             var groups;
             if (state.pickerTab === 'pending') {
                 var jp = await window.Web2ProductsApi.listPending();
-                groups = window.Web2VariantGroup.group((jp && jp.items) || [], { by: 'name' });
+                groups = window.Web2VariantGroup.group((jp && jp.items) || [], {
+                    by: 'name+supplier+region',
+                });
             } else {
                 var jl = await window.Web2ProductsApi.list({
                     search: state.search || undefined,
                     activeOnly: true,
                     limit: 300,
                 });
-                groups = window.Web2VariantGroup.group((jl && jl.products) || [], { by: 'name' });
+                groups = window.Web2VariantGroup.group((jl && jl.products) || [], {
+                    by: 'name+supplier+region',
+                });
             }
             // Lọc client theo search cho tab pending (server không filter tên).
             if (state.pickerTab === 'pending' && state.search) {
