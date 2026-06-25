@@ -159,7 +159,9 @@
                     // đúng (vd XSAAODEN) thay vì fallback KHO.
                     supplier: (r.supplier || orderSupplier || '').trim() || null,
                     imageUrl: r.productImage || null,
-                    note: trimLabel,
+                    // ĐỊA DANH nhập hàng (tab Sổ Order: HÀ NỘI/HƯƠNG CHÂU) → field RIÊNG
+                    // `region`, KHÔNG nhét vào note (ghi chú) nữa (user báo nhầm lẫn).
+                    region: trimLabel,
                     // 2026-06-16: tiền tệ gốc lúc nhập → kho lưu để hover hiện giá
                     // gốc (vd CNY). Kho VND canonical; originRate = số VND/1 đơn vị.
                     originCurrency: tab.currency || 'VND',

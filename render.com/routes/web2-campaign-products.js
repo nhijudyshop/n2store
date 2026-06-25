@@ -87,8 +87,14 @@ function mapItem(row) {
         returnQty: Number(row.return_qty) || 0,
         status: row.status || 'DANG_BAN',
         supplier: row.supplier || null,
+        // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — cho chip lọc/badge picker
+        region: row.region || null,
         variant: row.variant || null,
         price: Number(row.price || 0),
+        // sold (BÁN = SL trong giỏ KH, gồm cả cọc) + coc (CỌC = SL giỏ có đặt cọc)
+        // gắn sau ở GET / (aggregate native_orders draft). Default 0 cho path khác.
+        sold: 0,
+        coc: 0,
         isActive: row.is_active == null ? true : !!row.is_active,
         // membership (campaign-product)
         sort: Number(row.sort) || 0,
@@ -135,14 +141,49 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         const r = await pool.query(
             `SELECT cp.product_code, cp.sort, cp.pinned, cp.added_at,
                     p.name, p.image_url, p.stock, p.pending_qty, p.return_qty,
-                    p.status, p.supplier, p.variant, p.price, p.is_active
+                    p.status, p.supplier, p.variant, p.price, p.is_active, p.region
              FROM web2_campaign_products cp
              LEFT JOIN web2_products p ON p.code = cp.product_code
              WHERE cp.campaign_id = $1
              ORDER BY cp.pinned DESC, cp.sort ASC, cp.added_at ASC`,
             [campaignId]
         );
-        res.json({ success: true, items: r.rows.map(mapItem) });
+        const items = r.rows.map(mapItem);
+        // BÁN (SL trong giỏ KH = held ở native_orders DRAFT, GỒM cả giỏ đã cọc) +
+        // CỌC (SL trong giỏ có đặt cọc, deposit>0 = tag "ĐÃ CỌC") per mã SP. Dùng cho
+        // board live-control (NCC/Bán/Cọc/Còn) + màn TV. Cùng pool web2Db (native_orders
+        // ⊂ web2Db). Còn = max(0, NCC − Bán) tính ở client (Bán đã gồm cọc).
+        const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
+        if (codes.length) {
+            const hr = await pool.query(
+                `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
+                        SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
+                        SUM(CASE WHEN COALESCE(n.deposit, 0) > 0
+                                 THEN COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)
+                                 ELSE 0 END) AS coc
+                 FROM native_orders n, jsonb_array_elements(n.products) prod
+                 WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
+                   AND n.status = 'draft'
+                 GROUP BY 1`,
+                [codes]
+            );
+            const soldMap = new Map();
+            for (const row of hr.rows) {
+                if (row.code)
+                    soldMap.set(row.code, {
+                        sold: Number(row.sold) || 0,
+                        coc: Number(row.coc) || 0,
+                    });
+            }
+            for (const it of items) {
+                const m = soldMap.get(it.code);
+                if (m) {
+                    it.sold = m.sold;
+                    it.coc = m.coc;
+                }
+            }
+        }
+        res.json({ success: true, items });
     } catch (e) {
         console.error('[WEB2-CAMPAIGN-PRODUCTS] list error:', e.message);
         res.status(500).json({ success: false, error: e.message });
