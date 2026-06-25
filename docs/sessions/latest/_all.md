@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8deb164` — feat(web2/ai-assistant): 3 công cụ dùng chung trong widget ✨ (Ghép đồ · Card/Video · AI viết mô tả) + fix bảo mật & race
-**Last updated**: 2026-06-25 11:53:56 +07
-**Latest session**: [`RESUME:20260625-115356-8deb164`](../20260625-115356-8deb164.md)
-**Summary**: 3 công cụ AI dùng chung trong widget ✨ (ghép đồ/card-video/viết mô tả) + fix XSS openTab + race lazy-load
+**Latest commit**: `9eee345` — fix(web2/ai-hub): bỏ lộ token web2 qua URL ảnh "Ảnh đã lưu" — fetch+blob thay ?token=
+**Last updated**: 2026-06-25 12:24:37 +07
+**Latest session**: [`RESUME:20260625-122437-9eee345`](../20260625-122437-9eee345.md)
+**Summary**: fix lộ token web2 qua URL ảnh Ảnh-đã-lưu (fetch+blob thay ?token=)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 4 file(s)
-- [`web2/`](./web2.md) — 12 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-25 11:53
+- [`docs/`](./docs.md) — updated 2026-06-25 12:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -81,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 11:53
+- [`web2/`](./web2.md) — updated 2026-06-25 12:24
