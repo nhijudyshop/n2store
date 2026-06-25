@@ -38,7 +38,11 @@
 
     function renderTable() {
         if (state.loading) {
-            dom.tbody.innerHTML = `<tr><td colspan="5" class="w2bh-loading">Đang tải…</td></tr>`;
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.rows(dom.tbody, { rows: 8, cols: 5 });
+            } else {
+                dom.tbody.innerHTML = `<tr><td colspan="5" class="w2bh-loading">Đang tải…</td></tr>`;
+            }
             return;
         }
         if (!state.rows.length) {

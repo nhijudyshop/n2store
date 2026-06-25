@@ -898,6 +898,12 @@
 
     async function init() {
         wireUi();
+        // Skeleton trên lần tải đầu (tbody rỗng) trong khi chờ loadAll() — bị
+        // renderList() ghi đè innerHTML sau khi fetch xong. Match 9 cột thead.
+        const _tb = document.getElementById('uTableBody');
+        if (window.Web2Skeleton && _tb && !_tb.children.length) {
+            window.Web2Skeleton.rows(_tb, { rows: 8, cols: 9 });
+        }
         await loadAll();
         renderList();
         if (window.lucide?.createIcons) window.lucide.createIcons();

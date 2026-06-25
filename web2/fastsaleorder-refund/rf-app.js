@@ -55,6 +55,15 @@
     const MODE_LABEL = { cash: 'Tiền mặt', wallet: 'Ví', exchange: 'Đổi' };
 
     async function load() {
+        // Skeleton chỉ ở lần tải đầu (container chưa có dòng dữ liệu thật).
+        if (!STATE.orders.length) {
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.rows('#rfTbody', { rows: 8, cols: 12 });
+            } else {
+                $('#rfTbody').innerHTML =
+                    `<tr><td colspan="12" class="empty-row"><div class="empty-state"><i data-lucide="inbox" class="empty-state-icon"></i><div class="empty-state-title">Đang tải...</div></div></td></tr>`;
+            }
+        }
         const p = new URLSearchParams();
         if (STATE.search) p.set('search', STATE.search);
         if (STATE.state) p.set('state', STATE.state);

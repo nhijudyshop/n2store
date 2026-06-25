@@ -44,6 +44,12 @@
     }
 
     async function load() {
+        // Skeleton on initial load only (tbody empty / no data rendered yet).
+        if (!STATE._loaded) {
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.rows('#dlvTbody', { rows: 8, cols: 12 });
+            }
+        }
         const p = new URLSearchParams();
         if (STATE.search) p.set('search', STATE.search);
         if (STATE.state) p.set('state', STATE.state);
@@ -55,6 +61,7 @@
             if (!r.ok || !d.success) throw new Error(d.error || `HTTP ${r.status}`);
             STATE.orders = d.orders || [];
             STATE.total = d.total || 0;
+            STATE._loaded = true;
             renderRows();
             renderCounters();
             renderPagination();

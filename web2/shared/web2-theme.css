@@ -107,7 +107,9 @@ body:has(.web2-shell) .btn {
     transition:
         background 0.12s,
         border-color 0.12s,
-        color 0.12s;
+        color 0.12s,
+        box-shadow 0.16s ease,
+        transform 0.09s ease;
 }
 .web2-theme .btn-sm,
 body:has(.web2-shell) .btn-sm {
@@ -1145,6 +1147,81 @@ body:has(.web2-shell) .btn:focus-visible {
 .web2-theme .stat-card:hover {
     box-shadow: var(--web2-shadow-2);
     transform: translateY(-2px);
+}
+
+/* ====================================================================
+   GLOBAL INTERACTION POLISH (2026-06-25, audit web2-css-anim)
+   1 chỗ áp cho MỌI trang Web 2.0. Audit phát hiện ~40 trang có nút/tab/
+   chip/row đổi nền-viền khi :hover NHƯNG quên `transition` (giật) + thiếu
+   :active press + thiếu reduced-motion. Vá GLOBAL theo ELEMENT/role (an
+   toàn — page tự override khi cần). Compositor-friendly: color/bg/border/
+   shadow + transform. KHÔNG dùng [class*=] (né khớp nhầm vd .data-table).
+   ==================================================================== */
+
+/* Baseline transition mượt cho element tương tác phổ biến (page quên khai).
+   Loại trừ .btn/.web2-btn — đã có rule transition + state riêng ở trên. */
+.web2-theme button:not(.btn):not(.web2-btn),
+.web2-theme a:not(.btn):not(.web2-btn),
+.web2-theme summary,
+.web2-theme label[for],
+.web2-theme [role='tab'],
+.web2-theme [role='button'],
+.web2-theme [role='option'],
+.web2-theme [role='menuitem'],
+body:has(.web2-shell) button:not(.btn):not(.web2-btn),
+body:has(.web2-shell) [role='tab'],
+body:has(.web2-shell) [role='button'] {
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.16s ease,
+        transform 0.09s ease,
+        opacity 0.15s ease;
+}
+
+/* Press feedback (nhấn xuống nhẹ) — micro-interaction được yêu thích nhất.
+   CHỈ button/role tương tác, KHÔNG <a> (link điều hướng, không "nhấn"). */
+.web2-theme button:not(.btn):not(.web2-btn):active,
+.web2-theme [role='tab']:active,
+.web2-theme [role='button']:active,
+body:has(.web2-shell) button:not(.btn):not(.web2-btn):active {
+    transform: scale(0.97);
+}
+
+/* Focus ring rõ cho element tương tác custom (a11y — keyboard nav). */
+.web2-theme button:not(.btn):focus-visible,
+.web2-theme [role='tab']:focus-visible,
+.web2-theme [role='button']:focus-visible,
+.web2-theme [tabindex]:not([tabindex='-1']):focus-visible,
+body:has(.web2-shell) button:not(.btn):focus-visible {
+    outline: 2px solid var(--web2-primary);
+    outline-offset: 2px;
+}
+
+/* Input/select/textarea — focus ring (đ.n L824) ease mượt thay vì snap. */
+.web2-theme input,
+.web2-theme select,
+.web2-theme textarea,
+body:has(.web2-shell) input,
+body:has(.web2-shell) select,
+body:has(.web2-shell) textarea {
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        background-color 0.15s ease;
+}
+
+/* GLOBAL reduced-motion safety net — 1 block phủ ~40 trang chưa tự khai báo.
+   Honor OS "Giảm chuyển động": clamp mọi animation/transition gần như 0. */
+@media (prefers-reduced-motion: reduce) {
+    .web2-theme *,
+    body:has(.web2-shell) * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* ── Skeleton shimmer dùng chung (.w2-skel) ─────────── */

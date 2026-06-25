@@ -159,7 +159,21 @@
         const el = document.getElementById('ctBody');
         if (!el) return;
         if (state.loading) {
-            el.innerHTML = `<div class="ct-empty">Đang tải…</div>`;
+            if (global.Web2Skeleton) {
+                el.innerHTML = `
+                  <div class="ct-list-wrap">
+                    <table class="ct-table">
+                      <thead><tr>
+                        <th>Mã</th><th>Thời gian</th><th>Loại</th><th>Quỹ</th><th>Danh mục</th>
+                        <th>Đối tượng/NV</th><th class="ct-th-amount">Số tiền</th><th>Ghi chú</th><th></th><th></th>
+                      </tr></thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>`;
+                global.Web2Skeleton.rows(el.querySelector('tbody'), { rows: 8, cols: 10 });
+            } else {
+                el.innerHTML = `<div class="ct-empty">Đang tải…</div>`;
+            }
             return;
         }
         if (!state.vouchers.length) {

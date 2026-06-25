@@ -230,6 +230,17 @@
         var u = new URL(location.href);
         u.searchParams.set('campaign', id);
         history.replaceState(null, '', u);
+        // Initial load: show skeleton grid while first fetch runs (overwritten by render()).
+        if (!state.groups.length) {
+            var grid = $('ltvGrid');
+            if (window.Web2Skeleton) {
+                $('ltvEmpty').hidden = true;
+                grid.hidden = false;
+                window.Web2Skeleton.grid(grid, { count: 10 });
+            } else {
+                showEmpty('Đang tải…', false);
+            }
+        }
         reload();
     }
 

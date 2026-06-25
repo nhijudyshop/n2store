@@ -484,6 +484,9 @@
         if (hadRows) {
             tb.style.opacity = '0.55';
             tb.style.pointerEvents = 'none';
+        } else if (window.Web2Skeleton) {
+            // GitHub-style skeleton rows thay spinner trơ (cảm giác load nhanh + mượt).
+            window.Web2Skeleton.rows(tb, { rows: 9, cols: 12 });
         } else {
             tb.innerHTML = `<tr><td colspan="12" class="loading-row">
                 <div class="spinner"></div>Đang tải dữ liệu...

@@ -108,9 +108,13 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="7" class="loading-row">
+        if (window.Web2Skeleton) {
+            window.Web2Skeleton.rows(tbody(), { rows: 8, cols: 7 });
+        } else {
+            tbody().innerHTML = `<tr><td colspan="7" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
+        }
         try {
             const resp = await window.Web2VariantsApi.list({
                 search: STATE.search || undefined,

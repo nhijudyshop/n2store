@@ -26,6 +26,19 @@
         });
         $('orderSummary').hidden = false;
         $('orderSummary').innerHTML = '<div class="rt-muted">Đang tải chi tiết đơn…</div>';
+        // Skeleton chi tiết SP trong lúc fetch (chỉ khi luồng "Vấn đề khách" hiện #orderItems)
+        if (STATE.issue === 'van_de_khach') {
+            const itemsBox = $('orderItems');
+            if (itemsBox) {
+                itemsBox.hidden = false;
+                if (window.Web2Skeleton) {
+                    window.Web2Skeleton.list(itemsBox, { count: 5, avatar: false });
+                } else {
+                    itemsBox.innerHTML =
+                        '<div class="rt-muted" style="padding:6px 4px;">Đang tải sản phẩm…</div>';
+                }
+            }
+        }
         try {
             const d = await api.sourceOrder(type, code);
             if (STATE.sourceOrder?.code !== code) return; // đổi đơn trong lúc tải
