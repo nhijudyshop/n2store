@@ -2,6 +2,14 @@
 
 ## 2026-06-25
 
+### [render][web2/order-tags] Đổi tên tag CK → "Chưa thanh toán" / "Đã thanh toán"
+
+User: '"Đã nhận CK" phải là "Đã thanh toán" thì chính xác hơn'. Đúng — predicate `da_nhan_ck` bật khi **(CK xác nhận) HOẶC (ví KH ≥ tổng đơn)** = đã trả đủ tiền bất kể nguồn (CK / ví / cọc nạp sẵn), không chỉ riêng chuyển khoản → tên cũ hẹp hơn logic.
+
+- `web2-order-tags-service.js` catalog `TRIGGERS`: `chua_nhan_ck` label "Chưa nhận CK" → **"Chưa thanh toán"**; `da_nhan_ck` label "Đã nhận CK" → **"Đã thanh toán"**, desc làm rõ "CK / ví / cọc nạp sẵn".
+- **Giữ nguyên `id`** (`da_nhan_ck`/`chua_nhan_ck`) — key ổn định, KHÔNG migration (2 trigger này không nằm trong 4 tag seed DB; predicate không đổi).
+- Không đụng badge "⚠ Chưa nhận CK" ở native-orders-render.js (feature khác: bấm gán giao dịch CK). Status ✅
+
 ### [web2/shared][render] Trợ lý AI: CASCADE model mạnh→yếu (xoay mọi key free) + thêm model mạnh
 
 User: "key Groq mới + tất cả key free cứ dùng model mạnh nhất tới yếu nhất hỗ trợ web 2.0". Đã workflow xếp hạng 47 model free (web search benchmark) → build cascade.

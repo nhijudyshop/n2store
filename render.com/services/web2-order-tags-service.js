@@ -83,15 +83,15 @@ const TRIGGERS = [
     // Thanh toán
     {
         id: 'chua_nhan_ck',
-        label: 'Chưa nhận CK',
+        label: 'Chưa thanh toán',
         group: 'Thanh toán',
-        desc: 'Đơn nháp chưa nhận tiền CK (chưa có CK xác nhận + số dư ví KH < tổng đơn).',
+        desc: 'Đơn nháp chưa thanh toán đủ (chưa có CK xác nhận + số dư ví KH < tổng đơn).',
     },
     {
         id: 'da_nhan_ck',
-        label: 'Đã nhận CK',
+        label: 'Đã thanh toán',
         group: 'Thanh toán',
-        desc: 'Đơn đã có CK xác nhận hoặc số dư ví KH ≥ tổng đơn.',
+        desc: 'Đơn đã thanh toán đủ — có CK xác nhận hoặc số dư ví KH ≥ tổng đơn (CK / ví / cọc nạp sẵn).',
     },
     {
         id: 'co_coc',
