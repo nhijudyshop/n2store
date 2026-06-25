@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260625-184631-03107ca`
-**Session file**: [`./20260625-184631-03107ca.md`](../20260625-184631-03107ca.md)
-**Commit**: `03107ca` — fix(web2): SSE audit — KPI employee-ranges publish + assignments/returns PII/zalo debounce
-**Last updated**: 2026-06-25 18:46:31 +07
-**Summary**: Fix regression so-order \_rowToKhoMatch (xóa/sửa lô vỡ) + vá 16 gap audit SSE (6 MED/10 LOW)
+**Latest session**: `RESUME:20260625-192358-3d11612`
+**Session file**: [`./20260625-192358-3d11612.md`](../20260625-192358-3d11612.md)
+**Commit**: `3d11612` — auto: session update
+**Last updated**: 2026-06-25 19:23:58 +07
+**Summary**: auto: session update
 
 ## Files changed in this commit (`docs/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `927c3e8a3` fix(web2/zalo): focus-lease phiên Zalo — hết spam 'Đổi thiết bị' trên chat.zalo.me _(2026-06-25)_
+- `a75e147fd` feat(web2/customer-chat): realtime như live-chat — subscribe SSE web2:messages _(2026-06-25)_
+- `22ee9f8f2` chore(session): RESUME:20260625-184631-03107ca _(2026-06-25)_
 - `03107ca6f` fix(web2): SSE audit — KPI employee-ranges publish + assignments/returns PII/zalo debounce _(2026-06-25)_
 - `016373032` chore(session): RESUME:20260625-182129-6a0e651 _(2026-06-25)_
-- `6a0e651f0` fix(web2/balance-history): broadcast SSE khi cleanup-stale-pending + audit SSE toàn Web 2.0 _(2026-06-25)_
-- `b05de8ac8` chore(session): RESUME:20260625-181147-9591e8c _(2026-06-25)_
-- `9591e8c00` feat(web2/ai-hub): Ghép đồ — dán ảnh (Ctrl+V) + kéo-thả cho ô Ảnh người & Ảnh quần áo _(2026-06-25)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260625-184631-03107ca` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260625-192358-3d11612` cho Claude walk chain theo CLAUDE.md protocol.

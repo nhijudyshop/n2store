@@ -3,30 +3,36 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260625-184631-03107ca`
-**Session file**: [`./20260625-184631-03107ca.md`](../20260625-184631-03107ca.md)
-**Commit**: `03107ca` — fix(web2): SSE audit — KPI employee-ranges publish + assignments/returns PII/zalo debounce
-**Last updated**: 2026-06-25 18:46:31 +07
-**Summary**: Fix regression so-order \_rowToKhoMatch (xóa/sửa lô vỡ) + vá 16 gap audit SSE (6 MED/10 LOW)
+**Latest session**: `RESUME:20260625-192358-3d11612`
+**Session file**: [`./20260625-192358-3d11612.md`](../20260625-192358-3d11612.md)
+**Commit**: `3d11612` — auto: session update
+**Last updated**: 2026-06-25 19:23:58 +07
+**Summary**: auto: session update
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/fb-posts/js/fb-posts-app.js`
-- `web2/kpi/assignments.html`
-- `web2/kpi/js/kpi-assignments.js`
+- `web2/balance-history/index.html`
+- `web2/customers/index.html`
+- `web2/jt-tracking/index.html`
 - `web2/live-control/js/live-control.js`
-- `web2/livestream-poller/index.html`
-- `web2/shared/web2-msg-template-core.js`
-- `web2/shared/web2-quick-reply.js`
-- `web2/zalo/js/web2-zalo-app.js`
+- `web2/live-tv/js/live-tv.js`
+- `web2/shared/web2-customer-chat-core.js`
+- `web2/shared/web2-customer-chat-modal.js`
+- `web2/shared/web2-customer-chat.js`
+- `web2/shared/web2-variant-group.js`
+- `web2/shared/web2-zalo-api.js`
+- `web2/shared/web2-zalo-presence.js`
+- `web2/zalo/index.html`
+- `web2/zalo/js/web2-zalo-accounts.js`
+- `web2/zalo/js/web2-zalo-utils.js`
 
 ## Last 5 commits touching `web2/`
 
+- `3d1161297` auto: session update _(2026-06-25)_
+- `927c3e8a3` fix(web2/zalo): focus-lease phiên Zalo — hết spam 'Đổi thiết bị' trên chat.zalo.me _(2026-06-25)_
+- `a75e147fd` feat(web2/customer-chat): realtime như live-chat — subscribe SSE web2:messages _(2026-06-25)_
 - `03107ca6f` fix(web2): SSE audit — KPI employee-ranges publish + assignments/returns PII/zalo debounce _(2026-06-25)_
 - `c9495a30a` auto: session update _(2026-06-25)_
-- `9591e8c00` feat(web2/ai-hub): Ghép đồ — dán ảnh (Ctrl+V) + kéo-thả cho ô Ảnh người & Ảnh quần áo _(2026-06-25)_
-- `ac6f6ce5d` fix(web2/products): SSE realtime hiện SP mới từ so-order (không cần F5) + region-derive prefix mã _(2026-06-25)_
-- `5d6d71300` feat(web2/live-control,live-tv): ĐỊA DANH riêng + TV NCC/Bán/Cọc/Còn _(2026-06-25)_
 
 ---
 
@@ -34,4 +40,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260625-184631-03107ca` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260625-192358-3d11612` cho Claude walk chain theo CLAUDE.md protocol.
