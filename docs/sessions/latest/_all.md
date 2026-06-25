@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `883445c` — feat(web2): GitHub-style skeleton loading + global interaction polish
-**Last updated**: 2026-06-25 21:16:33 +07
-**Latest session**: [`RESUME:20260625-211633-883445c`](../20260625-211633-883445c.md)
-**Summary**: feat(web2): GitHub-style skeleton loading + global interaction polish
+**Latest commit**: `340ec94` — auto: session update
+**Last updated**: 2026-06-25 21:31:34 +07
+**Latest session**: [`RESUME:20260625-213134-340ec94`](../20260625-213134-340ec94.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`web2/`](./web2.md) — 22 file(s)
 
 ## All folder snapshots
 
@@ -81,4 +80,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 21:16
+- [`web2/`](./web2.md) — updated 2026-06-25 21:31
