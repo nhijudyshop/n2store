@@ -1247,6 +1247,16 @@ router.post('/cleanup-stale-pending', requireWeb2AuthSoft, async (req, res) => {
             );
             resetBalanceHistory = resetResult.rowCount || 0;
         }
+        // SSE: dọn pending stale/trùng = MUTATE danh sách pending hiển thị (CK review)
+        // → broadcast để tab/máy khác cập nhật, không phải F5. (Audit SSE 2026-06-25.)
+        if (deletedPending > 0 || resetBalanceHistory > 0) {
+            _notifyBalanceHistory(req, {
+                action: 'cleanup',
+                deleted: deletedPending,
+                reset: resetBalanceHistory,
+                ts: Date.now(),
+            });
+        }
         res.json({
             success: true,
             deletedPending,

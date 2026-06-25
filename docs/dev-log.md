@@ -2,6 +2,22 @@
 
 ## 2026-06-25
 
+### [web2 toàn cục][render] Audit SSE realtime toàn bộ Web 2.0
+
+Rà soát toàn bộ chuỗi SSE Web 2.0 (publish→wire→subscribe→reload-completeness→topic-match) — 42 trang subscribe, ~44 route publish, ~39 module wired. Workflow background chết (0 output) → audit thủ công deterministic + đọc handler.
+
+**Kết quả: kiến trúc SSE LÀNH MẠNH.**
+
+- **WIRE**: 100% route export `initializeNotifiers` đều được wire trong server.js (40 exporter; cái "thiếu" là realtime-db = hub Web 1.0, wire destructure).
+- **PUBLISH**: mọi route mutation data đều broadcast sau commit (refunds/balance-history nghi ngờ ban đầu = false-positive, đều có notify).
+- **RELOAD-INCOMPLETE** (bug class "phải F5"): soi 14 handler action-branch/patch-in-place → **CHỈ web2-products** dính (SP mới từ so-order vô hình tới F5) — **đã fix** session này (commit ac6f6ce5d). 13 handler còn lại (page-builder, native-orders, pbh, users, ck-dashboard, payment-confirm, reconcile, chi-tieu, cham-cong, zalo, ck-review, livestream-snap…) đều full-reload/append debounce → an toàn.
+- **TOPIC-MISMATCH**: 4 topic "subscribe-không-publish" (messages/printer/capture-lock/live-hidden-commenters) = false-positive — publish qua đường động: `/sse/relay-notify` (messages), generic `_notify('web2:<slug>')` (live-hidden-commenters, capture-lock qua web2-generic), dedicated-entity (printer).
+- **Fix LOW duy nhất tìm thấy**: `v2/web2-balance-history.js /cleanup-stale-pending` xoá pending stale/trùng (data hiển thị CK review) mà KHÔNG broadcast → thêm `_notifyBalanceHistory(action:'cleanup')`. Các trang balance-history + ck-review subscribe `web2:balance-history` → cập nhật không F5.
+
+Verify: node --check OK. Status ✅
+
+## 2026-06-25
+
 ### [web2/ai-hub] Ghép đồ: dán ảnh (Ctrl+V) + kéo-thả cho ô Ảnh người & Ảnh quần áo
 
 User: "cho tính năng paste ảnh" ở tab Ghép đồ. Dùng module shared `Web2ImagePaste.enhance` (1 NGUỒN, KHÔNG fork) nâng cấp 2 file input SẴN CÓ (`.w2t-person-file`, `.w2t-garment-file`) → nhận **DÁN Ctrl+V + kéo-thả**, GIỮ nút Choose File. Ảnh dán/thả bơm vào `input.files` + dispatch `change` → handler nén (compressFile) + preview chạy y như chọn file. Mỗi ô = 1 dropZone (`.w2t-field`), hover/focus ô nào thì Ctrl+V rơi vào ô đó. Hint chip "📋 …" tự hiện. Bump `web2-tryon v=20260625d`. **Verify live**: cả 2 input enhanced + 2 hint chip + drop ảnh → preview JPEG ✓ (browser mount + sim drop). Thuần frontend → GH Pages.
