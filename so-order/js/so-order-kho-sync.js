@@ -8,9 +8,9 @@
 
     /**
      * Đối chiếu các dòng vừa lưu với Kho SP Web 2.0:
-     *   - SP đã có (matched theo code hoặc tên chuẩn hóa) → bổ sung tab.label
-     *     vào trường `note` nếu chưa có (sticky tag), không ghi đè.
-     *   - SP chưa có → POST tạo mới với note = tab.label (HÀ NỘI / HƯƠNG CHÂU).
+     *   - SP đã có → bổ sung tab.label vào field `region` (ĐỊA DANH) nếu chưa có
+     *     (sticky, không ghi đè) — KHÔNG nhét vào note (ghi chú) nữa.
+     *   - SP chưa có → POST tạo mới với region = tab.label (HÀ NỘI / HƯƠNG CHÂU).
      * Best-effort: lỗi network không chặn flow chính, chỉ warn.
      */
     // Sinh mã SP theo rule (Web2ProductCode) cho danh sách items sắp upsert vào

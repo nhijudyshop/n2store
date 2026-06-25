@@ -901,3 +901,23 @@
         min-width: 540px;
     }
 }
+
+/* ĐỊA DANH nhập hàng (Sổ Order) — cột RIÊNG, tách khỏi GHI CHÚ (note). */
+.region-cell {
+    white-space: nowrap;
+}
+.w2p-region-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0058da;
+    background: #e8f2ff;
+    border: 1px solid #c7ddff;
+}
+.w2p-region-empty {
+    color: #cbd5e1;
+}

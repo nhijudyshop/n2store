@@ -9,7 +9,10 @@
         addedCodes: new Set(),
         pickerTab: 'pending',
         pickerGroups: [],
+        pickerGroupsAll: [], // trước khi lọc địa danh (để dựng chip)
         search: '',
+        pickerRegion: '', // lọc picker theo ĐỊA DANH ('' = tất cả)
+        showRegion: true, // ẩn/hiện chip+badge địa danh (localStorage lc_show_region)
         editing: false, // đang gõ input pending → hoãn re-render board
     };
     var boardTimer = null;
@@ -33,6 +36,12 @@
     function toast(msg, type) {
         if (window.notificationManager && window.notificationManager.show)
             window.notificationManager.show(msg, type || 'info');
+    }
+    // ĐỊA DANH nhập hàng (Sổ Order): chuẩn hoá để so khớp chip (HÀ NỘI/HƯƠNG CHÂU).
+    function normRegion(s) {
+        return String(s == null ? '' : s)
+            .trim()
+            .toUpperCase();
     }
 
     // ── Campaigns ─────────────────────────────────────
@@ -122,29 +131,42 @@
         }, 600);
     }
 
+    // Board "Trên TV" mỗi biến thể: NCC (ô nhập "số NCC báo" = pending_qty) + BÁN
+    // (SL trong giỏ KH, gồm cọc) + CỌC (SL giỏ có đặt cọc) + CÒN (= max(0, NCC−BÁN),
+    // BÁN đã gồm cọc nên KHÔNG trừ cọc lần nữa). BÁN/CỌC/CÒN read-only (tự tính).
     function vrowHtml(v) {
-        var stockCls = v.stock <= 0 ? ' zero' : '';
+        var ncc = Number(v.pendingQty) || 0;
+        var ban = Number(v.sold) || 0;
+        var coc = Number(v.coc) || 0;
+        var con = Math.max(0, ncc - ban);
+        var conCls = con <= 0 ? ' zero' : '';
         return (
             '<div class="lc-vrow">' +
             '<span class="lc-vname">' +
             esc(v.variant && v.variant.trim() ? v.variant : '(mặc định)') +
             '</span>' +
-            '<span class="lc-vstock' +
-            stockCls +
-            '">Tồn ' +
-            v.stock +
-            '</span>' +
-            '<span class="lc-pending-edit">' +
-            '<label>Chờ</label>' +
+            '<span class="lc-pending-edit" title="Số NCC báo (sửa được)">' +
+            '<label>NCC</label>' +
             '<input class="lc-pending-input" type="number" min="0" inputmode="numeric" ' +
             'data-code="' +
             esc(v.code) +
             '" data-cur="' +
-            v.pendingQty +
+            ncc +
             '" value="' +
-            v.pendingQty +
+            ncc +
             '" />' +
             '</span>' +
+            '<span class="lc-vnum lc-vban" title="Đã vào giỏ khách (gồm cọc)">' +
+            ban +
+            '<small>BÁN</small></span>' +
+            '<span class="lc-vnum lc-vcoc" title="SL trong giỏ đã đặt cọc">' +
+            coc +
+            '<small>CỌC</small></span>' +
+            '<span class="lc-vnum lc-vcon' +
+            conCls +
+            '" title="Còn lại = NCC − Bán (≥ 0)">' +
+            con +
+            '<small>CÒN</small></span>' +
             '</div>'
         );
     }
@@ -292,11 +314,48 @@
                         (g.supplier || '').toLowerCase().includes(q)
                 );
             }
+            state.pickerGroupsAll = groups; // nguồn để dựng chip địa danh
+            // Lọc theo ĐỊA DANH (chip) — áp cả 2 tab.
+            if (state.pickerRegion) {
+                groups = groups.filter((g) => normRegion(g.region) === state.pickerRegion);
+            }
             state.pickerGroups = groups;
             renderPicker();
         } catch (e) {
             box.innerHTML = '<div class="lc-empty">Lỗi: ' + esc(e && e.message) + '</div>';
         }
+    }
+
+    // Chip lọc ĐỊA DANH (Tất cả · Hà Nội · Hương Châu…) — dựng từ distinct region
+    // của picker (trước khi lọc). Ẩn khi tắt showRegion hoặc không có địa danh nào.
+    function regionChipsHtml() {
+        if (!state.showRegion) return '';
+        var seen = {};
+        var regions = [];
+        (state.pickerGroupsAll || []).forEach(function (g) {
+            var r = (g.region || '').trim();
+            var k = normRegion(r);
+            if (r && !seen[k]) {
+                seen[k] = 1;
+                regions.push(r);
+            }
+        });
+        if (!regions.length && !state.pickerRegion) return '';
+        var chips =
+            '<button class="lc-rchip' +
+            (state.pickerRegion ? '' : ' is-active') +
+            '" data-region="">Tất cả</button>';
+        regions.forEach(function (r) {
+            chips +=
+                '<button class="lc-rchip' +
+                (normRegion(r) === state.pickerRegion ? ' is-active' : '') +
+                '" data-region="' +
+                esc(normRegion(r)) +
+                '">📍 ' +
+                esc(r) +
+                '</button>';
+        });
+        return '<div class="lc-rchips" id="lcRegionChips">' + chips + '</div>';
     }
 
     function pickerItemHtml(g) {
@@ -305,6 +364,8 @@
             ? '<img class="lc-pimg" src="' + esc(safeImg(g.imageUrl)) + '" alt="" />'
             : '<span class="lc-pimg" style="display:grid;place-items:center">📦</span>';
         var meta = [];
+        if (state.showRegion && g.region)
+            meta.push('<span class="lc-region-badge">📍 ' + esc(g.region) + '</span>');
         if (g.suppliers && g.suppliers.length) meta.push(esc(g.suppliers.join(', ')));
         meta.push(g.variantCount + ' biến thể');
         if (g.totalPending > 0) meta.push('<span class="cho">chờ ' + g.totalPending + '</span>');
@@ -337,12 +398,16 @@
             box.innerHTML = '<div class="lc-empty">Chọn chiến dịch trước.</div>';
             return;
         }
+        var chips = regionChipsHtml();
         if (!state.pickerGroups.length) {
             box.innerHTML =
+                chips +
                 '<div class="lc-empty">' +
-                (state.pickerTab === 'pending'
-                    ? 'Không có SP chờ hàng. Lưu nháp ở Sổ Order để tạo.'
-                    : 'Không tìm thấy SP.') +
+                (state.pickerRegion
+                    ? 'Không có SP ở địa danh này.'
+                    : state.pickerTab === 'pending'
+                      ? 'Không có SP chờ hàng. Lưu nháp ở Sổ Order để tạo.'
+                      : 'Không tìm thấy SP.') +
                 '</div>';
             return;
         }
@@ -350,10 +415,18 @@
             state.pickerTab === 'pending'
                 ? '<div class="lc-pgroup-label">SP chờ hàng (Sổ Order)</div>'
                 : '';
-        box.innerHTML = label + state.pickerGroups.map(pickerItemHtml).join('');
+        box.innerHTML = chips + label + state.pickerGroups.map(pickerItemHtml).join('');
     }
     function refreshPickerAddedFlags() {
         if (state.pickerGroups.length) renderPicker();
+    }
+    // Re-lọc picker theo địa danh từ cache (KHÔNG refetch) khi bấm chip / toggle.
+    function applyRegionFilter() {
+        var groups = state.pickerGroupsAll || [];
+        state.pickerGroups = state.pickerRegion
+            ? groups.filter((g) => normRegion(g.region) === state.pickerRegion)
+            : groups.slice();
+        renderPicker();
     }
 
     async function addGroup(key) {
@@ -430,11 +503,30 @@
             if (e.target.classList.contains('lc-pending-input'))
                 setTimeout(() => (state.editing = false), 50);
         });
-        // Picker
+        // Picker — chip địa danh (lọc) + nút Thêm SP.
         $('lcPicker').addEventListener('click', function (e) {
+            var chip = e.target.closest('.lc-rchip');
+            if (chip) {
+                state.pickerRegion = chip.dataset.region || '';
+                applyRegionFilter();
+                return;
+            }
             var btn = e.target.closest('.lc-addbtn');
             if (btn && !btn.disabled) addGroup(btn.dataset.key);
         });
+        // Toggle ẩn/hiện địa danh (chip + badge) — lưu localStorage.
+        var regToggle = $('lcRegionToggle');
+        if (regToggle)
+            regToggle.addEventListener('click', function () {
+                state.showRegion = !state.showRegion;
+                try {
+                    localStorage.setItem('lc_show_region', state.showRegion ? '1' : '0');
+                } catch (e) {}
+                regToggle.classList.toggle('is-on', state.showRegion);
+                regToggle.setAttribute('aria-pressed', state.showRegion ? 'true' : 'false');
+                if (!state.showRegion) state.pickerRegion = ''; // tắt → bỏ lọc
+                applyRegionFilter();
+            });
         document.querySelectorAll('.lc-tab').forEach(function (t) {
             t.addEventListener('click', function () {
                 document
@@ -455,13 +547,26 @@
     async function boot() {
         if (window.Web2Sidebar && window.Web2Sidebar.mount)
             window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'live-control' });
+        try {
+            state.showRegion = localStorage.getItem('lc_show_region') !== '0';
+        } catch (e) {}
         wire();
+        var regToggle0 = $('lcRegionToggle');
+        if (regToggle0) {
+            regToggle0.classList.toggle('is-on', state.showRegion);
+            regToggle0.setAttribute('aria-pressed', state.showRegion ? 'true' : 'false');
+        }
         if (window.Web2Campaign && window.Web2Campaign.subscribe)
             window.Web2Campaign.subscribe(onSse);
         // CŨNG nghe web2:products → đồng bộ tồn/chờ hàng khi máy khác sửa.
         if (window.Web2SSE && window.Web2SSE.subscribe) {
             window.Web2SSE.subscribe('web2:products', function (m) {
                 onSse({ topic: 'web2:products', eventType: m.eventType, data: m.data });
+            });
+            // BÁN/CỌC = SL trong giỏ native-orders → đổi khi cart thay đổi. Nghe
+            // web2:native-orders để board cập nhật BÁN/CỌC/CÒN realtime (không refresh).
+            window.Web2SSE.subscribe('web2:native-orders', function () {
+                scheduleBoard();
             });
         }
         await loadCampaigns();

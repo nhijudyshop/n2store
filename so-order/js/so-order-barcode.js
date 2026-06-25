@@ -47,7 +47,8 @@
                     sellPrice: it.sellPriceVnd,
                     supplier: it.supplier,
                     imageUrl: it.imageUrl,
-                    note: it.note,
+                    // địa danh nhập hàng → field RIÊNG region (KHÔNG nhét note)
+                    region: it.note,
                     originCurrency: it.originCurrency,
                     originRate: it.originRate,
                 }));

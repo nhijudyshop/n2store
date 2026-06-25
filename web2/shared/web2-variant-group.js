@@ -89,10 +89,13 @@
                     imageUrl: '',
                     supplier: p.supplier || null,
                     suppliers: new Set(),
+                    regions: new Set(), // ĐỊA DANH nhập hàng (HÀ NỘI/HƯƠNG CHÂU)
                     variants: [],
                     totalStock: 0,
                     totalPending: 0,
                     totalReturn: 0,
+                    totalSold: 0, // BÁN = SL trong giỏ KH (gồm cọc)
+                    totalCoc: 0, // CỌC = SL trong giỏ có đặt cọc
                     _firstSort: Number.isFinite(p.sort) ? p.sort : Number.MAX_SAFE_INTEGER,
                     _pinned: false,
                 };
@@ -109,6 +112,9 @@
                 returnQty: ret,
                 status: p.status || 'DANG_BAN',
                 supplier: p.supplier || null,
+                region: p.region || null,
+                sold: Number(p.sold) || 0,
+                coc: Number(p.coc) || 0,
                 imageUrl: imgOf(p),
                 pinned: !!p.pinned,
                 sort: Number.isFinite(p.sort) ? p.sort : null,
@@ -117,7 +123,10 @@
             g.totalStock += stock;
             g.totalPending += pending;
             g.totalReturn += ret;
+            g.totalSold += Number(p.sold) || 0;
+            g.totalCoc += Number(p.coc) || 0;
             if (p.supplier) g.suppliers.add(p.supplier);
+            if (p.region) g.regions.add(p.region);
             if (!g.imageUrl && imgOf(p)) g.imageUrl = imgOf(p);
             if (p.pinned) g._pinned = true;
             const ps = Number.isFinite(p.sort) ? p.sort : Number.MAX_SAFE_INTEGER;
@@ -133,10 +142,14 @@
                 imageUrl: g.imageUrl || '',
                 supplier: g.supplier,
                 suppliers: Array.from(g.suppliers),
+                regions: Array.from(g.regions),
+                region: Array.from(g.regions)[0] || null, // ĐỊA DANH chính (nhóm thường 1)
                 variantCount: g.variants.length,
                 totalStock: g.totalStock,
                 totalPending: g.totalPending,
                 totalReturn: g.totalReturn,
+                totalSold: g.totalSold,
+                totalCoc: g.totalCoc,
                 hasPending: g.totalPending > 0,
                 pinned: g._pinned,
                 _firstSort: g._firstSort,

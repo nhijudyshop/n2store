@@ -255,9 +255,9 @@
 }
 .lc-vrow {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto auto;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 7px 11px;
     border-bottom: 1px solid #f4f6fb;
 }
@@ -317,6 +317,98 @@
 .lc-pending-input.saved {
     border-color: #16a34a;
     background: #f0fdf4;
+}
+
+/* Board "Trên TV": BÁN / CỌC / CÒN (read-only) cạnh ô NCC (số NCC báo). */
+.lc-vnum {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+    min-width: 38px;
+    font-size: 14px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+.lc-vnum small {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+    margin-top: 1px;
+}
+.lc-vban {
+    color: #0058da;
+}
+.lc-vcoc {
+    color: #b45309;
+}
+.lc-vcon {
+    color: #16a34a;
+}
+.lc-vcon.zero {
+    color: #dc2626;
+}
+
+/* Chip lọc ĐỊA DANH + badge + nút toggle trong panel "Thêm sản phẩm". */
+.lc-rchips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 2px 10px;
+    border-bottom: 1px dashed #eef1f6;
+    margin-bottom: 8px;
+}
+.lc-rchip {
+    border: 1px solid #d6dbe6;
+    background: #fff;
+    color: #475569;
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        color 0.15s;
+}
+.lc-rchip:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+.lc-rchip.is-active {
+    background: #0058da;
+    border-color: #0058da;
+    color: #fff;
+}
+.lc-region-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0058da;
+    background: #e8f2ff;
+    border: 1px solid #c7ddff;
+}
+.lc-region-toggle {
+    margin-left: auto;
+    border: 1px solid #d6dbe6;
+    background: #fff;
+    color: #64748b;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.lc-region-toggle.is-on {
+    background: #e8f2ff;
+    border-color: #c7ddff;
+    color: #0058da;
 }
 
 /* Picker item */

@@ -243,7 +243,7 @@
 }
 .ltv-vrow {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     align-items: center;
     gap: 8px;
     padding: clamp(5px, 0.5vw, 10px) clamp(8px, 0.7vw, 14px);
@@ -292,6 +292,19 @@
 .ltv-num-pending.is-zero {
     color: var(--ltv-muted);
     opacity: 0.4;
+}
+/* NCC (số NCC báo) · BÁN (đã vào giỏ) · CÒN (max(0, NCC−BÁN)). */
+.ltv-num-ncc {
+    color: var(--ltv-pending);
+}
+.ltv-num-ban {
+    color: #60a5fa;
+}
+.ltv-num-con {
+    color: var(--ltv-stock);
+}
+.ltv-num-con.is-zero {
+    color: var(--ltv-danger);
 }
 
 /* [hidden] + display gotcha: author display:grid/flex đè UA [hidden]{display:none}

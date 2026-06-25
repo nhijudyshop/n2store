@@ -70,6 +70,7 @@
                     </td>
                     <td class="price-cell price-buy"${buyAttr}>${fmtPrice(priceBuy)}</td>
                     <td class="price-cell price-sell"${sellAttr}>${fmtPrice(priceSell)}</td>
+                    <td class="region-cell">${p.region ? `<span class="w2p-region-badge">${escapeHtml(p.region)}</span>` : '<span class="w2p-region-empty">—</span>'}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}"><div class="web2-note-cell">${escapeHtml(p.note || '—')}</div></td>
                     <td>
                         ${(() => {
@@ -113,7 +114,7 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="11" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
             _updateSelectAllState();
@@ -484,7 +485,7 @@
             tb.style.opacity = '0.55';
             tb.style.pointerEvents = 'none';
         } else {
-            tb.innerHTML = `<tr><td colspan="11" class="loading-row">
+            tb.innerHTML = `<tr><td colspan="12" class="loading-row">
                 <div class="spinner"></div>Đang tải dữ liệu...
             </td></tr>`;
         }
@@ -505,7 +506,7 @@
             _loadUsageForCurrentPage();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="12" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
                 <button class="btn btn-sm" style="margin-left:10px" onclick="Web2ProductsApp.load()">
                     <i data-lucide="refresh-cw"></i> Thử lại

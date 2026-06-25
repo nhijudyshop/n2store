@@ -2,6 +2,21 @@
 
 ## 2026-06-25
 
+### [live-control][live-tv][products][so-order][render] ĐỊA DANH riêng + TV NCC/Bán/Cọc/Còn
+
+User (trang **live-control**, nhầm tên so-order/native-orders): (1) địa danh nhập hàng (Hà Nội/Hương Châu) là field RIÊNG — Sổ Order đang nhầm nhét vào **ghi chú**, web2_products chưa có field địa danh → tách ra; thêm chip lọc + badge địa danh vào panel "Thêm sản phẩm" có toggle ẩn/hiện. (2) Board "Trên TV" + màn TV hiện **NCC / Bán / Cọc / Còn**.
+
+**Chốt qua hỏi:** NCC = ô nhập "số NCC báo" (pending_qty, sửa được); Bán = TỔNG SL trong giỏ native-orders draft (GỒM cọc); Cọc = SL giỏ có `deposit>0` (tag ĐÃ CỌC); **Còn = max(0, NCC − Bán)**; live-control hiện đủ 4, live-tv hiện NCC/Bán/Còn.
+
+- **Schema** `web2_products`: +cột `region` (migration 080) + backfill tách HÀ NỘI/HƯƠNG CHÂU từ `note`→`region` (dọn note, self-gated). mapRow/POST/PATCH/upsert-pending nhận `region`.
+- **`web2-campaign-products` GET**: +`region` + `sold`(Bán) + `coc`(Cọc) per mã — aggregate `native_orders` draft (`deposit>0`→coc), cùng pool web2Db.
+- **Sổ Order** kho-sync + barcode: ghi địa danh vào `region` (KHÔNG note).
+- **Grouper** `web2-variant-group`: variant +region/sold/coc; group +regions/region/totalSold/totalCoc.
+- **live-control**: board NCC(input)+BÁN+CỌC+CÒN (bỏ Tồn/Chờ); picker chip lọc địa danh + badge + toggle `lcRegionToggle` (localStorage); subscribe `web2:native-orders`.
+- **live-tv**: NCC+BÁN+CÒN; subscribe `web2:native-orders`.
+- **web2/products**: cột **ĐỊA DANH** riêng tách khỏi **GHI CHÚ** (colspan 11→12).
+- Verify: `node --check` 8 file OK; live-control/live-tv 0 lỗi console; unit-test grouper region/sold/coc đúng. ⚠ region/Bán/Cọc cần web2-api redeploy mới có data thật. Bump ?v=20260625a. Status ✅ (chờ deploy verify)
+
 ### [web2/ai-hub][render] Fix chat chỉ Gemini chạy + nút "✨ AI viết mô tả" cho Ghép đồ & HTML Studio
 
 User: "test key đều OK nhưng chat chỉ Gemini được (hình 1)" + "Hình 3, hình 4 thêm nút hình 2 vào".

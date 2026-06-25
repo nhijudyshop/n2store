@@ -54,11 +54,14 @@
     }
 
     // ── Render ────────────────────────────────────────
+    // Người live xem: NCC (số NCC báo có sẵn) · BÁN (đã vào giỏ KH, gồm cọc) ·
+    // CÒN (= max(0, NCC − BÁN) — số còn bán được). Hết khi CÒN ≤ 0.
     function variantRowHtml(v) {
         var label = v.variant && v.variant.trim() ? v.variant : '(mặc định)';
-        var soldOut = v.stock <= 0 && v.pendingQty <= 0;
-        var stockZero = v.stock <= 0 ? ' is-zero' : '';
-        var pendZero = v.pendingQty <= 0 ? ' is-zero' : '';
+        var ncc = Number(v.pendingQty) || 0;
+        var ban = Number(v.sold) || 0;
+        var con = Math.max(0, ncc - ban);
+        var soldOut = con <= 0;
         return (
             '<div class="ltv-vrow' +
             (soldOut ? ' is-sold-out' : '') +
@@ -66,16 +69,17 @@
             '<span class="ltv-vlabel">' +
             esc(label) +
             '</span>' +
-            '<span class="ltv-num ltv-num-stock' +
-            stockZero +
+            '<span class="ltv-num ltv-num-ncc">' +
+            ncc +
+            '<small>NCC</small></span>' +
+            '<span class="ltv-num ltv-num-ban">' +
+            ban +
+            '<small>BÁN</small></span>' +
+            '<span class="ltv-num ltv-num-con' +
+            (con <= 0 ? ' is-zero' : '') +
             '">' +
-            v.stock +
-            '<small>TỒN</small></span>' +
-            '<span class="ltv-num ltv-num-pending' +
-            pendZero +
-            '">' +
-            v.pendingQty +
-            '<small>CHỜ</small></span>' +
+            con +
+            '<small>CÒN</small></span>' +
             '</div>'
         );
     }
@@ -268,6 +272,11 @@
         if (window.Web2SSE && window.Web2SSE.subscribe) {
             window.Web2SSE.subscribe('web2:products', function (m) {
                 onSse({ topic: 'web2:products', eventType: m.eventType, data: m.data });
+            });
+            // BÁN/CÒN phụ thuộc giỏ native-orders → nghe web2:native-orders để TV
+            // cập nhật realtime khi KH thêm/bớt giỏ (không cần refresh).
+            window.Web2SSE.subscribe('web2:native-orders', function () {
+                scheduleReload();
             });
         }
         var params = new URLSearchParams(location.search);
