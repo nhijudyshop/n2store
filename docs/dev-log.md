@@ -2,6 +2,14 @@
 
 ## 2026-06-25
 
+### [web2/shared] Fix hover-zoom "ảnh to hiện cuối trang" trên trang KHÔNG nạp web2-effects.css (ai-hub…)
+
+User (ai-hub Tạo ảnh): bấm/rê ảnh trong gallery → ảnh không phóng to nổi mà **hiện full-size cuối trang** (không backdrop). Root cause: `web2-effects.js` (hover-zoom) được **autoload MỌI trang** qua sidebar, NHƯNG `web2-effects.css` (chứa `.w2fx-zoom-popup{position:fixed…}`) chỉ `<link>` ở 3 trang (products/variants/returns) — ai-hub KHÔNG có. Thiếu CSS → popup `.w2fx-zoom-popup` về `position:static` → rớt document flow, ảnh clone full-size cuối `<body>`.
+
+Fix `web2/shared/web2-effects.js`: thêm `_ensureZoomStyle()` **tự inject** CSS thiết yếu của popup (position:fixed + z-index + ẩn khi chưa `.is-visible` + giới hạn kích thước ảnh), gọi trong `_ensureZoomPopup()` — giống pattern guard CSS của lightbox + ripple. Module tạo popup tự bảo đảm CSS của nó → đúng MỌI trang dù trang có `<link>` web2-effects.css hay không. Bump autoload `v=20260625a`.
+
+Verify browser (overview — cũng KHÔNG link web2-effects.css = đúng điều kiện bug): trước fix popup `position:static`; sau fix rê ảnh → popup `position:fixed` z-index 99999 KHÔNG ở normal flow ✓; click ảnh → lightbox `#web2ImageLightbox` fixed/flex ✓ (lightbox vốn đã có guard CSS riêng). node --check OK.
+
 ### [web2/shared] Trợ lý AI: fallback CHÉO PROVIDER khi 1 provider lỗi (vd Groq bị khoá org)
 
 User báo lỗi test Groq: "Organization has been restricted". = Groq KHOÁ TÀI KHOẢN (org) phía họ — 5 key cùng 1 org nên fail hết; KHÔNG phải bug code (thường do tạo nhiều key cộng dồn quota free → Groq coi là abuse). Tác động: 23 trang data/tài chính tôi set auto=`groq/gpt-oss-120b` (balance-history, native-orders, ví, kpi, reconcile, PBH…) → AI hỏng vì widget KHÔNG fallback chéo provider khi provider chỉ định lỗi.
