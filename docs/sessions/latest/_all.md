@@ -3,22 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3ca5e93` — auto: session update
-**Last updated**: 2026-06-24 20:20:35 +07
-**Latest session**: [`RESUME:20260624-202035-3ca5e93`](../20260624-202035-3ca5e93.md)
+**Latest commit**: `26f3c2b` — auto: session update
+**Last updated**: 2026-06-25 09:42:12 +07
+**Latest session**: [`RESUME:20260625-094212-26f3c2b`](../20260625-094212-26f3c2b.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 7 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-24 17:38
+- [`_root/`](./_root.md) — updated 2026-06-25 09:42
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-24 14:02
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
