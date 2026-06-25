@@ -2,6 +2,19 @@
 
 ## 2026-06-25
 
+### [web2/products] Tem SP "2 tem" → ĐỔI CHỖ tên↔giá (tên xuống băng full-width, giá+biến thể lên cạnh QR)
+
+Theo yêu cầu: (1) tên xuống vị trí giá để DÀI HƠN, giá lên vị trí tên; (2) biến thể TRÊN giá.
+
+**Bố cục mới** (`buildLabelHTML` isQr, render.js):
+
+- HÀNG TRÊN: [QR sạch + mã SP dưới] | cột phải [BIẾN THỂ trên → GIÁ dưới].
+- **BĂNG TÊN full-width DƯỚI CÙNG** (kẻ vạch trên, canh giữa): tên rộng cả tem ⇒ tên DÀI hiện đủ 2 dòng (vd "Áo Khoác Dạ Tweed Hàn Quốc Cao Cấp Mùa Đông" full, trước bị cắt cụt khi kẹt cột ~12mm).
+
+**Fix bug chồng lấp**: row1 đổi `flex:1`→`flex:0 0 auto` (lấy đúng cao QR, KHÔNG grow bóp mã SP), băng tên `flex:1 1 auto` ăn phần còn lại → mã SP dưới QR KHÔNG bị băng tên đè (đo overlap = −1.5px, OK). `fitName` thêm `tooTall` (thu nhỏ cho VỪA chiều cao băng, không chỉ ≤2 dòng). QR 11mm (decode 90px OK).
+
+**Verify** (Playwright MCP trang Sản phẩm THẬT, data thật + 1 synthetic stress): overlap −1.5px (không đè), tên dài full 2 dòng, giá+biến thể cột phải đọc được, **decode 90px OK** cả mã 17 ký tự. Cache-bust render `p6`. Status ✅
+
 ### [web2/products] Tem SP "2 tem" → bố cục price-tag HOÀN HẢO (giá hero + tên 2 dòng sạch + biến thể gọn)
 
 Iterate bố cục tem QR (`buildLabelHTML`) cho đẹp + hoàn hảo, verify bằng Playwright MCP (render `buildLabelHTML` thật + decode QR ở size in).

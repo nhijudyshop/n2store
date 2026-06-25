@@ -142,4 +142,4 @@ downloads/test/
 
 # codegraph local index (dev tooling, not committed)
 .codegraph/
-real-tem-*.png
+real-*.png
