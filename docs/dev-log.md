@@ -2,6 +2,17 @@
 
 ## 2026-06-25
 
+### [shared][so-order][supplier-wallet] Audit unique-theo-mã toàn Web 2.0 + fix triệt để (default by:'code')
+
+Workflow audit 8 surface SP (10 agent, find + adversarial verify): **7/8 sạch**, tìm 1 bug thật + 1 hardening. User chốt "fix triệt để lỗi hiện tại và tương lai, mặc định by:'code'".
+
+- **HARDENING (tương lai)** — `web2-variant-group.js`: đổi **default `by` từ `'name'` → `'code'`**. Caller quên `opts.by` → unique theo mã (an toàn), không tái phát bug gộp 2 mã trùng tên. Mode gom-theo-tên phải truyền tường minh. (4 caller hiện có đều đã `by:'code'` → zero impact.)
+- **BUG MED (hiện tại)** — `so-order/js/so-order-modal-core.js`: badge "Tồn: N" + mã Kho trong MODAL tạo đơn resolve qua `findByNameExact(name)` (bỏ qua biến thể) → 1 tên nhiều biến thể (nhiều mã) hiện tồn/mã của 1 biến thể tùy ý cho mọi dòng cùng tên. Bug cùng class đã fix cho table-view (`_lookupKhoCode`→`findByNameVariant`) nhưng bỏ sót modal. **Fix**: thêm helper `SO._modalMatchKho(row)` (matchedCode→findByCode, else `findByNameVariant(name,variant)`) dùng ở `modalRowHtml` + `updateRowMeta`; `onModalRowFieldInput` re-resolve khi đổi CẢ productName LẪN variant (trước chỉ productName).
+- **BUG (sweep thêm)** — `web2/supplier-wallet/js/supplier-wallet-actions.js`: trả NCC trừ tồn — fallback `findByNameExact` đổi → `findByNameVariant(name,variant)` (đây là WRITE trừ tồn, match sai biến thể = trừ nhầm tồn SP khác). Không khớp cặp → null → bỏ qua (đã có cảnh báo điều chỉnh tay).
+- Sweep repo: KHÔNG còn `findByNameExact` ở chỗ display/write nào khác (chỉ còn định nghĩa cache + comment). Bump cache-bust `?v=20260625uniq2`/`vaware`.
+
+**Verify (browser, data thật)**: `findByNameExact('QUẦN SHORT KAKI')`=HNQUANGHI33 (tùy ý — SAI cho biến thể Xanh); `findByNameVariant(...,'Màu Ghi/Size 33')`=HNQUANGHI33 ✓, `(...,'Màu Xanh Dương/Size 31')`=HCQUANXDU31 ✓. node --check 3 file OK. Thuần frontend → GH Pages. Status ✅
+
 ### [web2/live-control][live-tv][shared] FIX gom SP sai — unique theo MÃ sản phẩm
 
 User báo bug: picker live-control hiện "QUẦN SHORT KAKI · 2 biến thể · **chờ 34**" nhưng thực ra là **2 SP khác mã** (`HCQUANXDU31` HƯƠNG CHÂU chờ 16 + `HNQUANGHI33` HÀ NỘI chờ 18) bị gom vì `Web2VariantGroup.group` dùng `by:'name'` (gom theo TÊN). User chốt: **"tất cả sản phẩm unique theo mã sản phẩm"**.

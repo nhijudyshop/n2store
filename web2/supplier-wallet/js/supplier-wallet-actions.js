@@ -137,9 +137,16 @@
                     if (!p) continue;
                     // E-match-ten fix (đợt E): ưu tiên MÃ SP của chính row so-order
                     // (p.code) — match tên không phân biệt variant trả nhầm SP.
+                    // 2026-06-25: fallback đổi findByNameExact → findByNameVariant
+                    // (name+biến thể) cho VARIANT-SAFE — đây là TRỪ TỒN (write), match
+                    // sai biến thể = trừ nhầm tồn SP khác cùng tên. Không khớp đúng
+                    // cặp → null → bỏ qua (đã có cảnh báo điều chỉnh tồn tay).
                     const code =
                         p.code ||
-                        window.Web2ProductsCache?.findByNameExact?.(p.productName)?.code ||
+                        window.Web2ProductsCache?.findByNameVariant?.(
+                            (p.productName || '').trim(),
+                            (p.variant || '').trim()
+                        )?.code ||
                         null;
                     if (code) {
                         adjustments.push({

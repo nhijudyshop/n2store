@@ -34,10 +34,28 @@
     // (2026-06-22) _addRowFromScannedCode đã gỡ — chỉ dùng cho 2 nút quét/đọc nhãn
     // (đã bỏ theo yêu cầu user). Thêm SP thủ công qua "Thêm sản phẩm".
 
+    // Match SP Kho cho 1 dòng modal — VARIANT-AWARE (2026-06-25): matchedCode →
+    // findByCode; else findByNameVariant(name, variant). KHÔNG dùng findByNameExact
+    // (chỉ theo tên) vì 1 tên có nhiều biến thể = nhiều MÃ khác nhau → badge "Tồn"
+    // + mã sẽ mượn nhầm code biến thể khác cùng tên (vd "Trắng" HNMMTRANG cho cả
+    // "Đỏ"). Cùng nguyên tắc unique-theo-mã + table-view SO._lookupKhoCode.
+    SO._modalMatchKho = function _modalMatchKho(row) {
+        const cache = window.Web2ProductsCache;
+        if (!cache) return null;
+        return (
+            (row.matchedCode && cache.findByCode?.(row.matchedCode)) ||
+            (cache.findByNameVariant
+                ? cache.findByNameVariant(
+                      (row.productName || '').trim(),
+                      (row.variant || '').trim()
+                  )
+                : null) ||
+            null
+        );
+    };
+
     SO.modalRowHtml = function modalRowHtml(row, idx, total) {
-        const matched = row.matchedCode
-            ? window.Web2ProductsCache?.findByCode?.(row.matchedCode) || null
-            : window.Web2ProductsCache?.findByNameExact?.(row.productName) || null;
+        const matched = SO._modalMatchKho(row);
         const stockText = matched
             ? `<span class="so-row-stock ${(matched.stock || 0) <= 0 ? 'is-zero' : (matched.stock || 0) < 5 ? 'is-low' : ''}">
                    <i data-lucide="package-check"></i> Tồn: <strong>${matched.stock ?? 0}</strong>
@@ -326,11 +344,19 @@
         } else {
             row[field] = v;
         }
-        if (field === 'productName') {
-            // Clear matched code if the typed text no longer matches.
+        if (field === 'productName' || field === 'variant') {
+            // VARIANT-AWARE (2026-06-25): re-resolve mã theo TÊN + BIẾN THỂ khi user
+            // đổi 1 trong 2 → badge "Tồn"/mã khớp ĐÚNG cặp (tên+biến thể), không mượn
+            // nhầm code biến thể khác cùng tên. (Trước đây chỉ field==='productName'
+            // + findByNameExact theo tên → bỏ sót đổi biến thể + gán nhầm mã.)
+            const cache = window.Web2ProductsCache;
             const match =
-                window.Web2ProductsCache?.findByNameExact?.(v) ||
-                (row.matchedCode && window.Web2ProductsCache?.findByCode?.(row.matchedCode));
+                cache?.findByNameVariant?.(
+                    (row.productName || '').trim(),
+                    (row.variant || '').trim()
+                ) ||
+                (row.matchedCode && cache?.findByCode?.(row.matchedCode)) ||
+                null;
             row.matchedCode = match?.code || null;
             // Refresh meta inline without rebuilding entire row (to keep focus).
             SO.updateRowMeta(uid);
@@ -353,10 +379,7 @@
         if (!tr) return;
         const metaEl = tr.querySelector('.so-row-meta');
         if (!metaEl) return;
-        const matched =
-            (row.matchedCode && window.Web2ProductsCache?.findByCode?.(row.matchedCode)) ||
-            window.Web2ProductsCache?.findByNameExact?.(row.productName) ||
-            null;
+        const matched = SO._modalMatchKho(row);
         row.matchedCode = matched?.code || null;
         const stockText = matched
             ? `<span class="so-row-stock ${(matched.stock || 0) <= 0 ? 'is-zero' : (matched.stock || 0) < 5 ? 'is-low' : ''}">

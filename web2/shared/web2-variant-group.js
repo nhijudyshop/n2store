@@ -20,8 +20,12 @@
 //       variants: [{ code, variant, stock, pendingQty, returnQty, status,
 //                    supplier, imageUrl, ...orig }] }]
 //   normalizeName(s) → string  (khoá gom)
-// opts: { by: 'name' | 'name+supplier' | 'name+supplier+region' (default 'name'),
-//         sortVariants: bool=true }
+// opts: { by: 'code' (default — unique theo MÃ) | 'name' | 'name+supplier' |
+//         'name+supplier+region' (các mode gom-theo-tên CHỈ dùng khi cần view
+//         gom biến thể, phải truyền tường minh), sortVariants: bool=true }
+//   ⚠ Default = 'code' (đổi 2026-06-25): theo nguyên tắc "tất cả SP unique theo
+//   mã". Caller quên opts.by → unique theo mã (an toàn), KHÔNG tái phát bug gộp
+//   2 mã trùng tên (chờ 16+18 = 34). Muốn gom biến thể → truyền by tường minh.
 // =====================================================
 (function (global) {
     'use strict';
@@ -97,7 +101,7 @@
 
     function group(products, opts) {
         opts = opts || {};
-        const by = VALID_BY[opts.by] ? opts.by : 'name';
+        const by = VALID_BY[opts.by] ? opts.by : 'code';
         const sortVariants = opts.sortVariants !== false;
         const list = Array.isArray(products) ? products : [];
         const map = new Map(); // key → group
