@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2f762a5` — fix(web2): order-tags + shared — bản ghi chưa PBH = 'Giỏ hàng' (audit vòng 2)
-**Last updated**: 2026-06-25 15:00:03 +07
-**Latest session**: [`RESUME:20260625-150003-2f762a5`](../20260625-150003-2f762a5.md)
-**Summary**: audit vòng 2: order-tags + shared modules — chưa PBH = Giỏ hàng
+**Latest commit**: `1760727` — fix(web2/order-tags): reframe 'đơn hàng' → Đơn Web/Giỏ hàng theo predicate (audit vòng 3)
+**Last updated**: 2026-06-25 15:30:42 +07
+**Latest session**: [`RESUME:20260625-153042-1760727`](../20260625-153042-1760727.md)
+**Summary**: audit vòng 3: reframe order-tags 'đơn hàng'→Đơn Web/Giỏ hàng (workflow predicate-verify)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-25 15:00
+- [`docs/`](./docs.md) — updated 2026-06-25 15:30
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -60,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-25 15:00
+- [`render.com/`](./render.com.md) — updated 2026-06-25 15:30
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-24 17:38
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 15:00
+- [`web2/`](./web2.md) — updated 2026-06-25 15:30
