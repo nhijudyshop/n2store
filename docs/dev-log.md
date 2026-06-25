@@ -2,6 +2,17 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI: ĐỌC DATABASE qua API app (Option B) — trang phân trang thấy TOÀN BỘ bảng
+
+User hỏi "AI coi database không?" → giải thích: chỉ đọc data browser (kho SP/biến thể/KH = full vì cache tải hết; giao dịch/đơn/PBH phân trang `pageSize:50` → chỉ thấy 1 trang). User chọn **Option B: AI đọc qua API đọc sẵn của app** (an toàn, qua auth/phân quyền, KHÔNG SQL thô).
+
+Files: `web2/shared/web2-ai-page-registry.js` (+`DB_SOURCES`/`dbSourcesFor`), `web2/shared/web2-ai-assistant.js` (+fetch DB + inject context + chip).
+
+- **Registry `DB_SOURCES`** (3 trang phân trang, response shape verify từ backend): balance-history `/api/web2/balance-history/` dataPath `data`; native-orders `/api/native-orders/load` dataPath `orders`; PBH `/api/fast-sale-orders/load` dataPath `orders`. Mỗi nguồn { endpoint, params{page,limit:1500}, dataPath, desc }.
+- **Widget**: chip "🗄️ Đọc toàn bộ … (DB)" đứng ĐẦU thanh gợi ý (chỉ trang có dbSource). Bấm → `fetchDbSource` GET endpoint (qua worker + `x-web2-token`) → lấy mảng theo dataPath → `_dbData[path]` → `pageContext()` chèn khối "DỮ LIỆU TỪ DATABASE" (ưu tiên CAO NHẤT, trên cache/DOM) → ask phân tích tổng quan. Mọi câu sau vẫn thấy full DB (cache theo trang). Cap rows theo budget 5200 ký tự, báo tổng N. PII vẫn redact.
+- **Verify** (Node + harness mock-fetch): dbSourcesFor 6/6; click chip → fetch đúng `…/balance-history/?page=1&limit=1500`; pageContext có "DỮ LIỆU TỪ DATABASE (2 bản ghi)" + giá trị thật. Live thật cần session user (token test 401 server-side).
+- ⚠ assistant.js 854 dòng (>800) — cohesive, cân nhắc tách DB-reader sau. registry 1501 = pure-data (OK).
+
 ### [web2/shared] Trợ lý AI: gợi ý LUÔN HIỆN (thanh chip cố định, không mất sau khi chat)
 
 User: "luôn hiện gợi ý như hình 1; hình 2 tương tác xong mất gợi ý". Trước đây `render()` chỉ hiện gợi ý khi chưa có hội thoại (`history.length ? '' : quicks`) → chat 1 câu là chip biến mất.

@@ -1441,14 +1441,61 @@
         return (e && e.note) || '';
     }
 
+    // ───────── DB SOURCES — đọc FULL bảng qua API đọc sẵn của app (Option B) ─────────
+    // Cho trang PHÂN TRANG (cache/state chỉ giữ 1 trang ~50 dòng). Widget GET endpoint
+    // (qua worker + x-web2-token), lấy mảng theo dataPath, đưa vào context → AI thấy
+    // TOÀN BỘ bảng (không SQL thô, tôn trọng auth/phân quyền backend). Cap rows ở widget.
+    const DB_SOURCES = {
+        '/web2/balance-history/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ giao dịch (DB)',
+                endpoint: '/api/web2/balance-history/',
+                params: { page: 1, limit: 1500 },
+                dataPath: 'data',
+                desc: 'Toàn bộ giao dịch số dư (SePay) từ database — mỗi mục 1 giao dịch: ngày, số tiền, loại (nạp/CK), nội dung, trạng thái khớp ví, khách.',
+            },
+        ],
+        '/native-orders/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ đơn (DB)',
+                endpoint: '/api/native-orders/load',
+                params: { page: 1, limit: 1500 },
+                dataPath: 'orders',
+                desc: 'Toàn bộ đơn web từ database — mỗi mục 1 đơn: mã (code), tên KH, SĐT, địa chỉ, sản phẩm, trạng thái, tổng tiền, kênh.',
+            },
+        ],
+        '/web2/fastsaleorder-invoice/': [
+            {
+                id: 'all',
+                label: '🗄️ Đọc toàn bộ PBH (DB)',
+                endpoint: '/api/fast-sale-orders/load',
+                params: { page: 1, limit: 1500 },
+                dataPath: 'orders',
+                desc: 'Toàn bộ phiếu bán hàng (PBH) từ database — mỗi mục 1 PBH: số phiếu (number), khách, tổng tiền, còn nợ (residual), trạng thái (state).',
+            },
+        ],
+    };
+    function dbSourcesFor(pathname) {
+        const p = String(pathname || (global.location && global.location.pathname) || '');
+        let best = null;
+        for (const key of Object.keys(DB_SOURCES)) {
+            if (p.indexOf(key) >= 0 && (!best || key.length > best.length)) best = key;
+        }
+        return best ? DB_SOURCES[best] : [];
+    }
+
     global.Web2AiPageRegistry = {
         PAGES,
         GENERIC,
         DEFAULT_MODEL,
+        DB_SOURCES,
         matchPage,
         suggestionsFor,
         modelFor,
         accessorsFor,
         noteFor,
+        dbSourcesFor,
     };
 })(window);

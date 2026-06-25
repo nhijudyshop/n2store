@@ -169,6 +169,96 @@
             .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '«email»');
     }
 
+    // ───────── ĐỌC DỮ LIỆU TỪ DATABASE qua API đọc sẵn (Option B) ─────────
+    // _dbData[pathname] = [{ data:[], label, desc }] — cache sau khi user bấm "Đọc DB".
+    const _dbData = {};
+    const DB_BUDGET = 5200; // ký tự cho khối dữ liệu DB (ưu tiên cao nhất)
+
+    async function fetchDbSource(spec) {
+        try {
+            const url = new URL(workerBase() + spec.endpoint);
+            Object.entries(spec.params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+            const r = await fetch(url.toString(), { headers: authHeaders(false) });
+            if (r.status === 401) throw authErr();
+            if (!r.ok) return null;
+            const j = await r.json().catch(() => null);
+            if (!j) return null;
+            let data = j;
+            for (const k of String(spec.dataPath || '')
+                .split('.')
+                .filter(Boolean))
+                data = data?.[k];
+            return Array.isArray(data) ? data : null;
+        } catch (e) {
+            if (e.code === 401) throw e;
+            return null;
+        }
+    }
+
+    // Tải toàn bộ DB cho trang hiện tại rồi hỏi AI (gắn vào _dbData → mọi câu sau vẫn thấy).
+    async function loadDbThenAsk() {
+        if (_busy) return;
+        const path = location.pathname;
+        const specs = (() => {
+            try {
+                return reg()?.dbSourcesFor?.(path) || [];
+            } catch {
+                return [];
+            }
+        })();
+        if (!specs.length) return;
+        ensureUi();
+        _root.querySelector('.w2aa-panel').classList.add('open');
+        history.push({
+            role: 'ai',
+            content: '⏳ Đang đọc toàn bộ dữ liệu từ database…',
+            pending: true,
+        });
+        render();
+        try {
+            const loaded = [];
+            for (const spec of specs) {
+                const data = await fetchDbSource(spec);
+                if (data) loaded.push({ data, label: spec.label, desc: spec.desc });
+            }
+            history.pop(); // bỏ placeholder
+            if (!loaded.length) {
+                history.push({
+                    role: 'ai',
+                    content: '⚠️ Không đọc được dữ liệu từ database (thử lại sau).',
+                });
+                render();
+                return;
+            }
+            _dbData[path] = loaded;
+            const total = loaded.reduce((s, x) => s + x.data.length, 0);
+            ask(
+                `Tôi vừa tải TOÀN BỘ dữ liệu từ database (${total} bản ghi) — xem khối "DỮ LIỆU TỪ DATABASE". Phân tích tổng quan + nêu các điểm cần chú ý: số liệu bất thường, thiếu thông tin, lệch tổng, trạng thái cần xử lý. Trả lời gọn, có số cụ thể.`
+            );
+        } catch (e) {
+            history.pop();
+            history.push({ role: 'ai', content: '⚠️ ' + (e.message || 'Lỗi đọc DB') });
+            if (e.code === 401 && !_authRedirecting && global.Web2Auth?.requireAuth) {
+                _authRedirecting = true;
+                setTimeout(() => global.Web2Auth.requireAuth(), 1500);
+            }
+            render();
+        }
+    }
+
+    // Encode mảng data → text gọn theo budget (báo tổng N, cắt nếu dài).
+    function _arrayToContext(arr, label, desc, budget) {
+        const N = arr.length;
+        let rows = arr;
+        let json = JSON.stringify(rows);
+        if (json.length > budget) {
+            const per = Math.max(1, Math.floor(json.length / Math.max(1, N)));
+            rows = arr.slice(0, Math.max(5, Math.floor(budget / per)));
+            json = JSON.stringify(rows) + ` /*…đã cắt, tổng ${N} bản ghi*/`;
+        }
+        return `${label} (${N} bản ghi) — ${(desc || '').slice(0, 160)}:\n${json}`;
+    }
+
     // ───────── Thu thập NGỮ CẢNH trang ─────────
     function _tableText(tb, cap) {
         const rows = [...tb.querySelectorAll('tr')].slice(0, 40);
@@ -202,6 +292,23 @@
         // Vùng bôi đen → ưu tiên.
         const sel = String(window.getSelection ? window.getSelection() : '').trim();
         if (sel && sel.length > 4) parts.push('ĐOẠN ĐANG CHỌN:\n' + sel.slice(0, 2500));
+
+        // (0) DỮ LIỆU TỪ DATABASE (nếu user đã bấm "Đọc DB") — nguồn ĐẦY ĐỦ NHẤT, ưu tiên cao nhất.
+        const dbLoaded = _dbData[location.pathname];
+        if (dbLoaded && dbLoaded.length) {
+            let dbBudget = DB_BUDGET;
+            for (const src of dbLoaded) {
+                if (dbBudget <= 200) break;
+                const txt = _arrayToContext(
+                    src.data,
+                    '═══ DỮ LIỆU TỪ DATABASE: ' + src.label,
+                    src.desc,
+                    dbBudget
+                );
+                parts.push(txt);
+                dbBudget -= txt.length;
+            }
+        }
 
         // (1) DATA ĐẦY ĐỦ từ accessor cache/state (ưu tiên TRÊN bảng DOM).
         let accBudget = ACCESSOR_BUDGET;
@@ -443,6 +550,8 @@
 .w2aa-quicks-bar::-webkit-scrollbar{height:5px}.w2aa-quicks-bar::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
 .w2aa-quicks-bar:empty{display:none}
 .w2aa-quick{border:1px solid #dbe2ea;background:#fff;border-radius:999px;padding:6px 11px;font-size:.74rem;cursor:pointer;color:#334155;white-space:nowrap;flex:0 0 auto}
+.w2aa-quick-db{border-color:#c7d2fe;background:linear-gradient(135deg,#eef2ff,#faf5ff);color:#4f46e5;font-weight:600}
+.w2aa-quick-db:hover{border-color:#6366f1;background:#e0e7ff}
 .w2aa-quick:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
 .w2aa-msg{position:relative;max-width:90%;padding:9px 12px;border-radius:13px;font-size:.84rem;line-height:1.5;word-break:break-word}
 .w2aa-msg.user{align-self:flex-end;background:#6366f1;color:#fff;border-bottom-right-radius:4px;white-space:pre-wrap}
@@ -500,12 +609,28 @@
         const bar = _root && _root.querySelector('.w2aa-quicks-bar');
         if (!bar) return;
         const sugs = pageSuggestions();
-        bar.innerHTML = sugs
+        // Chip ĐỌC DB (nếu trang có nguồn DB) — đứng đầu, nổi bật.
+        let dbSpecs = [];
+        try {
+            dbSpecs = reg()?.dbSourcesFor?.(location.pathname) || [];
+        } catch {}
+        const dbLoaded = !!_dbData[location.pathname];
+        let html = '';
+        if (dbSpecs.length) {
+            const lbl = dbLoaded
+                ? '✓ Đã tải DB — tải lại'
+                : dbSpecs[0].label || '🗄️ Đọc toàn bộ từ DB';
+            html += `<button class="w2aa-quick w2aa-quick-db" data-db="1" title="Đọc TOÀN BỘ bảng từ database (không chỉ trang hiện tại)">${esc(lbl)}</button>`;
+        }
+        html += sugs
             .map(
                 (q, i) =>
                     `<button class="w2aa-quick" data-q="${i}" title="${esc(q.prompt).slice(0, 120)}">${esc(q.label)}</button>`
             )
             .join('');
+        bar.innerHTML = html;
+        const dbBtn = bar.querySelector('[data-db]');
+        if (dbBtn) dbBtn.addEventListener('click', () => loadDbThenAsk());
         bar.querySelectorAll('[data-q]').forEach((b) =>
             b.addEventListener('click', () => ask(sugs[+b.dataset.q].prompt))
         );
