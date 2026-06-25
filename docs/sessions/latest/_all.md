@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9d637c7` — docs(dev-log): so-order browser-test — fix SSE realtime + địa danh derive (verified)
-**Last updated**: 2026-06-25 17:36:30 +07
-**Latest session**: [`RESUME:20260625-173630-9d637c7`](../20260625-173630-9d637c7.md)
-**Summary**: browser-test so-order: fix SSE web2/products hiện SP mới (no F5) + region derive prefix mã (12/12 verified)
+**Latest commit**: `9591e8c` — feat(web2/ai-hub): Ghép đồ — dán ảnh (Ctrl+V) + kéo-thả cho ô Ảnh người & Ảnh quần áo
+**Last updated**: 2026-06-25 18:11:47 +07
+**Latest session**: [`RESUME:20260625-181147-9591e8c`](../20260625-181147-9591e8c.md)
+**Summary**: ai-hub Ghép đồ: dán ảnh Ctrl+V + kéo-thả (Web2ImagePaste.enhance)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -29,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-25 17:36
+- [`docs/`](./docs.md) — updated 2026-06-25 18:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -82,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 17:36
+- [`web2/`](./web2.md) — updated 2026-06-25 18:11
