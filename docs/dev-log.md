@@ -2,6 +2,12 @@
 
 ## 2026-06-25
 
+### [web2/ai-hub] Fix lộ token web2 qua URL ảnh ("Ảnh đã lưu") — fetch + blob thay `?token=`
+
+Adversarial review (đợt trước) phát hiện MEDIUM tồn từ trước: `ai-image.js` `renderHistoryCard` nhét token phiên web2 vào `img src=…/images/:id?token=<tok>` (+ `dl.href`) → token lộ qua DOM/history/Referer/access-log. Token phải đi qua header `x-web2-token` (như mọi chỗ khác), không phải URL.
+
+Fix `web2/ai-hub/js/ai-image.js`: bỏ hẳn `authToken()` + `?token=`. Ảnh protected (`has_bytes`) giờ **fetch kèm `H().authHeaders(false)` (header `x-web2-token`) → blob → `URL.createObjectURL`** cho `img.src` + `dl.href`. Ảnh public (`im.url`) dùng trực tiếp. objectURL **revoke** khi xoá card / reload lịch sử (tránh leak). Verify middleware `requireWeb2AuthSoft` đọc token theo thứ tự header→query→body → fetch-by-header xác thực OK (không cần đổi backend). Bump `ai-image.js?v=20260625b`. node --check OK; e2e cần session web2-users thật (admin@@ legacy 401).
+
 ### [web2/shared] Trợ lý AI: thêm 3 CÔNG CỤ dùng chung vào widget ✨ (Ghép đồ · Card/Video · AI viết mô tả)
 
 User: trên `web2/ai-hub` — "hình 2 (Ghép đồ), hình 3 (Tạo Card/Video) cho dùng chung, module AI viết mô tả như hình 1". Chọn **"Trong nút ✨ Trợ lý AI nổi"** → 3 tính năng vốn khoá trong ai-hub giờ tách thành module shared + surface trong widget nổi MỌI trang Web 2.0. ai-hub cũng REUSE chính module shared (1 nguồn, KHÔNG fork).

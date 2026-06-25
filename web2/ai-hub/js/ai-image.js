@@ -219,14 +219,6 @@
         if (global.lucide) global.lucide.createIcons();
     }
 
-    function authToken() {
-        try {
-            return (global.Web2Auth?.getStored?.() || {}).token || '';
-        } catch {
-            return '';
-        }
-    }
-
     // Hiển thị quota Nano Banana còn lại / hôm nay (hoặc cảnh báo thiếu quyền).
     async function refreshQuota() {
         const hint = document.getElementById('aihQuotaHint');
@@ -259,10 +251,12 @@
             });
             const j = await r.json();
             if (!j.ok) throw new Error(j.error || 'Lỗi tải lịch sử');
-            gallery.querySelectorAll('.aih-imgcard.history').forEach((e) => e.remove());
+            gallery.querySelectorAll('.aih-imgcard.history').forEach((e) => {
+                if (e._objUrl) URL.revokeObjectURL(e._objUrl); // dọn objectURL cũ tránh leak
+                e.remove();
+            });
             if (!j.images.length) return H().toast('Chưa có ảnh nào được lưu', 'info');
-            const tok = authToken();
-            j.images.forEach((im) => gallery.appendChild(renderHistoryCard(im, tok)));
+            j.images.forEach((im) => gallery.appendChild(renderHistoryCard(im)));
             H().toast(`Đã tải ${j.images.length} ảnh đã lưu`, 'success');
         } catch (e) {
             H().toast('Lỗi tải ảnh đã lưu: ' + (e.message || e), 'error');
@@ -271,26 +265,22 @@
         }
     }
 
-    function renderHistoryCard(im, tok) {
+    function renderHistoryCard(im) {
         const card = document.createElement('div');
         card.className = 'aih-imgcard history';
-        const src = im.has_bytes
-            ? H().API() + '/images/' + im.id + '?token=' + encodeURIComponent(tok)
-            : im.url || '';
         const img = new Image();
         img.alt = im.prompt || '';
         img.title = im.prompt || '';
-        img.src = src;
-        img.onerror = () => {
+        const fail = () => {
             card.innerHTML =
                 '<div style="padding:10px;font-size:.72rem;color:var(--web2-text-3)">⚠️ Ảnh lỗi</div>';
         };
+        img.onerror = fail;
         card.appendChild(img);
         const bar = document.createElement('div');
         bar.className = 'aih-imgcard-bar';
         const dl = document.createElement('a');
         dl.textContent = '⬇';
-        dl.href = src;
         dl.download = 'ai-' + im.id + '.png';
         dl.target = '_blank';
         const del = document.createElement('button');
@@ -305,6 +295,7 @@
                 });
                 const j = await r.json();
                 if (j.ok) {
+                    if (card._objUrl) URL.revokeObjectURL(card._objUrl);
                     card.remove();
                     H().toast('Đã xoá', 'success');
                 } else H().toast('Xoá thất bại', 'error');
@@ -319,6 +310,29 @@
         bar.appendChild(del);
         bar.appendChild(tag);
         card.appendChild(bar);
+
+        // Nạp ảnh AN TOÀN: ảnh có bytes trên server (protected) → fetch kèm `x-web2-token`
+        // trong HEADER (KHÔNG nhét token vào URL → tránh lộ token qua DOM/history/Referer/log)
+        // → blob → objectURL. Ảnh public (im.url) → dùng trực tiếp. Revoke objectURL khi xoá/reload.
+        if (im.has_bytes) {
+            fetch(H().API() + '/images/' + im.id, { headers: H().authHeaders(false) })
+                .then((r) => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.blob();
+                })
+                .then((blob) => {
+                    const u = URL.createObjectURL(blob);
+                    card._objUrl = u;
+                    img.src = u;
+                    dl.href = u;
+                })
+                .catch(fail);
+        } else if (im.url) {
+            img.src = im.url;
+            dl.href = im.url;
+        } else {
+            fail();
+        }
         return card;
     }
 
