@@ -2,6 +2,16 @@
 
 ## 2026-06-25
 
+### [live-chat][native-orders] Thuật ngữ: bản ghi CHƯA PBH = "Giỏ hàng" (không gọi "đơn" gây nhầm)
+
+User: '"live-chat khi kéo SP/tạo → là tạo GIỎ HÀNG cho khách chứ đừng ghi đơn hàng dễ nhầm lẫn → qua native-orders vẫn là giỏ hàng nếu chưa tạo PBH"'. Audit 2 trang chính + sweep toàn bộ trang liên quan. Mô hình chuẩn xác lập: **`draft` (chưa PBH) = Giỏ hàng (cart)**, **`confirmed` (đã có PBH) = Đơn hàng (order)**. Chỉ đổi NHÃN user-facing; **giữ nguyên** mã nội bộ (`draft`/`confirmed`, `NATIVE_WEB`, topic `web2:native-orders`, hàm `createOrder`/`NativeOrdersApi`, tên feature "Đơn Web"), thống kê đơn-hàng thật của KH, và tab "Đơn hàng" Pancake.
+
+- **Status map** (nguồn hiển thị chính): `native-orders-render.js` `web2StatusText` + `native-orders-state.js` `STATUS_META` draft "Nháp" → **"Giỏ hàng"** (icon `file`→`shopping-cart`); `index.html` filter option draft → "Giỏ hàng".
+- **live-chat tạo từ comment**: `live-comment-list-orders.js` (toast tạo/gộp/lỗi), `live-comment-list-render-row.js` (title nút: "Tạo giỏ hàng" / "Thêm comment vào giỏ"), `inventory-panel-actions.js` (toast kéo SP), `inventory-panel-render.js` (popup "🛒 Giỏ hàng (N SP)" + "Xóa giỏ"), `comments-mobile-render.js` + `comments-mobile.html` (chip "Đã tạo giỏ", badge "Giỏ hàng …"), `live-order-history.js` (FAB "🛒 Giỏ đã tạo" + modal + cột "Mã giỏ").
+- **native-orders inbox-add**: nút/label/notify "Tạo đơn" → **"Tạo giỏ hàng"**; "Đã tạo đơn inbox" → "Đã tạo giỏ hàng inbox".
+- **Confirm/notify PBH**: `pbh-bill.js` + `bulk-operations.js` — "đơn Nháp" (chưa PBH) → "giỏ hàng" (vd "Chỉ giỏ hàng (chưa PBH) mới tạo được PBH", huỷ PBH → "trở lại Giỏ hàng"), split → "tạo giỏ hàng mới".
+- Verify: `node --check` 11 file JS OK; browser-test localhost — native-orders render "Giỏ hàng"(draft)/"Đơn hàng"(confirmed) trên 11 row thật + filter "Giỏ hàng"; live-chat FAB "🛒 Giỏ đã tạo". Mã nội bộ (status value, source, topic) còn nguyên. Status ✅
+
 ### [render][web2/order-tags] Đổi tên tag CK → "Chưa thanh toán" / "Đã thanh toán"
 
 User: '"Đã nhận CK" phải là "Đã thanh toán" thì chính xác hơn'. Đúng — predicate `da_nhan_ck` bật khi **(CK xác nhận) HOẶC (ví KH ≥ tổng đơn)** = đã trả đủ tiền bất kể nguồn (CK / ví / cọc nạp sẵn), không chỉ riêng chuyển khoản → tên cũ hẹp hơn logic.
