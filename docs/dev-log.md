@@ -2,6 +2,17 @@
 
 ## 2026-06-25
 
+### [web2/ai-hub][render] Fix chat chỉ Gemini chạy + nút "✨ AI viết mô tả" cho Ghép đồ & HTML Studio
+
+User: "test key đều OK nhưng chat chỉ Gemini được (hình 1)" + "Hình 3, hình 4 thêm nút hình 2 vào".
+
+**Chẩn đoán** (test trực tiếp provider, bypass worker+auth): nút "Test" gọi `/chat` NON-STREAM (chạy mọi provider); UI chat gọi `/chat/stream` TRƯỚC, chỉ fallback non-stream khi `!res.ok`. Groq key org bị **"Organization has been restricted"** (HTTP 400 `organization_restricted`) — non-stream lẫn stream đều fail. OpenRouter/ChatAnywhere stream OK ở tầng provider (đã verify cả khi có system prompt + maxTokens 2048).
+
+- **Fix 1 — `render.com/services/web2-ai-service.js` `_httpError`**: phân loại `organization_restricted` / account suspended/disabled → `_auth` → rotation XOAY sang key/org kế thay vì ném ngay ở key đầu (1 key org hỏng KHÔNG kéo sập pool — gốc "Test OK, chat lỗi" do round-robin lúc trúng key tốt lúc trúng key hỏng). Regex test 8/8.
+- **Fix 2 — `web2/ai-hub/js/ai-chat.js` `doStream`**: stream lỗi/rỗng mà CHƯA phát chữ nào → **fallback NON-STREAM `/chat`** (track `gotDelta` tránh nhân đôi; KHÔNG fallback khi user chủ động Dừng). Vì "Test" (cũng non-stream) chạy mọi provider → chat luôn ra chữ khi đường stream qua proxy/SSE trục trặc. Bump `ai-chat.js?v=20260625f`.
+- **Nút "✨ AI viết mô tả"** (module shared `Web2AiDescribe.attach`, 1 NGUỒN — KHÔNG fork): thêm vào tab **Ghép đồ** (`web2-tryon.js`, ô "3) Đổi phong cảnh") + **HTML Studio** (`web2-content-maker.js`, ô "2 · Dữ liệu"; ensureDeps lazy-load `web2-ai-describe.js`). Gate theo `Web2AiDescribe` có mặt (degrade mượt). Bump tryon `v=20260625b`, content-maker `v=20260625c`. **Verify live (browser mount)**: cả 2 nút render + visible + label "✨ AI viết mô tả" + wired ✓.
+- ⚠ Fix 1 là backend `web2-api` → cần **redeploy Render** mới có hiệu lực; Fix 2 + nút deploy qua GH Pages (~3').
+
 ### [web2 toàn cục][render] Audit vòng 4 — quét 107 file: 18 nhãn native-cart sót (workflow)
 
 User: '"các trang khác có thiếu sót như vậy không?"'. **Workflow quét TOÀN BỘ 107 file** Web 2.0 (frontend + backend native-order) — 12 bucket × (scan → adversarial verify), đối chiếu predicate/ngữ cảnh. Rate-limit server làm fan-out song song fail 2 lần → **rewrite chạy TUẦN TỰ** (1 agent/lần) + resume cache → hoàn tất 24 agent, 0 fail. Kết quả: **18 mislabel thật** (5 HIGH / 5 MED / 8 LOW comment), áp script match-once 18/18.
