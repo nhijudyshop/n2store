@@ -52,6 +52,9 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         // history viewer (Web2AuditLog.openRecord). Khớp cột entity_id của union.
         const filterEntityId = req.query.entityId || req.query.entity_id || null;
         const filterUser = req.query.user || null;
+        // action: lọc HÀNH ĐỘNG chi tiết (create/update/delete/cancel/restock/pack…).
+        // Khớp chính xác cột `action` của union (dropdown gửi đúng giá trị từ /actions).
+        const filterAction = req.query.action || null;
         const from = req.query.from || null;
         const to = req.query.to || null;
 
@@ -168,6 +171,10 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         if (filterEntityId) {
             params.push(filterEntityId);
             filters.push(`entity_id = $${params.length}`);
+        }
+        if (filterAction) {
+            params.push(filterAction);
+            filters.push(`action = $${params.length}`);
         }
 
         // SCOPE (2026-06-22): NV chỉ xem thao tác của CHÍNH MÌNH, admin xem TẤT CẢ.
@@ -288,6 +295,62 @@ router.get('/entities', requireWeb2AuthSoft, async (req, res) => {
         }
     }
     res.json({ success: true, entities: [...out].sort() });
+});
+
+// GET /actions?entity=<slug> — danh sách HÀNH ĐỘNG (action) chi tiết có data, để
+// build dropdown lọc "hành động". DISTINCT từng bảng riêng (rẻ + index-friendly)
+// thay vì union toàn bộ. `entity` (optional) → chỉ trả action của loại đó:
+//   - product/pbh/reconcile/wallet → bảng history riêng tương ứng
+//   - entity-sink (customer, payment-signal, native-order, …) → web2_audit_events
+//   - không truyền entity → gộp action của TẤT CẢ nguồn.
+router.get('/actions', requireWeb2AuthSoft, async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    const entity = (req.query.entity || '').trim() || null;
+    const out = new Set();
+    // entity slug → { table, col } cho 4 bảng history riêng (wallet dùng adjustment_type).
+    const DEDICATED = {
+        product: { table: 'web2_product_history', col: 'action' },
+        pbh: { table: 'fast_sale_order_history', col: 'action' },
+        reconcile: { table: 'pbh_fulfillment_logs', col: 'action' },
+        wallet: { table: 'web2_wallet_adjustments', col: 'adjustment_type' },
+    };
+    try {
+        await ensureAuditSinkTable(pool).catch(() => {});
+        for (const [name, { table, col }] of Object.entries(DEDICATED)) {
+            if (entity && entity !== name) continue;
+            if (!(await _tableExists(pool, table))) continue;
+            try {
+                const r = await pool.query(
+                    `SELECT DISTINCT ${col} AS action FROM ${table}
+                     WHERE ${col} IS NOT NULL AND ${col} <> '' LIMIT 200`
+                );
+                for (const row of r.rows) if (row.action) out.add(row.action);
+            } catch {
+                /* best-effort per-table */
+            }
+        }
+        // Event-sink: chỉ khi không lọc entity, HOẶC entity không thuộc 4 bảng riêng.
+        if (!entity || !DEDICATED[entity]) {
+            try {
+                const params = [];
+                let w = `action IS NOT NULL AND action <> ''`;
+                if (entity) {
+                    params.push(entity);
+                    w += ` AND entity = $1`;
+                }
+                const r = await pool.query(
+                    `SELECT DISTINCT action FROM web2_audit_events WHERE ${w} LIMIT 300`,
+                    params
+                );
+                for (const row of r.rows) if (row.action) out.add(row.action);
+            } catch {
+                /* best-effort sink */
+            }
+        }
+        res.json({ success: true, actions: [...out].sort() });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message, actions: [] });
+    }
 });
 
 // DELETE /purge?entity=<slug>&entityId=<id> — ADMIN housekeeping: xoá audit khỏi

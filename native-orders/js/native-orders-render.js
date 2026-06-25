@@ -425,19 +425,14 @@
                             }
                             ${/* 2026-06-04: nút Huỷ đơn (X) đã dời lên slot 2 cho confirmed. */ ''}
                             ${(() => {
-                                // 2026-06-20: Admin xoá đơn Inbox RỖNG (nháp/huỷ + giỏ trống) —
-                                // dọn đơn test/rác. Server DELETE vẫn chặn nếu còn PBH liên kết.
+                                // 2026-06-26: Admin xoá GIỎ HÀNG (draft) hoặc đơn đã HUỶ (cancelled),
+                                // kể cả giỏ có SP (draft chưa trừ kho → xoá an toàn). ĐƠN ĐÃ CHỐT PBH
+                                // (confirmed = "Đơn hàng") KHÔNG xoá được — chỉ Huỷ. Chỉ admin thấy nút.
+                                // Server DELETE vẫn chặn nếu còn PBH liên kết (defense-in-depth).
                                 // removeOrder() đã có confirm + cập nhật state + SSE notify.
-                                const cartEmpty =
-                                    !(o.products || []).length &&
-                                    Number(o.totalQuantity || 0) === 0;
-                                const deletable =
-                                    NO.STATE.channel === 'web2_inbox' &&
-                                    (o.status === 'draft' || o.status === 'cancelled') &&
-                                    cartEmpty &&
-                                    NO.isAdmin();
+                                const deletable = NO.isAdmin() && o.status !== 'confirmed';
                                 if (!deletable) return '';
-                                return `<button class="web2-btn web2-btn-danger web2-btn-xs" title="Xoá đơn inbox rỗng (admin — đơn nháp/huỷ, không có SP)" aria-label="Xoá đơn"
+                                return `<button class="web2-btn web2-btn-danger web2-btn-xs" title="Xoá đơn (admin — giỏ hàng / đơn đã huỷ; đơn đã chốt PBH không xoá được)" aria-label="Xoá đơn"
                                 onclick="event.stopPropagation();NativeOrdersApp.removeOrder('${NO.escapeHtml(o.code)}')">
                                 <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
                             </button>`;

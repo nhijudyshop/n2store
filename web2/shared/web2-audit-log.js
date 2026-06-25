@@ -52,6 +52,52 @@
         campaign: 'Chiến dịch',
         'balance-transaction': 'Giao dịch CK',
     };
+    // Nhãn tiếng Việt cho HÀNH ĐỘNG (action) thường gặp. Slug nào không có ở đây →
+    // hiển thị raw (dropdown vẫn lọc đúng giá trị gốc). Best-effort, không bắt buộc đủ.
+    const ACTION_LABELS = {
+        create: 'Tạo mới',
+        created: 'Tạo mới',
+        insert: 'Tạo mới',
+        update: 'Cập nhật',
+        updated: 'Cập nhật',
+        edit: 'Sửa',
+        delete: 'Xoá',
+        deleted: 'Xoá',
+        remove: 'Xoá',
+        cancel: 'Huỷ',
+        cancelled: 'Huỷ',
+        restock: 'Hoàn kho',
+        confirm: 'Xác nhận',
+        confirmed: 'Xác nhận',
+        pack: 'Đóng gói',
+        packed: 'Đóng gói',
+        ship: 'Giao hàng',
+        shipped: 'Đã giao đơn vị VC',
+        deliver: 'Giao thành công',
+        delivered: 'Giao thành công',
+        return: 'Trả hàng',
+        refund: 'Hoàn tiền',
+        credit: 'Cộng ví',
+        debit: 'Trừ ví',
+        deposit: 'Nạp ví',
+        withdraw: 'Rút ví',
+        adjust: 'Điều chỉnh',
+        adjustment: 'Điều chỉnh',
+        reconcile: 'Đối soát',
+        assign: 'Phân công',
+        unassign: 'Bỏ phân công',
+        split: 'Tách đơn',
+        merge: 'Gộp đơn',
+        reassign: 'Gán lại',
+        link: 'Liên kết',
+        unlink: 'Bỏ liên kết',
+        tag: 'Gắn thẻ',
+        untag: 'Bỏ thẻ',
+    };
+    function actionLabel(a) {
+        if (!a) return '';
+        return ACTION_LABELS[String(a).toLowerCase()] || a;
+    }
     const COLSPAN = 7;
 
     // ---- helpers ----
@@ -144,6 +190,42 @@
         );
     }
 
+    function actionOptions(actions) {
+        return (
+            '<option value="">Tất cả hành động</option>' +
+            (actions || [])
+                .map((a) => `<option value="${esc(a)}">${esc(actionLabel(a))}</option>`)
+                .join('')
+        );
+    }
+
+    // Lấy danh sách HÀNH ĐỘNG động từ server (theo entity đang chọn nếu có) → dropdown.
+    async function populateActions(host) {
+        const sel = host.querySelector('.w2al-action');
+        if (!sel) return;
+        const entity = (() => {
+            const e = host.querySelector('.w2al-entity');
+            return e ? e.value.trim() : '';
+        })();
+        try {
+            const r = await fetch(
+                API + '/actions' + (entity ? '?entity=' + encodeURIComponent(entity) : ''),
+                {
+                    credentials: 'include',
+                    headers: authHeaders(),
+                }
+            );
+            const d = await r.json();
+            const actions = (d.actions || []).filter(Boolean);
+            const cur = sel.value;
+            sel.innerHTML = actionOptions(actions);
+            // giữ lựa chọn cũ nếu còn hợp lệ, ngược lại reset về "Tất cả".
+            sel.value = actions.includes(cur) ? cur : '';
+        } catch {
+            /* giữ dropdown hiện tại */
+        }
+    }
+
     // Lấy danh sách entity ĐỘNG từ server (4 bảng + entity-sink) → dropdown đủ.
     async function populateEntities(host) {
         const sel = host.querySelector('.w2al-entity');
@@ -173,6 +255,7 @@
                 showFilters
                     ? `<div class="w2al-filters">
                 <select class="w2al-entity" title="Lọc theo entity">${entityOptions()}</select>
+                <select class="w2al-action" title="Lọc theo hành động chi tiết">${actionOptions()}</select>
                 <input class="w2al-user" type="text" placeholder="Tên / username / user_id…" />
                 <input class="w2al-from" type="date" title="Từ ngày (YYYY-MM-DD)" />
                 <input class="w2al-to" type="date" title="Đến ngày (YYYY-MM-DD)" />
@@ -211,7 +294,7 @@
             <td>${esc(fmtTime(it.created_at))}</td>
             <td><span class="w2al-pill ${esc(ent)}">${esc(ENTITY_LABELS[ent] || ent)}</span></td>
             <td><code>${esc(it.entity_id || '')}</code></td>
-            <td>${esc(it.action || '')}</td>
+            <td title="${esc(it.action || '')}">${esc(actionLabel(it.action))}</td>
             <td>${esc(it.user_name || it.user_id || '—')}</td>
             <td>${esc(it.source_page || '—')}</td>
             <td><pre class="w2al-diff">${diff}</pre></td>
@@ -227,10 +310,12 @@
         };
         // opts.entity/entityId = chế độ PER-RECORD (cố định, ưu tiên hơn filter UI).
         const e = opts.entity || get('.w2al-entity');
+        const act = get('.w2al-action');
         const u = get('.w2al-user');
         const f = get('.w2al-from');
         const t = get('.w2al-to');
         if (e) q.set('entity', e);
+        if (act) q.set('action', act);
         if (opts.entityId) q.set('entityId', opts.entityId);
         if (u) q.set('user', u);
         if (f) q.set('from', f);
@@ -321,8 +406,18 @@
                     });
             });
             const entitySel = host.querySelector('.w2al-entity');
-            if (entitySel) entitySel.addEventListener('change', () => load(host, opts));
-            if (opts.showFilters !== false) populateEntities(host);
+            if (entitySel)
+                entitySel.addEventListener('change', () => {
+                    // Đổi entity → action dropdown thu hẹp theo entity đó, rồi tải lại.
+                    populateActions(host);
+                    load(host, opts);
+                });
+            const actionSel = host.querySelector('.w2al-action');
+            if (actionSel) actionSel.addEventListener('change', () => load(host, opts));
+            if (opts.showFilters !== false) {
+                populateEntities(host);
+                populateActions(host);
+            }
             if (opts.autoLoad !== false) load(host, opts);
         },
         reload(target) {
