@@ -2,6 +2,20 @@
 
 ## 2026-06-25
 
+### [so-order][web2/shared] AI widget: đối chiếu Sổ Order ⇄ Kho SP TÍNH SẴN (hết "xin data")
+
+User hỏi AI widget so-order "đối chiếu SP đã order chưa có mã trong kho" → AI **xin user paste** `window.Web2ProductsCache.getAll()` thay vì tự đọc.
+
+**RCA**: accessor `Web2ProductsCache.getAll()` CÓ trong registry nhưng (1) là accessor cuối → `accBudget` đã cạn vì `SoOrder.state` (object, có ảnh data-URL) stringify đầu tiên → kho bị `break` (skip); (2) `MAX_CTX=8000` ký tự không chứa nổi cả 2 dataset đầy đủ; (3) array lớn bị `encodeArray` tóm tắt → không diff chính xác từng mã được. → LLM thiếu data kho → xin user.
+
+**Fix (precompute client-side, không dump raw):**
+
+- `so-order-kho-sync.js`: thêm `SO.reconcileWithKho()` — diff deterministic, match UNIQUE THEO MÃ + ĐỊA DANH (matchedCode∈kho HOẶC kho có name+variant+region; HƯƠNG CHÂU vs HÀ NỘI tính RIÊNG). Trả `{ready, khoCount, unmatchedCount, unmatched:[{productName, variant, supplier, region, totalQty, lineCount, suggestedCode}]}`. suggestedCode qua rule mã chung (`_assignKhoCodes`).
+- `web2-ai-page-registry.js`: thêm accessor `window.SoOrder?.reconcileWithKho?.()` làm **ĐẦU TIÊN** (kết quả gọn → luôn lọt budget) + sửa prompt "🏷️ SP chưa có ở kho" trỏ vào accessor này.
+- Bump registry inject version (`web2-sidebar.js` → `20260625recon`) + cache-bust so-order page.
+
+**Verify (browser, data thật)**: `reconcileWithKho()`=`{ready:true,khoCount:10,unmatchedCount:0}` (mọi dòng đã sync khớp); inject dòng ảo "SP TEST...Màu Tím/Size 99" HÀ NỘI qty7 → unmatched 1, `suggestedCode:HNMMTIM` (region-prefix ✓), cleanup. `Web2AiAssistant.pageContext()` (5706 ký tự < 8000) **bắt đầu bằng** khối "KẾT QUẢ ĐỐI CHIẾU TÍNH SẴN ... {ready,khoCount,unmatched}" → AI nhận kết quả tính sẵn, hết xin data. node --check OK. Thuần frontend → GH Pages. Status ✅
+
 ### [web2/live-control] FIX tìm SP trong picker thiếu match MÃ — tìm theo mã + tên
 
 User: "các chức năng tìm kiếm sản phẩm là tìm kiếm theo unique mã sản phẩm" + "tìm theo mã + theo tên sản phẩm". Audit mọi entry tìm SP:

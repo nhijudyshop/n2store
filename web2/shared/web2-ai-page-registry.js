@@ -359,6 +359,11 @@
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [
                 {
+                    expr: 'window.SoOrder?.reconcileWithKho?.()',
+                    desc: 'KẾT QUẢ ĐỐI CHIẾU TÍNH SẴN client-side: SP đã order trong Sổ Order nhưng CHƯA có mã/khớp trong Kho SP. Match unique theo MÃ + name+variant+ĐỊA DANH (HƯƠNG CHÂU vs HÀ NỘI tính RIÊNG — mã HC/HN khác nhau). Khi user hỏi "SP chưa có ở kho / cần tạo mã trước khi nhận hàng" → DÙNG TRỰC TIẾP mảng unmatched này, KHÔNG tự diff 2 dataset thủ công. ready=false (kho chưa nạp) → báo user thử lại sau giây lát.',
+                    shape: '{ ready:boolean, khoCount:number, unmatchedCount:number, unmatched:[{ productName, variant, supplier, region (ĐỊA DANH HÀ NỘI/HƯƠNG CHÂU), totalQty, lineCount, suggestedCode (mã gợi ý theo rule) }] }',
+                },
+                {
                     expr: 'window.SoOrder?.state',
                     desc: 'FULL dataset Sổ Order: object gốc giữ TẤT CẢ tab + đợt nhập + dòng hàng (kể cả tab không active và đợt đang thu gọn — không nằm trong DOM). Đây là nguồn đầy đủ nhất, widget nên đọc cái này thay vì DOM.',
                     shape: "{ activeTabId: string, tabs: [{ id, label (vd 'HÀ NỘI'/'HƯƠNG CHÂU'), currency ('VND'|'CNY'), rate, footer:{discount,shipping}, columnVisibility:{}, shipments: [{ id, date:'YYYY-MM-DD', batch, caseCount, weightKg, contractAmount, contractCurrency, collapsed, rows: [{ id, supplier, productName, variant, qty, sellPrice, costPrice, productImage, invoiceImage, note, costNote, status:'draft'|'partial_received'|'received'|'cancelled', createdAt, updatedAt }] }] }] }",
@@ -407,7 +412,7 @@
                 },
                 {
                     label: '🏷️ SP chưa có ở kho',
-                    prompt: 'Đối chiếu các SP trong Sổ Order (window.SoOrder.state) với kho SP (window.Web2ProductsCache.getAll()). Liệt kê SP đã order nhưng CHƯA có mã/khớp trong kho để mình tạo mã kho trước khi nhận hàng.',
+                    prompt: 'Dùng accessor window.SoOrder.reconcileWithKho() (đã TÍNH SẴN danh sách đối chiếu) — đọc mảng unmatched, liệt kê SP đã order nhưng CHƯA có mã/khớp trong Kho để mình tạo mã trước khi nhận hàng. Mỗi SP nêu: tên, biến thể, ĐỊA DANH (region), NCC, tổng SL (totalQty), và mã gợi ý (suggestedCode). Nhóm theo địa danh. Nếu ready=false thì báo Kho chưa nạp xong, bảo mình thử lại sau giây lát.',
                 },
             ],
             note: 'Trang này có FULL dataset trên window, không cần dựa vào DOM (DOM chỉ render tab active + đợt không thu gọn, thiếu nhiều dữ liệu). Nguồn chuẩn: window.SoOrder.state (object gốc tabs/shipments/rows). Helper window.SoOrderStorage.getActiveTab(state) trả tab đang xem; getTrash(state) trả thùng rác. Để AI phân tích dễ nhất, dùng accessor flatMap (#2) để có mảng phẳng mọi dòng hàng kèm tabLabel/currency/rate/shipDate/batch. Row shape verified trong so-order-storage.js: { id, supplier, productName, variant, qty, sellPrice, costPrice, productImage, invoiceImage, note(GHI CHÚ bán), costNote(GHI CHÚ CP',

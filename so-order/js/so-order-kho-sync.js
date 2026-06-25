@@ -6,6 +6,97 @@
 
     const SO = (window.SoOrder = window.SoOrder || {});
 
+    // ── Đối chiếu Sổ Order ⇄ Kho SP (cho AI widget + công cụ) ────────────
+    // Trả về DANH SÁCH SP đã order nhưng CHƯA có mã/khớp trong Kho — TÍNH SẴN
+    // client-side (deterministic), gọn để AI assistant nhúng vào context (không
+    // phải dump cả 2 dataset rồi nhờ LLM tự diff — vượt giới hạn context + thiếu
+    // chính xác). Match UNIQUE THEO MÃ + ĐỊA DANH: 1 dòng coi là "đã có" nếu
+    // (a) matchedCode tồn tại trong Kho, hoặc (b) Kho có SP cùng name+variant
+    // + cùng địa danh (region/tab). HƯƠNG CHÂU vs HÀ NỘI = SP riêng (mã HC/HN
+    // khác nhau) nên KHÔNG coi là khớp chéo địa danh. Gộp theo name+variant+region,
+    // cộng tổng SL, kèm suggestedCode (rule mã chung) để user tạo mã trước khi nhận.
+    SO.reconcileWithKho = function reconcileWithKho() {
+        const cache = window.Web2ProductsCache;
+        const state = SO.state;
+        if (!cache || !cache.getAll || !state) {
+            return { ready: false, note: 'Kho SP hoặc Sổ Order chưa sẵn sàng', unmatched: [] };
+        }
+        const kho = cache.getAll() || [];
+        if (!kho.length) {
+            return {
+                ready: false,
+                note: 'Kho SP chưa nạp xong (cache đang init) — thử lại sau giây lát',
+                unmatched: [],
+            };
+        }
+        const norm = (s) =>
+            String(s == null ? '' : s)
+                .normalize('NFC')
+                .trim()
+                .toLowerCase();
+        const khoHas = (name, variant, region) =>
+            kho.some(
+                (p) =>
+                    norm(p.name) === norm(name) &&
+                    norm(p.variant) === norm(variant) &&
+                    (!region || !p.region || norm(p.region) === norm(region))
+            );
+        const groups = new Map();
+        for (const t of state.tabs || []) {
+            const region = (t.label || '').trim();
+            for (const sh of t.shipments || []) {
+                for (const r of sh.rows || []) {
+                    if (!r || r.status === 'cancelled') continue;
+                    const name = (r.productName || '').trim();
+                    if (!name) continue;
+                    const variant = (r.variant || '').trim();
+                    const supplier = (r.supplier || '').trim();
+                    if (r.matchedCode && cache.findByCode && cache.findByCode(r.matchedCode))
+                        continue; // đã khớp mã trong Kho
+                    if (khoHas(name, variant, region)) continue; // đã có name+variant+địa danh
+                    const key = [norm(name), norm(variant), norm(region)].join('|');
+                    let g = groups.get(key);
+                    if (!g) {
+                        g = {
+                            productName: name,
+                            variant: variant || '(không biến thể)',
+                            supplier: supplier || null,
+                            region: region || null,
+                            totalQty: 0,
+                            lineCount: 0,
+                        };
+                        groups.set(key, g);
+                    }
+                    g.totalQty += Number(r.qty) || 0;
+                    g.lineCount++;
+                    if (!g.supplier && supplier) g.supplier = supplier;
+                }
+            }
+        }
+        const unmatched = [...groups.values()];
+        // suggestedCode theo rule mã chung (Web2ProductCode) — best-effort.
+        try {
+            if (unmatched.length && SO._assignKhoCodes) {
+                const items = unmatched.map((u) => ({
+                    name: u.productName,
+                    variant: u.variant === '(không biến thể)' ? '' : u.variant,
+                }));
+                SO._assignKhoCodes(items);
+                unmatched.forEach((u, i) => {
+                    u.suggestedCode = (items[i] && items[i].code) || null;
+                });
+            }
+        } catch (_) {
+            /* code-suggest lỗi → bỏ suggestedCode, vẫn trả danh sách */
+        }
+        return {
+            ready: true,
+            khoCount: kho.length,
+            unmatchedCount: unmatched.length,
+            unmatched,
+        };
+    };
+
     /**
      * Đối chiếu các dòng vừa lưu với Kho SP Web 2.0:
      *   - SP đã có → bổ sung tab.label vào field `region` (ĐỊA DANH) nếu chưa có
