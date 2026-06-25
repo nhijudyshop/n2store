@@ -81,6 +81,7 @@
         const paneEl = (ch) => back.querySelector(`[data-w2cc-pane="${ch}"]`);
         const mounted = { pancake: false, zalo: false };
         let panelInst = null;
+        let pancakeAdapter = null; // giữ adapter để refreshActive() (SSE web2:messages)
         let zaloHandle = null;
 
         async function mountPancake() {
@@ -102,8 +103,9 @@
                     return;
                 }
                 host.innerHTML = '';
+                pancakeAdapter = buildPancakeAdapter(conv);
                 panelInst = global.Web2ChatPanel.mount(host, { mode: 'full' });
-                panelInst.open(conv, buildPancakeAdapter(conv));
+                panelInst.open(conv, pancakeAdapter);
                 // tự cuộn xuống cùng sau khi render (ảnh/layout settle muộn)
                 setTimeout(() => panelInst?.scrollToBottom?.(), 500);
             } catch (e) {
@@ -203,7 +205,22 @@
         }
         document.addEventListener('keydown', onEsc);
 
-        const handle = { close, _back: back };
+        const handle = {
+            close,
+            _back: back,
+            // Realtime SSE web2:messages → reload thread Pancake đang mở (giữ vị trí
+            // cuộn nếu đang đọc lịch sử; chỉ auto-cuộn đáy khi đang ở đáy). Zalo có
+            // realtime riêng → bỏ qua ở đây.
+            async refreshActive() {
+                const p = panelInst;
+                const ad = pancakeAdapter;
+                if (!p || !ad) return;
+                try {
+                    const r = await ad.loadMessages();
+                    if (panelInst === p && r && r.messages) p.setMessages(r.messages);
+                } catch (_) {}
+            },
+        };
         setActive(handle);
         showTab(channel); // mount kênh mặc định
         return handle;

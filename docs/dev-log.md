@@ -2,6 +2,18 @@
 
 ## 2026-06-25
 
+### [web2/shared] Web2CustomerChat realtime như live-chat (SSE web2:messages)
+
+User: "realtime như live-chat". Chat KH nhúng (`Web2CustomerChat` mở từ customers/jt-tracking/balance-history/native-orders) trước đây chỉ `loadMessages` lúc mở → tin KH mới không hiện tới khi đóng/mở lại (gap LOW audit SSE).
+
+**Fix (port pattern proven của `LiveChatModal`, 1 nguồn KHÔNG fork):**
+
+- **core** (`web2-customer-chat-core.js`): subscribe `web2:messages` **1 lần** (retry tối đa 6 nhịp nếu bridge chưa load) → debounce 800ms → `NS._active.refreshActive()`. Tin Zalo có realtime riêng (Web2Zalo) nên topic này chỉ lo Pancake.
+- **drawer** (`web2-customer-chat.js`) + **modal 3-cột** (`web2-customer-chat-modal.js`): lưu adapter hiện tại (`pancakeAdapter`/`currentAdapter`) + expose `handle.refreshActive()` = `adapter.loadMessages()` → `panel.setMessages()` (giữ vị trí cuộn khi đọc lịch sử, CHỈ auto-cuộn đáy nếu đang ở đáy — KHÔNG dùng `panel.reload()` ép cuộn đáy).
+- Bump cache-bust 3 file chat `?v=20260625sse` trên cả 4 trang.
+
+**Verify browser (session live)**: `nsReady/entryReady/hasSse/probeInstalled=true`; cài probe lên `NS._active.refreshActive` → **tin web2:messages THẬT từ prod hub** kích `RT_HIT:3` (burst gom bởi debounce) ⇒ chuỗi prod hub → Web2SSE bridge → core subscribe → refreshActive chạy đúng. 4 trang đều load `web2-sse-bridge.js`. node --check 3 file OK. Thuần frontend → GH Pages. Status ✅
+
 ### [so-order] FIX REGRESSION: `_rowToKhoMatch is not defined` — xóa/sửa lô vỡ
 
 User báo "Không xóa được so-order" + console `Uncaught ReferenceError: _rowToKhoMatch is not defined at so-order-delete.js:197 (_finalizeDeleteShipment)`.

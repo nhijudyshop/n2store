@@ -522,6 +522,37 @@
         );
     }
 
+    // ── Realtime: SSE web2:messages → refresh thread Pancake đang mở ─────
+    // Audit SSE 2026-06-25: trước đây Web2CustomerChat chỉ loadMessages on-open →
+    // tin KH mới không hiện tới khi đóng/mở lại. Nay subscribe 1 LẦN (1 nguồn,
+    // KHÔNG fork) — mỗi overlay (drawer/modal) expose handle.refreshActive() tự
+    // reload thread đang mở. Cùng pattern proven của LiveChatModal: dùng
+    // adapter.loadMessages() + panel.setMessages() (chỉ auto-cuộn nếu đang ở đáy,
+    // GIỮ vị trí khi đọc lịch sử) — KHÔNG dùng panel.reload() (ép cuộn đáy).
+    // Tin Zalo có realtime riêng (Web2Zalo) nên topic này chỉ lo Pancake.
+    let _sseWired = false;
+    let _sseRetry = 0;
+    let _sseRefreshTimer = null;
+    function _wireMessagesSse() {
+        if (_sseWired) return;
+        if (!global.Web2SSE || typeof global.Web2SSE.subscribe !== 'function') {
+            // Bridge có thể load chậm/không có trên trang → thử lại vài nhịp rồi thôi.
+            if (_sseRetry++ < 6) setTimeout(_wireMessagesSse, 1000);
+            return;
+        }
+        _sseWired = true;
+        global.Web2SSE.subscribe('web2:messages', () => {
+            const act = NS._active;
+            if (!act || typeof act.refreshActive !== 'function') return;
+            clearTimeout(_sseRefreshTimer);
+            _sseRefreshTimer = setTimeout(() => {
+                try {
+                    NS._active?.refreshActive?.();
+                } catch (_) {}
+            }, 800); // debounce gom burst tin nhắn
+        });
+    }
+
     // ── expose lên namespace cho modal + entry tham chiếu ───────────────
     Object.assign(NS, {
         WORKER,
@@ -540,4 +571,6 @@
         _convRowHtml,
         _mergeConvs,
     });
+
+    _wireMessagesSse();
 })(window);

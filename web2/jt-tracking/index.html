@@ -160,6 +160,9 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <!-- Web2Zalo.mountChat → mở chat nhóm Zalo nguồn của mã (lazy-load chat engine) -->
         <script src="../shared/web2-zalo.js?v=20260623own"></script>
+        <!-- Focus-lease: giữ phiên Zalo khi đang xem trang J&T (ăn tin Zalo realtime), nhường chat.zalo.me khi rời -->
+        <script src="../shared/web2-zalo-api.js?v=20260623own"></script>
+        <script src="../shared/web2-zalo-presence.js?v=20260625lease"></script>
         <!-- Web2Chat → nhắn tin / gắn thẻ Pancake cho khách (theo SĐT) -->
         <script src="../shared/web2-chat-utils.js?v=20260618w3"></script>
         <script src="../shared/web2-chat-tokens.js?v=20260618w3"></script>
@@ -171,9 +174,9 @@
         <!-- N2 Extension bridge (tùy chọn) → gửi Pancake bypass 24h -->
         <script src="../shared/web2-extension-bridge.js?v=20260615a"></script>
         <!-- Web2CustomerChat → FULL chat KH (Pancake + Zalo) dùng chung, bấm SĐT mở -->
-        <script src="../shared/web2-customer-chat-core.js?v=20260621r8"></script>
-        <script src="../shared/web2-customer-chat-modal.js?v=20260620p"></script>
-        <script src="../shared/web2-customer-chat.js?v=20260620cookieacc"></script>
+        <script src="../shared/web2-customer-chat-core.js?v=20260625sse"></script>
+        <script src="../shared/web2-customer-chat-modal.js?v=20260625sse"></script>
+        <script src="../shared/web2-customer-chat.js?v=20260625sse"></script>
         <!-- J&T Tracking page app — split modules, load in dependency order (app LAST) -->
         <script src="js/jt-tracking-constants.js?v=20260618w1"></script>
         <script src="js/jt-tracking-api.js?v=20260619srcat"></script>
@@ -182,5 +185,9 @@
         <script src="js/jt-tracking-modals.js?v=20260620chat"></script>
         <script src="js/jt-tracking-actions.js?v=20260619auto"></script>
         <script src="js/jt-tracking-app.js?v=20260623w3"></script>
+        <script>
+            // Giữ phiên Zalo khi đang ở trang J&T (ăn mã vận đơn realtime); rời/đóng → nhường chat.zalo.me.
+            if (window.Web2ZaloPresence) window.Web2ZaloPresence.start();
+        </script>
     </body>
 </html>

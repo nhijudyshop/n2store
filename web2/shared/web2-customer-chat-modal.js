@@ -62,6 +62,7 @@
         const threadEl = back.querySelector('[data-w2cc="thread"]');
         const searchEl = back.querySelector('[data-w2cc="search"]');
         let panelInst = null;
+        let currentAdapter = null; // giữ adapter để refreshActive() (SSE web2:messages)
         let selectedConvId = null;
         let baseConvs = [];
 
@@ -78,10 +79,11 @@
                 panelInst?.destroy?.();
             } catch {}
             threadEl.innerHTML = '';
+            currentAdapter = buildPancakeAdapter(conv);
             panelInst = global.Web2ChatPanel.mount(threadEl, {
                 mode: readonly ? 'readonly' : 'full',
             });
-            panelInst.open(conv, buildPancakeAdapter(conv));
+            panelInst.open(conv, currentAdapter);
             setTimeout(() => panelInst?.scrollToBottom?.(), 400);
         }
         function renderRows(convs) {
@@ -211,6 +213,17 @@
             getPanel: () => panelInst,
             // Cho caller truy cập cột info đã render (vd wire reply handlers).
             getInfoEl: () => back.querySelector('[data-w2cc="info"]'),
+            // Realtime SSE web2:messages → reload thread đang chọn (giữ vị trí cuộn
+            // nếu đang đọc lịch sử). Readonly vẫn refresh (chỉ xem, không gửi).
+            async refreshActive() {
+                const p = panelInst;
+                const ad = currentAdapter;
+                if (!p || !ad) return;
+                try {
+                    const r = await ad.loadMessages();
+                    if (panelInst === p && r && r.messages) p.setMessages(r.messages);
+                } catch (_) {}
+            },
         };
         setActive(handle);
         // onReady: caller wire thêm hành vi vào info column / thread sau khi mount
