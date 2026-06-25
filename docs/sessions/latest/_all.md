@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `28cf5a5` — fix(web2): quét 107 file — 18 nhãn native-cart sót → Giỏ hàng (audit vòng 4)
-**Last updated**: 2026-06-25 16:01:06 +07
-**Latest session**: [`RESUME:20260625-160106-28cf5a5`](../20260625-160106-28cf5a5.md)
-**Summary**: audit vòng 4: quét 107 file Web2 — 18 nhãn native-cart sót → Giỏ hàng (workflow)
+**Latest commit**: `e552a34` — auto: session update
+**Last updated**: 2026-06-25 16:02:03 +07
+**Latest session**: [`RESUME:20260625-160203-e552a34`](../20260625-160203-e552a34.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 5 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -84,4 +80,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 16:01
+- [`web2/`](./web2.md) — updated 2026-06-25 16:02
