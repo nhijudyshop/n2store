@@ -523,7 +523,7 @@
             const j = await r.json();
             renderJobs(Array.isArray(j.jobs) ? j.jobs : []);
         } catch (_) {
-            /* ignore */
+            renderJobs([]); // dọn skeleton khi lỗi → empty-state, tránh kẹt loading
         }
     }
 

@@ -158,7 +158,8 @@
     function renderList() {
         const el = document.getElementById('ctBody');
         if (!el) return;
-        if (state.loading) {
+        // Skeleton CHỈ lần tải đầu (chưa có phiếu). Re-filter giữ list cũ → không nháy.
+        if (state.loading && !state.vouchers.length) {
             if (global.Web2Skeleton) {
                 el.innerHTML = `
                   <div class="ct-list-wrap">

@@ -130,6 +130,7 @@
             refreshPickerAddedFlags();
         } catch (e) {
             toast('Lỗi tải SP chiến dịch: ' + (e && e.message), 'error');
+            renderBoard(); // dọn skeleton: state.board vẫn [] → render empty-state, không kẹt loading
         }
     }
     function scheduleBoard() {

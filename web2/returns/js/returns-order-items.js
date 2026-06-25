@@ -63,6 +63,12 @@
         } catch (err) {
             $('orderSummary').innerHTML =
                 `<div class="rt-muted">Lỗi tải đơn: ${esc(err.message)}</div>`;
+            // Dọn skeleton #orderItems khi lỗi (renderOrderItems không chạy ở nhánh này) → tránh kẹt.
+            const itemsBox = $('orderItems');
+            if (itemsBox) {
+                window.Web2Skeleton?.clear(itemsBox);
+                itemsBox.hidden = true;
+            }
         }
     }
 
