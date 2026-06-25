@@ -82,6 +82,9 @@
             await loadScript(
                 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
             ).catch(() => {});
+        // ✨ AI viết mô tả (nút mở rộng ý ngắn ở ô Dữ liệu) — module shared, best-effort.
+        if (!global.Web2AiDescribe && base)
+            await loadScript(base + 'web2-ai-describe.js?v=20260625a').catch(() => {});
         if (!global.Web2HtmlSkill) throw new Error('Không tải được Web2HtmlSkill');
     }
 
@@ -94,6 +97,10 @@
 .w2cm.compact{grid-template-columns:1fr;overflow:auto;height:auto}
 .w2cm-left{display:flex;flex-direction:column;gap:9px;min-width:0;overflow:auto}
 .w2cm-seclabel{font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;margin-top:2px}
+.w2cm-seclabel-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.w2cm-ai{border:1px solid #c7d2fe;background:#eef2ff;color:#4f46e5;border-radius:8px;padding:3px 8px;font-size:.7rem;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;display:inline-flex;align-items:center;gap:4px}
+.w2cm-ai:hover{background:#e0e7ff}
+.w2cm-ai:disabled{opacity:.6;cursor:not-allowed}
 .w2cm-skills{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .w2cm.compact .w2cm-skills{grid-template-columns:1fr 1fr 1fr}
 .w2cm-skill{display:flex;flex-direction:column;gap:2px;align-items:flex-start;border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:8px 9px;cursor:pointer;text-align:left;transition:border-color .12s,box-shadow .12s}
@@ -180,7 +187,10 @@
                         )
                         .join('')}
                 </div>
-                <div class="w2cm-seclabel">2 · Dữ liệu</div>
+                <div class="w2cm-seclabel w2cm-seclabel-row">
+                    <span>2 · Dữ liệu</span>
+                    <button type="button" class="w2cm-ai" hidden>✨ AI viết mô tả</button>
+                </div>
                 <textarea class="w2cm-data" rows="7"></textarea>
                 <input class="w2cm-extra" type="text" placeholder="Yêu cầu thêm (tuỳ chọn): tông màu, phong cách…">
                 <div class="w2cm-actions">
@@ -339,6 +349,14 @@
         );
         $('.w2cm-open').addEventListener('click', openTab);
         renderBtn.addEventListener('click', renderVideo);
+
+        // ✨ AI viết mô tả — mở rộng ý ngắn ở ô Dữ liệu, dùng module shared Web2AiDescribe
+        // (1 NGUỒN, KHÔNG fork). ensureDeps đã best-effort nạp module; chỉ hiện khi có mặt.
+        if (global.Web2AiDescribe && global.Web2AiDescribe.attach) {
+            const aiBtn = $('.w2cm-ai');
+            aiBtn.hidden = false;
+            global.Web2AiDescribe.attach({ button: aiBtn, input: dataEl, kind: 'generic' });
+        }
 
         const onResize = () => fitPreview();
         window.addEventListener('resize', onResize);

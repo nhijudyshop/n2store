@@ -195,7 +195,10 @@
                 <div class="w2t-field">
                     <div class="w2t-label-row">
                         <span class="w2t-label">3) Đổi phong cảnh / chi tiết (tuỳ chọn)</span>
-                        <button type="button" class="w2t-preset" hidden>🧩 Mẫu</button>
+                        <span class="w2t-label-actions">
+                            <button type="button" class="w2t-ai" hidden>✨ AI viết mô tả</button>
+                            <button type="button" class="w2t-preset" hidden>🧩 Mẫu</button>
+                        </span>
                     </div>
                     <textarea class="w2t-ta w2t-prompt" placeholder="vd: đứng ở bãi biển hoàng hôn, ánh sáng studio, nền trắng…"></textarea>
                 </div>
@@ -281,6 +284,18 @@
                     renderGarments();
                 })
             );
+        }
+
+        // ✨ AI viết mô tả — mở rộng ý ngắn → mô tả phong cảnh/chi tiết, dùng module shared
+        // Web2AiDescribe (1 NGUỒN, KHÔNG fork). Chỉ hiện khi module có mặt (degrade mượt).
+        if (global.Web2AiDescribe && global.Web2AiDescribe.attach) {
+            const aiBtn = $('.w2t-ai');
+            aiBtn.hidden = false;
+            global.Web2AiDescribe.attach({
+                button: aiBtn,
+                input: $('.w2t-prompt'),
+                kind: 'generic',
+            });
         }
 
         // mẫu phong cảnh (chỉ hiện khi AiPresets có mặt)
