@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7a694d2` — fix(web2/ai-hub): chat fallback non-stream khi stream lỗi + xoay key org-restricted; nút "✨ AI viết mô tả" cho Ghép đồ & HTML Studio
-**Last updated**: 2026-06-25 16:08:39 +07
-**Latest session**: [`RESUME:20260625-160839-7a694d2`](../20260625-160839-7a694d2.md)
-**Summary**: ai-hub: chat fallback non-stream + xoay key org-restricted; nút AI viết mô tả cho Ghép đồ & HTML Studio
+**Latest commit**: `234147e` — fix(web2/ai-hub): nâng maxTokens cho "AI viết mô tả" — hết bị cắt giữa câu
+**Last updated**: 2026-06-25 16:16:05 +07
+**Latest session**: [`RESUME:20260625-161605-234147e`](../20260625-161605-234147e.md)
+**Summary**: ai-hub: nâng maxTokens AI viết mô tả (hết cắt giữa câu)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -81,4 +80,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-25 16:08
+- [`web2/`](./web2.md) — updated 2026-06-25 16:16
