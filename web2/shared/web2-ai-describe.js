@@ -57,12 +57,16 @@
     }
 
     // ── Loại mô tả: system prompt + cấu hình token theo từng nhu cầu ──
+    // ⚠ maxTokens phải DƯ cho model suy luận (Gemini 2.5 / GPT-OSS) — chúng đốt 1 phần
+    // budget cho "thinking" TRƯỚC khi xuất chữ; đặt sát quá → output bị CẮT GIỮA CÂU
+    // (vd "…từ quần tây công" thiếu "sở"). Để rộng tay; output ngắn vẫn tự dừng ở EOS nên
+    // KHÔNG tốn thêm — cap chỉ là trần chống runaway.
     const KINDS = {
         'image-prompt': {
             label: '🖼️ Mô tả ảnh (prompt EN)',
             placeholder:
                 'Nhập ngắn (vd: áo trắng nữ) rồi bấm ✨ — AI trả prompt tiếng Anh để tạo ảnh đẹp.',
-            maxTokens: 1024,
+            maxTokens: 1500,
             temperature: 0.8,
             system:
                 'You are an expert at writing prompts for AI fashion/product image generation. ' +
@@ -75,7 +79,7 @@
             label: '🛍️ Mô tả sản phẩm',
             placeholder:
                 'Nhập ngắn (vd: đầm voan hoa nhí, tay phồng) rồi bấm ✨ AI viết mô tả bán hàng.',
-            maxTokens: 700,
+            maxTokens: 1400,
             temperature: 0.85,
             system:
                 'Bạn là copywriter bán hàng thời trang nữ. Người dùng đưa vài từ khoá ngắn về 1 sản phẩm. ' +
@@ -87,7 +91,7 @@
             label: '📣 Caption Facebook',
             placeholder:
                 'Nhập ngắn (vd: set đồ đi biển, giảm 20%) rồi bấm ✨ AI viết caption đăng bán.',
-            maxTokens: 800,
+            maxTokens: 1500,
             temperature: 0.9,
             system:
                 'Bạn là người viết content bán hàng Facebook cho shop thời trang nữ N2Store. Người dùng đưa ' +
@@ -98,7 +102,7 @@
         generic: {
             label: '✍️ Tự do',
             placeholder: 'Nhập ý ngắn rồi bấm ✨ — AI mở rộng thành đoạn mô tả rõ ràng.',
-            maxTokens: 800,
+            maxTokens: 2048,
             temperature: 0.8,
             system: (lang) =>
                 'Bạn là trợ lý viết lách. Người dùng đưa nội dung ngắn. Mở rộng thành đoạn mô tả rõ ràng, ' +

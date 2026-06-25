@@ -84,7 +84,7 @@
             ).catch(() => {});
         // ✨ AI viết mô tả (nút mở rộng ý ngắn ở ô Dữ liệu) — module shared, best-effort.
         if (!global.Web2AiDescribe && base)
-            await loadScript(base + 'web2-ai-describe.js?v=20260625a').catch(() => {});
+            await loadScript(base + 'web2-ai-describe.js?v=20260625b').catch(() => {});
         if (!global.Web2HtmlSkill) throw new Error('Không tải được Web2HtmlSkill');
     }
 
