@@ -297,28 +297,27 @@ async function ensureTables(pool) {
             END $$;
         `);
 
-        // Migration 080: tách ĐỊA DANH (HÀ NỘI/HƯƠNG CHÂU) từ note → region; dọn note.
-        // Self-gated (native_orders_migrations). Web2.0 beta → an toàn dọn note.
+        // Migration 080 (AUTO-HEAL — KHÔNG gate): tách ĐỊA DANH (HÀ NỘI/HƯƠNG CHÂU)
+        // từ note → region cho MỌI SP region rỗng mà note có địa danh (so-order CŨ
+        // nhét địa danh vào note). Idempotent: chạy xong region set + note dọn → lần
+        // sau no-op. ensureTables chỉ chạy 1 lần/boot (_ensuredPools) → mỗi deploy
+        // tự lành SP cũ. SP mới từ so-order ghi thẳng region (không cần backfill).
+        // KHÔNG gate (trước đây gate 1-lần làm SP tạo sau migration không được lành).
         await pool.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM native_orders_migrations WHERE name='080_region_from_note') THEN
-                    UPDATE web2_products
-                       SET region = CASE
-                                      WHEN note ILIKE '%HÀ NỘI%'    THEN 'HÀ NỘI'
-                                      WHEN note ILIKE '%HƯƠNG CHÂU%' THEN 'HƯƠNG CHÂU'
-                                      ELSE region END
-                     WHERE (region IS NULL OR region = '')
-                       AND (note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%');
-                    UPDATE web2_products
-                       SET note = NULLIF(BTRIM(regexp_replace(
-                                     regexp_replace(note, '(HÀ NỘI|HƯƠNG CHÂU)', '', 'gi'),
-                                     '\\s*\\|\\s*\\|\\s*', ' | ', 'g'), ' |'), '')
-                     WHERE note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%';
-                    INSERT INTO native_orders_migrations(name) VALUES ('080_region_from_note');
-                    RAISE NOTICE 'Migration 080: region tách từ note';
-                END IF;
-            END $$;
+            UPDATE web2_products
+               SET region = CASE
+                              WHEN note ILIKE '%HÀ NỘI%'    THEN 'HÀ NỘI'
+                              WHEN note ILIKE '%HƯƠNG CHÂU%' THEN 'HƯƠNG CHÂU'
+                              ELSE region END
+             WHERE (region IS NULL OR region = '')
+               AND (note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%')
+        `);
+        await pool.query(`
+            UPDATE web2_products
+               SET note = NULLIF(BTRIM(regexp_replace(
+                             regexp_replace(note, '(HÀ NỘI|HƯƠNG CHÂU)', '', 'gi'),
+                             '\\s*\\|\\s*\\|\\s*', ' | ', 'g'), ' |'), '')
+             WHERE note ILIKE '%HÀ NỘI%' OR note ILIKE '%HƯƠNG CHÂU%'
         `);
 
         _ensuredPools.add(pool);

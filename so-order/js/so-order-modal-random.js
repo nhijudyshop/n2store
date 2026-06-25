@@ -34,7 +34,9 @@
         // đã đăng ký → mã SP encode đủ màu/size, không sinh "Xanh Navy" lạ.
         colors: ['Trắng', 'Đen', 'Đỏ', 'Be', 'Hồng', 'Vàng', 'Xám'],
         sizes: ['S', 'M', 'L', 'XL', 'Freesize'],
-        suppliers: ['HÀ NỘI', 'HƯƠNG CHÂU', 'QUẢNG CHÂU', 'XƯỞNG SỈ A', 'KHO TÂN BÌNH'],
+        // NCC (nhà cung cấp) — KHÔNG dùng HÀ NỘI/HƯƠNG CHÂU (đó là ĐỊA DANH/tab Sổ
+        // Order → field region, KHÔNG phải NCC). Tránh nhầm địa danh thành NCC.
+        suppliers: ['XƯỞNG SỈ A', 'KHO TÂN BÌNH', 'QUẢNG CHÂU', 'XƯỞNG MAY B'],
     };
     // Lấy pool màu/size từ Kho Biến Thể THẬT (group "Màu" / "Size"|"Cỡ"). Đảm bảo
     // mọi biến thể random đều có trong cache → findByValueExact khớp → mã encode đủ
