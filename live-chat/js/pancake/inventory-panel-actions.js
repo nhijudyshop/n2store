@@ -21,7 +21,7 @@
 
     // ─────────────────────────────────────────────────────────
     // Cart API — Optimistic UI: cập nhật badge NGAY khi drop, rollback nếu fail.
-    // Drop vào comment chưa có đơn → tự tạo đơn (entry đầu tiên trong cart_items).
+    // Drop vào comment chưa có giỏ → tự tạo giỏ hàng (entry đầu tiên trong cart_items).
     // Mỗi action add → show toast "Hoàn tác" 5s, click hoàn tác → remove ngay.
     // ─────────────────────────────────────────────────────────
 
@@ -46,8 +46,8 @@
         NS._renderBadgeFor(commentId);
         const toast = NS._showUndoToast({
             title: wasEmpty
-                ? `✓ Tạo đơn mới + thêm "${product.code}"`
-                : `✓ Thêm "${product.code}" vào đơn`,
+                ? `✓ Tạo giỏ hàng + thêm "${product.code}"`
+                : `✓ Thêm "${product.code}" vào giỏ`,
             onUndo: () => {
                 // Undo có thể fire trước khi /add response về. removeFromCart
                 // gửi POST /remove độc lập — backend xử lý nếu product đã tồn

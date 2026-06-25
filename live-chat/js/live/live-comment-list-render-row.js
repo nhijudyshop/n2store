@@ -202,21 +202,22 @@
                         <!-- Actions — show on hover -->
                         <div class="live-conv-actions">
                             ${(() => {
-                                // Button title + icon theo trạng thái đơn WEB (native-orders):
-                                //  - Chưa có đơn → "Tạo đơn web" (shopping-cart)
-                                //  - Có đơn, comment chưa gộp → "Thêm comment vào đơn" (plus-square)
-                                //  - Có đơn, comment đã gộp → "Đã thêm vào đơn" (check-square)
+                                // Button title + icon theo trạng thái GIỎ HÀNG (native-orders,
+                                // chưa PBH = giỏ hàng):
+                                //  - Chưa có giỏ → "Tạo giỏ hàng" (shopping-cart)
+                                //  - Có giỏ, comment chưa gộp → "Thêm comment vào giỏ" (plus-square)
+                                //  - Có giỏ, comment đã gộp → "Đã thêm vào giỏ" (check-square)
                                 let btnTitle, btnIcon, btnColor;
                                 if (!sessionInfo) {
-                                    btnTitle = 'Tạo đơn web';
+                                    btnTitle = 'Tạo giỏ hàng';
                                     btnIcon = 'shopping-cart';
                                     btnColor = '#0068ff';
                                 } else if (isCommentInOrder) {
-                                    btnTitle = `Comment đã thêm vào đơn ${sessionInfo.code}`;
+                                    btnTitle = `Comment đã thêm vào giỏ ${sessionInfo.code}`;
                                     btnIcon = 'check-square';
                                     btnColor = '#10b981';
                                 } else {
-                                    btnTitle = `Thêm comment vào đơn ${sessionInfo.code}`;
+                                    btnTitle = `Thêm comment vào giỏ ${sessionInfo.code}`;
                                     btnIcon = 'plus-square';
                                     btnColor = '#0068ff';
                                 }

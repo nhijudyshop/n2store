@@ -111,17 +111,17 @@
         const cnt = document.getElementById('loh-count');
         if (!body) return;
         const rows = _filtered();
-        if (cnt) cnt.textContent = `${rows.length} đơn`;
+        if (cnt) cnt.textContent = `${rows.length} giỏ`;
         if (!rows.length) {
             body.innerHTML = `<div class="loh-empty">${
                 _orders.length
-                    ? 'Không tìm thấy đơn khớp.'
-                    : 'Chưa có đơn nào ở chiến dịch đang chọn.'
+                    ? 'Không tìm thấy giỏ hàng khớp.'
+                    : 'Chưa có giỏ hàng nào ở chiến dịch đang chọn.'
             }</div>`;
             return;
         }
         body.innerHTML = `<table class="loh-table">
-            <thead><tr><th>STT</th><th>Tên KH</th><th>Mã đơn</th><th>SL</th><th>Tổng</th><th>Giờ</th></tr></thead>
+            <thead><tr><th>STT</th><th>Tên KH</th><th>Mã giỏ</th><th>SL</th><th>Tổng</th><th>Giờ</th></tr></thead>
             <tbody>${rows
                 .map((o) => {
                     const stt = o.campaignStt != null ? o.campaignStt : '—';
@@ -161,7 +161,7 @@
         } catch (e) {
             _orders = [];
             if (body) {
-                body.innerHTML = `<div class="loh-empty" style="color:#ef4444">Lỗi tải đơn: ${esc(e.message)}</div>`;
+                body.innerHTML = `<div class="loh-empty" style="color:#ef4444">Lỗi tải giỏ hàng: ${esc(e.message)}</div>`;
             }
             return;
         }
@@ -176,7 +176,7 @@
         if (document.getElementById('loh-fab')) return;
         const fab = document.createElement('button');
         fab.id = 'loh-fab';
-        fab.innerHTML = '📋 Đơn đã tạo';
+        fab.innerHTML = '🛒 Giỏ đã tạo';
         fab.onclick = _open;
         // Gắn vào topbar (#liveTopbarActions) để iframe livestream không che;
         // fallback floating nếu chưa có slot.
@@ -196,11 +196,11 @@
             <div class="loh-back"></div>
             <div class="loh-panel">
                 <div class="loh-head">
-                    <h3>📋 Đơn đã tạo (chiến dịch đang chọn)</h3>
+                    <h3>🛒 Giỏ hàng đã tạo (chiến dịch đang chọn)</h3>
                     <button class="loh-x" id="loh-close">×</button>
                 </div>
                 <div class="loh-tools">
-                    <input class="loh-search" id="loh-search" placeholder="Tìm theo tên, STT, mã đơn, SĐT…" />
+                    <input class="loh-search" id="loh-search" placeholder="Tìm theo tên, STT, mã giỏ, SĐT…" />
                     <span class="loh-count" id="loh-count"></span>
                 </div>
                 <div class="loh-body" id="loh-body"></div>

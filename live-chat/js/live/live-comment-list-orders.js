@@ -109,13 +109,13 @@
                     let label,
                         type = 'success';
                     if (resp.idempotent) {
-                        label = `✓ Comment đã có trong đơn (${order.commentCount} comments)`;
+                        label = `✓ Comment đã có trong giỏ hàng (${order.commentCount} comments)`;
                         type = 'info';
                     } else if (resp.merged) {
-                        label = `📝 Đã thêm comment vào đơn (${order.commentCount} comments)`;
+                        label = `📝 Đã thêm comment vào giỏ hàng (${order.commentCount} comments)`;
                         type = 'info';
                     } else {
-                        label = '🆕 Đã tạo đơn web';
+                        label = '🆕 Đã tạo giỏ hàng';
                     }
                     window.notificationManager.show(
                         `${label}: ${order.code} (STT: ${order.displayStt ?? order.sessionIndex})`,
@@ -131,7 +131,7 @@
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 }
                 if (window.notificationManager)
-                    window.notificationManager.show('Lỗi tạo đơn web: ' + error.message, 'error');
+                    window.notificationManager.show('Lỗi tạo giỏ hàng: ' + error.message, 'error');
             }
         },
 

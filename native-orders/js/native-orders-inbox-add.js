@@ -43,7 +43,7 @@
               <input type="text" id="noAddAddress" />
 
               <div class="no-add-prod-section">
-                <label>Sản phẩm vào giỏ <span class="no-add-prod-hint">(tuỳ chọn — tạo đơn trống cũng được)</span></label>
+                <label>Sản phẩm vào giỏ <span class="no-add-prod-hint">(tuỳ chọn — tạo giỏ trống cũng được)</span></label>
                 <div class="no-add-search-wrap">
                   <input type="text" id="noAddProdSearch" placeholder="Tìm SP theo mã / tên để thêm vào giỏ..." autocomplete="off" />
                   <div class="no-add-suggest" id="noAddProdSuggest" hidden></div>
@@ -54,7 +54,7 @@
             <div class="no-add-modal-foot">
               <span class="no-add-cart-total" id="noAddCartTotal"></span>
               <button class="no-add-cancel" type="button">Huỷ</button>
-              <button class="no-add-create" type="button"><i data-lucide="check"></i> <span class="no-add-create-label">Tạo đơn</span></button>
+              <button class="no-add-create" type="button"><i data-lucide="check"></i> <span class="no-add-create-label">Tạo giỏ hàng</span></button>
             </div>
           </div>`;
         document.body.appendChild(overlay);
@@ -388,7 +388,7 @@
         const renderCart = () => {
             if (!cart.length) {
                 cartEl.innerHTML =
-                    '<div class="no-add-cart-empty">Chưa có SP — tạo đơn trống cũng được.</div>';
+                    '<div class="no-add-cart-empty">Chưa có SP — tạo giỏ trống cũng được.</div>';
             } else {
                 cartEl.innerHTML = cart
                     .map(
@@ -410,7 +410,9 @@
             totalEl.textContent = cart.length
                 ? `${totalQty} SP · ${totalAmt.toLocaleString('vi-VN')}đ`
                 : '';
-            createLabel.textContent = cart.length ? `Tạo đơn (${totalQty} SP)` : 'Tạo đơn';
+            createLabel.textContent = cart.length
+                ? `Tạo giỏ hàng (${totalQty} SP)`
+                : 'Tạo giỏ hàng';
         };
         renderCart();
 
@@ -578,15 +580,15 @@
                 const code = resp.order?.code;
                 NO.notify(
                     cart.length
-                        ? `Đã tạo đơn inbox ${code} (${cart.length} SP)`
-                        : `Đã tạo đơn inbox ${code}`,
+                        ? `Đã tạo giỏ hàng inbox ${code} (${cart.length} SP)`
+                        : `Đã tạo giỏ hàng inbox ${code}`,
                     'success'
                 );
                 close();
                 await NO.load();
             } catch (e) {
                 btn.disabled = false;
-                NO.notify('Lỗi tạo đơn: ' + e.message, 'error');
+                NO.notify('Lỗi tạo giỏ hàng: ' + e.message, 'error');
             }
         };
         setTimeout(() => searchInp.focus(), 50);

@@ -267,7 +267,7 @@
     };
 
     NO.STATUS_META = {
-        draft: { label: 'Nháp', icon: 'file' },
+        draft: { label: 'Giỏ hàng', icon: 'shopping-cart' }, // chưa PBH = giỏ hàng
         confirmed: { label: 'Đơn hàng', icon: 'check' },
         cancelled: { label: 'Đã hủy', icon: 'x' },
         delivered: { label: 'Đã giao', icon: 'truck' },

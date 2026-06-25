@@ -184,7 +184,8 @@
     // draft → gray #808080, others → blue/red as appropriate. fw 700, fs 14px.
     NO.web2StatusText = function web2StatusText(s) {
         const map = {
-            draft: { label: 'Nháp', cls: '' },
+            // draft = chưa tạo PBH → là GIỎ HÀNG (cart). confirmed = đã có PBH → Đơn hàng.
+            draft: { label: 'Giỏ hàng', cls: '' },
             confirmed: { label: 'Đơn hàng', cls: 'confirmed' },
             cancelled: { label: 'Đã hủy', cls: 'cancelled' },
             delivered: { label: 'Đã giao', cls: 'delivered' },
@@ -416,7 +417,7 @@
                             </button>
                             ${
                                 o.status === 'draft' || o.status === 'confirmed'
-                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" aria-label="Tách đơn" style="color:#0ea5e9;"
+                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Tách đơn (tạo giỏ hàng mới ${sttValue}-N với giỏ rỗng — cùng khách. Giỏ mới (chưa PBH) → có thể Tạo PBH riêng)" aria-label="Tách đơn" style="color:#0ea5e9;"
                                 onclick="event.stopPropagation();NativeOrdersApp.splitOrder('${NO.escapeHtml(o.code)}')">
                                 <i data-lucide="split-square-vertical" style="width:12px;height:12px;"></i>
                             </button>`

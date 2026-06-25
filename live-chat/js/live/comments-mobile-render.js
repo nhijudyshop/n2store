@@ -60,7 +60,7 @@
             <div class="c-top">
                 ${avatarHtml(c)}
                 <div class="c-id">
-                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${ordered(c) ? `<span class="st st-order">✓ Đã tạo đơn</span>` : ''}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}${no ? `<span class="cart-stt" title="Đơn web ${esc(no.code || '')} — STT ${esc(String(no.stt))}">🛒 ${esc(String(no.stt))}</span>` : ''}</div>
+                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${ordered(c) ? `<span class="st st-order">✓ Đã tạo giỏ</span>` : ''}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}${no ? `<span class="cart-stt" title="Giỏ hàng ${esc(no.code || '')} — STT ${esc(String(no.stt))}">🛒 ${esc(String(no.stt))}</span>` : ''}</div>
                     ${window.LiveTime ? window.LiveTime.markup(c.created_time, { tag: 'div', cls: 'c-time' }) : `<div class="c-time">${esc(fmtTime(c.created_time))}</div>`}
                 </div>
             </div>

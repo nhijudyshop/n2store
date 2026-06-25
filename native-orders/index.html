@@ -14,12 +14,12 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260623up1" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260622tag" />
-        <link rel="stylesheet" href="../web2/shared/web2-base.css?v=20260622b3" />
-        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260620a" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/web2-base.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260625a" />
         <!-- Component chat HỢP NHẤT (Web2ChatPanel) -->
-        <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260620a" />
+        <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260625a" />
 
         <!-- Task 4: mobile bulk-action bar wraps on small screens -->
         <style>
@@ -38,9 +38,9 @@
 
         <!-- Firebase SDK gỡ 2026-06-14: Web 2.0 đã sang Postgres+SSE, trang không dùng Firestore -->
         <!-- Shared lib -->
-        <script src="../shared/js/shared-auth-manager.js?v=20260620a"></script>
-        <script src="../shared/js/notification-system.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260620a"></script>
+        <script src="../shared/js/shared-auth-manager.js?v=20260625a"></script>
+        <script src="../shared/js/notification-system.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260625a"></script>
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -115,7 +115,7 @@
                             <div class="chip-select-wrapper">
                                 <select id="filterStatus" class="chip-select chip-select-primary">
                                     <option value="all">Tất cả</option>
-                                    <option value="draft">Nháp</option>
+                                    <option value="draft">Giỏ hàng</option>
                                     <option value="confirmed">Đơn hàng</option>
                                     <option value="cancelled">Đã hủy</option>
                                     <option value="delivered">Đã giao</option>
@@ -465,12 +465,12 @@
         </div>
         <!-- /.web2-shell -->
 
-        <script src="../web2/shared/web2-auth.js?v=20260621r7"></script>
-        <script src="../web2/shared/web2-kpi.js?v=20260621kpi"></script>
-        <script src="../web2/shared/web2-user-info.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-audit-log.js?v=20260622al3"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260623up1"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-kpi.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-user-info.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-audit-log.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260625a"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => Web2Sidebar.mount('#web2Aside'));
         </script>
@@ -498,76 +498,76 @@
         </div>
 
         <!-- App Scripts -->
-        <script src="../web2/shared/web2-chat-utils.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-chat-tokens.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-chat-settings.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-chat-api.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-chat-live.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-chat-tags.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-chat-client.js?v=20260620a"></script>
+        <script src="../web2/shared/web2-chat-utils.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-tokens.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-settings.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-api.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-live.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-tags.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-client.js?v=20260625a"></script>
         <!-- Component chat HỢP NHẤT (Web2ChatPanel) — dùng chung web2-pancake/balance-history -->
-        <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260620a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260620a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-sticker-data.js?v=20260620a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel-state.js?v=20260620a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel-render.js?v=20260620a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel-compose.js?v=20260620a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel.js?v=20260620a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-sticker-data.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel-state.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel-render.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel-compose.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel.js?v=20260625a"></script>
         <!-- Chat KH proven (Web2CustomerChat): mở theo SĐT/fbId → resolve đúng hội thoại + avatar thật -->
-        <script src="../web2/shared/web2-zalo.js?v=20260623own"></script>
-        <script src="../web2/shared/web2-extension-bridge.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-customer-chat-core.js?v=20260621r8"></script>
-        <script src="../web2/shared/web2-customer-chat-modal.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-customer-chat.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-realtime.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-new-msg-badge.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-quick-reply.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-msg-template-core.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-msg-template-ui.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-msg-template-send.js?v=20260621r6"></script>
-        <script src="../web2/shared/web2-msg-template.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260622r9"></script>
-        <script src="../web2/shared/web2-campaign.js?v=20260621lc"></script>
-        <script src="../web2/shared/web2-wallet-balance.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-return-bill.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-ck-review.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-ck-assign-picker.js?v=20260620a"></script>
+        <script src="../web2/shared/web2-zalo.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-extension-bridge.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-customer-chat-core.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-customer-chat-modal.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-customer-chat.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-realtime.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-new-msg-badge.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-quick-reply.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-msg-template-core.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-msg-template-ui.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-msg-template-send.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-msg-template.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-campaign.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-wallet-balance.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-return-bill.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-ck-review.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-ck-assign-picker.js?v=20260625a"></script>
         <!-- JsBarcode local — load 1 lần, browser cache, pre-render SVG ở parent → bill in instant -->
-        <script src="../web2/shared/jsbarcode-code128.min.js?v=20260620a"></script>
-        <script src="../web2/shared/qrcode.min.js?v=20260620a"></script>
+        <script src="../web2/shared/jsbarcode-code128.min.js?v=20260625a"></script>
+        <script src="../web2/shared/qrcode.min.js?v=20260625a"></script>
         <!-- NGUỒN CHUNG sinh QR "trang trí" đen trắng (tem SP + PBH) -->
-        <script src="../web2/shared/web2-qr.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-order-tag-pill.js?v=20260622tag"></script>
-        <script src="../web2/shared/web2-order-tag-detail.js?v=20260621kpi2"></script>
-        <script src="../web2/shared/receiptline.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-bill-service.js?v=20260620a"></script>
-        <script src="../web2/shared/web2-printer.js?v=20260623role"></script>
-        <script src="js/native-orders-api.js?v=20260620a"></script>
-        <script src="js/native-orders-packing-slip.js?v=20260620a"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-order-tag-pill.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-order-tag-detail.js?v=20260625a"></script>
+        <script src="../web2/shared/receiptline.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-bill-service.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-printer.js?v=20260625a"></script>
+        <script src="js/native-orders-api.js?v=20260625a"></script>
+        <script src="js/native-orders-packing-slip.js?v=20260625a"></script>
         <!-- native-orders-app.js (9456 dòng) ĐÃ TÁCH thành các module nhỏ (MOVE-only,
              shared namespace window.NativeOrders). Load THEO THỨ TỰ phụ thuộc:
              state/config → render/feature → chat → init → public-api (build
              window.NativeOrdersApp CUỐI). KHÔNG đổi thứ tự. -->
-        <script src="js/native-orders-state.js?v=20260621ot"></script>
-        <script src="js/native-orders-snapshots.js?v=20260620rok"></script>
-        <script src="js/native-orders-customer-panel.js?v=20260620a"></script>
-        <script src="js/native-orders-render.js?v=20260622hist"></script>
-        <script src="js/native-orders-delivery.js?v=20260620a"></script>
-        <script src="js/native-orders-modal-edit.js?v=20260620a"></script>
-        <script src="js/native-orders-product-picker.js?v=20260620a"></script>
-        <script src="js/native-orders-pbh-bill.js?v=20260621ot"></script>
-        <script src="js/native-orders-inbox-add.js?v=20260620b"></script>
-        <script src="js/native-orders-bulk-operations.js?v=20260621ot"></script>
-        <script src="js/native-orders-filters-campaigns.js?v=20260621lc"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260621ot"></script>
-        <script src="js/native-orders-customer360.js?v=20260621r8"></script>
-        <script src="js/native-orders-interactions.js?v=20260620a"></script>
-        <script src="js/native-orders-inbox-resolve.js?v=20260620a"></script>
-        <script src="js/native-orders-chat-send.js?v=20260620a"></script>
-        <script src="js/native-orders-public-api.js?v=20260622hist"></script>
-        <script src="js/native-orders-kpi.js?v=20260621kpi"></script>
-        <script src="js/native-orders-kpi-health.js?v=20260621kpi2"></script>
-        <script type="module" src="../web2/shared/web2-motion.js?v=20260620a"></script>
+        <script src="js/native-orders-state.js?v=20260625a"></script>
+        <script src="js/native-orders-snapshots.js?v=20260625a"></script>
+        <script src="js/native-orders-customer-panel.js?v=20260625a"></script>
+        <script src="js/native-orders-render.js?v=20260625a"></script>
+        <script src="js/native-orders-delivery.js?v=20260625a"></script>
+        <script src="js/native-orders-modal-edit.js?v=20260625a"></script>
+        <script src="js/native-orders-product-picker.js?v=20260625a"></script>
+        <script src="js/native-orders-pbh-bill.js?v=20260625a"></script>
+        <script src="js/native-orders-inbox-add.js?v=20260625a"></script>
+        <script src="js/native-orders-bulk-operations.js?v=20260625a"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260625a"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260625a"></script>
+        <script src="js/native-orders-customer360.js?v=20260625a"></script>
+        <script src="js/native-orders-interactions.js?v=20260625a"></script>
+        <script src="js/native-orders-inbox-resolve.js?v=20260625a"></script>
+        <script src="js/native-orders-chat-send.js?v=20260625a"></script>
+        <script src="js/native-orders-public-api.js?v=20260625a"></script>
+        <script src="js/native-orders-kpi.js?v=20260625a"></script>
+        <script src="js/native-orders-kpi-health.js?v=20260625a"></script>
+        <script type="module" src="../web2/shared/web2-motion.js?v=20260625a"></script>
         <script>
             window.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2NewMsgBadge) window.Web2NewMsgBadge.init();

@@ -238,7 +238,7 @@
                 );
             } else {
                 NO.notify(
-                    'Đơn "Đơn hàng" đã có PBH — không tạo PBH lại (chỉ đơn Nháp).',
+                    'Đơn đã có PBH — không tạo PBH lại (chỉ giỏ hàng chưa PBH mới tạo được).',
                     'warning'
                 );
             }
@@ -540,7 +540,7 @@
         if (!valid.length) {
             NO.notify(
                 confirmedCount
-                    ? 'Đơn "Đơn hàng" đã có PBH — không tạo PBH SHOP lại (chỉ đơn Nháp).'
+                    ? 'Đơn đã có PBH — không tạo PBH SHOP lại (chỉ giỏ hàng chưa PBH mới tạo được).'
                     : 'Đơn đã chọn chưa có sản phẩm',
                 'warning'
             );
@@ -548,7 +548,7 @@
         }
         if (confirmedCount)
             NO.notify(
-                `Bỏ qua ${confirmedCount} đơn "Đơn hàng" (đã có PBH) — PBH SHOP cho ${valid.length} đơn Nháp`,
+                `Bỏ qua ${confirmedCount} đơn "Đơn hàng" (đã có PBH) — PBH SHOP cho ${valid.length} giỏ hàng`,
                 'info'
             );
         // 1 đơn → mở MODAL "Tạo PBH SHOP" (giống Tạo PBH, phương thức = BÁN HÀNG

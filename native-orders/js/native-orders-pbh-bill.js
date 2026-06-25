@@ -30,7 +30,7 @@
         // Đơn "Đơn hàng" (confirmed) đã có PBH → KHÔNG tạo PBH/PBH SHOP lại.
         if (src.status !== 'draft') {
             NO.notify(
-                'Đơn "Đơn hàng" đã có PBH — không tạo lại. Chỉ đơn Nháp tạo được PBH.',
+                'Đơn đã có PBH — không tạo lại. Chỉ giỏ hàng (chưa PBH) mới tạo được PBH.',
                 'warning'
             );
             return;
@@ -438,7 +438,7 @@
         if (drafts.length && window.NativeOrdersPackingSlip) {
             if (others.length)
                 NO.notify(
-                    `${drafts.length} đơn nháp (soạn hàng) + ${others.length} đơn in bill PBH`,
+                    `${drafts.length} giỏ hàng (soạn hàng) + ${others.length} đơn in bill PBH`,
                     'info'
                 );
             let i = 0;
@@ -501,7 +501,7 @@
 
     NO.cancelPbh = async function cancelPbh(code) {
         const ok = await NO.w2pConfirm(
-            `Huỷ PBH đã tạo từ đơn ${code}? Trạng thái đơn web sẽ về Nháp, hành động không phục hồi tự động.`,
+            `Huỷ PBH đã tạo từ đơn ${code}? Đơn sẽ trở lại trạng thái Giỏ hàng (chưa PBH), hành động không phục hồi tự động.`,
             {
                 title: `Huỷ PBH ${code}?`,
                 okText: 'Huỷ PBH',
@@ -671,7 +671,7 @@
                 ? `${src.displayStt}-${src.splitIndex}`
                 : String(src.displayStt ?? '');
         const ok = await NO.w2pConfirm(
-            `Tách thêm 1 đơn nháp từ ${code} (STT ${sttDisplay}) cho KH ${src.customerName || '—'}?\n\n` +
+            `Tách thêm 1 giỏ hàng từ ${code} (STT ${sttDisplay}) cho KH ${src.customerName || '—'}?\n\n` +
                 `Đơn mới sẽ có giỏ hàng RỖNG, cùng SĐT/địa chỉ. STT đơn mới: ${src.displayStt}-N (N = max split index hiện tại + 1).`,
             {
                 title: `Tách đơn ${code}?`,

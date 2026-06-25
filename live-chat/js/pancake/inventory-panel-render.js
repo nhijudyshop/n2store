@@ -410,12 +410,12 @@
                     .join('') || '<div class="inv-cart-empty">Giỏ trống</div>';
             pop.innerHTML = `
                 <div class="inv-cart-pop-head">
-                    <strong>🛒 Đơn hàng (${d.items?.length || 0} SP)</strong>
+                    <strong>🛒 Giỏ hàng (${d.items?.length || 0} SP)</strong>
                     <span class="inv-cart-pop-total">Tổng: ${fmtPrice(total)}</span>
                     <button class="inv-cart-pop-history" title="Xem lịch sử (15 ngày)">⏱ Lịch sử</button>
                     ${
                         (d.items?.length || 0) > 0
-                            ? '<button class="inv-cart-pop-clear" title="Xóa toàn bộ đơn (kéo nhầm)">Xóa đơn</button>'
+                            ? '<button class="inv-cart-pop-clear" title="Xóa toàn bộ giỏ (kéo nhầm)">Xóa giỏ</button>'
                             : ''
                     }
                     <button class="inv-cart-pop-close">×</button>
