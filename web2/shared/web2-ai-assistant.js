@@ -656,26 +656,20 @@
         if (errored) {
             if (errored.code === 401 || /unauthor|hết hạn|token/i.test(errored.error || ''))
                 throw authErr();
+            // Provider lỗi (vd Groq restricted) → fallback non-stream + auto-failover provider.
+            if (!acc.trim()) return callAiOnce(messages);
             throw new Error(errored.error || 'Lỗi AI');
         }
         if (!acc.trim()) return callAiOnce(messages); // stream rỗng → thử non-stream
         return acc;
     }
 
-    async function callAiOnce(messages) {
-        const m = pageModel();
-        const body = {
-            provider: m.provider || undefined,
-            model: m.model || undefined,
-            messages,
-            system: systemPrompt(),
-            maxTokens: 1000,
-        };
-        const path = m.provider ? '/chat' : '/complete';
+    async function _postAi(body) {
+        const path = body.provider ? '/chat' : '/complete';
         const r = await fetch(API() + path, {
             method: 'POST',
             headers: authHeaders(true),
-            body: JSON.stringify(body),
+            body: JSON.stringify({ ...body, system: systemPrompt(), maxTokens: 1000 }),
             signal: _abort?.signal,
         });
         if (r.status === 401) throw authErr();
@@ -685,6 +679,25 @@
         const text = j.text || j.reply || j.content || (j.message && j.message.content);
         if (!text || !String(text).trim()) throw new Error('AI không trả nội dung.');
         return text;
+    }
+
+    // Provider đã chọn lỗi (vd Groq "Organization restricted") → FALLBACK /complete (xoay
+    // gemini→groq→openrouter, gemini đầu tiên nên bỏ qua provider hỏng). 401/abort → ném ngay.
+    async function callAiOnce(messages) {
+        const m = pageModel();
+        if (m.provider) {
+            try {
+                return await _postAi({
+                    provider: m.provider,
+                    model: m.model || undefined,
+                    messages,
+                });
+            } catch (e) {
+                if (e.code === 401 || e.name === 'AbortError') throw e;
+                // rơi xuống /complete (auto-failover provider khác)
+            }
+        }
+        return await _postAi({ messages }); // /complete
     }
 
     // ───────── History (persist theo trang) ─────────

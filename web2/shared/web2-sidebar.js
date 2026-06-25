@@ -112,7 +112,7 @@
         if (!global.Web2CanvasUtils) inject('web2-canvas-utils.js', '20260619a');
         if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260624b');
         if (!global.Web2ImagePaste) inject('web2-image-paste.js', '20260623b');
-        if (!global.Web2Effects) inject('web2-effects.js', '20260623a');
+        if (!global.Web2Effects) inject('web2-effects.js', '20260625a');
         // Dịch thuật dùng chung (LLM free + fallback Google) — mọi trang gọi Web2Translate.translate.
         if (!global.Web2Translate) inject('web2-translate.js', '20260622a');
         // Smart cache dùng chung (2026-06-23) — primitive stale-while-revalidate:
@@ -132,7 +132,7 @@
         // Trợ lý AI theo trang (nút nổi ✨) — đọc dữ liệu đang hiển thị → AI free rà soát
         // số liệu/phép tính, phân tích cảm xúc khách, soát đơn. Cấu hình ở web2/ai-assistant.
         // Registry THEO TRANG (gợi ý + accessor đọc data sâu + model auto) — load TRƯỚC widget.
-        if (!global.Web2AiPageRegistry) inject('web2-ai-page-registry.js', '20260625d');
+        if (!global.Web2AiPageRegistry) inject('web2-ai-page-registry.js', '20260625e');
         // Widget ✨ giờ có thêm 3 công cụ (Ghép đồ · Card/Video · Viết mô tả) lazy-load
         // module shared khi mở — không nạp sẵn ở boot. Bump version để cache mới.
         if (!global.Web2AiAssistant) inject('web2-ai-assistant.js', '20260625e');

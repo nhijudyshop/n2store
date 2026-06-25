@@ -2,6 +2,12 @@
 
 ## 2026-06-25
 
+### [web2/shared] Trợ lý AI: fallback CHÉO PROVIDER khi 1 provider lỗi (vd Groq bị khoá org)
+
+User báo lỗi test Groq: "Organization has been restricted". = Groq KHOÁ TÀI KHOẢN (org) phía họ — 5 key cùng 1 org nên fail hết; KHÔNG phải bug code (thường do tạo nhiều key cộng dồn quota free → Groq coi là abuse). Tác động: 23 trang data/tài chính tôi set auto=`groq/gpt-oss-120b` (balance-history, native-orders, ví, kpi, reconcile, PBH…) → AI hỏng vì widget KHÔNG fallback chéo provider khi provider chỉ định lỗi.
+
+Fix `web2/shared/web2-ai-assistant.js`: tách `_postAi(body)`; `callAiOnce` thử provider đã chọn TRƯỚC, lỗi (non-401) → **fallback `/complete`** (backend xoay gemini→groq→openrouter, gemini đầu tiên nên bỏ qua Groq hỏng). 401/abort vẫn ném ngay. `callAiStream`: stream error (non-401) chưa có token → cũng rơi xuống `callAiOnce` (fallback). → Groq khoá vẫn chạy bình thường qua Gemini. Bump v=20260625e. Verify Node 3/3 (groq lỗi→gemini, 401→throw, no-provider→/complete).
+
 ### [web2/ai-hub] Fix lộ token web2 qua URL ảnh ("Ảnh đã lưu") — fetch + blob thay `?token=`
 
 Adversarial review (đợt trước) phát hiện MEDIUM tồn từ trước: `ai-image.js` `renderHistoryCard` nhét token phiên web2 vào `img src=…/images/:id?token=<tok>` (+ `dl.href`) → token lộ qua DOM/history/Referer/access-log. Token phải đi qua header `x-web2-token` (như mọi chỗ khác), không phải URL.
