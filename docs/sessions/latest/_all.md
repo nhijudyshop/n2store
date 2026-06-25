@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a3b8867` — feat(native-orders/chat): tự nhận diện địa chỉ + nút "Thêm vào đơn" (Feature 3)
-**Last updated**: 2026-06-26 06:10:05 +07
-**Latest session**: [`RESUME:20260626-061005-a3b8867`](../20260626-061005-a3b8867.md)
-**Summary**: Chat Pancake tự nhận diện địa chỉ (khối FB nhiều dòng) + nút Thêm vào đơn; verify Playwright MCP
+**Latest commit**: `7e1bfdb` — feat(chat): nút 📍 thủ công trên tin KH để thêm địa chỉ vào đơn (fallback auto-detect)
+**Last updated**: 2026-06-26 06:32:17 +07
+**Latest session**: [`RESUME:20260626-063217-7e1bfdb`](../20260626-063217-7e1bfdb.md)
+**Summary**: Chat: nút thủ công 📍 thêm địa chỉ/SĐT tin KH vào đơn (fallback auto-detect); verify Playwright MCP
 
 ## Folders affected in this commit
 
 - [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
 - [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
@@ -20,7 +20,7 @@
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-26 06:10
+- [`_root/`](./_root.md) — updated 2026-06-26 06:32
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-24 14:02
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
@@ -30,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-26 06:10
+- [`docs/`](./docs.md) — updated 2026-06-26 06:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -49,7 +49,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-26 06:10
+- [`native-orders/`](./native-orders.md) — updated 2026-06-26 06:32
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
@@ -83,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-26 06:10
+- [`web2/`](./web2.md) — updated 2026-06-26 06:32
