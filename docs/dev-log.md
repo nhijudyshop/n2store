@@ -8,11 +8,12 @@ Research toàn cảnh GitHub (workflow 4 agent: Playwright MCP / Chrome DevTools
 
 **Files**:
 
-- `scripts/save-login-session.js`: thêm flag `--state-out` + gọi `ctx.storageState({ path })` (default `downloads/n2store-session/auth-state.json`) TRƯỚC `browser.close()` → xuất Playwright storageState chuẩn cho Playwright MCP `--storage-state`. Tái dùng 1:1 flow login Web1+Web2 sẵn có, không viết lại.
+- `scripts/save-login-session.js`: thêm flag `--state-out` + gọi `ctx.storageState({ path })` (default `downloads/n2store-session/auth-state.json`) TRƯỚC `browser.close()` → xuất Playwright storageState chuẩn cho Playwright MCP `--storage-state`. Tái dùng 1:1 flow login Web1+Web2 sẵn có, không viết lại. (Path live-login — cập nhật session tươi.)
+- `scripts/export-auth-state.js` (MỚI): converter OFFLINE đọc snapshot đã lưu trong `serect_dont_push.txt` (qua `readSnapshot` của restore-login-session.js) → xuất `auth-state.json` (Playwright storageState) KHÔNG cần login lại — né timeout backend. Chỉ in count, không echo giá trị. (Path offline — dùng session đã capture.)
 - `.gitignore`: ignore `downloads/n2store-session/auth-state*.json` (chứa JWT) + `.chrome-n2store-debug/` (debug profile Chrome DevTools MCP).
-- `.mcp.json`: **CHƯA apply** — edit bị guardrail self-modification chặn (MCP server là startup config agent tự load). Snippet `playwright` + `chrome-devtools` đã đưa cho user paste + approve thủ công.
+- `.mcp.json`: thêm server `playwright` (`@playwright/mcp@latest --storage-state=./downloads/n2store-session/auth-state.json`) + `chrome-devtools` (`chrome-devtools-mcp@latest`). Giữ nguyên `designmd`.
 
-**Verify**: chạy `node scripts/save-login-session.js --base http://localhost:8080` → login timeout (backend auth môi trường lúc test, không phải lỗi code — phần storageState nằm sau bước login). Khi login chạy được như thường ngày → tự sinh `auth-state.json`. Status 🔄 (chờ user apply `.mcp.json` + restart Claude Code).
+**Verify**: `node scripts/export-auth-state.js --base http://localhost:8080` → sinh `auth-state.json` từ session 2026-06-21 (93.9h, còn hạn JWT): origin localhost:8080, 6 LS keys gồm `loginindex_auth` + `web2_auth`, cookies=0 (app dùng localStorage auth). Package npm tồn tại: `@playwright/mcp@0.0.76`, `chrome-devtools-mcp@1.4.0`. `.mcp.json` valid 3 server. Status ✅ code+config — **còn 1 bước user**: restart Claude Code để load + approve 2 MCP server mới. (Live-login `save-login-session.js` lúc test bị timeout backend — không ảnh hưởng, đã có path offline.)
 
 ### [web2] Audit mã QR/Barcode in bill → QR đẹp + bố cục tem SP "2 tem" thông minh (P1)
 
@@ -23,7 +24,7 @@ Audit chuyên sâu + browser-test (BarcodeDetector decode + thermal 1-bit thresh
 **Files**:
 
 - `web2/products/js/web2-products-print-render.js` + `web2-products-print-modal.js`: **bố cục tem SP P1** — QR SẠCH (biến thể KHÔNG bake giữa QR nữa) + mã SP dưới QR; cột phải xếp dọc **TÊN (≤2 dòng) → BIẾN THỂ (chip xám) → GIÁ (đậm, to nhất)**. Hierarchy bán lẻ: giá nổi nhất, biến thể dễ đọc. QR sạch → EC mặc định 'M' (module to hơn) → quét nhạy hơn trên tem 25mm. +CSS `.ql-qr-var`, +fitText cho `.ql-qr-var`.
-- `web2/shared/web2-bill-service.js`: PBH thermal QR **nhúng SVG vector trực tiếp** (thay `<img src=data:svg>` + `image-rendering:pixelated`) → module bo góc + mắt finder SẮC NÉT khi html2canvas raster 576 chấm (không vỡ hạt).
+- `web2/shared/web2-bill-service.js`: PBH thermal QR **nhúng SVG vector trực tiếp** (thay `<img>`+`pixelated` → module bo góc + mắt finder SẮC NÉT khi html2canvas raster 576 chấm) + **QR SẠCH**: BỎ bake mã PBH ở GIỮA QR (user yêu cầu) → mã PBH in DƯỚI QR (HRI mono `.b-qr-num`), EC mặc định 'M' (module to hơn → quét nhạy hơn). Block định danh gọn: Tiêu đề+STT → QR sạch → mã PBH → Ngày. Verify real (products page "In tem" + bill render) + decode thermal 1-bit ✓ (`NJ-20260625-0084`, tem SP `HNAOXDE36`/`HNDAMDD31`).
 - `web2/fastsaleorder-invoice/print.html`: **thêm QR mã PBH** (Web2QR rounded) góc phải header A4 (laser in đẹp, quét tra cứu đơn) + load qrcode/web2-qr.
 - `web2/printer-settings/index.html`: load `web2-qr.js` → "In thử" PBH dùng QR styled GIỐNG bill thật (trước thiếu lib → rơi về QR thô).
 - `web2/shared/web2-qr.js`: `toDataUrl` thêm hỗ trợ `opts.size` (TỔNG px) — fix bug `product-card` truyền `{size:256}` bị bỏ qua.
