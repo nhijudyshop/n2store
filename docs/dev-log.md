@@ -2,6 +2,10 @@
 
 ## 2026-06-25
 
+### [docs/web2] Hướng dẫn lập trình Chat Zalo (full-stack)
+
+Viết `docs/web2/ZALO-CHAT-IMPLEMENTATION-GUIDE.md` — tài liệu kỹ thuật phản ánh code thật của tính năng Chat Zalo (frontend trang `web2/zalo/` + engine shared `WZChat` + embassy `Web2Zalo`/`ZaloApi` + backend `routes/web2-zalo.js`/`services/web2-zalo-{zca,oa}.js`/schema 11 bảng + SSE per-máy + crypto). Gồm: bản đồ kiến trúc 3 tầng, cây file (ai làm gì), giải thích từng module + hợp đồng giữa các tầng, luồng dữ liệu, **công thức thêm tính năng end-to-end**, troubleshooting, nợ kỹ thuật. Nguồn: đọc trực tiếp codebase (2 agent explore backend + shared engine). Chỉ thêm docs, KHÔNG đụng code.
+
 ### [web2/shared] Web2CustomerChat realtime như live-chat (SSE web2:messages)
 
 User: "realtime như live-chat". Chat KH nhúng (`Web2CustomerChat` mở từ customers/jt-tracking/balance-history/native-orders) trước đây chỉ `loadMessages` lúc mở → tin KH mới không hiện tới khi đóng/mở lại (gap LOW audit SSE).
