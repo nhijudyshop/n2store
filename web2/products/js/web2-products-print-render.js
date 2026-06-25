@@ -391,7 +391,9 @@ html, body {
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    /* KHÔNG text-overflow:ellipsis — fitText đã thu nhỏ cho vừa; nếu còn tràn
+       ~0.4px phân số (do scrollWidth/clientWidth làm tròn số nguyên) thì
+       overflow:hidden cắt vô hình, KHÔNG hiện "…" làm mất size (vd "36"). */
 }
 /* P2 (2026-06-25): BĂNG GIÁ full-width dưới cùng — giá HERO, kẻ vạch tách. */
 .ql-qr-priceband {
