@@ -474,8 +474,29 @@
         return false;
     }
 
+    // Guard CSS cho popup hover-zoom — TỰ inject (không phụ thuộc trang có <link>
+    // web2-effects.css hay không). Trang KHÔNG nạp web2-effects.css (vd ai-hub) trước
+    // đây bị bug "ảnh to hiện dưới footer": JS tạo .w2fx-zoom-popup nhưng thiếu
+    // position:fixed → div rớt về document flow, ảnh hiện full-size cuối trang. web2-effects.js
+    // được autoload MỌI trang qua sidebar → CSS thiết yếu phải đi kèm để luôn đúng.
+    function _ensureZoomStyle() {
+        if (document.getElementById('w2fx-zoom-css')) return;
+        const el = document.createElement('style');
+        el.id = 'w2fx-zoom-css';
+        el.textContent =
+            '.w2fx-zoom-popup{position:fixed;z-index:99999;pointer-events:none;background:#fff;' +
+            'border-radius:12px;box-shadow:0 18px 48px rgba(15,23,42,.35),0 0 0 1px rgba(15,23,42,.06);' +
+            'padding:6px;opacity:0;transform:scale(.96);transition:opacity .12s ease-out,' +
+            'transform .16s cubic-bezier(.2,.9,.3,1.2);left:-9999px;top:-9999px}' +
+            '.w2fx-zoom-popup.is-visible{opacity:1;transform:scale(1)}' +
+            '.w2fx-zoom-popup img{display:block;max-width:min(420px,60vw);max-height:min(420px,70vh);' +
+            'width:auto;height:auto;border-radius:8px;object-fit:contain;background:#f8fafc}';
+        (document.head || document.documentElement).appendChild(el);
+    }
+
     function _ensureZoomPopup() {
         if (_zoomPopup) return _zoomPopup;
+        _ensureZoomStyle();
         const p = document.createElement('div');
         p.className = 'w2fx-zoom-popup';
         p.setAttribute('aria-hidden', 'true');
