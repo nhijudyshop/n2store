@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-06-26
+
+### [native-orders + web2/shared chat] Chat Pancake: tự nhận diện địa chỉ/SĐT + nút "Thêm vào đơn"
+
+Yêu cầu: trong module chat Pancake, tự nhận diện địa chỉ trong tin nhắn KH + có nút thêm vào. Feature 3 đã được scaffold sẵn (detect bar + CSS + click handler) nhưng CHƯA hoạt động vì (a) detector bỏ sót địa chỉ kiểu Facebook nhiều dòng, (b) không adapter nào set `onAddEntity` nên thanh "Phát hiện" luôn ẩn.
+
+**Files**:
+
+- `web2/shared/chat-panel/web2-chat-entity-detect.js`: `addresses()` thêm **(A) nhận diện KHỐI địa chỉ kiểu Facebook nhiều dòng** (`<tên>/<SĐT>/<số+đường>/<phường>/<quận>/<TP>/Vietnam` — mỗi phần 1 dòng → gộp các dòng SAU SĐT, trước "Vietnam" thành 1 địa chỉ; neo vào dòng SĐT để ít false-positive). Giữ (B) địa chỉ 1 dòng.
+- `web2/shared/web2-customer-chat-modal.js` + `web2-customer-chat.js`: forward `opts.onAddEntity` + `opts.addEntityLabel` lên Pancake adapter (modal 3-cột + drawer) → thanh "Phát hiện" hiện.
+- `web2/shared/chat-panel/web2-chat-panel-render.js`: nhãn nút cấu hình được (`adapter.addEntityLabel || 'Thêm vào KH'`).
+- `native-orders/js/native-orders-interactions.js`: truyền `addEntityLabel:'Thêm vào đơn'` + `onAddEntity` → `NO._addDetectedToOrder(order, {phone,address})`: ghi địa chỉ vào ĐƠN (xác nhận nếu đơn đã có địa chỉ khác), SĐT chỉ điền khi đơn chưa có, nhận lại phương thức giao (`_detectDelivery`), UI-first PATCH + rollback.
+- Cache-bust 5 file trên native-orders/index.html → `20260626addr`.
+
+**Verify** (Playwright MCP, native-orders thật): detector trên mẫu thật → `addresses("Phan Nguyen\\n+84905321191\\n38a/5/4 nguyễn hữu thọ\\nhoà thuận tây\\nhải châu\\nđà nẵng\\nVietnam")` = `["38a/5/4 nguyễn hữu thọ, hoà thuận tây, hải châu, đà nẵng"]` (gộp đúng, bỏ tên/SĐT/Vietnam), chit-chat "túi đen nhé em" → `[]` (no false-positive), địa chỉ 1 dòng vẫn OK. Mount panel với adapter có onAddEntity → **thanh "Phát hiện" hiện**, nút "Thêm vào đơn", click → `onAddEntity({phone:'0905321191', address:'38a/5/4 …, đà nẵng', name:'Phan Nguyen'})`. Status ✅
+
 ## 2026-06-25
 
 ### [web2/products] Tem SP "2 tem" → ĐỔI CHỖ tên↔giá (tên xuống băng full-width, giá+biến thể lên cạnh QR)

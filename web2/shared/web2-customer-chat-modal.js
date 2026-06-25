@@ -80,6 +80,12 @@
             } catch {}
             threadEl.innerHTML = '';
             currentAdapter = buildPancakeAdapter(conv);
+            // Feature 3: caller (vd native-orders) truyền opts.onAddEntity → đính lên
+            // adapter để Web2ChatPanel hiện thanh "Phát hiện SĐT/địa chỉ → Thêm vào".
+            if (typeof opts.onAddEntity === 'function') {
+                currentAdapter.onAddEntity = opts.onAddEntity;
+                if (opts.addEntityLabel) currentAdapter.addEntityLabel = opts.addEntityLabel;
+            }
             panelInst = global.Web2ChatPanel.mount(threadEl, {
                 mode: readonly ? 'readonly' : 'full',
             });

@@ -293,7 +293,8 @@
                 (addr
                     ? `<span class="w2cp-detect-chip" data-w2cp-copy="${esc(addr)}" title="${esc(addr)}">🏠 ${esc(addr.length > 38 ? addr.slice(0, 38) + '…' : addr)}</span>`
                     : '');
-            bar.innerHTML = `<span class="w2cp-detect-label">Phát hiện:</span>${chips}<button class="w2cp-detect-add" data-w2cp-act="add-entity"><i data-lucide="user-plus" style="width:13px;height:13px;"></i> Thêm vào KH</button>`;
+            const addLabel = (st.adapter && st.adapter.addEntityLabel) || 'Thêm vào KH';
+            bar.innerHTML = `<span class="w2cp-detect-label">Phát hiện:</span>${chips}<button class="w2cp-detect-add" data-w2cp-act="add-entity"><i data-lucide="user-plus" style="width:13px;height:13px;"></i> ${esc(addLabel)}</button>`;
             bar.classList.add('visible');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }

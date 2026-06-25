@@ -104,6 +104,10 @@
                 }
                 host.innerHTML = '';
                 pancakeAdapter = buildPancakeAdapter(conv);
+                if (typeof opts.onAddEntity === 'function') {
+                    pancakeAdapter.onAddEntity = opts.onAddEntity;
+                    if (opts.addEntityLabel) pancakeAdapter.addEntityLabel = opts.addEntityLabel;
+                }
                 panelInst = global.Web2ChatPanel.mount(host, { mode: 'full' });
                 panelInst.open(conv, pancakeAdapter);
                 // tự cuộn xuống cùng sau khi render (ảnh/layout settle muộn)

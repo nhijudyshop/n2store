@@ -44,11 +44,42 @@
         if (!text) return [];
         const out = [];
         const seen = new Set();
-        // Tách theo xuống dòng; địa chỉ thường nằm trọn 1 dòng.
+        const push = (raw) => {
+            const cleaned = String(raw)
+                .replace(/\s*[-–,.]+\s*$/g, '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+            const k = cleaned.toLowerCase();
+            if (cleaned.length >= 8 && !seen.has(k)) {
+                seen.add(k);
+                out.push(cleaned);
+            }
+        };
+        // Tách theo xuống dòng; địa chỉ thường nằm trọn 1 dòng — HOẶC trải nhiều dòng
+        // (kiểu Facebook share địa chỉ).
         const lines = String(text)
             .split(/[\n\r]+/)
             .map((s) => s.trim())
             .filter(Boolean);
+
+        // (A) KHỐI địa chỉ kiểu FACEBOOK share: <tên> / <SĐT> / <số+đường> / <phường> /
+        //     <quận> / <tỉnh/TP> / "Vietnam" — mỗi phần 1 DÒNG riêng nên từng dòng lẻ
+        //     KHÔNG đủ từ khoá. Gộp các dòng SAU dòng SĐT (trước "Vietnam") thành 1 địa
+        //     chỉ. Neo vào dòng SĐT để hạn chế false-positive.
+        const phoneIdx = lines.findIndex((l) => phones(l).length > 0);
+        const vnIdx = lines.findIndex((l) => /^vi[eệ]t\s?nam$/i.test(l));
+        if (phoneIdx >= 0 && lines.length - phoneIdx >= 3) {
+            const end = vnIdx > phoneIdx ? vnIdx : lines.length;
+            const block = lines
+                .slice(phoneIdx + 1, end)
+                .filter((l) => phones(l).length === 0 && l.length >= 2);
+            if (block.length >= 2) {
+                const joined = block.join(', ');
+                if (/\d/.test(joined) || ADDR_KW.test(joined)) push(joined);
+            }
+        }
+
+        // (B) Địa chỉ nằm TRỌN 1 DÒNG (vd "64/47 Nguyễn Phúc Chu, P15, Tân Bình").
         for (const line of lines) {
             // bỏ dòng quá ngắn hoặc thuần SĐT
             if (line.length < 8) continue;
@@ -61,13 +92,8 @@
                 const cleaned = line
                     .replace(/[-–,.\s]*\b(s[đd]t|đt|phone|tel|sđt)\b\s*:?.*$/i, '')
                     .replace(PHONE_RE, '')
-                    .replace(/\s*[-–,.]+\s*$/g, '')
-                    .replace(/\s{2,}/g, ' ')
                     .trim();
-                if (cleaned.length >= 8 && !seen.has(cleaned.toLowerCase())) {
-                    seen.add(cleaned.toLowerCase());
-                    out.push(cleaned);
-                }
+                if (cleaned.length >= 8) push(cleaned);
             }
         }
         return out;

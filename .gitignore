@@ -144,3 +144,4 @@ downloads/test/
 .codegraph/
 real-*.png
 code-*.png
+detect-bar*.png

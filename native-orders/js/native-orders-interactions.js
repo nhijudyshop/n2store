@@ -42,6 +42,10 @@
                 name: order.customerName || order.fbUserName || '',
                 query: order.phone || order.customerName || '',
                 panels: { info: NO._renderInteractionsInfoHtml(order) },
+                // Feature 3: tự nhận diện SĐT/địa chỉ trong tin nhắn KH → nút "Thêm vào đơn".
+                addEntityLabel: 'Thêm vào đơn',
+                onAddEntity: ({ phone, address }) =>
+                    NO._addDetectedToOrder(order, { phone, address }),
                 onReady: (handle) => {
                     const infoEl = handle && handle.getInfoEl && handle.getInfoEl();
                     // Comment đã render sync từ order.note (đúng nguồn — chụp lúc tạo đơn).
@@ -56,6 +60,57 @@
         // như luôn có. Nếu (hiếm) chưa kịp load → báo tải lại thay vì dựng modal chat
         // cũ (đã gỡ khi hợp nhất chat 2026-06-19).
         NO.notify('Chat chưa sẵn sàng, vui lòng tải lại trang', 'error');
+    };
+
+    // Feature 3 (2026-06-26): thêm SĐT/địa chỉ PHÁT HIỆN trong chat vào ĐƠN đang xem.
+    // - Địa chỉ: ghi đè (xác nhận nếu đơn đã có địa chỉ KHÁC) + nhận lại phương thức giao.
+    // - SĐT: CHỈ điền khi đơn CHƯA có (không đè SĐT đúng). UI-first + PATCH, lỗi → rollback.
+    NO._addDetectedToOrder = async function _addDetectedToOrder(order, { phone, address } = {}) {
+        if (!order) return;
+        const newAddr = String(address || '').trim();
+        const newPhone = String(phone || '').trim();
+        const curAddr = String(order.address || '').trim();
+        const willAddr = newAddr && newAddr !== curAddr;
+        const willPhone = newPhone && !String(order.phone || '').trim();
+        if (!willAddr && !willPhone) {
+            NO.notify('Đơn đã có địa chỉ/SĐT này rồi', 'info');
+            return;
+        }
+        // Đơn ĐÃ có địa chỉ khác → xác nhận trước khi thay (tránh ghi đè nhầm).
+        if (willAddr && curAddr) {
+            const msg = `Thay địa chỉ đơn ${order.code}?\n\nCũ: ${curAddr}\nMới: ${newAddr}`;
+            const ok = window.Popup?.confirm
+                ? await window.Popup.confirm(msg, { okText: 'Thay', cancelText: 'Huỷ' })
+                : window.confirm(msg);
+            if (!ok) return;
+        }
+        const fields = {};
+        if (willAddr) fields.address = newAddr;
+        if (willPhone) fields.phone = newPhone;
+        // Đổi địa chỉ → nhận lại phương thức giao hàng (giống saveEdit) trừ khi chỉnh tay.
+        if (willAddr && !order.deliveryMethodManual && NO._detectDelivery) {
+            const det = NO._detectDelivery(newAddr);
+            if (det) {
+                fields.deliveryMethod = det.value;
+                fields.deliveryMethodLabel = det.label;
+                fields.deliveryMethodManual = false;
+            }
+        }
+        // UI-first: gán vào order + re-render NGAY; PATCH chạy nền; lỗi → rollback.
+        const snap = {};
+        Object.keys(fields).forEach((k) => (snap[k] = order[k]));
+        Object.assign(order, fields);
+        NO.renderRows?.();
+        try {
+            const r = await window.NativeOrdersApi.update(order.code, fields);
+            if (!r || r.success === false) throw new Error((r && r.error) || 'PATCH lỗi');
+            const what = [willAddr && 'địa chỉ', willPhone && 'SĐT'].filter(Boolean).join(' + ');
+            NO.notify(`Đã thêm ${what} vào đơn ${order.code}`, 'success');
+        } catch (e) {
+            Object.assign(order, snap);
+            NO.renderRows?.();
+            NO.notify('Lỗi thêm vào đơn: ' + (e && e.message), 'error');
+        }
     };
 
     // Cột INFO (panels.info) cho Web2CustomerChat: tiêu đề đơn + danh sách bình luận
