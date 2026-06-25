@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-06-25
+
+### [render][web2/system] Tab "Dịch vụ & Hệ thống": Render = TẤT CẢ PAID (đúng plan thật từ API)
+
+User báo lỗi ai-hub `⚠️ Customer 360 proxy failed: Request timeout after 15000ms` → trace ra `handleCustomer360Proxy` chỉ là proxy CHUNG (tên gây hiểu lầm) cho ~40 route; request chat AI (`/api/web2-ai/chat/stream` → web2-api) không trả headers trong 15s nên Cloudflare Worker cắt. User xác nhận **"render đều là paid server hết"** → không idle-sleep, timeout chỉ do redeploy/restart.
+
+Cập nhật tab `web2/system` (?tab=services) phản ánh đúng plan thật (query Render API):
+
+- **Files**: `render.com/routes/services-overview.js` (SERVICES_INVENTORY), `web2/system/js/system-services.js`, `web2/system/index.html`, `web2/system/css/system.css`.
+- **Plan thật (Render API)**: web2-api **Standard $25**, n2store-fallback **Standard $25**, web2-realtime **Starter $7** (service thứ 3 — trước dashboard BỎ SÓT), 2× Postgres **basic_1gb $19**. → Tổng Render **$95/mo**.
+- **services-overview.js**: thay entry cũ "Render Backend (×2 web service) Starter $7 + free-tier" bằng **3 entry compute riêng** (đúng plan/cpu/ram/cost từng service), bỏ `freeTier` cho mọi Render resource (đều paid → `freeTier: null`, chuyển limit sang `paidLimit` + `uptime: Always-on KHÔNG sleep`). 2 Postgres bỏ "90 days expiration"/"free 1GB" → "Basic 1GB · PAID". Comment header ghi rõ all-paid + lý do timeout.
+- **system-services.js**: DB card bỏ class `sd-plan-free` cho web2Db (cả 2 DB paid), planLabel → "Basic 1GB · PAID ($19/mo)".
+- **index.html + system.css**: thêm banner xanh `.sd-render-note` dưới cost strip — "Tất cả Render PAID = $95/mo, không idle-sleep, timeout 15000ms chỉ do redeploy/restart ~30-60s". Bump `system.css?v=20260625a` + `system-services.js?v=20260625a`.
+- **Deploy**: 3 service Render `autoDeploy=yes` từ `main` → push tự redeploy web2-api (serve `/api/services-overview`, isWeb2Path=true).
+- Status: ✅ code + syntax OK; chờ deploy verify data + browser-test UI.
+
 ## 2026-06-24
 
 ### [perf] Làm đẹp khuôn mặt → WEB WORKER (hết "đứng/stuck" hoàn toàn)

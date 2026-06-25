@@ -9,11 +9,17 @@
 // Endpoint: GET /api/services-overview
 //
 // Trả về snapshot:
-//   - 2 Postgres pools (cùng Render PG Basic 1GB, Singapore):
+//   - 2 Postgres pools (cùng Render PG Basic 1GB PAID, Singapore):
 //     - chatDb (n2store-chat-db) — DB chính Web 1.0 / 2.0 cũ
 //     - web2Db (n2store-web2-db) — DB Web 2.0 generic web2_records (2026-05-30 thay Neon)
 //   - Process stats (uptime, memory, node version)
-//   - Service inventory static (cost + plan + free tier limits)
+//   - Service inventory static (cost + plan thật từ Render API)
+//
+// 2026-06-25: ⚡ TẤT CẢ dịch vụ Render đều PAID (không free-tier, không idle-sleep) —
+// xác nhận qua Render API: web2-api Standard $25, n2store-fallback Standard $25,
+// web2-realtime Starter $7, 2× Postgres basic_1gb $19. → Tổng Render $95/mo.
+// Vì paid không ngủ đông, lỗi proxy "timeout 15000ms" CHỈ xảy ra trong cửa sổ
+// redeploy/restart (~30-60s), KHÔNG phải cold-start do sleep.
 //
 // Tất cả queries có timeout 5s + try/catch riêng để 1 pool fail không kill response.
 
@@ -124,12 +130,16 @@ const SERVICES_INVENTORY = [
     {
         category: 'database',
         name: 'Render Postgres (Web 1.0)',
-        plan: 'Basic 1GB (Singapore)',
+        plan: 'Basic 1GB · Singapore · PAID',
         provider: 'Render',
         costMonth: 19,
         currency: 'USD',
-        freeTier: { storage: '1 GB', expiration: '90 days' },
-        paidLimit: { storage: '1 GB Basic $19/mo · 4 GB Pro $55/mo · 8 GB Pro+ $95/mo' },
+        freeTier: null,
+        paidLimit: {
+            storage: '1 GB',
+            tier: 'Basic $19/mo · Pro 4GB $55 · Pro+ 8GB $95',
+            uptime: 'Always-on — KHÔNG hết hạn, KHÔNG sleep',
+        },
         purpose:
             'DB Web 1.0 PROD (n2store_chat) — customers, balance_history, customer_wallets, app_users, invoice_status, pancake_accounts… Web 2.0 KHÔNG còn ở đây (cutover 2026-06-03).',
         url: 'https://dashboard.render.com',
@@ -139,12 +149,16 @@ const SERVICES_INVENTORY = [
     {
         category: 'database',
         name: 'Render Postgres (Web 2.0)',
-        plan: 'Basic 1GB (Singapore)',
+        plan: 'Basic 1GB · Singapore · PAID',
         provider: 'Render',
         costMonth: 19,
         currency: 'USD',
-        freeTier: { storage: '1 GB' },
-        paidLimit: { storage: '1 GB Basic $19/mo · upgrade nếu vượt' },
+        freeTier: null,
+        paidLimit: {
+            storage: '1 GB',
+            tier: 'Basic $19/mo · upgrade nếu vượt',
+            uptime: 'Always-on — KHÔNG sleep',
+        },
         purpose:
             'DB Web 2.0 (n2store_web2) — bảng web2_* + native_orders + fast_sale_orders: web2_products, web2_variants, web2_so_order, web2_supplier_meta/ledger, web2_customers, web2_customer_wallets, web2_wallet_transactions, web2_balance_history, web2_users/user_sessions, web2_records (generic). TÁCH RIÊNG khỏi chatDb.',
         url: 'https://dashboard.render.com',
@@ -154,17 +168,57 @@ const SERVICES_INVENTORY = [
     },
     {
         category: 'compute',
-        name: 'Render Backend (×2 web service)',
-        plan: 'Starter',
+        name: 'Render Web — web2-api (Web 2.0)',
+        plan: 'Standard · 1 CPU / 2 GB · PAID',
+        provider: 'Render',
+        costMonth: 25,
+        currency: 'USD',
+        freeTier: null,
+        paidLimit: {
+            instance: '1 CPU · 2 GB RAM',
+            tier: 'Standard $25/mo',
+            uptime: 'Always-on — KHÔNG idle-sleep',
+        },
+        purpose:
+            'Node.js API Web 2.0 (web2-api-kv04.onrender.com) — Express, route /api/web2-*, hub SSE web2, AI proxy (/api/web2-ai), cron web2. Serve chính trang dashboard này.',
+        url: 'https://dashboard.render.com',
+        note: 'Paid → luôn chạy. Chỉ gián đoạn ~30-60s khi REDEPLOY (git push) hoặc restart — đây là cửa sổ DUY NHẤT proxy Cloudflare có thể timeout 15s (KHÔNG phải cold-start do ngủ đông).',
+    },
+    {
+        category: 'compute',
+        name: 'Render Web — n2store-fallback (Web 1.0)',
+        plan: 'Standard · 1 CPU / 2 GB · PAID',
+        provider: 'Render',
+        costMonth: 25,
+        currency: 'USD',
+        freeTier: null,
+        paidLimit: {
+            instance: '1 CPU · 2 GB RAM',
+            tier: 'Standard $25/mo',
+            uptime: 'Always-on — KHÔNG idle-sleep',
+        },
+        purpose:
+            'Node.js API Web 1.0 (n2store-fallback.onrender.com) — Express, hub SSE web1, customers/wallets/balance-history, AI KOL Studio, cron web1.',
+        url: 'https://dashboard.render.com',
+        note: 'Paid → luôn chạy. Gián đoạn ngắn chỉ khi redeploy/restart.',
+    },
+    {
+        category: 'compute',
+        name: 'Render Web — web2-realtime (relay)',
+        plan: 'Starter · 0.5 CPU / 512 MB · PAID',
         provider: 'Render',
         costMonth: 7,
         currency: 'USD',
-        freeTier: { hours: '750/mo', cpu: '0.5', ram: '512 MB' },
-        paidLimit: { hours: 'unlimited', cpu: '0.5', ram: '512 MB' },
+        freeTier: null,
+        paidLimit: {
+            instance: '0.5 CPU · 512 MB RAM',
+            tier: 'Starter $7/mo',
+            uptime: 'Always-on — KHÔNG idle-sleep',
+        },
         purpose:
-            'Node.js API — Express, 2 hub SSE (web1 + web2), cron, services. 2 service: n2store-fallback (Web 1.0) + web2-api-kv04 (Web 2.0, tách 2026-06).',
+            'Relay realtime Pancake live-chat (WS) → /ingest → SSE web2 (event-driven, KHÔNG poller). Đọc token Pancake (Firestore pancake_tokens/accounts) lúc boot.',
         url: 'https://dashboard.render.com',
-        note: 'web2-api là service riêng (web2-api-kv04.onrender.com) — chi phí phụ thuộc plan từng service.',
+        note: 'Paid → luôn chạy. Service Render thứ 3 (trước đây dashboard bỏ sót).',
     },
     {
         category: 'network',

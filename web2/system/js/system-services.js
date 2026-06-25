@@ -104,8 +104,9 @@
             const limit = DB_LIMITS[poolKey] || { bytes: 0, label: '—' };
             const pct = limit.bytes > 0 ? (stats.dbSizeBytes / limit.bytes) * 100 : 0;
             const usageClass = pct >= 80 ? 'danger' : pct >= 60 ? 'warn' : '';
-            const planClass = poolKey === 'web2Db' ? 'sd-plan-free' : '';
-            const planLabel = 'Basic 1GB';
+            // Cả 2 Postgres đều PAID (basic_1gb $19/mo) — KHÔNG dùng badge "free".
+            const planClass = '';
+            const planLabel = 'Basic 1GB · PAID ($19/mo)';
             const provider =
                 poolKey === 'chatDb'
                     ? 'Render PG — n2store-chat-db'
