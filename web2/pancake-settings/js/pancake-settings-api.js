@@ -15,7 +15,12 @@
 
     async function loadPages() {
         const list = $('pageList');
-        list.innerHTML = `<div class="ps-loading">Đang load danh sách pages…</div>`;
+        // First-load only: skeleton when no real pages shown yet (avoid flash on reload).
+        if (window.Web2Skeleton && !(Array.isArray(S._pagesCache) && S._pagesCache.length)) {
+            window.Web2Skeleton.list(list, { count: 6, avatar: true });
+        } else {
+            list.innerHTML = `<div class="ps-loading">Đang load danh sách pages…</div>`;
+        }
         const r = await window.Web2Chat.listPages();
         if (!r.ok) {
             list.innerHTML = `<div class="ps-loading" style="color:#b91c1c;">Lỗi: ${escapeHtml(r.reason || 'unknown')} — kiểm tra JWT.</div>`;
@@ -149,7 +154,17 @@
             if (list) list.innerHTML = `<div class="ps-loading">Module accounts chưa load.</div>`;
             return;
         }
-        if (list) list.innerHTML = `<div class="ps-loading">Đang tải danh sách tài khoản…</div>`;
+        // First-load only: skeleton when no real accounts shown yet (avoid flash on reload).
+        if (list) {
+            if (
+                window.Web2Skeleton &&
+                !(Array.isArray(S._accountsCache) && S._accountsCache.length)
+            ) {
+                window.Web2Skeleton.list(list, { count: 4, avatar: true });
+            } else {
+                list.innerHTML = `<div class="ps-loading">Đang tải danh sách tài khoản…</div>`;
+            }
+        }
         const r = await PA.list();
         if (!r.ok) {
             if (list)

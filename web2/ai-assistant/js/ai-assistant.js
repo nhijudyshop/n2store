@@ -123,9 +123,16 @@
     }
 
     async function loadStatus() {
+        // Skeleton chỉ khi chưa có data AI nào (first load) — tránh flash khi reload.
+        if (!state.providers.length && window.Web2Skeleton) {
+            window.Web2Skeleton.stats('#aamProvStatus', { count: 4 });
+        }
         try {
             const r = await fetch(API() + '/status', { headers: authHeaders(false) });
             if (r.status === 401) {
+                window.Web2Skeleton?.clear('#aamProvStatus');
+                $('aamProvStatus').innerHTML =
+                    '<span class="no">Phiên hết hạn — đăng nhập lại.</span>';
                 if (global.Web2Auth?.requireAuth) global.Web2Auth.requireAuth();
                 return;
             }
@@ -143,7 +150,11 @@
         if (!q) return toast('Nhập câu thử trước', 'warning');
         const out = $('aamTestOut');
         out.hidden = false;
-        out.textContent = '⏳ Đang gọi AI…';
+        if (window.Web2Skeleton) {
+            window.Web2Skeleton.detail(out);
+        } else {
+            out.textContent = '⏳ Đang gọi AI…';
+        }
         const cfg = currentCfgFromUi();
         const body = cfg.provider
             ? {

@@ -62,6 +62,7 @@
     let lastSeq = 0;
     let _started = false;
     let _statsTimer = null;
+    let _topicsHadData = false; // first-load guard cho skeleton danh sách topic
 
     const $ = (id) => document.getElementById(id);
 
@@ -194,9 +195,19 @@
                     timeZone: 'Asia/Ho_Chi_Minh',
                 });
             renderTopics(d.keyStats);
+            _topicsHadData = true;
         } catch (e) {
             const t = $('ssStatsTime');
             if (t) t.textContent = '⚠ lỗi: ' + e.message;
+            // Xóa skeleton first-load nếu poll đầu lỗi → không đứng hình.
+            if (!_topicsHadData) {
+                const el = $('ssTopicsList');
+                if (el)
+                    el.innerHTML =
+                        '<div class="sse-empty">⚠ Không tải được topics: ' +
+                        esc(e.message) +
+                        '</div>';
+            }
         }
     }
 
@@ -348,6 +359,10 @@
         const app = $('ssApp');
         if (app) app.style.display = '';
         setConn('', 'Đang kết nối…');
+        // First-load skeleton cho danh sách topic (overwrite bởi renderTopics/poll-error).
+        if (!_topicsHadData && window.Web2Skeleton) {
+            window.Web2Skeleton.list('#ssTopicsList', { count: 6, avatar: false });
+        }
         wireToolbar();
         bootstrapLog();
         subscribeLive();

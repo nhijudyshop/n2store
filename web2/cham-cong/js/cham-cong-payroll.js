@@ -111,7 +111,10 @@
         const el = document.getElementById('ccBody');
         if (!el) return;
         if (cc.state.loading) {
-            el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
+            // First-load only (loading chỉ bật khi load lạnh / đổi tháng) → skeleton bảng
+            // lương 11 cột; reload nền không bật loading nên không flash.
+            if (global.Web2Skeleton) global.Web2Skeleton.table(el, { rows: 8, cols: 11 });
+            else el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
         // Tháng đã KHOÁ → entries từ snapshot (đóng băng); chưa khoá → tính live.

@@ -192,8 +192,15 @@
     //   5) Reload section A + section B
 
     async function loadSourceItems() {
+        // GitHub-style skeleton CHỈ ở first-load (container chưa có data thật) —
+        // tránh flash khi reload/filter. renderSourceList() luôn được gọi cuối hàm
+        // (overwrite innerHTML), nên skeleton không bị kẹt.
+        if (!SOURCE_STATE.loaded && window.Web2Skeleton) {
+            window.Web2Skeleton.cards('#prSourceList', { count: 6, min: 220 });
+        }
         if (!window.Web2ProductsCache) {
             notify('Web2ProductsCache chưa load — refresh trang', 'error');
+            window.Web2Skeleton?.clear('#prSourceList');
             return;
         }
         try {

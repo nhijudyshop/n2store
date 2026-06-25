@@ -327,12 +327,23 @@
         </div>`;
     }
     async function loadHistory(reset) {
+        // Snapshot TRƯỚC khi reset xoá items → phân biệt lần load đầu (cột rỗng)
+        // với reload/đổi filter/refresh/SSE (đã có data) để KHÔNG flash skeleton.
+        const hadItems = hist.items.length > 0;
         if (reset) {
             hist.offset = 0;
             hist.items = [];
         }
         const root = document.getElementById('ckdHistory');
-        if (reset) root.innerHTML = '<div class="ckd-empty">Đang tải…</div>';
+        // First-load only: chỉ show skeleton khi cột chưa có data. renderHistory()
+        // cuối hàm + catch (khi !items.length) đều innerHTML= → không kẹt skeleton.
+        if (reset && !hadItems) {
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.cards(root, { count: 4 });
+            } else {
+                root.innerHTML = '<div class="ckd-empty">Đang tải…</div>';
+            }
+        }
         const url = `${SIG}?status=${encodeURIComponent(hist.status)}&limit=20&offset=${hist.offset}`;
         try {
             const d = await fetchJson(url);
@@ -422,13 +433,20 @@
     }
 
     function showColSkeletons() {
-        const skel =
-            '<span class="w2-skel" style="display:block;height:72px;border-radius:8px;margin-bottom:8px"></span>'.repeat(
-                2
-            ) + '<div class="ckd-empty" style="color:#94a3b8;font-size:12px">Đang tải…</div>';
+        // First-load only: gọi 1 lần lúc boot, TRƯỚC reloadAll() → cột còn rỗng.
+        // Mọi reload/SSE/filter sau đó renderCol() ghi đè innerHTML → không flash.
         ['ckdPending', 'ckdWait', 'ckdIntents'].forEach((id) => {
             const el = document.getElementById(id);
-            if (el) el.innerHTML = skel;
+            if (!el) return;
+            if (window.Web2Skeleton) {
+                window.Web2Skeleton.list(el, { count: 3, avatar: false });
+            } else {
+                el.innerHTML =
+                    '<span class="w2-skel" style="display:block;height:72px;border-radius:8px;margin-bottom:8px"></span>'.repeat(
+                        2
+                    ) +
+                    '<div class="ckd-empty" style="color:#94a3b8;font-size:12px">Đang tải…</div>';
+            }
         });
     }
 

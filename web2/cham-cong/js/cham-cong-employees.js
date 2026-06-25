@@ -44,7 +44,10 @@
         }
         cc.state.empDirty = false; // dựng bảng mới = sạch
         if (cc.state.loading) {
-            el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
+            // First-load only (loading chỉ bật khi load lạnh / đổi tháng) → skeleton bảng
+            // cấu hình NV 12 cột; reload nền không bật loading nên không flash.
+            if (global.Web2Skeleton) global.Web2Skeleton.table(el, { rows: 6, cols: 12 });
+            else el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
         const dus = cc.state.deviceUsers;

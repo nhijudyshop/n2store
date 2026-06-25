@@ -193,10 +193,18 @@
     }
 
     async function load() {
-        box().innerHTML =
-            selectorHtml() +
-            '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải số liệu quảng cáo…</div>';
-        wireSelector();
+        const b = box();
+        if (window.Web2Skeleton) {
+            // Keep the selector bar, swap the body for a stats skeleton block.
+            b.innerHTML = selectorHtml() + '<div id="fbaSkel"></div>';
+            wireSelector();
+            window.Web2Skeleton.stats('#fbaSkel', { count: 4 });
+        } else {
+            b.innerHTML =
+                selectorHtml() +
+                '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải số liệu quảng cáo…</div>';
+            wireSelector();
+        }
         if (window.lucide?.createIcons) window.lucide.createIcons();
         try {
             const r = await Api().adInsights(_actId, _preset);
@@ -208,6 +216,7 @@
             }
             render(r);
         } catch (e) {
+            // Overwrite the skeleton with the error state so it never freezes.
             box().innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
         }
     }

@@ -47,6 +47,12 @@
     }
 
     async function loadList() {
+        // GitHub-style skeleton CHỈ ở first-load (chưa có phiếu nào) — tránh flash
+        // khi SSE/filter reload. renderList() (success) hoặc clear() (error) luôn
+        // overwrite nên skeleton không kẹt.
+        if (!STATE.items.length && window.Web2Skeleton) {
+            window.Web2Skeleton.list('#prList', { count: 6, avatar: false });
+        }
         try {
             const data = await fetchJson(`${GENERIC_API}/list?limit=200`);
             const items = data?.items || data?.records || data?.data || [];
@@ -60,6 +66,8 @@
             PR.render.renderList();
         } catch (e) {
             notify(`Tải DS phiếu thất bại: ${e.message}`, 'error');
+            // Error path: renderList() KHÔNG được gọi → gỡ skeleton thủ công.
+            window.Web2Skeleton?.clear('#prList');
         }
     }
 

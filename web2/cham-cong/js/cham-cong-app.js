@@ -333,7 +333,14 @@
         const el = document.getElementById('ccBody');
         if (!el) return;
         if (state.loading) {
-            el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
+            // First-load only (state.loading chỉ bật khi load lạnh / đổi tháng, KHÔNG bật
+            // khi reload nền SSE/mutation) → skeleton không flash đè dữ liệu sẵn có.
+            if (window.Web2Skeleton) {
+                const dayCols = monthRange().days.length;
+                window.Web2Skeleton.table(el, { rows: 8, cols: 1 + dayCols });
+            } else {
+                el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
+            }
             return;
         }
         // Hiện PIN ĐÃ gán NV hoặc NV thủ công + đang bật. PIN máy "— Chưa gán —"

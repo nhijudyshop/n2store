@@ -19,6 +19,7 @@
     const REFRESH_MS = 60000;
     let _refreshTimer = null;
     let _started = false;
+    let _hadData = false; // first-load guard: skeleton only until first successful render
 
     function $(id) {
         return document.getElementById(id);
@@ -44,16 +45,42 @@
         return div.innerHTML;
     }
 
+    // First-load skeletons: chỉ hiện khi CHƯA có data thật (tránh flash khi
+    // auto-refresh 60s / reload). Mỗi shape khớp nội dung sắp render.
+    function showFirstLoadSkeletons() {
+        if (_hadData) return;
+        const Sk = window.Web2Skeleton;
+        if (!Sk) return; // không có helper → giữ nguyên placeholder "Đang tải..."
+        Sk.cards('#sdDbGrid', { count: 2, min: 280 });
+        Sk.cards('#sdServiceGrid', { count: 8, min: 200 });
+        Sk.stats('#sdProcGrid', { count: 4, min: 170 });
+    }
+
+    // Lỗi trên first-load: xóa skeleton để không đứng hình mãi (render lỗi text).
+    function clearFirstLoadSkeletons(msg) {
+        if (_hadData) return;
+        const Sk = window.Web2Skeleton;
+        const errHtml = `<div class="sd-loading">⚠️ ${escapeHtml(msg || 'Lỗi tải dữ liệu')}</div>`;
+        for (const id of ['sdDbGrid', 'sdServiceGrid', 'sdProcGrid']) {
+            const el = $(id);
+            if (el) el.innerHTML = errHtml;
+            else if (Sk) Sk.clear('#' + id);
+        }
+    }
+
     async function load() {
         try {
+            showFirstLoadSkeletons();
             const r = await fetch(API);
             const data = await r.json();
             if (!data?.ok) throw new Error(data?.error || `HTTP ${r.status}`);
             renderAll(data);
+            _hadData = true;
         } catch (e) {
             console.error('[system-services] load fail:', e);
             const u = $('sysUpdated');
             if (u) u.textContent = `Lỗi: ${e.message}`;
+            clearFirstLoadSkeletons(e.message);
             if (window.notificationManager?.show) {
                 window.notificationManager.show(`Tải data fail: ${e.message}`, 'error');
             }

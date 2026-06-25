@@ -6,6 +6,7 @@
     let _pages = [];
     let _pageId = null;
     let _limit = 50;
+    let _hadData = false; // true sau lần render thành công đầu tiên
     const DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     function $(id) {
@@ -238,6 +239,7 @@
         `;
         wirePageSelector();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        _hadData = true;
     }
 
     function topRow(p, i) {
@@ -289,10 +291,17 @@
     }
 
     async function load() {
-        $('fbiBody').innerHTML =
-            pageSelectorHtml() +
-            '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tính thống kê…</div>';
-        wirePageSelector();
+        // Lần đầu chưa có dữ liệu → skeleton; reload/đổi page→ spinner nhẹ (tránh nháy cả khối).
+        if (!_hadData && window.Web2Skeleton) {
+            $('fbiBody').innerHTML = pageSelectorHtml() + '<div id="fbiSk"></div>';
+            wirePageSelector();
+            window.Web2Skeleton.stats('#fbiSk', { count: 4 });
+        } else {
+            $('fbiBody').innerHTML =
+                pageSelectorHtml() +
+                '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tính thống kê…</div>';
+            wirePageSelector();
+        }
         if (window.lucide?.createIcons) window.lucide.createIcons();
         try {
             const r = await Api().engagement(_pageId, _limit);
