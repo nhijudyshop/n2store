@@ -2,6 +2,34 @@
 
 ## 2026-06-26
 
+### [live-chat] FIX 401 live-hidden-commenters — \_save thiếu x-web2-token
+
+Console live-chat: `POST /api/web2/live-hidden-commenters/create` **401** (+ GET `/get/global` 404 là first-run BÌNH THƯỜNG → seed defaults). RCA: route `/:entity/create` + `/update/:code` (web2-generic.js) gated `requireWeb2AuthSoft` → cần `x-web2-token`. File có helper `_lhcHeaders()` (gửi token) và `_hideRemote`/`_unhideRemote` đã dùng (đợt A4), nhưng **`_save` vẫn dùng header trần** `{Content-Type}` → create/update 401 cho MỌI user (không chỉ session test) → record global không seed/persist được.
+
+**Fix** (`live-hidden-commenters.js`): `_save` đổi `const headers = {...}` → `const headers = _lhcHeaders()` (hoisted fn decl, callable từ trên). Create + update giờ gửi token. Bump `?v=20260626auth`.
+
+Lưu ý: 404 GET `/get/global` GIỮ NGUYÊN (contract first-run, client tự seed defaults + create). node --check OK. Status ✅
+
+### [web2/shared] Web2NumberInput — module CHUNG format số tiền khi NHẬP (1.000 · 2,64) + retrofit 6 trang ví/tiền
+
+User: "web 2.0 → module chung các số đều có `.` ở hàng ngàn (1.000, 24.000), thập phân là dấu `,` (2,64) — các input đều nhận như vậy, đang nhập 1000 thì hiện 1.000". Phạm vi user chọn: **chỉ ô tiền** (không đụng SĐT/mã/SL); **module + trang trọng điểm trước** (rải còn lại opt-in sau).
+
+**Module mới** `web2/shared/web2-number-input.js` (`window.Web2NumberInput`, ~250 dòng) — 1 NGUỒN format số khi gõ:
+
+- `parse(str)` (vi-VN: `.`=nghìn, `,`=thập phân → Number), `format(n,{decimals})`, `attach(el,opts)`, `attachAll(root)`, `getValue(el)`/`getValueOr`, `setValue(el,n)`, `config({observe})`.
+- **Live format giữ caret** khi gõ (đếm ký-tự-có-nghĩa, dấu `.` nghìn auto-sinh không nhảy con trỏ); mode số nguyên + thập phân (`data-w2num` / `data-w2num="decimal"` / `data-w2num="3"`).
+- **Auto-init**: quét `[data-w2num]` lúc DOMContentLoaded + **MutationObserver** → tự gắn cả ô render động (modal rows). Ô `type=number` tự đổi `type=text inputmode=numeric/decimal` (number không hiện được `.`).
+- ⚠ **Bẫy `.value`**: ô hiện "1.000" thì `Number(el.value)`=1 → đọc số thật PHẢI qua `Web2NumberInput.getValue(el)`. `getValue` parse thẳng từ `el.value` (không tin dataset → an toàn khi code gán `.value=''` trực tiếp).
+
+**Retrofit 6 trang tiền trọng điểm** (đổi input + sửa MỌI read-site `Number(el.value)`→`getValue`, set-site→`setValue`; đều có fallback defensive `window.Web2NumberInput ? … : …`):
+
+- `balance-history` nạp tiền (`w2mdAmount`); `chi-tieu` (`ctfAmount`, modal động + `attachAll`); `supplier-wallet` (`swPayAmount`) + `supplier-debt` (`sdPayAmount`); `products` (`pmPriceBuy`/`pmPriceSell` + drawer `data-f=price/originalPrice`) — KHÔNG đụng `pmStock`/tồn (SL).
+- `so-order` (đầy đủ, **currency-aware → decimal**): modal rows `costPrice`/`sellPrice`, form `shipDiscount`/`shipShipping`/`shipContractAmount`, per-order meta (`data-pm` HĐ/Giảm/Ship), inline-edit + bulk-edit price cells. Tích hợp coexist với `onModalPriceBlur` (VND shorthand 100→100.000) + live-recompute tổng. Audit 8 domain (workflow) → map 28 input + 44 read-site phá vỡ; chốt scope chỉ tiền.
+
+**Verify**: (1) Unit test Node 41/41 (parse/format/live int+decimal/getValue trap/setValue) ✅; (2) `node --check` 15 file JS ✅; (3) Browser localhost thật: balance-history gõ `1000000`→`1.000.000` getValue 1000000 ✅; so-order modal row `1000000`→`1.000.000` (state 1000000) · shorthand `100`→blur→`100.000` (tổng 100.000₫ đúng) · decimal `12,5`→state 12.5 ✅; products setValue 250000→`250.000` + gõ `1500000`→`1.500.000` ✅. Status: ✅
+
+**Còn lại (opt-in sau)**: native-orders (pbhDeposit/DeliveryPrice/PaymentAmount), purchase-refund (price), reconcile/payment-confirm. Trang mới chỉ cần thêm `<script src="…/web2-number-input.js">` + `data-w2num` vào ô tiền + đọc qua `getValue`.
+
 ### [so-order][web2/products] In tem/mã SP dùng CHUNG module web2/products — gỡ modal "In mã vạch" legacy fork
 
 User: ở Sổ Order, in mã SP phải **dùng chung module bên products** (Kho SP), không phải modal "In mã vạch" riêng. Bug: nút "In tem" (nhận hàng) mở modal legacy `soBarcodeModal` ("In mã vạch — <NCC>") thay vì modal in dùng chung.

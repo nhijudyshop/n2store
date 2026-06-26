@@ -111,7 +111,10 @@
             userName: user.name || null,
             sourcePage: 'live-chat',
         });
-        const headers = { 'Content-Type': 'application/json' };
+        // Create/update record gated requireWeb2AuthSoft → PHẢI gửi x-web2-token
+        // (giống _hideRemote/_unhideRemote). Trước đây _save dùng header trần →
+        // POST /create + PATCH /update 401 cho MỌI user (đợt A4 chỉ vá hide/unhide).
+        const headers = _lhcHeaders();
         if (mode !== 'create') {
             const r = await fetch(`${_apiBase()}/update/global`, {
                 method: 'PATCH',
