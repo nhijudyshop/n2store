@@ -2,6 +2,14 @@
 
 ## 2026-06-26
 
+### [web2/admin] Wipe data 9 trang vận hành Web 2.0 (beta) + endpoint `/web2-wipe-9pages`
+
+User yêu cầu xóa data DB Web 2.0 cho 9 trang: fastsaleorder-invoice, reconcile, native-orders, so-order, purchase-refund, supplier-debt, supplier-wallet, ck-dashboard, products. Map từng trang → bảng web2Db (workflow 9 agent đọc HTML→JS→route→SQL): không endpoint sẵn nào khớp đúng (broad `web2-data-wipe` lỡ giết `web2_variants` + thiếu `fast_sale_order_history`/`pbh_fulfillment_logs`/`web2_customer_intents`/`web2_records[slug=purchase-refund]`/seq).
+
+**Mới** (`render.com/routes/admin-web2-data-reset.js`): thêm `POST /api/admin/web2-wipe-9pages` (header `x-admin-secret`, `{confirm:'YES-RESET', dryRun?}`, web2Db-only guard, auto-backup `<t>_bak_<tag>`, FK cascade-risk fail-loud). Truncate 24 bảng (đơn/PBH/fulfillment/so-order/SP/NCC-ledger+meta/CK + downstream ví KH/KPI/tag/cart/campaign/returns/QR/pending), DELETE `web2_records WHERE entity_slug='purchase-refund'`, reset seq `web2_supplier_move_seq`, UNLINK (giữ dòng) `web2_balance_history` cờ match.
+
+**Đã chạy** (user chọn scope "9 trang + dọn liên kết"): 244 dòng truncated (19 bảng có data) + 3 purchase-refund + 37 balance unlinked, 24+2 backup. **GIỮ**: web2_customers, web2_balance_history (dòng), web2_variants (108), auth/config. Verify post-wipe: mọi target=0, variants=108 nguyên. Backup `*_bak_20260626_104302_4ccb` còn trên web2Db — drop sau khi yên tâm qua `POST /api/admin/web2-cleanup-dead {confirm:'YES-CLEANUP'}`. Status: ✅
+
 ### [web2/cham-cong] Gỡ tham chiếu lay-du-lieu.bat — 1 NGUỒN AUTO duy nhất (ADMS proxy từ printer-settings)
 
 User: "xóa lay-du-lieu.bat đi chỉ lấy bằng 1 nguồn auto". Có 2 hệ agent: (cũ) `web2-attendance-sync/` lay-du-lieu.bat + install-windows.bat (ZKLib LAN poll → push `source='agent'`, đã chết 23/06) — **folder đã bị gỡ khỏi repo**, chỉ còn UI text tham chiếu; (giữ) `attendance-sync/` → `cai-cham-cong.bat` → `adms-proxy.js` (DG-600 push ADMS → `source='adms'`), tải từ **Cấu hình in → Cài máy chấm công DG-600** (web2-attendance-installer.js). 1 nguồn auto duy nhất.
