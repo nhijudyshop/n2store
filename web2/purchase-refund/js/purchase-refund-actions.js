@@ -143,7 +143,8 @@
         form.reset();
         form.elements['qty'].value = item.stock;
         form.elements['qty'].max = item.stock;
-        form.elements['price'].value = item.price;
+        if (window.Web2NumberInput) Web2NumberInput.setValue(form.elements['price'], item.price);
+        else form.elements['price'].value = item.price;
         $('prQuickQtyHint').querySelector('span').textContent = String(item.stock);
 
         $('prQuickInfo').innerHTML = `
@@ -187,7 +188,10 @@
     function updateQuickTotal() {
         const form = $('prQuickForm');
         const qty = Number(form.elements['qty'].value) || 0;
-        const price = Number(form.elements['price'].value) || 0;
+        const price =
+            (window.Web2NumberInput
+                ? Web2NumberInput.getValue(form.elements['price'])
+                : Number(form.elements['price'].value)) || 0;
         $('prQuickTotal').textContent = fmtMoney(qty * price);
     }
 
@@ -204,7 +208,10 @@
         if (!item) return;
         const form = $('prQuickForm');
         const qty = Math.max(1, Math.min(item.stock, Number(form.elements['qty'].value) || 0));
-        const price = Number(form.elements['price'].value) || 0;
+        const price =
+            (window.Web2NumberInput
+                ? Web2NumberInput.getValue(form.elements['price'])
+                : Number(form.elements['price'].value)) || 0;
         const reason = form.elements['reason'].value;
         const method = form.elements['refundMethod'].value;
         const note = form.elements['note'].value || '';

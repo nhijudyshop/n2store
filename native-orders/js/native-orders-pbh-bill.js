@@ -134,17 +134,17 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
                         Đặt cọc
-                        <input id="pbhDeposit" type="number" min="0" step="1000" value="${Number(src.deposit) || 0}"
+                        <input id="pbhDeposit" type="text" inputmode="numeric" data-w2num value="${Number(src.deposit) || 0}"
                             style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
                     </label>
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
                         Phí giao hàng
-                        <input id="pbhDeliveryPrice" type="number" min="0" step="1000" value="${picked?.option?.price || 0}"
+                        <input id="pbhDeliveryPrice" type="text" inputmode="numeric" data-w2num value="${picked?.option?.price || 0}"
                             style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
                     </label>
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
                         Đã thanh toán
-                        <input id="pbhPaymentAmount" type="number" min="0" step="1000" value="0"
+                        <input id="pbhPaymentAmount" type="text" inputmode="numeric" data-w2num value="0"
                             style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
                     </label>
                     <label style="display:flex;flex-direction:column;gap:4px;font-weight:600;">
@@ -169,13 +169,16 @@
             cancelText: 'Huỷ',
             // Wire dropdown change → auto-fill Phí giao hàng so user sees price react live.
             onMount: (root) => {
+                // Format số tiền (đặt cọc/phí ship/đã TT) ngay khi gõ — 1.000.
+                if (window.Web2NumberInput) Web2NumberInput.attachAll(root);
                 const sel = root.querySelector('#pbhDeliveryMethod');
                 const priceInput = root.querySelector('#pbhDeliveryPrice');
                 if (sel && priceInput) {
                     sel.addEventListener('change', () => {
                         const opt = sel.options[sel.selectedIndex];
                         const price = Number(opt.dataset.price || 0);
-                        priceInput.value = price;
+                        if (window.Web2NumberInput) Web2NumberInput.setValue(priceInput, price);
+                        else priceInput.value = price;
                     });
                 }
                 // shopMode: ép "BÁN HÀNG SHOP" + disable dropdown + ship = 0.
@@ -195,17 +198,26 @@
                     sel.style.background = '#f1f5f9';
                     sel.style.cursor = 'not-allowed';
                     if (priceInput) {
-                        priceInput.value = 0;
+                        if (window.Web2NumberInput) Web2NumberInput.setValue(priceInput, 0);
+                        else priceInput.value = 0;
                     }
                 }
             },
             collect: (root) => {
                 const sel = root.querySelector('#pbhDeliveryMethod');
                 const selectedOpt = sel ? sel.options[sel.selectedIndex] : null;
+                const _gv = (sel2) => {
+                    const el = root.querySelector(sel2);
+                    return (
+                        (window.Web2NumberInput
+                            ? Web2NumberInput.getValue(el)
+                            : Number(el?.value)) || 0
+                    );
+                };
                 return {
-                    deposit: Number(root.querySelector('#pbhDeposit').value) || 0,
-                    deliveryPrice: Number(root.querySelector('#pbhDeliveryPrice').value) || 0,
-                    paymentAmount: Number(root.querySelector('#pbhPaymentAmount').value) || 0,
+                    deposit: _gv('#pbhDeposit'),
+                    deliveryPrice: _gv('#pbhDeliveryPrice'),
+                    paymentAmount: _gv('#pbhPaymentAmount'),
                     dateInvoice: NO._dateInputToIsoWithNowTime(
                         root.querySelector('#pbhDateInvoice').value
                     ),

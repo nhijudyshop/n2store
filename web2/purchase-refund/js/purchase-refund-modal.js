@@ -102,7 +102,10 @@
                 reason: fd.get('reason') || null,
                 refundMethod: fd.get('refundMethod') || null,
                 totalQty: Number(fd.get('totalQty') || 0),
-                totalAmount: Number(fd.get('totalAmount') || 0),
+                totalAmount:
+                    (window.Web2NumberInput
+                        ? Web2NumberInput.parse(fd.get('totalAmount'))
+                        : Number(fd.get('totalAmount') || 0)) || 0,
                 note: fd.get('note') || null,
                 products,
                 status: 'draft', // mới tạo = draft; edit thì giữ status cũ ở server side qua merge
@@ -306,7 +309,10 @@
             totalAmountAll += lq * lp;
         }
         if (qtyInp) qtyInp.value = totalQtyAll;
-        if (amtInp) amtInp.value = totalAmountAll;
+        if (amtInp) {
+            if (window.Web2NumberInput) Web2NumberInput.setValue(amtInp, totalAmountAll);
+            else amtInp.value = totalAmountAll;
+        }
 
         closePicker();
         notify(`✓ Đã thêm ${lines.length} SP vào danh sách`, 'success');
