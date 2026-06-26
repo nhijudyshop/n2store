@@ -54,7 +54,8 @@
         const standardHours = Math.max(0.5, (endMin - startMin) / 60);
         const hourlyRate = dailyRate / standardHours;
         const latePer = Number(cfg.latePenaltyPerMin) || 0;
-        const otMult = Number(cfg.otMultiplier) || 1;
+        // Hệ số OT: finite-check (KHÔNG `|| 1`) để cho phép cấu hình 0 = không trả OT.
+        const otMult = Number.isFinite(Number(cfg.otMultiplier)) ? Number(cfg.otMultiplier) : 1;
 
         const out = {
             baseSalary: 0,
@@ -214,7 +215,11 @@
             lateDeduction = 0;
             lateDays.length = 0;
         }
-        if (pr.ot_hours_override != null && pr.ot_hours_override !== '') {
+        // OT override CHỈ áp cho lương NGÀY (!isMonthly). Với lương THÁNG, cfg.dailyRate
+        // = lương CẢ THÁNG → chia cho giờ-công-1-ngày ra hr khổng lồ → OT sai gấp ~số
+        // ngày công/tháng (vd lương 10tr, ca 12h → hr 833k/h, 2h OT ×2 = 3,33tr). Auto-OT
+        // đã ép 0 cho monthly (calcDay), override cũng phải bỏ qua; OT tháng cộng tay qua "Thưởng".
+        if (!isMonthly && pr.ot_hours_override != null && pr.ot_hours_override !== '') {
             const hr =
                 (Number(cfg.dailyRate) || 0) /
                 Math.max(
@@ -222,9 +227,10 @@
                     (hmToMinutes(cfg.workEnd || '20:00') - hmToMinutes(cfg.workStart || '08:00')) /
                         60
                 );
-            lamThem = Math.round(
-                Number(pr.ot_hours_override) * hr * (Number(cfg.otMultiplier) || 1)
-            );
+            const otMultOv = Number.isFinite(Number(cfg.otMultiplier))
+                ? Number(cfg.otMultiplier)
+                : 1;
+            lamThem = Math.round(Number(pr.ot_hours_override) * hr * otMultOv);
         }
         if (pr.giam_tru_late_override != null && pr.giam_tru_late_override !== '') {
             lateDeduction = Number(pr.giam_tru_late_override);

@@ -2,6 +2,24 @@
 
 ## 2026-06-26
 
+### [web2/cham-cong] AUDIT đa tác tử (42 agent) + FIX 2 bug lương sai tiền
+
+User: "audit debug" trang Chấm công. Chạy workflow audit 8 chiều × adversarial-verify (30/33 finding confirmed: 3 CRITICAL, 5 HIGH, 13 MEDIUM, 9 LOW) + browser-debug live (test pure calc `ChamCongSalary`).
+
+**FIX ngay (sai tiền, an toàn — `cham-cong-salary.js`)**:
+
+- **CRITICAL — OT override trên NV lương THÁNG → overpay ~26×**: block `ot_hours_override` (calcMonth) chạy vô điều kiện, chia `cfg.dailyRate` (= lương CẢ THÁNG với monthly) cho giờ-công-1-ngày → hr khổng lồ. Vd lương 10tr ca 12h, override 2h ×2 = **3.333.333đ** OT cho 2 giờ. Auto-OT đã ép 0 cho monthly nhưng override bỏ qua guard. → Gate `if (!isMonthly && ...)`. Verify: monthly lamThem 3.333.333 → **0**; daily override vẫn 75.000 đúng; luongChinh tháng giữ 10tr.
+- **LOW — hệ số OT = 0 bị ép thành 1×**: `Number(cfg.otMultiplier) || 1` → 0 thành 1× (trả full OT thay vì tắt OT). Đổi `Number.isFinite(...) ? ... : 1` (3 chỗ: const otMult + nhánh override). Verify: otMult 0 → otPay 0 (was 50.000); undefined vẫn 1×.
+
+Cache-bust `cham-cong-salary.js?v=20260626fix`.
+
+**Browser-debug thêm** (ChamCongSalary đúng phần lớn: OT daily/monthly, grace ≤6, daysOfMonth, missing-cfg no-NaN):
+
+- Grace "cliff": 08:06 muộn 0' → 08:07 muộn **7'** (full, không phải 1'). Vượt grace bị phạt từ phút 0. → câu hỏi chính sách.
+- Naive `check_time` TZ: `new Date(r.check_time)` không chuẩn hoá +7 → chỉ đúng nếu API trả ISO có offset (browser +7 che lỗi).
+
+**CÒN LẠI — chờ quyết định** (audit findings, chưa fix vì cần phối hợp/đụng auth thiết bị/backend): ADMS `/iclock/*` ZERO auth (CRITICAL — forge punch→forge payroll), monthly late-penalty (policy), dup-PIN double-count total, deleted-punch resurrect, secret fail-open + query-string leak, period-lock client-trusted, web2-users/list lộ PII non-admin, perf full-rerender/496-listener, a11y color-only/modal Esc-ARIA, dead CSS. Xem báo cáo chat.
+
 ### [web2/order-tags] Thêm trigger "Có ghi chú SP" (ghi chú cấp dòng sản phẩm)
 
 User: "có ghi chú sản phẩm" → thêm trigger phân biệt ghi chú CẤP DÒNG SP với ghi chú cấp đơn.
