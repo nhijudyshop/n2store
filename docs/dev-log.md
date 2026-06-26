@@ -2,6 +2,18 @@
 
 ## 2026-06-26
 
+### [purchase-orders][web2/shared] Cầu nối XUẤT bảng PO (Web 1.0) → mã base64 → NHẬP vào Sổ Order (Web 2.0)
+
+User: ở `purchase-orders/index.html` cho xuất dữ liệu bảng thành 1 mã (base64) → dán vào `so-order/index.html` (đã có sẵn modal "Nhập Sổ Order"), **không đụng chạm code/DB giữa Web 1.0 ↔ Web 2.0** — cầu nối duy nhất là mã copy-paste / file.
+
+**Định dạng (data contract, KHÔNG share code):** `N2IMPORT1:` + base64(UTF-8 JSON `{_n2,v,kind,src,exportedAt,count,rows:[…]}`). `rows` khớp ĐÚNG cột Web2Import của so-order (`supplier,date,batch,productName,variant,qty,costPrice,sellPrice,note,costNote,status`).
+
+**Web 1.0 — encoder + UI** (mới `purchase-orders/js/lib/so-order-export.js`, self-contained, KHÔNG import web2/): map đơn tab đang xem → rows (mỗi đơn = 1 lô qua `batch`=orderNumber; status PO→Nháp/Đã nhận/Đã hủy; variant `-`→rỗng; bỏ qua SP thiếu tên), encode token, modal Copy / tải `.txt` / `.json`. Nút **"Xuất Sổ Order"** ở filter-bar (`ui-components.js` renderFilterBar + bind; `main.js` handler `onExportSoOrder`). Khung modal không chèn giá trị động qua innerHTML (token set `.value`, số liệu `.textContent` — chống XSS).
+
+**Web 2.0 — decoder** (sửa shared `web2/shared/web2-import.js`, 1 nguồn → lợi cho MỌI modal import web2): `parseInput()` nhận diện prefix `N2IMPORT1:` → base64-decode UTF-8 → JSON (đã sẵn xử lý `{rows:[…]}`). Có guard size (~6 MB) chống DoS. Placeholder ô dán + cache-bust `?v=20260626a` ở so-order + web2/products.
+
+**Verify:** (1) Node contract round-trip (UTF-8 tiếng Việt, status enum, note fallback, skip thiếu tên) ✅; (2) Browser e2e localhost: PO 3 đơn→**26 dòng** token → so-order paste → preview **"26 dòng hợp lệ / Sẵn sàng nhập 26 dòng order"**, 0 lỗi ✅ (chỉ preview, KHÔNG commit data thật). Code-review: tách layer sạch, mapping đúng, 2 HIGH (XSS latent + size cap) đã fix. Status: ✅
+
 ### [web2/admin] Wipe data 9 trang vận hành Web 2.0 (beta) + endpoint `/web2-wipe-9pages`
 
 User yêu cầu xóa data DB Web 2.0 cho 9 trang: fastsaleorder-invoice, reconcile, native-orders, so-order, purchase-refund, supplier-debt, supplier-wallet, ck-dashboard, products. Map từng trang → bảng web2Db (workflow 9 agent đọc HTML→JS→route→SQL): không endpoint sẵn nào khớp đúng (broad `web2-data-wipe` lỡ giết `web2_variants` + thiếu `fast_sale_order_history`/`pbh_fulfillment_logs`/`web2_customer_intents`/`web2_records[slug=purchase-refund]`/seq).

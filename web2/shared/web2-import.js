@@ -101,9 +101,11 @@
     }
 
     // text → JSON string nếu là token N2 hợp lệ; ngược lại null.
+    const N2_TOKEN_MAX_B64 = 8_000_000; // ~6 MB JSON — chặn DoS dán chuỗi khổng lồ
     function decodeN2Token(trimmed) {
         if (!trimmed.startsWith(N2_TOKEN_PREFIX)) return null;
         const b64 = trimmed.slice(N2_TOKEN_PREFIX.length).replace(/\s+/g, '');
+        if (b64.length > N2_TOKEN_MAX_B64) throw new Error('Mã quá lớn');
         return b64DecodeUtf8(b64); // ném lỗi nếu base64 hỏng → caller bắt
     }
 
