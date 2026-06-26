@@ -2,6 +2,16 @@
 
 ## 2026-06-26
 
+### [web2/cham-cong] FIX đợt 2 — grace smooth + monthly late reset + dup-PIN dedupe tổng
+
+Sau audit, user chọn fix tiếp (ADMS auth hoãn — beta). Group A (sai tiền/chính sách):
+
+- **Grace "cliff" → SMOOTH** (`cham-cong-salary.js` calcDay): trước vượt grace bị phạt TỪ phút 0 (08:06=0' nhưng 08:07=7'). Giờ THA tối đa `grace` phút → muộn = max(0, thực−grace), đối xứng cho cả vào (đi muộn) lẫn ra (về sớm). Verify: 08:07→1', 08:20→14', base liên tục (300000→299583), về sớm 19:50→4'.
+- **Lương THÁNG KHÔNG auto phạt muộn** (calcMonth isMonthly branch): reset `lateDeduction=0` + `lateDays=[]` (nhất quán với OT=0 monthly; muốn phạt → "Giảm trừ thủ công"). Verify: monthly late 1h → ded 0, tổng giữ 10tr; manual override 50k vẫn áp; daily vẫn phạt (60−6)×1000=54000.
+- **Dup-PIN KHÔNG cộng đôi TỔNG** (`cham-cong-payroll.js` render + lock snapshot): 1 NV gán nhiều PIN → tổng chỉ cộng 1 lần (PIN đầu), dòng trùng vẫn hiện + đánh dấu "(∉ tổng)". Lock snapshot total cũng dedupe + bổ sung pc/thuong/giam (trước thiếu). Verify: 2 PIN cùng emp → tổng 900k (đúng), PIN2 skip.
+
+Cache-bust salary `?v=20260626fix2`, payroll `?v=20260626fix`.
+
 ### [web2/cham-cong] AUDIT đa tác tử (42 agent) + FIX 2 bug lương sai tiền
 
 User: "audit debug" trang Chấm công. Chạy workflow audit 8 chiều × adversarial-verify (30/33 finding confirmed: 3 CRITICAL, 5 HIGH, 13 MEDIUM, 9 LOW) + browser-debug live (test pure calc `ChamCongSalary`).

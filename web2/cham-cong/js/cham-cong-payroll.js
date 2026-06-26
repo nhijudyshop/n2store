@@ -133,28 +133,36 @@
 
         let rows = '';
         let tot = { luong: 0, ot: 0, pc: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
+        // B3-fix (2026-06-26): 1 NV gán nhiều PIN → CHỈ cộng vào TỔNG 1 lần (PIN đầu),
+        // các dòng trùng vẫn hiển thị nhưng đánh dấu "không tính tổng" → tổng không phồng.
+        const countedEmpIds = new Set();
         for (const en of entries) {
             const m = en.m;
             const du = en.du || {};
-            const isDup = du.employee_id && dupEmpIds.has(String(du.employee_id));
+            const empId = du.employee_id ? String(du.employee_id) : null;
+            const isDup = empId && dupEmpIds.has(empId);
+            const skipTotal = empId && countedEmpIds.has(empId); // dòng trùng thứ 2+ → bỏ khỏi tổng
+            if (empId) countedEmpIds.add(empId);
             // B6: NV lương THÁNG chưa chấm công ngày nào → nhắc admin kiểm tra (vẫn trả full).
             const lowMonthly = en.salary_type === 'monthly' && m.workedDays === 0;
             const warnStyle = 'color:#dc2626;font-size:11px;font-weight:600;white-space:nowrap';
             const nameExtra =
                 (isDup
-                    ? ` <span style="${warnStyle}" title="Gán trùng NV — lương tính 2 lần">⚠ PIN ${cc.esc(en.uid)}</span>`
+                    ? ` <span style="${warnStyle}" title="Gán trùng NV${skipTotal ? ' — dòng này KHÔNG cộng vào tổng' : ' — chỉ cộng tổng 1 lần'}">⚠ PIN ${cc.esc(en.uid)}${skipTotal ? ' (∉ tổng)' : ''}</span>`
                     : '') +
                 (lowMonthly
                     ? ` <span style="${warnStyle}" title="Lương tháng nhưng 0 ngày công — kiểm tra giảm trừ">⚠ 0 công</span>`
                     : '');
-            tot.luong += m.luongChinh;
-            tot.ot += m.lamThem;
-            tot.pc += m.phuCap;
-            tot.thuong += m.thuong;
-            tot.giam += m.giamTru;
-            tot.tong += m.tongLuong;
-            tot.datra += m.daTra;
-            tot.con += m.conCanTra;
+            if (!skipTotal) {
+                tot.luong += m.luongChinh;
+                tot.ot += m.lamThem;
+                tot.pc += m.phuCap;
+                tot.thuong += m.thuong;
+                tot.giam += m.giamTru;
+                tot.tong += m.tongLuong;
+                tot.datra += m.daTra;
+                tot.con += m.conCanTra;
+            }
             rows += `<tr>
                 <td class="cc-pl-name">${cc.esc(en.name)}${nameExtra}</td>
                 <td class="num">${m.workedDays}</td>
@@ -236,12 +244,21 @@
             return;
         const entries = entriesForRender(); // đang chưa khoá → live
         const tot = { luong: 0, ot: 0, pc: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
+        // 1 NV nhiều PIN → snapshot TỔNG chỉ cộng 1 lần (PIN đầu) — khớp tổng bảng render.
+        const _countedLock = new Set();
         const rows = entries.map((en) => {
-            tot.luong += en.m.luongChinh;
-            tot.ot += en.m.lamThem;
-            tot.tong += en.m.tongLuong;
-            tot.datra += en.m.daTra;
-            tot.con += en.m.conCanTra;
+            const empId = en.du && en.du.employee_id ? String(en.du.employee_id) : null;
+            if (!(empId && _countedLock.has(empId))) {
+                if (empId) _countedLock.add(empId);
+                tot.luong += en.m.luongChinh;
+                tot.ot += en.m.lamThem;
+                tot.pc += en.m.phuCap;
+                tot.thuong += en.m.thuong;
+                tot.giam += en.m.giamTru;
+                tot.tong += en.m.tongLuong;
+                tot.datra += en.m.daTra;
+                tot.con += en.m.conCanTra;
+            }
             return {
                 device_user_id: en.uid,
                 name: en.name,

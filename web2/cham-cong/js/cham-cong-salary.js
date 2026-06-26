@@ -90,18 +90,25 @@
         let checkIn = dayData.checkIn;
         let checkOut = dayData.checkOut || dayData.checkIn;
 
-        // Dung sai VÀO: vào trễ ≤ grace → kéo về mốc bắt đầu (không muộn, không trừ lương).
-        if (checkIn > startMoment && checkIn - startMoment <= graceMs) checkIn = startMoment;
+        // Dung sai VÀO (2026-06-26: SMOOTH, KHÔNG cliff): THA tối đa `grace` phút đi muộn.
+        // Vào ≤ grace → 0 muộn; vào grace+k → đúng k phút muộn. Trước đây vượt grace bị
+        // phạt TỪ phút 0 (08:06=0' nhưng 08:07=7' — nhảy bậc vô lý). Giờ kéo checkIn về
+        // tối đa `grace` phút → muộn = max(0, thực_muộn − grace), liên tục.
+        if (checkIn > startMoment) {
+            const forgiven = Math.min(graceMs, checkIn - startMoment);
+            checkIn = new Date(checkIn.getTime() - forgiven);
+        }
 
-        // Đi muộn: vào sau mốc bắt đầu (sau khi đã trừ dung sai).
+        // Đi muộn: phần còn vượt mốc bắt đầu sau khi đã tha dung sai.
         if (checkIn > startMoment) {
             out.lateMinutes = Math.floor((checkIn - startMoment) / 60000);
             out.lateDeduction = out.lateMinutes * latePer;
         }
 
-        // Dung sai RA / làm tròn gần mốc kết ca: về sớm ≤ grace → coi như đủ ca.
-        if (checkOut < endMoment && endMoment - checkOut <= graceMs && checkOut >= startMoment) {
-            checkOut = endMoment;
+        // Dung sai RA (đối xứng): THA tối đa `grace` phút về sớm → về sớm = max(0, thực − grace).
+        if (checkOut < endMoment && checkOut >= startMoment) {
+            const forgiven = Math.min(graceMs, endMoment - checkOut);
+            checkOut = new Date(checkOut.getTime() + forgiven);
         }
 
         // Lương cơ bản: cửa sổ [max(in,start) .. min(out,end)].
@@ -206,6 +213,10 @@
         const isMonthly = String(cfg.salaryType) === 'monthly';
         if (isMonthly) {
             luongChinh = Number(cfg.dailyRate) || 0;
+            // Lương THÁNG = cố định → KHÔNG auto trừ phạt muộn theo phút (nhất quán với
+            // OT=0 cho monthly). Muốn phạt muộn NV lương tháng → dùng "Giảm trừ thủ công".
+            lateDeduction = 0;
+            lateDays.length = 0;
         } else if (pr.salary_days_override != null && pr.salary_days_override !== '') {
             workedDays = Math.max(0, Number(pr.salary_days_override) || 0);
             luongChinh = workedDays * (Number(cfg.dailyRate) || 0);
