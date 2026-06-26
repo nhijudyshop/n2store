@@ -102,8 +102,14 @@
         if (!Array.isArray(deposits) || !deposits.length) return;
         const added = await window.SupplierWalletStorage.applyDeposits(SW.walletState, deposits);
         const maxTs = deposits.reduce((m, d) => Math.max(m, Number(d.ts) || 0), since);
+        // FIX audit R2 (#5): KHÔNG advance watermark QUA deposit CHƯA KHỚP NCC (supplier chưa có
+        // trong ví lúc poll) — trước advance thẳng tới maxTs → deposit chưa khớp không bao giờ
+        // fetch lại = MẤT refund NCC vĩnh viễn. applyDeposits idempotent (processed sepayId từ
+        // ledger) nên lùi watermark 1 cửa sổ để re-scan deposit chưa khớp tới khi NCC được thêm;
+        // deposit đã khớp re-fetch bị skip (không double-credit).
+        const LOOKBACK_MS = 14 * 24 * 3600 * 1000; // 14 ngày
         if (maxTs > since) {
-            SW.walletState.lastDepositSync = maxTs;
+            SW.walletState.lastDepositSync = Math.max(0, maxTs - LOOKBACK_MS);
             window.SupplierWalletStorage.save(SW.walletState);
         }
         if (added > 0) {

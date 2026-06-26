@@ -356,53 +356,54 @@ async function processWithdraw(
         throw new Error('Amount phải > 0');
     }
 
-    return runWithTx(db, async (client) => {
-        await getOrCreateWallet(client, normPhone, null);
-        const lockResult = await client.query(
-            `SELECT id, phone, customer_id, balance, virtual_balance,
+    const _runWithdraw = () =>
+        runWithTx(db, async (client) => {
+            await getOrCreateWallet(client, normPhone, null);
+            const lockResult = await client.query(
+                `SELECT id, phone, customer_id, balance, virtual_balance,
                     total_deposited, total_withdrawn
              FROM web2_customer_wallets WHERE phone = $1 FOR UPDATE`,
-            [normPhone]
-        );
-        const wallet = lockResult.rows[0];
-        if (!wallet) throw new Error(`Wallet ${normPhone} not found`);
+                [normPhone]
+            );
+            const wallet = lockResult.rows[0];
+            if (!wallet) throw new Error(`Wallet ${normPhone} not found`);
 
-        // audit d-fix #4 (2026-06-21): idempotency IN-TRANSACTION cho withdraw (mirror
-        // MED-6 của processDeposit). Check SAU khi LOCK ví → 2 withdraw cùng referenceId
-        // serialize trên FOR UPDATE; cái thứ 2 thấy tx cái thứ 1 đã commit →
-        // alreadyProcessed (KHÔNG trừ ví 2 lần). Đóng TOCTOU mà route /withdraw
-        // (_findIdempotentTx chạy NGOÀI txn) + unique index (có thể vắng lúc boot nếu có
-        // dup cũ) bỏ sót. Chỉ check khi có referenceId (manual withdraw kèm idemKey).
-        if (referenceId) {
-            // FIX 2026-06-23 (audit vòng 5): dedupe PHẢI scope theo reference_type
-            // (mirror nhánh deposit line 218-246 đã scope 'sepay'/'balance_history').
-            // TRƯỚC: chỉ `type=WITHDRAW AND reference_id` → 2 luồng KHÁC NHAU dùng cùng
-            // referenceId = SỐ PBH va chạm: _applyWalletToPbh (referenceType
-            // 'native-order-pbh', referenceId = pbh.number) vs Sửa COD "trừ công nợ
-            // khách" (referenceType 'return-cod', referenceId = cùng số PBH) → lần trừ
-            // COD bị nuốt thành alreadyProcessed = KH KHÔNG bị trừ nhưng sổ ghi đã trừ.
-            // Thêm reference_type → cùng nghiệp vụ vẫn idempotent (retry cùng type),
-            // khác nghiệp vụ KHÔNG nuốt nhau.
-            const dup = await client.query(
-                `SELECT * FROM web2_wallet_transactions
+            // audit d-fix #4 (2026-06-21): idempotency IN-TRANSACTION cho withdraw (mirror
+            // MED-6 của processDeposit). Check SAU khi LOCK ví → 2 withdraw cùng referenceId
+            // serialize trên FOR UPDATE; cái thứ 2 thấy tx cái thứ 1 đã commit →
+            // alreadyProcessed (KHÔNG trừ ví 2 lần). Đóng TOCTOU mà route /withdraw
+            // (_findIdempotentTx chạy NGOÀI txn) + unique index (có thể vắng lúc boot nếu có
+            // dup cũ) bỏ sót. Chỉ check khi có referenceId (manual withdraw kèm idemKey).
+            if (referenceId) {
+                // FIX 2026-06-23 (audit vòng 5): dedupe PHẢI scope theo reference_type
+                // (mirror nhánh deposit line 218-246 đã scope 'sepay'/'balance_history').
+                // TRƯỚC: chỉ `type=WITHDRAW AND reference_id` → 2 luồng KHÁC NHAU dùng cùng
+                // referenceId = SỐ PBH va chạm: _applyWalletToPbh (referenceType
+                // 'native-order-pbh', referenceId = pbh.number) vs Sửa COD "trừ công nợ
+                // khách" (referenceType 'return-cod', referenceId = cùng số PBH) → lần trừ
+                // COD bị nuốt thành alreadyProcessed = KH KHÔNG bị trừ nhưng sổ ghi đã trừ.
+                // Thêm reference_type → cùng nghiệp vụ vẫn idempotent (retry cùng type),
+                // khác nghiệp vụ KHÔNG nuốt nhau.
+                const dup = await client.query(
+                    `SELECT * FROM web2_wallet_transactions
                  WHERE type = $1 AND reference_id = $2 AND reference_type = $3
                  LIMIT 1`,
-                [WEB2_TX_TYPES.WITHDRAW, String(referenceId), referenceType || 'manual']
-            );
-            if (dup.rows.length > 0) {
-                return { wallet, transaction: dup.rows[0], alreadyProcessed: true };
+                    [WEB2_TX_TYPES.WITHDRAW, String(referenceId), referenceType || 'manual']
+                );
+                if (dup.rows.length > 0) {
+                    return { wallet, transaction: dup.rows[0], alreadyProcessed: true };
+                }
             }
-        }
 
-        const balanceBefore = parseFloat(wallet.balance) || 0;
-        if (balanceBefore < amt) {
-            throw new Error(`Số dư không đủ (${balanceBefore} < ${amt})`);
-        }
-        const balanceAfter = balanceBefore - amt;
-        const totalWithdrawn = (parseFloat(wallet.total_withdrawn) || 0) + amt;
+            const balanceBefore = parseFloat(wallet.balance) || 0;
+            if (balanceBefore < amt) {
+                throw new Error(`Số dư không đủ (${balanceBefore} < ${amt})`);
+            }
+            const balanceAfter = balanceBefore - amt;
+            const totalWithdrawn = (parseFloat(wallet.total_withdrawn) || 0) + amt;
 
-        const txInsert = await client.query(
-            `INSERT INTO web2_wallet_transactions (
+            const txInsert = await client.query(
+                `INSERT INTO web2_wallet_transactions (
                 phone, customer_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
@@ -410,43 +411,70 @@ async function processWithdraw(
              )
              VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, NOW())
              RETURNING *`,
-            [
-                normPhone,
-                wallet.customer_id,
-                WEB2_TX_TYPES.WITHDRAW,
-                amt,
-                balanceBefore,
-                balanceAfter,
-                WEB2_SOURCES.ORDER_PAYMENT,
-                referenceType || 'manual',
-                referenceId ? String(referenceId) : null,
-                note || null,
-                performedBy || null,
-            ]
-        );
+                [
+                    normPhone,
+                    wallet.customer_id,
+                    WEB2_TX_TYPES.WITHDRAW,
+                    amt,
+                    balanceBefore,
+                    balanceAfter,
+                    WEB2_SOURCES.ORDER_PAYMENT,
+                    referenceType || 'manual',
+                    referenceId ? String(referenceId) : null,
+                    note || null,
+                    performedBy || null,
+                ]
+            );
 
-        const walletUpdate = await client.query(
-            `UPDATE web2_customer_wallets
+            const walletUpdate = await client.query(
+                `UPDATE web2_customer_wallets
              SET balance = $1, total_withdrawn = $2, updated_at = NOW()
              WHERE id = $3 RETURNING *`,
-            [balanceAfter, totalWithdrawn, wallet.id]
-        );
+                [balanceAfter, totalWithdrawn, wallet.id]
+            );
 
-        const result = {
-            wallet: walletUpdate.rows[0],
-            transaction: txInsert.rows[0],
-        };
+            const result = {
+                wallet: walletUpdate.rows[0],
+                transaction: txInsert.rows[0],
+            };
 
-        emitAfterCommit(client, normPhone, {
-            phone: normPhone,
-            wallet: result.wallet,
-            transaction: result.transaction,
-            type: 'withdraw',
-            ts: Date.now(),
+            emitAfterCommit(client, normPhone, {
+                phone: normPhone,
+                wallet: result.wallet,
+                transaction: result.transaction,
+                type: 'withdraw',
+                ts: Date.now(),
+            });
+
+            return result;
         });
 
-        return result;
-    });
+    try {
+        return await _runWithdraw();
+    } catch (e) {
+        // FIX audit R2 (#7): mirror processDeposit 23505 recovery. 2 connection cùng
+        // referenceId qua được SELECT dedup in-tx rồi đụng unique index → re-query trả
+        // alreadyProcessed thay vì raw 500. Chỉ recover khi db là Pool (không phải client
+        // trong tx caller — tx đã abort, không re-query được).
+        const isClient = !!(db && typeof db.release === 'function');
+        if (referenceId && !isClient && e && e.code === '23505') {
+            const dup = await db.query(
+                `SELECT * FROM web2_wallet_transactions
+                 WHERE type = $1 AND reference_id = $2 AND reference_type = $3 LIMIT 1`,
+                [WEB2_TX_TYPES.WITHDRAW, String(referenceId), referenceType || 'manual']
+            );
+            if (dup.rows.length > 0) {
+                const w = await db.query(`SELECT * FROM web2_customer_wallets WHERE phone = $1`, [
+                    normPhone,
+                ]);
+                console.warn(
+                    `[Web2WalletService] tránh double-withdraw (race) ref=${referenceId}/${referenceType} — đã có tx #${dup.rows[0].id}`
+                );
+                return { wallet: w.rows[0], transaction: dup.rows[0], alreadyProcessed: true };
+            }
+        }
+        throw e;
+    }
 }
 
 async function getWallet(db, phone) {

@@ -853,6 +853,26 @@ async function _bulkStateChange(req, res, newState) {
             [newState, numbers]
         );
         const orders = r.rows.map(mapRow);
+        // FIX audit R2 (#6): bulk-confirm (done) ĐỒNG BỘ native_orders như /confirm đơn lẻ.
+        // Trước đây thiếu → nếu bật lại nút bulk, đơn web linked không cập nhật trạng thái.
+        if (newState === 'done') {
+            for (const row of r.rows) {
+                try {
+                    const sr = await syncNativeOrderStatusFromPbh(pool, row, 'done');
+                    if (sr.synced && _notifyClients) {
+                        try {
+                            _notifyClients(
+                                'web2:native-orders',
+                                { action: 'bulk-confirm-sync', pbh: row.number, ts: Date.now() },
+                                'update'
+                            );
+                        } catch (e) {}
+                    }
+                } catch (e) {
+                    console.warn('[FAST-SALE-ORDERS] bulk-confirm native sync skip:', e.message);
+                }
+            }
+        }
         // 3W4: WS broadcast đã gỡ — SSE _notify bên dưới là kênh realtime duy nhất.
         if (orders.length) _notify(newState === 'done' ? 'bulk-confirm' : 'bulk-cancel', null);
         res.json({ success: true, changed: orders.length, requested: numbers.length, orders });
@@ -2490,10 +2510,14 @@ async function _cancelPbhInTx(client, number, performedBy) {
     }
     // FIX audit R2 (#2 delivery desync): huỷ PBH → huỷ luôn phiếu giao hàng linked
     // (cùng transaction) để board giao hàng + KPI dlv_* không hiện đơn LIVE cho PBH
-    // đã huỷ (đã restock + hoàn ví). CHỈ huỷ DLV chưa giao/chưa trả/chưa huỷ. Bọc try:
-    // bảng delivery_invoices có thể vắng ở vài env → không chặn cancel.
+    // đã huỷ (đã restock + hoàn ví). CHỈ huỷ DLV chưa giao/chưa trả/chưa huỷ.
+    // ⚠ SAVEPOINT BẮT BUỘC: lỗi UPDATE (vd bảng delivery_invoices vắng ở vài env) làm
+    // ABORT cả transaction → restock + hoàn ví phía trên bị ROLLBACK (catch JS không cứu
+    // được tx Postgres đã poison). ROLLBACK TO SAVEPOINT để 1 lỗi sync delivery KHÔNG
+    // kéo đổ cancel (best-effort trong cùng tx).
     let deliveryCancelled = 0;
     try {
+        await client.query('SAVEPOINT dlv_sync');
         const dlv = await client.query(
             `UPDATE delivery_invoices
              SET state = 'cancel',
@@ -2515,6 +2539,7 @@ async function _cancelPbhInTx(client, number, performedBy) {
             } catch (e) {}
         }
     } catch (e) {
+        await client.query('ROLLBACK TO SAVEPOINT dlv_sync').catch(() => {});
         console.warn('[FAST-SALE-ORDERS] cancel: delivery sync skip:', e.message);
     }
     return {

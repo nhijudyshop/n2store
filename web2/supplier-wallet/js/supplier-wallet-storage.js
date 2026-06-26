@@ -331,6 +331,23 @@
             .map((name) => ({ name, n: normalize(name) }))
             .filter((x) => x.n.length >= 4)
             .sort((a, b) => b.n.length - a.n.length);
+        // FIX audit R2 (#9): nếu content khớp ≥2 NCC PHÂN BIỆT (tên KHÔNG lồng nhau, vd
+        // "ABC" vs "XYZ" cùng xuất hiện) → MƠ HỒ → KHÔNG auto-credit (return null) để tránh
+        // ghi nhầm NCC. Deposit ở lại chưa-khớp → #5 re-scan + gán tay. Tên lồng nhau
+        // ("ABC" ⊂ "ABC SHOP") KHÔNG coi là mơ hồ — chọn tên dài nhất (như cũ).
+        const matches = sorted.filter(({ n }) => c.includes(' ' + n + ' '));
+        if (matches.length >= 2) {
+            const top = matches[0];
+            const conflicting = matches.some(
+                (m) => m.name !== top.name && !top.n.includes(m.n) && !m.n.includes(top.n)
+            );
+            if (conflicting) {
+                console.warn(
+                    `[SupplierWallet] match mơ hồ (${matches.map((m) => m.name).join(', ')}) → bỏ auto-credit, chờ gán tay`
+                );
+                return null;
+            }
+        }
         for (const { name, n } of sorted) {
             if (c.includes(' ' + n + ' ')) return name;
         }

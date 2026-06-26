@@ -1075,7 +1075,11 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             client,
                             phone,
                             walletCredit,
-                            null,
+                            // FIX audit R2 (#8): sourceId = mã phiếu trả → reference_type
+                            // 'balance_history' + reference_id=code → idempotent (MED-6 in-tx
+                            // dedup), không còn dựa hoàn toàn vào row lock. Defense thêm cạnh
+                            // code UNIQUE của web2_returns.
+                            code,
                             `Thu về ${code}`,
                             b.customerId || null,
                             null,
@@ -1362,7 +1366,9 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                             client,
                             row.phone,
                             -credited,
-                            null,
+                            // FIX audit R2 (#8): sourceId riêng cho hoàn-ví-huỷ → idempotent
+                            // (huỷ phiếu 2 lần không hoàn ví 2 lần).
+                            `rtn-cancel:${req.params.code}`,
                             `Hoàn ví huỷ phiếu COD ${req.params.code}`,
                             row.customer_id || null,
                             null,
