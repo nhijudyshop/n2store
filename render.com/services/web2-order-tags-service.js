@@ -238,8 +238,13 @@ const PREDICATES = {
     // (kpi_user cần products.length > 0) → giỏ rỗng có pill "Giỏ trống", không có pill KPI.
     gio_trong: (o) =>
         o.status !== 'cancelled' && (!Array.isArray(o.products) || o.products.length === 0),
-    // Đã đối soát: PBH fulfillment đã đóng gói/giao xong.
-    da_doi_soat: (o) => ['packed', 'shipped', 'delivered'].includes(o.pbhFulfillmentState),
+    // Đã đối soát: MỌI PBH (kể cả bill tách) đã đóng gói/giao xong. FIX audit R3 (#1):
+    // dùng pbhAllReconciled (BOOL_AND mọi bill) thay vì 1 bill → đơn tách còn bill chưa
+    // đóng gói KHÔNG bị tag nhầm 'Đã đối soát'. Fallback bill đơn nếu thiếu cờ (an toàn).
+    da_doi_soat: (o) =>
+        o.pbhAllReconciled === true ||
+        (o.pbhAllReconciled === undefined &&
+            ['packed', 'shipped', 'delivered'].includes(o.pbhFulfillmentState)),
     // Khách lạ: chưa gán customer_id (chưa khớp hồ sơ KH).
     khach_la: (o) => o.customerId == null,
     // Có ghi chú đơn: note hệ thống HOẶC ghi chú NV (userNote) — cấp ĐƠN.

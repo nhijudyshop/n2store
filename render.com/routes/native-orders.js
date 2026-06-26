@@ -1737,12 +1737,23 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
         const codes = orders.map((o) => o.code).filter(Boolean);
         if (codes.length) {
             try {
+                // FIX audit R3 (#1 HIGH): PBH GỘP/TÁCH cùng source_code có N bill active.
+                // Trước dùng DISTINCT ON → chỉ đọc bill #1 → đơn tách (bill#1 trả đủ, bill#2
+                // còn nợ) bị ẩn nợ (pbh_chua_tt=false) + tag nhầm 'Đã đối soát' (chỉ xét bill#1
+                // delivered). Giờ AGGREGATE: SUM tiền (residual>0 nếu BẤT KỲ bill nào còn nợ) +
+                // all_reconciled = BOOL_AND mọi bill đã packed+ (NULL coi như chưa).
                 const pbhQ = await pool.query(
-                    `SELECT DISTINCT ON (source_code) source_code, amount_total, residual,
-                            payment_amount, wallet_deducted, fulfillment_state, carrier_name
+                    `SELECT source_code,
+                            SUM(amount_total)    AS amount_total,
+                            SUM(residual)        AS residual,
+                            SUM(payment_amount)  AS payment_amount,
+                            SUM(wallet_deducted) AS wallet_deducted,
+                            BOOL_AND(COALESCE(fulfillment_state IN ('packed','shipped','delivered'), false)) AS all_reconciled,
+                            (array_agg(fulfillment_state ORDER BY split_index ASC, date_created ASC))[1] AS fulfillment_state,
+                            (array_agg(carrier_name ORDER BY split_index ASC, date_created ASC))[1] AS carrier_name
                      FROM fast_sale_orders
                      WHERE source_type='native_order' AND source_code = ANY($1) AND state <> 'cancel'
-                     ORDER BY source_code, split_index ASC, date_created ASC`,
+                     GROUP BY source_code`,
                     [codes]
                 );
                 const byCode = new Map(pbhQ.rows.map((p) => [p.source_code, p]));
@@ -1750,10 +1761,11 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                     const p = byCode.get(o.code);
                     if (!p) continue;
                     o.pbhTotal = Number(p.amount_total || 0);
-                    o.pbhResidual = Number(p.residual || 0);
+                    o.pbhResidual = Number(p.residual || 0); // SUM mọi bill → còn nợ nếu bất kỳ bill nợ
                     o.pbhPaymentAmount = Number(p.payment_amount || 0);
                     o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
-                    o.pbhFulfillmentState = p.fulfillment_state || null;
+                    o.pbhFulfillmentState = p.fulfillment_state || null; // representative (display/legacy)
+                    o.pbhAllReconciled = p.all_reconciled === true; // mọi bill đã đóng gói+
                     o.pbhCarrierName = p.carrier_name || null;
                 }
             } catch (e) {
