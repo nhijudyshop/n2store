@@ -298,7 +298,10 @@
                 out.push(r);
                 continue;
             }
-            const variants = window.Web2VariantMulti.expand((r.variant || '').trim());
+            // SET (biến thể nhiều món, có " + ") → KHÔNG expand (expand split theo
+            // "/" sẽ băm nhầm "Trắng / M + Đen / L"). 1 món mới cartesian theo "/".
+            const vstr = (r.variant || '').trim();
+            const variants = vstr.includes('+') ? [] : window.Web2VariantMulti.expand(vstr);
             if (variants.length > 1) {
                 for (const v of variants) out.push({ ...r, variant: v });
             } else {

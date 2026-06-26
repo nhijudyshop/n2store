@@ -20,6 +20,8 @@
             invoiceGroupId: prefill.invoiceGroupId || null,
             productName: prefill.productName || '',
             variant: prefill.variant || '',
+            // category = loại SP theo món "Áo + Quần" (Web2VariantPicker). Mỗi món 1 biến thể.
+            category: prefill.category || '',
             qty: Number.isFinite(Number(prefill.qty)) ? Number(prefill.qty) : 1,
             costPrice: Number(prefill.costPrice) || 0,
             sellPrice: Number(prefill.sellPrice) || 0,
@@ -111,7 +113,10 @@
                 </div>
             </td>
             <td class="so-td-variant">
-                <div class="so-variant-picker-wrap">
+                ${
+                    window.Web2VariantPicker
+                        ? `<div class="so-vp-host" data-vp-uid="${row.uid}"></div>`
+                        : `<div class="so-variant-picker-wrap">
                     <input
                         type="text"
                         data-field="variant"
@@ -123,7 +128,8 @@
                         autocomplete="off"
                     />
                     <div class="so-variant-multi-preview" data-multi-preview-uid="${row.uid}" hidden></div>
-                </div>
+                </div>`
+                }
             </td>
             <td class="so-td-qty">
                 <input
@@ -199,12 +205,43 @@
         const addWrap = document.getElementById('soModalAddRowWrap');
         if (addWrap) addWrap.hidden = SO.modalMode !== 'create' && SO.modalMode !== 'edit-shipment';
         SO.wireModalRowInputs();
+        SO._mountModalVariantPickers();
         // Format giá nhập/bán ngay khi gõ (1.000 · thập phân 2,64 cho NCC ngoại tệ).
         if (window.Web2NumberInput) Web2NumberInput.attachAll(tbody);
         SO.wireModalImagePasteDrop();
         SO._renderOrderInvoiceImage(); // ô ảnh hóa đơn cấp đơn (header)
         if (window.lucide?.createIcons) window.lucide.createIcons();
         SO.updateModalTotals();
+    };
+
+    // Mount Web2VariantPicker vào mỗi dòng modal (ô Biến Thể) — chọn loại + nhập
+    // biến thể theo món. Destroy picker cũ trước (huỷ subscription cache) tránh leak.
+    SO._mountModalVariantPickers = function _mountModalVariantPickers() {
+        if (!window.Web2VariantPicker) return;
+        (SO._modalVpCtls || []).forEach((c) => {
+            try {
+                c.destroy();
+            } catch (e) {}
+        });
+        SO._modalVpCtls = [];
+        const tbody = document.getElementById('soModalProductsBody');
+        if (!tbody) return;
+        tbody.querySelectorAll('.so-vp-host[data-vp-uid]').forEach((host) => {
+            const uid = host.dataset.vpUid;
+            const row = SO.modalRows.find((r) => r.uid === uid);
+            if (!row) return;
+            const ctl = window.Web2VariantPicker.mount(host, {
+                compact: true,
+                category: row.category || '',
+                value: row.variant || '',
+                onChange: ({ variant, category }) => {
+                    row.variant = variant;
+                    row.category = category;
+                    SO.updateRowMeta?.(uid); // refresh badge "Tồn"/mã theo variant mới
+                },
+            });
+            SO._modalVpCtls.push(ctl);
+        });
     };
 
     SO.wireModalRowInputs = function wireModalRowInputs() {

@@ -2,6 +2,19 @@
 
 ## 2026-06-26
 
+### [so-order] Phase 3b: modal "Tạo Đơn Hàng" dùng Web2VariantPicker (biến thể theo món)
+
+Wire `Web2VariantPicker` vào ô Biến Thể mỗi dòng trong modal Tạo/Sửa đơn (thay input đơn cũ).
+
+**Sửa:**
+
+- `so-order-modal-core.js`: `_newModalRow` thêm `category`; `modalRowHtml` ô variant → `<div class="so-vp-host">` (fallback input cũ nếu picker chưa load); `renderModalRows` gọi `_mountModalVariantPickers()` mount picker mỗi dòng (destroy picker cũ trước → tránh leak subscription cache); onChange → `row.variant`+`row.category` + `updateRowMeta`.
+- `so-order-modal-submit.js`: cả 2 nhánh (tạo mới + sửa lô) truyền `category` vào `addRow`; **guard expand**: variant có `" + "` (BỘ) KHÔNG expand theo `"/"` (tránh băm "Trắng / M + Đen / L").
+- `so-order-render.js` `_explodeVariants`: cùng guard `" + "`.
+- cache-bust modal-core/submit `?v=20260626f`.
+
+**Verify** (browser): mở Tạo Đơn → ô Biến Thể có picker (chips Áo/Quần/Đầm + dropdown gợi ý Màu thật từ kho); chọn Áo+Quần + gõ Trắng/Đen → `modalRows[0].variant="Trắng + Đen"`, `category="Áo + Quần"`; old input = 0. Status: ✅ (Phase 4 products tiếp)
+
 ### [issue-tracking] Thêm nút Xóa phiếu (🗑️) cho phiếu đã hoàn tất / đã hủy / chờ đối soát
 
 User yêu cầu "xóa đơn như hình" — phiếu **Sửa COD (Hoàn Tất)** trong trang issue-tracking chỉ có nút Sửa (✏️), không có cách xóa khỏi danh sách. Backend đã sẵn `DELETE /api/v2/tickets/:id` (xóa mềm `status='DELETED'`, list query đã loại `status != 'DELETED'`, bắn SSE `deleted` → tự refetch) + `ApiService.deleteTicket(code, hard)` — chỉ thiếu UI gọi.

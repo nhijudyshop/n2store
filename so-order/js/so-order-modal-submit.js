@@ -188,6 +188,7 @@
                     supplier: rowSupplier,
                     productName: r.productName.trim(),
                     variant: r.variant.trim(),
+                    category: (r.category || '').trim(),
                     qty: Number(r.qty) || 0,
                     sellPrice: Number(r.sellPrice) || 0,
                     costPrice: Number(r.costPrice) || 0,
@@ -197,8 +198,12 @@
                 if (r.rowId) {
                     window.SoOrderStorage.updateRow(SO.state, tab.id, sh.id, r.rowId, rowData);
                 } else {
-                    // Dòng MỚI: nhập nhanh nhiều biến thể → tách N dòng SP.
-                    const variants = window.Web2VariantMulti?.expand?.((r.variant || '').trim());
+                    // Dòng MỚI: nhập nhanh nhiều biến thể → tách N dòng SP. SET (có " + ")
+                    // KHÔNG expand (tránh băm nhầm "Trắng / M + Đen / L").
+                    const vstr = (r.variant || '').trim();
+                    const variants = vstr.includes('+')
+                        ? null
+                        : window.Web2VariantMulti?.expand?.(vstr);
                     const vlist = variants && variants.length > 1 ? variants : [rowData.variant];
                     for (const v of vlist) {
                         window.SoOrderStorage.addRow(SO.state, tab.id, sh.id, {
@@ -251,6 +256,7 @@
                     ...sharedFields,
                     productName: r.productName.trim(),
                     variant: r.variant.trim(),
+                    category: (r.category || '').trim(),
                     qty: Number(r.qty) || 0,
                     sellPrice: Number(r.sellPrice) || 0,
                     costPrice: Number(r.costPrice) || 0,
