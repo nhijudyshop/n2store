@@ -10,6 +10,14 @@ User yêu cầu xóa data DB Web 2.0 cho 9 trang: fastsaleorder-invoice, reconci
 
 **Đã chạy** (user chọn scope "9 trang + dọn liên kết"): 244 dòng truncated (19 bảng có data) + 3 purchase-refund + 37 balance unlinked, 24+2 backup. **GIỮ**: web2_customers, web2_balance_history (dòng), web2_variants (108), auth/config. Verify post-wipe: mọi target=0, variants=108 nguyên. Backup `*_bak_20260626_104302_4ccb` còn trên web2Db — drop sau khi yên tâm qua `POST /api/admin/web2-cleanup-dead {confirm:'YES-CLEANUP'}`. Status: ✅
 
+### [web2/cham-cong] NV chưa gán user → KHÔNG cần chấm công (ẩn khỏi Bảng công/Hôm nay/đối soát, GIỮ Bảng lương)
+
+User: "không gán user thì không cần chấm công". Trước đây `isVisibleEmp = employee_id || manual` → NV thủ công lương tháng chưa gán (Chị Út, Phước Lớn, Thái, Vú Thanh, Vú Trang) hiện ở Bảng công + "Chưa vào" + đối soát dù KHÔNG bấm máy → nhiễu.
+
+**Fix** (`cham-cong-app.js`): thêm helper `needsAttendance(du) = !!du.employee_id` (chỉ NV đã GÁN user mới cần chấm công). Đổi filter **Bảng công (grid) + Hôm nay (chưa vào) + đối soát** (2 chỗ) + empty-state `hasUnassigned` sang `needsAttendance`. **GIỮ `isVisibleEmp` (employee_id || manual) cho Bảng lương** (`cham-cong-payroll.js`) → NV thủ công lương tháng vẫn được trả lương. NV chưa gán vẫn ở tab Nhân viên để gán.
+
+**Verify** (Playwright + admin login thật): "Chưa vào" 6→**1** (chỉ Cẩm — NV gán chưa vào); grid 16→**11** (đúng NV đã gán, 5 NV thủ công biến mất); Bảng lương **giữ 16** (5 NV thủ công lương tháng còn nguyên). Cache-bust `?v=20260626att`.
+
 ### [web2/cham-cong] Gỡ tham chiếu lay-du-lieu.bat — 1 NGUỒN AUTO duy nhất (ADMS proxy từ printer-settings)
 
 User: "xóa lay-du-lieu.bat đi chỉ lấy bằng 1 nguồn auto". Có 2 hệ agent: (cũ) `web2-attendance-sync/` lay-du-lieu.bat + install-windows.bat (ZKLib LAN poll → push `source='agent'`, đã chết 23/06) — **folder đã bị gỡ khỏi repo**, chỉ còn UI text tham chiếu; (giữ) `attendance-sync/` → `cai-cham-cong.bat` → `adms-proxy.js` (DG-600 push ADMS → `source='adms'`), tải từ **Cấu hình in → Cài máy chấm công DG-600** (web2-attendance-installer.js). 1 nguồn auto duy nhất.

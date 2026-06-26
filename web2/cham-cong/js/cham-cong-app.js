@@ -318,7 +318,7 @@
         }).format(new Date());
         const [nh, nm] = nowHM.split(':').map(Number);
         const nowMin = nh * 60 + nm;
-        const dus = state.deviceUsers.filter((d) => d.active !== false && isVisibleEmp(d));
+        const dus = state.deviceUsers.filter((d) => d.active !== false && needsAttendance(d));
         const chuaVao = [];
         const quenRa = [];
         const vang = [];
@@ -384,10 +384,10 @@
         }
         // Hiện PIN ĐÃ gán NV hoặc NV thủ công + đang bật. PIN máy "— Chưa gán —"
         // KHÔNG xuất hiện trên Bảng công (tránh rác PIN chưa gán).
-        const dus = state.deviceUsers.filter((d) => d.active !== false && isVisibleEmp(d));
+        const dus = state.deviceUsers.filter((d) => d.active !== false && needsAttendance(d));
         if (!dus.length) {
             const hasUnassigned = state.deviceUsers.some(
-                (d) => d.active !== false && !isVisibleEmp(d)
+                (d) => d.active !== false && !needsAttendance(d)
             );
             el.innerHTML = `<div class="cc-empty">
                 <p>${hasUnassigned ? 'Chưa có PIN máy nào được gán nhân viên.' : 'Chưa có nhân viên nào từ máy chấm công.'}</p>
