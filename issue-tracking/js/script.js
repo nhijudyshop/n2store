@@ -3177,10 +3177,20 @@ function renderActionButtons(ticket) {
             ? `<button onclick="cancelTicket('${id}')" title="Hủy phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🚫</button>`
             : '';
 
+    // Delete (xóa mềm → status DELETED, ẩn khỏi danh sách): dành cho phiếu KHÔNG còn
+    // ở trạng thái PENDING_GOODS (đã nhận hàng / hoàn tất / đã hủy) — nơi nút Hủy (🚫)
+    // ở trên không áp dụng. Dùng status (không dùng isUntouched) để MỌI phiếu đã hoàn
+    // tất đều xoá được (kể cả RETURN_SHIPPER còn công nợ ảo chưa dùng). Cùng quyền 'delete'.
+    const deleteButton =
+        canCancel && ticket.status !== 'PENDING_GOODS'
+            ? `<button onclick="deleteTicket('${id}')" title="Xóa phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>`
+            : '';
+
     const iconButtons = `
         <div style="display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle;">
             <button onclick="editTicket('${id}')" title="Sửa" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">✏️</button>
             ${cancelButton}
+            ${deleteButton}
         </div>
     `;
 
@@ -3216,8 +3226,7 @@ window.toggleGuide = function () {
 function updateStats() {
     const activeTypeBtn = document.querySelector('#type-tabs .type-tab-btn.active');
     const typeFilter = activeTypeBtn?.dataset.type || 'all';
-    const scoped =
-        typeFilter === 'all' ? TICKETS : TICKETS.filter((t) => t.type === typeFilter);
+    const scoped = typeFilter === 'all' ? TICKETS : TICKETS.filter((t) => t.type === typeFilter);
 
     const pendingGoods = scoped.filter((t) => t.status === 'PENDING_GOODS').length;
     const pendingFinance = scoped.filter((t) => t.status === 'PENDING_FINANCE').length;
@@ -3623,6 +3632,92 @@ window.cancelTicket = async function (firebaseId) {
     } catch (error) {
         console.error('Cancel ticket failed:', error);
         notificationManager.error(error.message || 'Lỗi khi hủy phiếu', 6000, 'Không thể hủy');
+    } finally {
+        showLoading(false);
+    }
+};
+
+/**
+ * Delete ticket — XÓA MỀM (status → DELETED, ẩn khỏi danh sách, vẫn giữ bản ghi)
+ * Requires 'delete' permission. Dùng cho phiếu đã xử lý/hoàn tất/đã hủy.
+ * Lưu ý: với FIX_COD/BOOM, xoá phiếu KHÔNG tự đảo ngược thay đổi ví/công nợ đã thực hiện.
+ * Backend tự thu hồi công nợ ảo CHƯA dùng của RETURN_SHIPPER (và chặn nếu đã dùng).
+ */
+window.deleteTicket = async function (firebaseId) {
+    // Permission check
+    if (!window.authManager?.hasDetailedPermission('issue-tracking', 'delete')) {
+        notificationManager.error(
+            'Bạn không có quyền xóa phiếu. Liên hệ Admin để cấp quyền.',
+            5000,
+            'Không có quyền'
+        );
+        return;
+    }
+
+    const ticket = TICKETS.find((t) => t.firebaseId === firebaseId);
+    if (!ticket) {
+        alert('Không tìm thấy phiếu');
+        return;
+    }
+
+    const ticketIdentifier = ticket.ticketCode || firebaseId;
+    const displayCode = ticket.ticketCode || `#${firebaseId.slice(-4)}`;
+
+    // Build confirmation message (type-aware warnings)
+    let confirmMsg = `Xác nhận XÓA phiếu ${displayCode}${ticket.orderId ? ' - Đơn ' + ticket.orderId : ''}?\n\nPhiếu sẽ bị ẩn khỏi danh sách (xóa mềm — vẫn giữ bản ghi để đối soát).`;
+    if (ticket.type === 'FIX_COD' || ticket.type === 'BOOM') {
+        confirmMsg +=
+            '\n\n⚠️ Lưu ý: Các thay đổi ví/công nợ đã thực hiện cho phiếu này sẽ KHÔNG tự động hoàn lại.';
+    }
+    const hasVirtualCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
+    if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
+        confirmMsg +=
+            '\n\n⚠️ Công nợ ảo chưa dùng (nếu có) sẽ bị thu hồi khỏi ví khách. Nếu đã dùng, hệ thống sẽ chặn xóa.';
+    }
+    if (!confirm(confirmMsg)) return;
+
+    showLoading(true);
+    try {
+        // Soft delete (status → DELETED). SSE 'deleted' event sẽ tự refetch & ẩn dòng.
+        const result = await ApiService.deleteTicket(ticketIdentifier, false);
+        console.log('[DELETE] Ticket deleted successfully:', firebaseId, result);
+
+        const revoked = result?.virtualCreditCancelled ? ' + thu hồi công nợ ảo' : '';
+        notificationManager.success(`Đã xóa phiếu ${displayCode}${revoked}`, 3000, 'Xóa phiếu');
+
+        // Audit log
+        try {
+            if (window.AuditLogger) {
+                window.AuditLogger.logAction('delete', {
+                    module: 'issue-tracking',
+                    description:
+                        'Xóa phiếu ' +
+                        displayCode +
+                        (ticket.orderId ? ' - Đơn ' + ticket.orderId : '') +
+                        ' - KH ' +
+                        (ticket.phone || ticket.customerId || ''),
+                    oldData: {
+                        ticketCode: ticket.ticketCode || '',
+                        orderId: ticket.orderId || '',
+                        type: ticket.type || '',
+                        money: ticket.money || 0,
+                        phone: ticket.phone || ticket.customerId || '',
+                        status: ticket.status || '',
+                    },
+                    newData: {
+                        status: 'DELETED',
+                        virtualCreditCancelled: !!result?.virtualCreditCancelled,
+                    },
+                    entityId: ticket.ticketCode || firebaseId,
+                    entityType: 'ticket',
+                });
+            }
+        } catch (e) {
+            console.warn('[AuditLog] delete log failed:', e);
+        }
+    } catch (error) {
+        console.error('Delete ticket failed:', error);
+        notificationManager.error(error.message || 'Lỗi khi xóa phiếu', 6000, 'Không thể xóa');
     } finally {
         showLoading(false);
     }
@@ -4172,11 +4267,7 @@ function buildTicketTimeline(ticket) {
                 label: 'Cộng công nợ',
                 time: credited && completedAt ? new Date(completedAt).getTime() : null,
                 done: credited,
-                active:
-                    !credited &&
-                    received &&
-                    status !== 'COMPLETED' &&
-                    status !== 'CANCELLED',
+                active: !credited && received && status !== 'COMPLETED' && status !== 'CANCELLED',
                 cancelled: status === 'CANCELLED' && !credited,
                 missed,
                 detail: credited

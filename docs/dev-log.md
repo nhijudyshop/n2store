@@ -2,6 +2,18 @@
 
 ## 2026-06-26
 
+### [issue-tracking] Thêm nút Xóa phiếu (🗑️) cho phiếu đã hoàn tất / đã hủy / chờ đối soát
+
+User yêu cầu "xóa đơn như hình" — phiếu **Sửa COD (Hoàn Tất)** trong trang issue-tracking chỉ có nút Sửa (✏️), không có cách xóa khỏi danh sách. Backend đã sẵn `DELETE /api/v2/tickets/:id` (xóa mềm `status='DELETED'`, list query đã loại `status != 'DELETED'`, bắn SSE `deleted` → tự refetch) + `ApiService.deleteTicket(code, hard)` — chỉ thiếu UI gọi.
+
+**Sửa** (`issue-tracking/js/script.js`):
+
+- `renderActionButtons`: thêm `deleteButton` (🗑️) hiển thị khi `canCancel && ticket.status !== 'PENDING_GOODS'` (dùng status, KHÔNG dùng `isUntouched` để MỌI phiếu đã hoàn tất đều xóa được — kể cả RETURN_SHIPPER còn công nợ ảo chưa dùng). Cùng quyền `issue-tracking:delete` như nút Hủy. Phiếu `PENDING_GOODS` chưa xử lý vẫn chỉ hiện 🚫 Hủy.
+- `window.deleteTicket(firebaseId)`: check quyền → confirm (cảnh báo type-aware: FIX_COD/BOOM không tự đảo ví; RETURN_SHIPPER thu hồi công nợ ảo chưa dùng) → `ApiService.deleteTicket(code, false)` (xóa MỀM) → notify + AuditLogger `delete`. SSE tự ẩn dòng.
+- `index.html`: cache-bust `script.js?v=20260626a`.
+
+**Verify** (Playwright headless, profile riêng tránh contention, web1 auth admin): `window.deleteTicket=function`, quyền delete=true. Tab "Hoàn Tất" 221 phiếu COMPLETED → **221/221** có nút 🗑️; PENDING_GOODS chưa xử lý → 0 (chỉ 🚫). KHÔNG xóa data thật (bảng `customer_tickets` = Web 1.0 prod). Status: ✅
+
 ### [so-order] Phase 3a: ô Biến Thể inline dùng Web2VariantPicker (nhập nhiều biến thể theo món)
 
 Wire `Web2VariantPicker` vào inline edit (double-click) ô Biến Thể của Sổ Order — yêu cầu gốc của user ("input nhập 2 biến thể"). Double-click ô → popover fixed neo theo cell: chọn loại (Áo/Quần/Đầm, multi-select) → N ô biến thể `"/"`-aware → ghép `"Trắng + Đen"`, lưu `{variant, category}`.
