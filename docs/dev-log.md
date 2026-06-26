@@ -2,6 +2,28 @@
 
 ## 2026-06-26
 
+### [web2/system + reports + flow] Cải thiện UI system + audit 19-agent luồng nghiệp vụ + fix 5 bug
+
+**1. UI trang Cấu hình & Hệ thống** (`web2/system`):
+
+- `system-services.js` + `system.css`: click service card / dòng bảng DB → **modal chi tiết** (kv + free/paid tier + link); nút "Xem tất cả N bảng"; expose `SystemServices.getData()`.
+- `web2-ai-page-registry`: thêm entry `/web2/system/` (accessor `SystemServices.getData` + gợi ý soát chi phí/DB đầy/bảng nặng) + `/web2/report-warehouse/`.
+- `web2-ai-assistant`: bỏ `system` khỏi `HIDE_RE` → **FAB ✨ hiện trên trang system** (giờ có context riêng).
+
+**2. Audit luồng nghiệp vụ** (workflow 19 agent, 6 luồng: nhận hàng→PBH→hủy→trả KH→thu về→trả NCC + 2 report) → **12 defect xác nhận**. Doc: [`docs/web2/FLOW-AUDIT-2026-06-26.md`](web2/FLOW-AUDIT-2026-06-26.md).
+
+**3. Fix 5 bug contained (đã test):**
+
+- **#10** report-warehouse: so-order row chưa gắn `matchedCode` giờ resolve mã qua join `(name,variant)→web2_products` → MUA VÀO **merge đúng** với BÁN RA cùng SP (unit 45+ assertions ✅).
+- **#12** report-revenue: KPI "Trả hàng hoàn thành" đọc `web2_returns` (status=active) thay bảng `refunds` legacy đã chết.
+- **#1/#8** nhận hàng (`so-order-receive.js`): truyền `supplier` vào lookup → tránh khớp nhầm SP cùng tên khác NCC; lookup fail dùng `remainingPending` làm sàn.
+- **#9** hủy PBH (`fast-sale-orders.js` restockOrderLines): GỘP qty theo CODE trước khi trừ `returned_line_qty` → PBH dòng trùng mã hết under-restock.
+- **#11**: cập nhật comment KNOWN-LIMITATION.
+
+**4. Defer** (money/stock transaction, cần focused + integration test seeded flow): **#2/#7** KNH double-restock, **#6** native partial restock, **#3/#4/#5** ví NCC over-mint/cap — chi tiết + repro trong audit doc.
+
+**Verify**: system modal/AI FAB browser ✅; report-revenue + report-warehouse load 0 console error ✅; warehouse unit 45+ assertions (gồm merge FFF) ✅. Status: ✅ (UI+report xong; flow bug nguy hiểm flag lại)
+
 ### [web2/products] Tự tạo TÊN SP từ loại + Màu/Size (có thể sửa) — Kho SP
 
 Mở rộng tính năng tự-tạo-tên sang Kho SP (như đã làm cho Sổ Order). Modal Thêm/Sửa SP: chọn loại (chip) + Màu/Size → ô **Tên SP** tự điền "LOẠI MÀU SIZE" (IN HOA), vd `ÁO TRẮNG M` / bộ `ÁO QUẦN ...`.
