@@ -254,7 +254,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>In mã vạch</title>
+<title>In mã sản phẩm</title>
 <style>
 /* === WEB2 /Content/print_barcode.css verbatim === */
 * {

@@ -146,7 +146,7 @@
 </style>
 <div class="w2p-print-modal" role="dialog" aria-labelledby="w2pPrintTitle">
     <div class="w2p-print-header">
-        <h4 id="w2pPrintTitle">In mã vạch</h4>
+        <h4 id="w2pPrintTitle">In mã sản phẩm</h4>
         <button class="w2p-print-close" id="w2p-close" type="button" aria-label="Đóng">&times;</button>
     </div>
     <div class="w2p-print-body">

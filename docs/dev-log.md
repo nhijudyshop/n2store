@@ -15,6 +15,8 @@ User: ở Sổ Order, in mã SP phải **dùng chung module bên products** (Kho
 
 **Verify** (browser localhost): sau reload `Web2ProductsPrint.open`=**function** (trước: undefined); gọi `openBarcodePrintModal(...)` mở modal CHUNG (`.w2p-print-header`), KHÔNG tạo `#soBarcodeModal`; 0 console error; 0 dangling ref. Status: ✅
 
+**Follow-up (user chọn):** đổi tiêu đề modal in `In mã vạch` → **`In mã sản phẩm`** trong module dùng chung (`web2-products-print-modal.js` h4 `#w2pPrintTitle` + `web2-products-print-render.js` print-window `<title>`) → áp dụng CẢ Kho SP (products) lẫn so-order. Tab/cảnh báo "mã vạch" GIỮ nguyên (phân biệt SP có/không có mã). Cache-bust render+modal `?v=20260626b`. Verify: modal title = "In mã sản phẩm" ✅
+
 ### [purchase-orders][web2/shared] Cầu nối XUẤT bảng PO (Web 1.0) → mã base64 → NHẬP vào Sổ Order (Web 2.0)
 
 User: ở `purchase-orders/index.html` cho xuất dữ liệu bảng thành 1 mã (base64) → dán vào `so-order/index.html` (đã có sẵn modal "Nhập Sổ Order"), **không đụng chạm code/DB giữa Web 1.0 ↔ Web 2.0** — cầu nối duy nhất là mã copy-paste / file.
