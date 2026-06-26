@@ -601,17 +601,33 @@
             ? `<div class="so-cell-code" title="Mã SP trong Kho SP Web 2.0">${SO.escapeHtml(khoCode)}</div>`
             : '';
         // SL gộp vào cột Biến thể (chế độ xem). Không variant → chỉ "SL N".
-        // category (loại SP theo món, vd "Áo + Quần") hiện badge nhỏ phía trên biến thể.
+        // ZIP loại↔biến thể theo MÓN: category "Áo + Quần" + variant "Trắng + Đen"
+        // → hiển thị "Áo Trắng, Quần Đen" (mỗi món = badge loại + biến thể, ngăn ', ').
         const variantView = (r.variant || '').trim();
         const catView = (r.category || '').trim();
         const qtyNum = Number(r.qty) || 0;
-        const catBadge = catView
-            ? `<span class="so-cell-cat" title="Loại sản phẩm">${SO.escapeHtml(catView)}</span>`
-            : '';
+        const _sp = (s) => s.split('+').map((x) => x.trim());
+        const catParts = catView ? _sp(catView) : [];
+        const varParts = variantView ? _sp(variantView) : [];
+        let bodyHtml;
+        if (catParts.filter(Boolean).length) {
+            const n = Math.max(catParts.length, varParts.length);
+            const parts = [];
+            for (let i = 0; i < n; i++) {
+                const t = (catParts[i] || '').trim();
+                const v = (varParts[i] || '').trim();
+                if (!t && !v) continue;
+                const tHtml = t
+                    ? `<span class="so-cell-cat" title="Loại sản phẩm">${SO.escapeHtml(t)}</span>`
+                    : '';
+                parts.push(tHtml + (v ? SO.escapeHtml(v) : ''));
+            }
+            bodyHtml = parts.join('<span class="so-cell-pair-sep">, </span>');
+        } else {
+            bodyHtml = variantView ? SO.escapeHtml(variantView) : '';
+        }
         const variantCellInner =
-            catBadge +
-            (variantView ? SO.escapeHtml(variantView) : '') +
-            `<span class="so-cell-sl">${variantView ? ' · ' : ''}SL ${qtyNum}</span>`;
+            bodyHtml + `<span class="so-cell-sl">${bodyHtml ? ' · ' : ''}SL ${qtyNum}</span>`;
         // P1 2026-05-30: meta = { ncc: {render, span}, inv: {render, span} }.
         // Fallback nếu caller cũ chưa pass.
         const nccMeta = meta?.ncc || { render: true, span: 1 };

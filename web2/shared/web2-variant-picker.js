@@ -146,10 +146,17 @@
                     .join(' · ')}${cb.length > 12 ? ' …' : ''}`;
                 return;
             }
-            const v = combinedVariant();
-            if (pieces.length > 1 && v) {
+            // BỘ nhiều món → preview ZIP "Áo Trắng, Quần Đen" (loại + biến thể từng món).
+            const paired = pieces
+                .map((p) => {
+                    const t = (p.type || '').trim();
+                    const v = (p.value || '').trim();
+                    return t && v ? `${t} ${v}` : t || v;
+                })
+                .filter(Boolean);
+            if (pieces.length > 1 && paired.length) {
                 previewEl.hidden = false;
-                previewEl.innerHTML = `Biến thể bộ: <b>${esc(v)}</b>${combinedCategory() ? ` <span style="color:#94a3b8">(${esc(combinedCategory())})</span>` : ''}`;
+                previewEl.innerHTML = `Biến thể bộ: <b>${esc(paired.join(', '))}</b>`;
                 return;
             }
             previewEl.hidden = true;
