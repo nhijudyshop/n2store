@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3d41383` — docs(dev-log): Web2NumberInput đợt 2 — native-orders PBH + purchase-refund (price/totalAmount)
-**Last updated**: 2026-06-26 11:57:37 +07
-**Latest session**: [`RESUME:20260626-115737-3d41383`](../20260626-115737-3d41383.md)
-**Summary**: docs(dev-log): Web2NumberInput đợt 2 — native-orders PBH + purchase-refund (price/totalAmount)
+**Latest commit**: `6704382` — fix(web2): thêm x-web2-token cho 5 web2 WRITE còn thiếu (Part A)
+**Last updated**: 2026-06-26 12:02:03 +07
+**Latest session**: [`RESUME:20260626-120203-6704382`](../20260626-120203-6704382.md)
+**Summary**: fix(web2): thêm x-web2-token cho 5 web2 WRITE còn thiếu (Part A)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-26 11:57
+- [`docs/`](./docs.md) — updated 2026-06-26 12:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -42,11 +44,11 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-26 11:42
+- [`live-chat/`](./live-chat.md) — updated 2026-06-26 12:02
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-26 11:52
+- [`native-orders/`](./native-orders.md) — updated 2026-06-26 12:02
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
