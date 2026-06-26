@@ -2,7 +2,19 @@
 
 ## 2026-06-26
 
-### [live-chat][native-orders] FIX 5 web2 WRITE thiếu x-web2-token (Part A — audit workflow)
+### [web2/product-types] Phase 1: trang quản lý "Loại sản phẩm" (Áo/Quần/Đầm…) — CRUD admin
+
+Feature lớn (4 phase) cho ô Biến Thể nhập nhiều biến thể theo món + module dùng chung. **Phase 1**: trang quản lý LOẠI sản phẩm trong menu Cấu hình (mirror Kho Biến Thể). Bỏ nhãn "Set" — combo = multi-select loại đơn (quyết định user). Kế hoạch đầy đủ: `~/.claude/plans/jaunty-munching-llama.md`.
+
+**Mới:**
+
+- BE `render.com/routes/web2-product-types.js`: table `web2_product_types` (name unique, sort_order, is_active) + REST list/get/create/update/delete (`requireWeb2AuthSoft` cho write) + SSE topic `web2:product-types` + audit (entity `product-type`). Pool `web2Db||chatDb`.
+- `server.js`: require + mount `/api/web2-product-types` + initializeNotifiers (mirror 3 chỗ của variants). Worker tự route qua catch-all `/api/web2-*` → web2-api (KHÔNG sửa worker).
+- FE `web2/product-types/` (index.html + api + app + css): CRUD page UI-first (Web2Optimistic) + SSE realtime.
+- Shared `web2/shared/web2-product-types-cache.js` (`Web2ProductTypesCache`): 1 nguồn loại SP cho Kho SP + Sổ Order (Web2SmartCache name `product-types`).
+- Sidebar `web2-sidebar.js`: item "Loại sản phẩm" trong Cấu hình + WEB2_PAGES.
+
+**Verify:** syntax OK toàn bộ; cần deploy Render (web2-api) để test CRUD end-to-end. Status: 🔄 (chờ deploy + test)
 
 Workflow audit 8 nhóm (11 agent, find + adversarial verify) các fetch WRITE tới route web2 auth-gated thiếu token. **6/8 nhóm sạch**, 5 vi phạm thật:
 

@@ -1,0 +1,55 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
+/* Loại Sản Phẩm Web 2.0 — overrides on native-orders/web2 base */
+
+.type-name-pill {
+    display: inline-block;
+    padding: 3px 12px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #e0e7ff;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.sort-cell {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: var(--gray-700);
+}
+
+.field-row-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.field-row-grid-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.page-head-action {
+    margin-left: 8px;
+}
+
+#typeModal .modal-content {
+    min-width: min(440px, calc(100vw - 32px));
+}
+
+/* ===== Mobile responsive ===== */
+@media (max-width: 768px) {
+    /* THỨ TỰ — cột thứ 3 */
+    #typesTable thead tr th:nth-child(3),
+    #typesTable tbody tr td:nth-child(3) {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-scroll .data-table {
+        min-width: 420px;
+    }
+}

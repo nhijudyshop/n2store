@@ -1,0 +1,76 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+/**
+ * Web2 Product Types API client — /api/web2-product-types/* qua Cloudflare Worker.
+ * Quản lý LOẠI sản phẩm (Áo / Quần / Đầm / …).
+ */
+
+(function (global) {
+    'use strict';
+
+    const WORKER_URL =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const BASE = `${WORKER_URL}/api/web2-product-types`;
+
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
+    async function _fetchJson(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: { Accept: 'application/json', ..._w2Auth(), ...(options.headers || {}) },
+        });
+        let data = null;
+        try {
+            data = await res.json();
+        } catch {
+            /* non-json */
+        }
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        return data;
+    }
+
+    const Web2ProductTypesApi = {
+        async health() {
+            return _fetchJson(`${BASE}/health`);
+        },
+        async list({ search, activeOnly, page = 1, limit = 500 } = {}) {
+            const qs = new URLSearchParams();
+            if (search) qs.set('search', search);
+            if (activeOnly === true || activeOnly === 'true') qs.set('activeOnly', 'true');
+            qs.set('page', String(page));
+            qs.set('limit', String(limit));
+            return _fetchJson(`${BASE}/list?${qs}`);
+        },
+        async get(id) {
+            return _fetchJson(`${BASE}/${encodeURIComponent(id)}`);
+        },
+        async create(payload) {
+            return _fetchJson(BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload || {}),
+            });
+        },
+        async update(id, fields) {
+            return _fetchJson(`${BASE}/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fields || {}),
+            });
+        },
+        async remove(id) {
+            return _fetchJson(`${BASE}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        },
+    };
+
+    global.Web2ProductTypesApi = Web2ProductTypesApi;
+})(typeof window !== 'undefined' ? window : globalThis);

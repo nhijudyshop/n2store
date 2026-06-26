@@ -649,6 +649,7 @@ const pbhReportsRoutes = require('./routes/pbh-reports');
 const web2ProductsRoutes = require('./routes/web2-products');
 const web2ReturnsRoutes = require('./routes/web2-returns'); // WEB2.0 — Thu về (goods return)
 const web2VariantsRoutes = require('./routes/web2-variants');
+const web2ProductTypesRoutes = require('./routes/web2-product-types');
 const web2GenericRoutes = require('./routes/web2-generic');
 const web2OrderTagsRoutes = require('./routes/web2-order-tags'); // WEB2.0 — TAG đơn hàng (auto theo trigger)
 const web2ElevenLabsRoutes = require('./routes/web2-elevenlabs'); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
@@ -805,6 +806,7 @@ app.use('/api/web2-stock-media', web2StockMediaRoutes); // WEB2.0 — Stock medi
 app.use('/api/web2-campaign-products', web2CampaignProductsRoutes); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
+app.use('/api/web2-product-types', web2ProductTypesRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
 // WEB2.0 video-maker: AI viết kịch bản (Gemini RIÊNG, key WEB2_GEMINI_API_KEY).
 // ⚠ server.js DÙNG CHUNG web2-api + n2store-fallback (Web 1.0). Mount route Web 2.0
@@ -1217,6 +1219,9 @@ if (web2GenericRoutes.initializeNotifiers) {
 }
 if (web2VariantsRoutes.initializeNotifiers) {
     web2VariantsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2ProductTypesRoutes.initializeNotifiers) {
+    web2ProductTypesRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (purchaseRefundRoutes.initializeNotifiers) {
     purchaseRefundRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);

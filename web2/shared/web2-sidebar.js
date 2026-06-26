@@ -355,6 +355,13 @@
             icon: 'settings',
             children: [
                 {
+                    label: 'Loại sản phẩm',
+                    icon: 'shirt',
+                    our: '../web2/product-types/index.html',
+                    // Web 2.0-only — quản lý loại SP (Áo/Quần/Đầm…); chọn khi nhập SP,
+                    // chọn nhiều loại = bộ. Dùng ở Kho SP + Sổ Order.
+                },
+                {
                     label: 'Lấy comment Live (poller)',
                     icon: 'radio',
                     our: '../web2/livestream-poller/index.html',
@@ -521,6 +528,7 @@
         'web2/balance-history/index.html',
         'web2/products/index.html',
         'web2/variants/index.html',
+        'web2/product-types/index.html',
         'web2/delivery-zone/index.html',
         'web2/order-tags/index.html',
         'web2/printer-settings/index.html',
