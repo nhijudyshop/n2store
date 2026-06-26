@@ -2,6 +2,21 @@
 
 ## 2026-06-26
 
+### [web2/products] Phase 4: modal Kho SP thêm chọn LOẠI sản phẩm (category) — dùng chung product-types
+
+Hoàn tất feature "Loại SP + biến thể theo món" (Phase 4/4). Modal Kho SP thêm chip multi-select LOẠI (Áo/Quần/Đầm…) từ `Web2ProductTypesCache` (shared) → lưu `web2_products.category` ("Áo + Quần" cho bộ). **GIỮ NGUYÊN** picker Màu/Size + sinh mã SP (mã cần shortCode Màu/Size có cấu trúc — KHÔNG thay bằng Web2VariantPicker để khỏi vỡ mã SP; quyết định có chủ đích).
+
+**Sửa:**
+
+- `web2/products/index.html`: field-row "Loại sản phẩm" (`#pmTypeChips`) trên ô Màu/Size; load `web2-product-types-api.js` + `web2-product-types-cache.js`; cache-bust `?v=20260626a`.
+- `web2-products-variant-picker.js`: `_renderTypeChips`/`_getSelectedCategory`/`_setSelectedCategory` (chip toggle, đọc shared cache). `_wireVariantPicker` init+render chips.
+- `web2-products-modal.js`: `fields.category` = `_getSelectedCategory()`; thêm vào update/create payload; open/edit set chips từ `p.category`.
+- `web2-products.css`: `.pm-type-chip(.is-on)`. BE `web2-products.js` đã có cột category (migration 067) + create/update whitelist.
+
+**Verify:** API round-trip — create `category="Áo + Quần"` 200 → GET "Áo + Quần" → PATCH "Đầm" → GET "Đầm" → delete (cleanup) ✅. Browser: modal chips [Áo,Quần,Đầm,Váy,Giày,Dép], click Áo+Quần → `_getSelectedCategory()`="Áo + Quần" ✅. Mã SP không đổi. Status: ✅
+
+> **HOÀN TẤT 4 phase** (kế hoạch `~/.claude/plans/jaunty-munching-llama.md`): P1 trang Loại SP · P2 `Web2VariantPicker` · P3 so-order (inline "Áo Trắng, Quần Đen" + modal) · P4 Kho SP category.
+
 ### [web2/report-warehouse + render] Báo cáo kho mới: Mua vào (Sổ Order) vs Bán ra (PBH) theo SP + NCC, lọc ngày, cột "Chưa nhận hàng"
 
 User: "Thêm vào Báo cáo phần báo cáo kho: Sản phẩm (tổng SL + tiền mua vào / bán ra), NCC (tổng SL + tiền mua vào / bán ra của NCC), cho điều chỉnh ngày tháng" + "NCC hiện rõ phần chưa nhận hàng". Quyết định (hỏi user): **trang mới riêng**; **mua vào = chỉ hàng Đã Nhận**; **bán ra = chỉ PBH Hoàn thành (done)**.
