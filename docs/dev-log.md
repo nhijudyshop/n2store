@@ -2,6 +2,20 @@
 
 ## 2026-06-26
 
+### [web2/order-tags + native-orders] TAG mới "Giỏ trống" (trigger gio_trong)
+
+Yêu cầu: thêm tag trigger cho giỏ trống / giỏ không có sản phẩm (tiếp nối câu hỏi "sao giỏ 2-3 không có pill KPI" — vì kpi_user cần `products.length > 0`). Tag này đánh dấu rõ giỏ rỗng.
+
+**Files** (`render.com/services/web2-order-tags-service.js`):
+
+- `TRIGGERS`: thêm `{ id:'gio_trong', label:'Giỏ trống', group:'PBH / Trạng thái', desc }` → xuất hiện trong dropdown trang config (`GET /api/web2-order-tags/triggers`).
+- `PREDICATES`: `gio_trong: (o) => o.status !== 'cancelled' && (!Array.isArray(o.products) || o.products.length === 0)` — giỏ chưa huỷ + 0 SP (đối nghịch điều kiện kpi_user). Đơn confirmed luôn có SP → không dính; đơn huỷ rỗng đã có tag "Đã huỷ" → loại trừ tránh nhiễu.
+- `ensureTable`: seed idempotent tag `gio_trong` (name 'Giỏ trống', màu `#94a3b8`, icon `shopping-cart`, priority 15) `ON CONFLICT DO NOTHING` — chạy CẢ khi bảng đã có data (block seed-4-default cũ chỉ chạy lúc bảng rỗng). Admin muốn ẩn → `is_active=false` (xoá sẽ bị seed lại lần restart).
+
+KHÔNG cần đổi frontend: order-tags page fetch `/triggers` động; native-orders render `o.autoTags` từ `/load`. Sau deploy: giỏ rỗng (vd giỏ 2-3) tự hiện pill "Giỏ trống".
+
+**Verify**: unit-test predicate 6 case (2-1/2-2 có SP → false, 2-3 rỗng → true, undefined products → true, confirmed có SP → false, huỷ rỗng → false) ALL PASS; syntax OK. (E2E cần deploy Render: seed tag + predicate chạy server-side.) Status ✅ (chờ deploy)
+
 ### [web2/balance-history] Chat KH đã gán → mở Pancake ĐẦY ĐỦ 3 cột (trả lời được) thay drawer 1 cột
 
 Yêu cầu: trang Lịch sử biến động số dư (SePay), khi mở chat của KH **đã được gán SĐT** (nút 💬 ở dòng giao dịch), đang ra chat drawer 1 cột — đổi thành **chat Pancake đầy đủ** (3 cột: sidebar tìm hội thoại + thread + info), **trả lời được**, đồng nhất với chat ở Đơn Web / Live Chat.

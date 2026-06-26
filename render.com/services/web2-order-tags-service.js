@@ -80,6 +80,12 @@ const TRIGGERS = [
         group: 'PBH / Trạng thái',
         desc: 'Đơn/giỏ đã huỷ.',
     },
+    {
+        id: 'gio_trong',
+        label: 'Giỏ trống',
+        group: 'PBH / Trạng thái',
+        desc: 'Giỏ hàng chưa có sản phẩm nào (SL = 0, chưa huỷ). Ngược với điều kiện hiện pill KPI — giỏ rỗng không được tính KPI nên không có người phụ trách.',
+    },
     // Thanh toán
     {
         id: 'chua_nhan_ck',
@@ -190,6 +196,10 @@ const PREDICATES = {
     is_draft: (o) => o.status === 'draft',
     is_confirmed: (o) => o.status === 'confirmed',
     is_cancelled: (o) => o.status === 'cancelled',
+    // Giỏ trống: giỏ (chưa huỷ) KHÔNG có sản phẩm nào. Đối nghịch kpi_user
+    // (kpi_user cần products.length > 0) → giỏ rỗng có pill "Giỏ trống", không có pill KPI.
+    gio_trong: (o) =>
+        o.status !== 'cancelled' && (!Array.isArray(o.products) || o.products.length === 0),
 
     chua_nhan_ck: (o) =>
         o.status === 'draft' &&
@@ -557,6 +567,16 @@ async function ensureTable(pool) {
                 '[WEB2-ORDER-TAGS] Seeded 4 default tags (kpi_user, pbh_created, cho_hang, am_ma)'
             );
         }
+        // Default tag 'Giỏ trống' (2026-06-26): ensure tồn tại KỂ CẢ khi bảng đã có data
+        // (block seed-4-default ở trên chỉ chạy lúc bảng RỖNG). ON CONFLICT DO NOTHING →
+        // idempotent, KHÔNG đè nếu admin đã đổi tên/màu/priority. Muốn ẩn → đặt is_active=false
+        // (XOÁ thì lần restart sau sẽ seed lại vì code không còn tồn tại).
+        await pool.query(
+            `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
+             VALUES ('gio_trong', 'Giỏ trống', 'gio_trong', '#94a3b8', 'shopping-cart', 15, 'system', $1, $1)
+             ON CONFLICT (code) DO NOTHING`,
+            [Date.now()]
+        );
     } catch (e) {
         console.warn('[WEB2-ORDER-TAGS] seed warn:', e.message);
     }
