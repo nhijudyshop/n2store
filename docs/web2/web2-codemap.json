@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-25 14:09",
+    "generatedAt": "2026-06-26 04:41",
     "totals": {
-        "files": 433,
-        "sharedModules": 136,
-        "functions": 3450,
-        "oversized": 10
+        "files": 434,
+        "sharedModules": 137,
+        "functions": 3478,
+        "oversized": 11
     },
     "sharedModules": [
         {
@@ -71,8 +71,11 @@
             "globals": ["Web2ChatEntityDetect"],
             "purpose": "WEB2.0 — nhận diện SĐT + địa chỉ trong tin nhắn chat (Feature 3).",
             "api": [],
-            "consumers": ["web2/shared/chat-panel/web2-chat-panel-render.js"],
-            "lines": 116
+            "consumers": [
+                "web2/shared/chat-panel/web2-chat-panel-compose.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js"
+            ],
+            "lines": 142
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
@@ -80,7 +83,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 475
+            "lines": 511
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
@@ -88,7 +91,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 415
+            "lines": 424
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel-state.js",
@@ -166,6 +169,7 @@
                 "live-chat/js/pancake/inventory-panel-render.js",
                 "live-chat/js/pancake/pancake-context-menu.js",
                 "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-interactions.js",
                 "native-orders/js/native-orders-pbh-bill.js",
                 "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-toolbar.js",
@@ -316,7 +320,7 @@
                 "web2/supplier-wallet/js/supplier-wallet-render.js",
                 "web2/users/js/users-app.js"
             ],
-            "lines": 380
+            "lines": 475
         },
         {
             "file": "web2/shared/web2-auth.js",
@@ -512,7 +516,7 @@
                 "native-orders/js/native-orders-pbh-bill.js",
                 "web2/fastsaleorder-invoice/pbh-actions.js"
             ],
-            "lines": 753
+            "lines": 757
         },
         {
             "file": "web2/shared/web2-campaign.js",
@@ -683,7 +687,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 241
+            "lines": 247
         },
         {
             "file": "web2/shared/web2-customer-chat.js",
@@ -704,7 +708,7 @@
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-product-counter.js"
             ],
-            "lines": 231
+            "lines": 235
         },
         {
             "file": "web2/shared/web2-customer-detail-modal.js",
@@ -1051,7 +1055,7 @@
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-modal.js"
             ],
-            "lines": 565
+            "lines": 595
         },
         {
             "file": "web2/shared/web2-jwt-utils.js",
@@ -1197,6 +1201,28 @@
             "api": [],
             "consumers": ["web2/shared/web2-sidebar.js"],
             "lines": 49
+        },
+        {
+            "file": "web2/shared/web2-number-input.js",
+            "globals": ["Web2NumberInput"],
+            "purpose": "WEB2.0 shared — 1 NGUỒN format số khi NHẬP (live thousand \".\" + decimal \",\") cho Web 2.0.",
+            "api": [],
+            "consumers": [
+                "so-order/js/so-order-bulk-edit.js",
+                "so-order/js/so-order-inline-edit.js",
+                "so-order/js/so-order-modal-core.js",
+                "so-order/js/so-order-modal-open.js",
+                "so-order/js/so-order-modal-random.js",
+                "so-order/js/so-order-modal-submit.js",
+                "so-order/js/so-order-shipment.js",
+                "web2/balance-history/js/web2-manual-deposit.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/products/js/web2-product-detail.js",
+                "web2/products/js/web2-products-modal.js",
+                "web2/supplier-debt/js/supplier-debt-actions.js",
+                "web2/supplier-wallet/js/supplier-wallet-actions.js"
+            ],
+            "lines": 372
         },
         {
             "file": "web2/shared/web2-optimistic.js",
@@ -1448,10 +1474,9 @@
             "consumers": [
                 "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-products-print-modal.js",
-                "web2/products/js/web2-products-print-render.js",
                 "web2/shared/web2-bill-service.js"
             ],
-            "lines": 348
+            "lines": 354
         },
         {
             "file": "web2/shared/web2-quick-reply.js",
@@ -1514,24 +1539,37 @@
             "purpose": "WEB2.0 module — GitHub-style skeleton loading.",
             "api": [],
             "consumers": [
+                "web2/ai-assistant/js/ai-assistant.js",
                 "web2/ai-hub/js/ai-image.js",
                 "web2/balance-history/js/web2-bh-render.js",
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/cham-cong/js/cham-cong-employees.js",
+                "web2/cham-cong/js/cham-cong-payroll.js",
                 "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/fastsaleorder-refund/rf-app.js",
+                "web2/fb-ads-stats/js/fb-ads-stats.js",
+                "web2/fb-insights/js/fb-insights.js",
                 "web2/fb-posts/js/fb-posts-drafts.js",
                 "web2/jt-tracking/js/jt-tracking-app.js",
                 "web2/live-control/js/live-control.js",
                 "web2/live-tv/js/live-tv.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/order-tags/js/order-tags-app.js",
+                "web2/pancake-settings/js/pancake-settings-api.js",
                 "web2/products/js/web2-products-render.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
+                "web2/purchase-refund/js/purchase-refund-render.js",
                 "web2/returns/js/returns-order-items.js",
+                "web2/system/js/system-services.js",
+                "web2/system/js/system-sse.js",
                 "web2/users/js/users-app.js",
                 "web2/variants/js/web2-variants-app.js",
+                "web2/video-beauty/js/video-beauty.js",
                 "web2/video-maker/js/video-library.js",
                 "web2/zalo/js/web2-zalo-chat.js"
             ],
@@ -2528,7 +2566,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-hidden-commenters.js",
-                    "lines": 383,
+                    "lines": 386,
                     "purpose": "WEB2.0 module — ẩn comment theo NGƯỜI (commenter) + danh sách quản lý.",
                     "globals": ["LiveHiddenCommenters"],
                     "uses": ["API_CONFIG", "Web2Auth", "Web2SSE", "Web2UserInfo"],
@@ -3938,11 +3976,12 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-interactions.js",
-                    "lines": 251,
+                    "lines": 306,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
-                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat"],
+                    "uses": ["Web2ChatPanel", "Popup", "Web2Chat", "Web2CustomerChat"],
                     "functions": [
+                        "_addDetectedToOrder",
                         "_closeInteractions",
                         "_extensionRequest",
                         "_hasChatClient",
@@ -3952,6 +3991,7 @@
                         "_renderCommentsPanel",
                         "_renderInteractionsInfoHtml",
                         "_wireCommentReplies",
+                        "onAddEntity",
                         "onMsg",
                         "onReady",
                         "openInteractions"
@@ -4126,7 +4166,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
-                    "lines": 916,
+                    "lines": 911,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [
@@ -4249,23 +4289,18 @@
                 },
                 {
                     "file": "so-order/js/so-order-barcode.js",
-                    "lines": 274,
+                    "lines": 140,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
                     "uses": ["Web2ProductsApi"],
-                    "functions": [
-                        "_updateBarcodeSummary",
-                        "openBarcodePrintModal",
-                        "printBarcodes",
-                        "printLabelsFromReceivePanel"
-                    ]
+                    "functions": ["openBarcodePrintModal", "printLabelsFromReceivePanel"]
                 },
                 {
                     "file": "so-order/js/so-order-bulk-edit.js",
-                    "lines": 86,
+                    "lines": 91,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": [],
+                    "uses": ["Web2NumberInput"],
                     "functions": [
                         "commitBulkEditField",
                         "onBulkEditChange",
@@ -4363,10 +4398,10 @@
                 },
                 {
                     "file": "so-order/js/so-order-inline-edit.js",
-                    "lines": 431,
+                    "lines": 437,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": ["Web2SuppliersCache", "Web2VariantsCache"],
+                    "uses": ["Web2NumberInput", "Web2SuppliersCache", "Web2VariantsCache"],
                     "functions": [
                         "_currentStateSuppliers",
                         "_ensureSupplierAsync",
@@ -4415,11 +4450,12 @@
                 },
                 {
                     "file": "so-order/js/so-order-modal-core.js",
-                    "lines": 452,
+                    "lines": 462,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": ["Web2ProductsCache"],
+                    "uses": ["Web2NumberInput", "Web2ProductsCache"],
                     "functions": [
+                        "_gv",
                         "_modalMatchKho",
                         "_newModalRow",
                         "modalRowHtml",
@@ -4458,12 +4494,13 @@
                 },
                 {
                     "file": "so-order/js/so-order-modal-open.js",
-                    "lines": 186,
+                    "lines": 192,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": [],
+                    "uses": ["Web2NumberInput"],
                     "functions": [
                         "_applyShipMetaUi",
+                        "_setMoneyVal",
                         "_shipMetaFlags",
                         "onPick",
                         "openOrderModal",
@@ -4472,10 +4509,10 @@
                 },
                 {
                     "file": "so-order/js/so-order-modal-random.js",
-                    "lines": 142,
+                    "lines": 143,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": ["Web2VariantsCache"],
+                    "uses": ["Web2NumberInput", "Web2VariantsCache"],
                     "functions": [
                         "_rImg",
                         "_rInt",
@@ -4488,11 +4525,11 @@
                 },
                 {
                     "file": "so-order/js/so-order-modal-submit.js",
-                    "lines": 281,
+                    "lines": 283,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": ["Web2VariantMulti"],
-                    "functions": ["handleOrderSubmit"]
+                    "uses": ["Web2NumberInput", "Web2VariantMulti"],
+                    "functions": ["_gv", "handleOrderSubmit"]
                 },
                 {
                     "file": "so-order/js/so-order-modal-suggest.js",
@@ -4600,16 +4637,17 @@
                 },
                 {
                     "file": "so-order/js/so-order-shipment.js",
-                    "lines": 211,
+                    "lines": 221,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": [],
+                    "uses": ["Web2NumberInput"],
                     "functions": [
                         "_mostCommonSupplier",
                         "_readPerOrderMeta",
                         "_renderPerOrderMeta",
                         "num",
                         "numField",
+                        "numMoney",
                         "onPick",
                         "openShipmentEditAllRows",
                         "openShipmentModal",
@@ -4704,10 +4742,16 @@
             "files": [
                 {
                     "file": "web2/ai-assistant/js/ai-assistant.js",
-                    "lines": 204,
+                    "lines": 215,
                     "purpose": "WEB2.0 module.",
                     "globals": ["AiAssistantAdmin"],
-                    "uses": ["Web2AiAssistant", "WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+                    "uses": [
+                        "Web2AiAssistant",
+                        "WEB2_CONFIG",
+                        "API_CONFIG",
+                        "Web2Auth",
+                        "Web2Skeleton"
+                    ],
                     "functions": [
                         "$",
                         "API",
@@ -4945,7 +4989,7 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-bh-chat-export.js",
-                    "lines": 142,
+                    "lines": 149,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2BH"],
                     "uses": ["Web2CustomerChat"],
@@ -5059,10 +5103,16 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-manual-deposit.js",
-                    "lines": 659,
+                    "lines": 663,
                     "purpose": "WEB2.0 — manual deposit modal cho balance-history page.",
                     "globals": ["Web2ManualDeposit"],
-                    "uses": ["Web2Auth", "PartnerCustomerApi", "Web2Escape", "Web2SuppliersCache"],
+                    "uses": [
+                        "Web2Auth",
+                        "PartnerCustomerApi",
+                        "Web2Escape",
+                        "Web2NumberInput",
+                        "Web2SuppliersCache"
+                    ],
                     "functions": [
                         "_cacheGet",
                         "_cacheSet",
@@ -5241,10 +5291,17 @@
                 },
                 {
                     "file": "web2/cham-cong/js/cham-cong-app.js",
-                    "lines": 758,
+                    "lines": 861,
                     "purpose": "WEB2.0 module — Chấm công: app core (state + bảng công + import + sync).",
                     "globals": ["ChamCong"],
-                    "uses": ["Popup", "Web2Auth", "Web2IdbStore", "Web2Sidebar", "Web2SSE"],
+                    "uses": [
+                        "Popup",
+                        "Web2Auth",
+                        "Web2IdbStore",
+                        "Web2Sidebar",
+                        "Web2Skeleton",
+                        "Web2SSE"
+                    ],
                     "functions": [
                         "applyResults",
                         "cfgFor",
@@ -5259,9 +5316,11 @@
                         "isFulldaySet",
                         "isManualEmp",
                         "isVisibleEmp",
+                        "latestRecordDateKey",
                         "listLine",
                         "loadAll",
                         "monthRange",
+                        "needsAttendance",
                         "onclick",
                         "openDay",
                         "payrollFor",
@@ -5280,10 +5339,10 @@
                 },
                 {
                     "file": "web2/cham-cong/js/cham-cong-employees.js",
-                    "lines": 305,
+                    "lines": 308,
                     "purpose": "WEB2.0 module — Chấm công: tab Nhân viên (gán PIN máy ↔ web2_users + cấu hình ca/lương).",
                     "globals": ["ChamCongEmployees"],
-                    "uses": ["Popup"],
+                    "uses": ["Popup", "Web2Skeleton"],
                     "functions": [
                         "CC",
                         "addManual",
@@ -5302,10 +5361,10 @@
                 },
                 {
                     "file": "web2/cham-cong/js/cham-cong-payroll.js",
-                    "lines": 726,
+                    "lines": 746,
                     "purpose": "WEB2.0 module — Chấm công: tab Bảng lương + modal điều chỉnh.",
                     "globals": ["ChamCongPayroll"],
-                    "uses": [],
+                    "uses": ["Web2Skeleton"],
                     "functions": [
                         "CC",
                         "close",
@@ -5341,7 +5400,7 @@
                 },
                 {
                     "file": "web2/cham-cong/js/cham-cong-salary.js",
-                    "lines": 286,
+                    "lines": 303,
                     "purpose": "WEB2.0 module — Chấm công: tính lương (pure).",
                     "globals": ["ChamCongSalary"],
                     "uses": [],
@@ -5394,13 +5453,14 @@
                 },
                 {
                     "file": "web2/chi-tieu/js/chi-tieu-app.js",
-                    "lines": 631,
+                    "lines": 638,
                     "purpose": "WEB2.0 module — Quản lý chi tiêu: app core.",
                     "globals": ["ChiTieu"],
                     "uses": [
                         "Popup",
                         "Web2Auth",
                         "Web2ImagePaste",
+                        "Web2NumberInput",
                         "Web2Sidebar",
                         "Web2Skeleton",
                         "Web2SSE"
@@ -5449,7 +5509,7 @@
             "files": [
                 {
                     "file": "web2/ck-dashboard/js/ck-dashboard-app.js",
-                    "lines": 469,
+                    "lines": 487,
                     "purpose": "WEB2.0 module — Dashboard đối soát CK.",
                     "globals": [],
                     "uses": [
@@ -5462,6 +5522,7 @@
                         "Web2HistoryTimeline",
                         "Web2Optimistic",
                         "Web2Sidebar",
+                        "Web2Skeleton",
                         "Web2SSE",
                         "Web2UserInfo",
                         "Web2WalletBalance"
@@ -5942,10 +6003,10 @@
                 },
                 {
                     "file": "web2/fb-ads-stats/js/fb-ads-stats.js",
-                    "lines": 289,
+                    "lines": 298,
                     "purpose": "WEB2.0 — Thống kê quảng cáo FB: ad account insights + campaign breakdown.",
                     "globals": [],
-                    "uses": ["FBPostsApi", "Web2Sidebar"],
+                    "uses": ["FBPostsApi", "Web2Sidebar", "Web2Skeleton"],
                     "functions": [
                         "$",
                         "Api",
@@ -5973,10 +6034,10 @@
             "files": [
                 {
                     "file": "web2/fb-insights/js/fb-insights.js",
-                    "lines": 339,
+                    "lines": 348,
                     "purpose": "WEB2.0 — Thống kê tương tác FB: tính từ bài đăng (like/cmt/share) + follower.",
                     "globals": [],
-                    "uses": ["FBPostsApi", "Web2Sidebar"],
+                    "uses": ["FBPostsApi", "Web2Sidebar", "Web2Skeleton"],
                     "functions": [
                         "$",
                         "Api",
@@ -6066,7 +6127,7 @@
                 },
                 {
                     "file": "web2/fb-posts/js/fb-posts-drafts.js",
-                    "lines": 188,
+                    "lines": 189,
                     "purpose": "WEB2.0 — Đăng bài FB: Lịch & Nháp (agenda theo ngày, sửa/đăng/xoá).",
                     "globals": ["FBPostsDrafts"],
                     "uses": ["Popup", "Web2AuditLog", "FBPostsApi", "Web2Skeleton"],
@@ -6328,7 +6389,7 @@
             "files": [
                 {
                     "file": "web2/live-control/js/live-control.js",
-                    "lines": 616,
+                    "lines": 617,
                     "purpose": "WEB2.0 — Điều khiển TV livestream (user2): gắn SP vào chiến dịch + nhập số NCC báo (pending_qty).",
                     "globals": [],
                     "uses": [
@@ -6585,10 +6646,16 @@
                 },
                 {
                     "file": "web2/pancake-settings/js/pancake-settings-api.js",
-                    "lines": 256,
+                    "lines": 271,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
-                    "uses": ["API_CONFIG", "Web2Auth", "Web2Chat", "Web2PancakeAccounts"],
+                    "uses": [
+                        "API_CONFIG",
+                        "Web2Auth",
+                        "Web2Chat",
+                        "Web2PancakeAccounts",
+                        "Web2Skeleton"
+                    ],
                     "functions": [
                         "loadAccounts",
                         "loadPages",
@@ -6996,10 +7063,16 @@
             "files": [
                 {
                     "file": "web2/products/js/web2-product-detail.js",
-                    "lines": 634,
+                    "lines": 640,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2ProductDetail"],
-                    "uses": ["Web2Auth", "Web2Escape", "Web2ProductsApi", "Web2UserInfo"],
+                    "uses": [
+                        "Web2Auth",
+                        "Web2Escape",
+                        "Web2NumberInput",
+                        "Web2ProductsApi",
+                        "Web2UserInfo"
+                    ],
                     "functions": [
                         "_activateTab",
                         "_ensureWired",
@@ -7029,7 +7102,8 @@
                         "originHint",
                         "proxyBase",
                         "safeImg",
-                        "val"
+                        "val",
+                        "valNum"
                     ]
                 },
                 {
@@ -7088,12 +7162,13 @@
                 },
                 {
                     "file": "web2/products/js/web2-products-modal.js",
-                    "lines": 755,
+                    "lines": 771,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2ProductsCore"],
                     "uses": [
                         "Web2Auth",
                         "Web2Import",
+                        "Web2NumberInput",
                         "Web2Optimistic",
                         "Web2ProductCode",
                         "Web2ProductsApi",
@@ -7140,7 +7215,7 @@
                 },
                 {
                     "file": "web2/products/js/web2-products-print-modal.js",
-                    "lines": 604,
+                    "lines": 599,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2PP"],
                     "uses": ["Web2Printer", "Web2QR"],
@@ -7160,16 +7235,18 @@
                 },
                 {
                     "file": "web2/products/js/web2-products-print-render.js",
-                    "lines": 496,
+                    "lines": 524,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2PP"],
-                    "uses": ["Web2QR"],
+                    "uses": [],
                     "functions": [
                         "buildLabelHTML",
                         "draw",
                         "fitName",
                         "fitText",
                         "init",
+                        "lh",
+                        "lines",
                         "tooTall",
                         "tooWide"
                     ]
@@ -7311,10 +7388,16 @@
                 },
                 {
                     "file": "web2/purchase-refund/js/purchase-refund-api.js",
-                    "lines": 255,
+                    "lines": 263,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PurchaseRefund"],
-                    "uses": ["Web2Auth", "Web2IdbStore", "Web2ProductsCache", "Web2SoOrder"],
+                    "uses": [
+                        "Web2Auth",
+                        "Web2IdbStore",
+                        "Web2ProductsCache",
+                        "Web2Skeleton",
+                        "Web2SoOrder"
+                    ],
                     "functions": [
                         "_authHeaders",
                         "fetchJson",
@@ -7352,10 +7435,10 @@
                 },
                 {
                     "file": "web2/purchase-refund/js/purchase-refund-render.js",
-                    "lines": 307,
+                    "lines": 314,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PurchaseRefund"],
-                    "uses": ["Web2HistoryTimeline", "Web2ProductsCache"],
+                    "uses": ["Web2HistoryTimeline", "Web2ProductsCache", "Web2Skeleton"],
                     "functions": [
                         "applyFilters",
                         "loadSourceItems",
@@ -7569,7 +7652,7 @@
                 },
                 {
                     "file": "web2/returns/js/returns-order-items.js",
-                    "lines": 149,
+                    "lines": 155,
                     "purpose": "WEB2.0 module.",
                     "globals": ["ReturnsItems"],
                     "uses": ["Web2Skeleton"],
@@ -7725,19 +7808,27 @@
                 },
                 {
                     "file": "web2/shared/chat-panel/web2-chat-entity-detect.js",
-                    "lines": 116,
+                    "lines": 142,
                     "purpose": "WEB2.0 — nhận diện SĐT + địa chỉ trong tin nhắn chat (Feature 3).",
                     "globals": ["Web2ChatEntityDetect"],
                     "uses": [],
-                    "functions": ["addresses", "normalizePhone", "phones", "scan", "scanMessages"]
+                    "functions": [
+                        "addresses",
+                        "normalizePhone",
+                        "phones",
+                        "push",
+                        "scan",
+                        "scanMessages"
+                    ]
                 },
                 {
                     "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
-                    "lines": 475,
+                    "lines": 511,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
                         "Web2ChatEmoji",
+                        "Web2ChatEntityDetect",
                         "Web2ChatPanel",
                         "Web2ChatStickers",
                         "Web2ImageLightbox",
@@ -7770,7 +7861,7 @@
                 },
                 {
                     "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
-                    "lines": 415,
+                    "lines": 424,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": ["Web2ChatEntityDetect", "Web2ChatPanel", "Web2Chat"],
@@ -8141,15 +8232,18 @@
                 },
                 {
                     "file": "web2/shared/web2-audit-log.js",
-                    "lines": 380,
+                    "lines": 475,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2AuditLog"],
                     "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
                     "functions": [
+                        "actionLabel",
+                        "actionOptions",
                         "applyScopeUi",
                         "authHeaders",
                         "buildShell",
                         "close",
+                        "entity",
                         "entityOptions",
                         "esc",
                         "fmtTime",
@@ -8159,6 +8253,7 @@
                         "onKey",
                         "onclick",
                         "openRecord",
+                        "populateActions",
                         "populateEntities",
                         "rawChanges",
                         "reload",
@@ -8277,7 +8372,7 @@
                 },
                 {
                     "file": "web2/shared/web2-bill-service.js",
-                    "lines": 753,
+                    "lines": 757,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2Bill"],
                     "uses": ["Web2Printer", "Web2QR", "Web2UserInfo"],
@@ -8636,7 +8731,7 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat-modal.js",
-                    "lines": 241,
+                    "lines": 247,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat", "Web2Lottie"],
@@ -8657,7 +8752,7 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat.js",
-                    "lines": 231,
+                    "lines": 235,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2CustomerChat"],
                     "uses": ["Web2ChatPanel", "Web2Chat", "Web2Ext", "Web2Lottie", "Web2Zalo"],
@@ -9145,14 +9240,16 @@
                 },
                 {
                     "file": "web2/shared/web2-import.js",
-                    "lines": 565,
+                    "lines": 595,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2Import"],
                     "uses": ["Web2Escape"],
                     "functions": [
+                        "b64DecodeUtf8",
                         "buildHeaderMap",
                         "buildSampleCsv",
                         "close",
+                        "decodeN2Token",
                         "detectDelimiter",
                         "downloadSample",
                         "downloadText",
@@ -9434,6 +9531,38 @@
                     "globals": ["Web2Notify"],
                     "uses": ["Popup"],
                     "functions": ["error", "info", "show", "success", "warning"]
+                },
+                {
+                    "file": "web2/shared/web2-number-input.js",
+                    "lines": 372,
+                    "purpose": "WEB2.0 shared — 1 NGUỒN format số khi NHẬP (live thousand \".\" + decimal \",\") cho Web 2.0.",
+                    "globals": ["Web2NumberInput"],
+                    "uses": [],
+                    "functions": [
+                        "_caretFromSig",
+                        "_clampOnBlur",
+                        "_init",
+                        "_liveDecimal",
+                        "_liveInt",
+                        "_manualGroup",
+                        "_optsFromDataset",
+                        "_reformat",
+                        "_scheduleScan",
+                        "_sigBefore",
+                        "_startObserver",
+                        "attach",
+                        "attachAll",
+                        "config",
+                        "detach",
+                        "format",
+                        "getValue",
+                        "getValueOr",
+                        "onBlur",
+                        "onInput",
+                        "parse",
+                        "run",
+                        "setValue"
+                    ]
                 },
                 {
                     "file": "web2/shared/web2-optimistic.js",
@@ -9842,7 +9971,7 @@
                 },
                 {
                     "file": "web2/shared/web2-qr.js",
-                    "lines": 348,
+                    "lines": 354,
                     "purpose": "WEB2.0 shared — 1 NGUỒN sinh QR \"trang trí\" đen trắng cho tem SP + PBH.",
                     "globals": ["Web2QR"],
                     "uses": ["Web2Printer"],
@@ -10814,10 +10943,10 @@
             "files": [
                 {
                     "file": "web2/supplier-debt/js/supplier-debt-actions.js",
-                    "lines": 122,
+                    "lines": 127,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
-                    "uses": [],
+                    "uses": ["Web2NumberInput"],
                     "functions": ["confirmNote", "confirmPay", "openNoteModal", "openPayModal"]
                 },
                 {
@@ -10923,10 +11052,15 @@
             "files": [
                 {
                     "file": "web2/supplier-wallet/js/supplier-wallet-actions.js",
-                    "lines": 283,
+                    "lines": 288,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
-                    "uses": ["Web2ProductsApi", "Web2ProductsCache", "Web2SuppliersCache"],
+                    "uses": [
+                        "Web2NumberInput",
+                        "Web2ProductsApi",
+                        "Web2ProductsCache",
+                        "Web2SuppliersCache"
+                    ],
                     "functions": [
                         "confirmCreate",
                         "confirmPay",
@@ -11072,14 +11206,15 @@
                 },
                 {
                     "file": "web2/system/js/system-services.js",
-                    "lines": 293,
+                    "lines": 320,
                     "purpose": "Fetch /api/services-overview + render cards (DB + service inventory + process).",
                     "globals": ["SystemServices"],
-                    "uses": ["API_CONFIG"],
+                    "uses": ["API_CONFIG", "Web2Skeleton"],
                     "functions": [
                         "$",
                         "_scheduleRefresh",
                         "_stopRefresh",
+                        "clearFirstLoadSkeletons",
                         "escapeHtml",
                         "fmtBytes",
                         "fmtNumber",
@@ -11089,15 +11224,16 @@
                         "renderDatabases",
                         "renderProcess",
                         "renderServices",
+                        "showFirstLoadSkeletons",
                         "start"
                     ]
                 },
                 {
                     "file": "web2/system/js/system-sse.js",
-                    "lines": 365,
+                    "lines": 380,
                     "purpose": "Đọc/hiển thị live SSE activity từ server. Tách từ admin-sse-monitor/js/monitor.js;",
                     "globals": ["SystemSSE"],
-                    "uses": ["Popup", "Web2Auth"],
+                    "uses": ["Popup", "Web2Auth", "Web2Skeleton"],
                     "functions": [
                         "$",
                         "_scheduleStatsPoll",
@@ -11232,7 +11368,7 @@
                 },
                 {
                     "file": "web2/variants/js/web2-variants-app.js",
-                    "lines": 504,
+                    "lines": 508,
                     "purpose": "Kho Biến Thể Web 2.0 — main app: render bảng + CRUD qua modal.",
                     "globals": ["Web2VariantsApp"],
                     "uses": [
@@ -11308,12 +11444,13 @@
                 },
                 {
                     "file": "web2/video-beauty/js/video-beauty.js",
-                    "lines": 307,
+                    "lines": 327,
                     "purpose": "WEB2.0 module.",
                     "globals": ["VideoBeautyPage"],
-                    "uses": ["Web2BeautyFace", "Web2BeautyFilters"],
+                    "uses": ["Web2BeautyFace", "Web2BeautyFilters", "Web2Skeleton"],
                     "functions": [
                         "$",
+                        "_restoreEmpty",
                         "bind",
                         "d",
                         "doExport",
@@ -12842,6 +12979,16 @@
             "count": 4
         },
         {
+            "fn": "push",
+            "files": [
+                "web2/customer-wallet/js/web2-customer-wallet-render.js",
+                "web2/shared/chat-panel/web2-chat-entity-detect.js",
+                "web2/shared/web2-chat-live.js",
+                "web2/supplier-wallet/js/supplier-wallet-storage.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "renderHistory",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -13380,20 +13527,20 @@
             "count": 3
         },
         {
+            "fn": "parse",
+            "files": [
+                "web2/balance-history/js/web2-bh-reassign-modal.js",
+                "web2/shared/web2-number-input.js",
+                "web2/shared/web2-variant-multi.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "pick",
             "files": [
                 "web2/shared/delivery-method-picker.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/video-maker/js/video-stock.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "push",
-            "files": [
-                "web2/customer-wallet/js/web2-customer-wallet-render.js",
-                "web2/shared/web2-chat-live.js",
-                "web2/supplier-wallet/js/supplier-wallet-storage.js"
             ],
             "count": 3
         },
@@ -13601,7 +13748,11 @@
         },
         {
             "file": "native-orders/js/native-orders-render.js",
-            "lines": 916
+            "lines": 911
+        },
+        {
+            "file": "web2/cham-cong/js/cham-cong-app.js",
+            "lines": 861
         },
         {
             "file": "native-orders/js/native-orders-pbh-bill.js",

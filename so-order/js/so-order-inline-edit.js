@@ -48,7 +48,11 @@
         const commit = (rawValue) => {
             let value = rawValue;
             if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
-                value = Number(value) || 0;
+                // Giá có thể đã format (1.000) → parse số thật; qty không format.
+                value =
+                    (field !== 'qty' && window.Web2NumberInput
+                        ? Web2NumberInput.parse(value)
+                        : Number(value)) || 0;
                 if (field === 'sellPrice' || field === 'costPrice') {
                     value = SO._maybeExpandVndShorthand(value, tab);
                 }
@@ -81,7 +85,7 @@
         if (field === 'qty') {
             inputHtml = `<input class="so-edit-input so-edit-num" type="number" min="0" step="1" value="${Number(r.qty) || 0}" autofocus />`;
         } else if (field === 'sellPrice' || field === 'costPrice') {
-            inputHtml = `<input class="so-edit-input so-edit-num" type="number" min="0" step="any" value="${Number(r[field]) || 0}" autofocus />`;
+            inputHtml = `<input class="so-edit-input so-edit-num" type="text" inputmode="decimal" data-w2num="decimal" value="${Number(r[field]) || 0}" autofocus />`;
         } else if (field === 'status') {
             const opts = Object.entries(SO.STATUS_LABELS)
                 .map(
@@ -104,6 +108,8 @@
             inputHtml = `<input class="so-edit-input" type="text" value="${SO.escapeHtml(r[field] || '')}" autofocus />`;
         }
         td.innerHTML = inputHtml;
+        // Ô giá inline → format 1.000 ngay khi gõ (chỉ áp cho input có data-w2num).
+        if (window.Web2NumberInput) Web2NumberInput.attachAll(td);
         const el = td.querySelector('input, select');
         if (!el) {
             restore();

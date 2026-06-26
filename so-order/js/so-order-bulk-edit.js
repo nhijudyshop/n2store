@@ -49,7 +49,11 @@
         if (!r) return;
         let value = rawValue;
         if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
-            value = Number(value) || 0;
+            // Giá có thể đã format (1.000) → parse số thật; qty không format.
+            value =
+                (field !== 'qty' && window.Web2NumberInput
+                    ? Web2NumberInput.parse(value)
+                    : Number(value)) || 0;
             if (field === 'sellPrice' || field === 'costPrice') {
                 const expanded = SO._maybeExpandVndShorthand(value, tab);
                 if (expanded !== value) {
@@ -57,7 +61,8 @@
                     const input = document.querySelector(
                         `#soTableBody input[data-edit-field="${field}"][data-row-id="${rowId}"]`
                     );
-                    if (input) input.value = String(value);
+                    if (input && window.Web2NumberInput) Web2NumberInput.setValue(input, value);
+                    else if (input) input.value = String(value);
                 }
             }
         } else if (typeof value === 'string') {

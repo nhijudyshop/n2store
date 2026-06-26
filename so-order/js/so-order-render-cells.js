@@ -54,7 +54,7 @@
         }
         if (field === 'sellPrice' || field === 'costPrice') {
             return `<td class="${tdClass} so-cell-edit" ${dataAttr}>
-                <input class="so-edit-input so-edit-num" type="number" min="0" step="any" value="${Number(r[field]) || 0}" data-edit-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}" />
+                <input class="so-edit-input so-edit-num" type="text" inputmode="decimal" data-w2num="decimal" value="${Number(r[field]) || 0}" data-edit-field="${field}" data-row-id="${rid}" data-shipment-id="${sid}" />
             </td>`;
         }
         if (field === 'status') {

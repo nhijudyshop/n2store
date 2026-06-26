@@ -100,9 +100,10 @@
         form.elements.shipBatch.value = String(SO._rInt(1, 9));
         form.elements.shipCaseCount.value = SO._rInt(1, 10);
         form.elements.shipWeightKg.value = SO._rInt(5, 80);
-        form.elements.shipContractAmount.value = isVnd
-            ? SO._rInt(50, 500) * 100000
-            : SO._rInt(500, 5000);
+        const _rndContract = isVnd ? SO._rInt(50, 500) * 100000 : SO._rInt(500, 5000);
+        if (window.Web2NumberInput)
+            Web2NumberInput.setValue(form.elements.shipContractAmount, _rndContract);
+        else form.elements.shipContractAmount.value = _rndContract;
         if (form.elements.shipExpectedDeliveryDate) {
             form.elements.shipExpectedDeliveryDate.value = eta.toISOString().slice(0, 10);
         }

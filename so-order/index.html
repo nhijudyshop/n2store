@@ -15,22 +15,22 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260626c" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260626c" />
-        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260626c" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260626c" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260626c" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260626d" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260626d" />
+        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260626d" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260626d" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260626d" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260626c" />
+        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260626d" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
         <!-- Firebase compat (Firestore sync for cross-device column visibility + data) -->
 
-        <script src="../shared/js/notification-system.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260626c"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260626c" />
+        <script src="../shared/js/notification-system.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260626d"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260626d" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -631,69 +631,70 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-auth.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-audit-log.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260626c"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-number-input.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-audit-log.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260626d"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/shared/web2-products-api.js?v=20260626c"></script>
+        <script src="../web2/shared/web2-products-api.js?v=20260626d"></script>
         <!-- In tem/mã SP: dùng CHUNG module in của web2/products (Web2ProductsPrint).
              [SPLIT 2026-06-18] module in tách 5 file — PHẢI load đủ THEO THỨ TỰ
              (utils → barcode → render → modal → entry) thì window.W2PP.open mới có,
              nếu thiếu → Web2ProductsPrint.open=undefined → rớt về modal legacy. -->
-        <script src="../web2/shared/web2-printer.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-qr.js?v=20260626c"></script>
-        <script src="../web2/products/js/web2-products-print-utils.js?v=20260626c"></script>
-        <script src="../web2/products/js/web2-products-print-barcode.js?v=20260626c"></script>
-        <script src="../web2/products/js/web2-products-print-render.js?v=20260626c"></script>
-        <script src="../web2/products/js/web2-products-print-modal.js?v=20260626c"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260626c"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260626c"></script>
+        <script src="../web2/shared/web2-printer.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260626d"></script>
+        <script src="../web2/products/js/web2-products-print-utils.js?v=20260626d"></script>
+        <script src="../web2/products/js/web2-products-print-barcode.js?v=20260626d"></script>
+        <script src="../web2/products/js/web2-products-print-render.js?v=20260626d"></script>
+        <script src="../web2/products/js/web2-products-print-modal.js?v=20260626d"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260626d"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260626d"></script>
         <!-- Nhập nhanh nhiều biến thể (Đen / S / M / L → N SP) — shared web2 -->
-        <script src="../web2/shared/web2-variant-multi.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-suppliers-cache.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-product-code.js?v=20260626c"></script>
-        <script src="../web2/shared/web2-deeplink.js?v=20260626c"></script>
+        <script src="../web2/shared/web2-variant-multi.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-product-code.js?v=20260626d"></script>
+        <script src="../web2/shared/web2-deeplink.js?v=20260626d"></script>
         <!-- Import dữ liệu CSV/JSON + MÃ N2 (NGUỒN CHUNG Web2Import) -->
-        <script src="../web2/shared/web2-import.js?v=20260626c"></script>
+        <script src="../web2/shared/web2-import.js?v=20260626d"></script>
         <!-- so-order-storage.js (962 dòng) tách MOVE-only thành 2 module <800 dòng:
              storage (data layer) → storage-sync (Sync sub-system). Data TRƯỚC sync. -->
-        <script src="js/so-order-storage.js?v=20260626c"></script>
-        <script src="js/so-order-storage-sync.js?v=20260626c"></script>
+        <script src="js/so-order-storage.js?v=20260626d"></script>
+        <script src="js/so-order-storage-sync.js?v=20260626d"></script>
         <!-- so-order-app.js (5931 dòng) đã tách thành nhiều module nhỏ <800 dòng
              (MOVE-only, namespace window.SoOrder). Load theo thứ tự phụ thuộc;
              app (orchestrator) LAST. -->
-        <script src="js/so-order-state.js?v=20260626c"></script>
-        <script src="js/so-order-format.js?v=20260626c"></script>
-        <script src="js/so-order-render.js?v=20260626c"></script>
-        <script src="js/so-order-render-cells.js?v=20260626c"></script>
-        <script src="js/so-order-inline-edit.js?v=20260626c"></script>
-        <script src="js/so-order-bulk-edit.js?v=20260626c"></script>
-        <script src="js/so-order-modal-core.js?v=20260626c"></script>
-        <script src="js/so-order-modal-open.js?v=20260626c"></script>
-        <script src="js/so-order-modal-submit.js?v=20260626c"></script>
-        <script src="js/so-order-modal-suggest.js?v=20260626c"></script>
-        <script src="js/so-order-modal-image.js?v=20260626c"></script>
-        <script src="js/so-order-modal-random.js?v=20260626c"></script>
-        <script src="js/so-order-receive.js?v=20260626c"></script>
-        <script src="js/so-order-barcode.js?v=20260626c"></script>
-        <script src="js/so-order-kho-sync.js?v=20260626c"></script>
-        <script src="js/so-order-delete.js?v=20260626c"></script>
-        <script src="js/so-order-shipment.js?v=20260626c"></script>
-        <script src="js/so-order-settings.js?v=20260626c"></script>
-        <script src="js/so-order-import.js?v=20260626c"></script>
-        <script src="js/so-order-image-modal.js?v=20260626c"></script>
-        <script src="js/so-order-confirm.js?v=20260626c"></script>
-        <script src="js/so-order-toolbar.js?v=20260626c"></script>
-        <script src="js/so-order-app.js?v=20260626c"></script>
+        <script src="js/so-order-state.js?v=20260626d"></script>
+        <script src="js/so-order-format.js?v=20260626d"></script>
+        <script src="js/so-order-render.js?v=20260626d"></script>
+        <script src="js/so-order-render-cells.js?v=20260626d"></script>
+        <script src="js/so-order-inline-edit.js?v=20260626d"></script>
+        <script src="js/so-order-bulk-edit.js?v=20260626d"></script>
+        <script src="js/so-order-modal-core.js?v=20260626d"></script>
+        <script src="js/so-order-modal-open.js?v=20260626d"></script>
+        <script src="js/so-order-modal-submit.js?v=20260626d"></script>
+        <script src="js/so-order-modal-suggest.js?v=20260626d"></script>
+        <script src="js/so-order-modal-image.js?v=20260626d"></script>
+        <script src="js/so-order-modal-random.js?v=20260626d"></script>
+        <script src="js/so-order-receive.js?v=20260626d"></script>
+        <script src="js/so-order-barcode.js?v=20260626d"></script>
+        <script src="js/so-order-kho-sync.js?v=20260626d"></script>
+        <script src="js/so-order-delete.js?v=20260626d"></script>
+        <script src="js/so-order-shipment.js?v=20260626d"></script>
+        <script src="js/so-order-settings.js?v=20260626d"></script>
+        <script src="js/so-order-import.js?v=20260626d"></script>
+        <script src="js/so-order-image-modal.js?v=20260626d"></script>
+        <script src="js/so-order-confirm.js?v=20260626d"></script>
+        <script src="js/so-order-toolbar.js?v=20260626d"></script>
+        <script src="js/so-order-app.js?v=20260626d"></script>
     </body>
 </html>

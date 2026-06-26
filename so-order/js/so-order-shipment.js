@@ -77,7 +77,9 @@
         form.elements.shipBatch.value = sh.batch || '';
         form.elements.shipCaseCount.value = sh.caseCount || 0;
         form.elements.shipWeightKg.value = sh.weightKg || 0;
-        form.elements.shipContractAmount.value = sh.contractAmount || 0;
+        if (window.Web2NumberInput)
+            Web2NumberInput.setValue(form.elements.shipContractAmount, sh.contractAmount || 0);
+        else form.elements.shipContractAmount.value = sh.contractAmount || 0;
         form.elements.shipContractCurrency.value = sh.contractCurrency || tab.currency || 'VND';
         if (form.elements.shipExpectedDeliveryDate) {
             form.elements.shipExpectedDeliveryDate.value = sh.expectedDeliveryDate || '';
@@ -169,8 +171,10 @@
         const cur = tab.currency || 'VND';
         // Cụm Sửa lô = nơi user nhập meta per-NCC → LUÔN hiện đủ 5 ô (không phụ
         // thuộc tab flags). Tab flags chỉ ảnh hưởng ô meta CHUNG của form (tạo mới).
-        const numField = (pm, label, val) =>
-            `<label class="so-pm-field"><span>${label}</span><input type="number" min="0" step="any" data-pm="${pm}" value="${Number(val) || 0}" class="so-input-v2 so-input-num" /></label>`;
+        const numField = (pm, label, val, money) =>
+            money
+                ? `<label class="so-pm-field"><span>${label}</span><input type="text" inputmode="decimal" data-w2num="decimal" data-pm="${pm}" value="${Number(val) || 0}" class="so-input-v2 so-input-num" /></label>`
+                : `<label class="so-pm-field"><span>${label}</span><input type="number" min="0" step="any" data-pm="${pm}" value="${Number(val) || 0}" class="so-input-v2 so-input-num" /></label>`;
         list.innerHTML = order
             .map((o) => {
                 const m =
@@ -182,12 +186,14 @@
                     <span class="so-pm-ncc"><i data-lucide="store"></i> ${label}</span>
                     ${numField('caseCount', 'Kiện', m.caseCount)}
                     ${numField('weightKg', 'KG', m.weightKg)}
-                    ${numField('contractAmount', `HĐ (${cur})`, m.contractAmount)}
-                    ${numField('discount', `Giảm (${cur})`, m.discount)}
-                    ${numField('shipping', `Ship (${cur})`, m.shipping)}
+                    ${numField('contractAmount', `HĐ (${cur})`, m.contractAmount, true)}
+                    ${numField('discount', `Giảm (${cur})`, m.discount, true)}
+                    ${numField('shipping', `Ship (${cur})`, m.shipping, true)}
                 </div>`;
             })
             .join('');
+        // Format ô tiền (HĐ/Giảm/Ship) per-NCC ngay khi gõ (1.000).
+        if (window.Web2NumberInput) Web2NumberInput.attachAll(list);
         if (window.lucide?.createIcons) window.lucide.createIcons();
     };
 
@@ -197,12 +203,18 @@
         document.querySelectorAll('#soPerOrderMetaList .so-pm-cluster').forEach((el) => {
             const gid = el.dataset.gid;
             const num = (pm) => Number(el.querySelector(`[data-pm="${pm}"]`)?.value) || 0;
+            const numMoney = (pm) => {
+                const e = el.querySelector(`[data-pm="${pm}"]`);
+                return (
+                    (window.Web2NumberInput ? Web2NumberInput.getValue(e) : Number(e?.value)) || 0
+                );
+            };
             out[gid] = {
                 caseCount: num('caseCount'),
                 weightKg: num('weightKg'),
-                contractAmount: num('contractAmount'),
-                discount: num('discount'),
-                shipping: num('shipping'),
+                contractAmount: numMoney('contractAmount'),
+                discount: numMoney('discount'),
+                shipping: numMoney('shipping'),
             };
         });
         return out;

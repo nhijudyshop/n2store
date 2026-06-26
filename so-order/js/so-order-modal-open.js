@@ -6,6 +6,13 @@
 
     const SO = (window.SoOrder = window.SoOrder || {});
 
+    // Gán giá trị tiền vào ô đã format (1.000) — qua Web2NumberInput để hiển thị đúng.
+    function _setMoneyVal(el, n) {
+        if (!el) return;
+        if (window.Web2NumberInput) Web2NumberInput.setValue(el, n);
+        else el.value = n;
+    }
+
     // 2026-06-16: thông tin lô nâng cao tách thành 6 field độc lập, mỗi field 1
     // checkbox riêng trong Cài đặt tab. key = data-ship-field trên `.so-ship-adv`.
     SO.SHIP_META_FIELDS = [
@@ -50,12 +57,11 @@
             sh && SO.editingInvoiceGroupId && window.SoOrderStorage.getOrderAdjustment
                 ? window.SoOrderStorage.getOrderAdjustment(sh, SO.editingInvoiceGroupId)
                 : { discount: 0, shipping: 0, weightKg: 0, caseCount: 0, contractAmount: 0 };
-        if (form?.elements?.shipDiscount) form.elements.shipDiscount.value = adj.discount || 0;
-        if (form?.elements?.shipShipping) form.elements.shipShipping.value = adj.shipping || 0;
+        _setMoneyVal(form?.elements?.shipDiscount, adj.discount || 0);
+        _setMoneyVal(form?.elements?.shipShipping, adj.shipping || 0);
         if (form?.elements?.shipWeightKg) form.elements.shipWeightKg.value = adj.weightKg || 0;
         if (form?.elements?.shipCaseCount) form.elements.shipCaseCount.value = adj.caseCount || 0;
-        if (form?.elements?.shipContractAmount)
-            form.elements.shipContractAmount.value = adj.contractAmount || 0;
+        _setMoneyVal(form?.elements?.shipContractAmount, adj.contractAmount || 0);
     };
 
     SO.openOrderModal = function openOrderModal(rowId, shipmentId) {
@@ -85,7 +91,7 @@
         form.elements.shipBatch.value = '';
         form.elements.shipCaseCount.value = 0;
         form.elements.shipWeightKg.value = 0;
-        form.elements.shipContractAmount.value = 0;
+        _setMoneyVal(form.elements.shipContractAmount, 0);
         form.elements.shipContractCurrency.value = tab.currency || 'VND';
         if (form.elements.shipExpectedDeliveryDate) {
             form.elements.shipExpectedDeliveryDate.value = '';
@@ -101,7 +107,7 @@
             form.elements.shipBatch.value = sh.batch || '';
             form.elements.shipCaseCount.value = sh.caseCount || 0;
             form.elements.shipWeightKg.value = sh.weightKg || 0;
-            form.elements.shipContractAmount.value = sh.contractAmount || 0;
+            _setMoneyVal(form.elements.shipContractAmount, sh.contractAmount || 0);
             form.elements.shipContractCurrency.value = sh.contractCurrency || tab.currency || 'VND';
             if (form.elements.shipExpectedDeliveryDate) {
                 form.elements.shipExpectedDeliveryDate.value = sh.expectedDeliveryDate || '';
@@ -129,7 +135,7 @@
                     form.elements.shipBatch.value = sh.batch || '';
                     form.elements.shipCaseCount.value = sh.caseCount || 0;
                     form.elements.shipWeightKg.value = sh.weightKg || 0;
-                    form.elements.shipContractAmount.value = sh.contractAmount || 0;
+                    _setMoneyVal(form.elements.shipContractAmount, sh.contractAmount || 0);
                     form.elements.shipContractCurrency.value =
                         sh.contractCurrency || tab.currency || 'VND';
                     if (form.elements.shipExpectedDeliveryDate) {
