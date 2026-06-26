@@ -5,7 +5,7 @@
 ## Trạng thái
 
 - ✅ **FIXED + integration-tested** (HIGH+MEDIUM, money/stock): #1 ví thu hộ áp-lại over-mint, #2 KNH... (xem R1), delivery sync on cancel, from-pbh dedupe, Sửa COD 2nd reject, create-time ví race lock, merged-PBH KPI revoke, dashboard net revenue, split merged-guard.
-- 📝 **DOCUMENTED (LOW / frontend / dead-route — follow-up)**: bên dưới.
+- ✅ **TẤT CẢ 13 FIXED** (kể cả 5 LOW: pollDeposits lookback, bulk-confirm native sync, processWithdraw 23505-recovery, returns deposit idemKey, matchSupplier ambiguity → manual). + SAVEPOINT chống poison tx delivery-sync.
 
 ## Chi tiết 13 finding
 
@@ -54,22 +54,22 @@
 - 📄 `web2/supplier-wallet/js/supplier-wallet-api.js` :104
 - 🔧 Advance lastDepositSync only past deposits that were successfully applied OR explicitly recognized-but-ignored. Simplest robust fix: persist a per-sepayId 'seen but unmatched' set and on each poll re-scan unmatched deposits against the current supplier list (re-fetch with a small lookback window instead of a hard high-water mark), so a later-created supplier still picks up its earlier refund. At minimum, do not advance lastDepositSync past a deposit that matched no supplier.
 
-### [LOW] [📝 DOC] pbh-bulk — POST /bulk-confirm (mark-DONE) omits native-order status sync that single /confirm performs
+### [LOW] [✅ FIXED] pbh-bulk — POST /bulk-confirm (mark-DONE) omits native-order status sync that single /confirm performs
 
 - 📄 `render.com/routes/fast-sale-orders.js` :827-849 (\_bulkStateChange); 863 (route)
 - 🔧 Either remove the dead /bulk-confirm route, or make \_bulkStateChange for newState==='done' iterate the returned orders and call `syncNativeOrderStatusFromPbh(pool, row, 'done')` (+ emit web2:native-orders SSE) per order, matching the single /confirm handler, so a future re-enable of the bulk button does not silently desync native order status.
 
-### [LOW] [📝 DOC] customer-wallet — processWithdraw has no 23505 race-recovery (asymmetric with processDeposit) — concurrent same-referenceId withdraws across pooled connections surface a raw 500 instead of alreadyProcessed
+### [LOW] [✅ FIXED] customer-wallet — processWithdraw has no 23505 race-recovery (asymmetric with processDeposit) — concurrent same-referenceId withdraws across pooled connections surface a raw 500 instead of alreadyProcessed
 
 - 📄 `render.com/services/web2-wallet-service.js` :343-450 (processWithdraw); contrast 307-337 (processDeposit 23505 recovery)
 - 🔧 Mirror the processDeposit recovery: wrap the processWithdraw runWithTx in try/catch; on e.code==='23505' && !isClient, re-query web2_wallet_transactions WHERE type='WITHDRAW' AND reference_id=$1 AND reference_type=$2 and return {wallet, transaction: dup, alreadyProcessed:true}. Keep throwing for client (caller tx already aborted).
 
-### [LOW] [📝 DOC] customer-wallet — Returns create/cancel call processDeposit with both sourceId AND sepayId null → the credit has reference_id=NULL and NO idempotency key, relying solely on surrounding row locks
+### [LOW] [✅ FIXED] customer-wallet — Returns create/cancel call processDeposit with both sourceId AND sepayId null → the credit has reference_id=NULL and NO idempotency key, relying solely on surrounding row locks
 
 - 📄 `render.com/routes/web2-returns.js` :1062-1073 (van_de_khach create), 1349-1359 (cancel COD refund)
 - 🔧 Pass the return `code` as sourceId so the deposit gets reference_type='balance_history' (or add a dedicated 'return-credit' refType) with reference_id=code, making it idempotent and covered by a unique index. For cancel-refund, pass the return code too. This converts the time-window guard into a hard DB invariant.
 
-### [LOW] [📝 DOC] supplier-wallet-deposit — matchSupplier name-substring matching can credit a NCC refund to the wrong supplier (no per-supplier sepayId binding)
+### [LOW] [✅ FIXED] supplier-wallet-deposit — matchSupplier name-substring matching can credit a NCC refund to the wrong supplier (no per-supplier sepayId binding)
 
 - 📄 `web2/supplier-wallet/js/supplier-wallet-storage.js` :327
 - 🔧 Bind matched supplier into the idempotency identity is wrong (would allow double credit); instead make attribution explicit: when content matches ≥2 candidate suppliers, skip auto-credit and surface for manual assignment, and provide a manual re-route action that reverses the mis-attributed payment (symmetric return/correction tx) rather than relying on substring heuristics alone.
