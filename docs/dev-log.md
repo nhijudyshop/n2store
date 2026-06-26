@@ -37,7 +37,13 @@ User: "web 2.0 → module chung các số đều có `.` ở hàng ngàn (1.000,
 
 **Verify**: (1) Unit test Node 41/41 (parse/format/live int+decimal/getValue trap/setValue) ✅; (2) `node --check` 15 file JS ✅; (3) Browser localhost thật: balance-history gõ `1000000`→`1.000.000` getValue 1000000 ✅; so-order modal row `1000000`→`1.000.000` (state 1000000) · shorthand `100`→blur→`100.000` (tổng 100.000₫ đúng) · decimal `12,5`→state 12.5 ✅; products setValue 250000→`250.000` + gõ `1500000`→`1.500.000` ✅. Status: ✅
 
-**Còn lại (opt-in sau)**: native-orders (pbhDeposit/DeliveryPrice/PaymentAmount), purchase-refund (price), reconcile/payment-confirm. Trang mới chỉ cần thêm `<script src="…/web2-number-input.js">` + `data-w2num` vào ô tiền + đọc qua `getValue`.
+**Đợt 2 (2026-06-26) — áp nốt trang còn lại** (user "thêm vào Còn lại"):
+
+- `native-orders` modal tạo PBH: `pbhDeposit`/`pbhDeliveryPrice`/`pbhPaymentAmount` (popup `openCustomFormPopup` → `onMount` gọi `attachAll(root)`; set dropdown-change + shopMode qua `setValue`; collect đọc `getValue`).
+- `purchase-refund`: `price` (quick modal — set/đọc + `updateQuickTotal`) + `totalAmount` (create/edit modal — đọc qua **FormData** nên dùng `Web2NumberInput.parse(fd.get('totalAmount'))`, set qua `setValue`).
+- `payment-confirm` / `reconcile` / `fastsaleorder-refund`: **không có ô tiền nhập tay** (read-only/display) → không cần áp.
+
+Verify browser localhost: purchase-refund `price` gõ `1500000`→`1.500.000` getValue 1500000 · `totalAmount` setValue 26000000→`26.000.000` parse-from-FormData→26000000 ✅; native-orders PBH popup (seed đơn ảo) `pbhDeposit` prefill 50000→`50.000`, gõ `1200000`→`1.200.000` getValue 1200000, attach qua onMount ✅. `node --check` 3 file JS sạch. Status: ✅ — **toàn bộ ô tiền nhập tay Web 2.0 đã có Web2NumberInput.**
 
 ### [so-order][web2/products] In tem/mã SP dùng CHUNG module web2/products — gỡ modal "In mã vạch" legacy fork
 
