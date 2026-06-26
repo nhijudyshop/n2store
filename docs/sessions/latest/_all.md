@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `131aa95` — refactor(web2/cham-cong): gỡ tham chiếu lay-du-lieu.bat — trỏ về 1 nguồn auto duy nhất (Cài máy chấm công DG-600 ở printer-settings)
-**Last updated**: 2026-06-26 10:07:45 +07
-**Latest session**: [`RESUME:20260626-100745-131aa95`](../20260626-100745-131aa95.md)
-**Summary**: refactor(web2/cham-cong): gỡ tham chiếu lay-du-lieu.bat — trỏ về 1 nguồn auto duy nhất (Cài máy chấ...
+**Latest commit**: `c361348` — feat(web2/admin): add /web2-wipe-9pages — targeted wipe of 9 operational pages' data
+**Last updated**: 2026-06-26 10:40:10 +07
+**Latest session**: [`RESUME:20260626-104010-c361348`](../20260626-104010-c361348.md)
+**Summary**: feat(web2/admin): add /web2-wipe-9pages — targeted wipe of 9 operational pages' data
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -59,7 +58,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-26 09:14
+- [`render.com/`](./render.com.md) — updated 2026-06-26 10:40
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
