@@ -1257,7 +1257,9 @@ window.TPOSProductCreator = (function () {
             const groups = groupOrderItems(items);
             if (groups.size === 0) {
                 console.log('[TPOSCreator] No items to sync');
-                return;
+                // Không có SP nào cần sync (không phải lỗi) → trả result rõ ràng để caller
+                // phân biệt "không có gì để làm" với "sync thất bại" (tránh kẹt đơn ở Nháp).
+                return { successCount: 0, failCount: 0, results: [], reason: 'no-items' };
             }
 
             // Pre-filter chỉ skip groups đã thực sự sync xong lần trước (tposSyncStatus=success
@@ -1284,7 +1286,14 @@ window.TPOSProductCreator = (function () {
 
             if (pendingGroups.size === 0) {
                 console.log('[TPOSCreator] No pending groups — đã sync hết');
-                return;
+                // Mọi group đã sync xong trước đó (không có gì lỗi) → coi như thành công để
+                // caller chuyển đơn sang Chờ mua, KHÔNG giữ ở Nháp.
+                return {
+                    successCount: skippedGroups.length,
+                    failCount: 0,
+                    results: [],
+                    skipped: true,
+                };
             }
 
             console.log(

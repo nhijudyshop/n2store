@@ -3437,6 +3437,11 @@ class PurchaseOrderFormModal {
                     subtotal:
                         (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) *
                         (parseInt(item.quantity) || 1),
+                    // SP lấy từ Kho (đã có trên TPOS → tposSynced=true) PHẢI được verify lại
+                    // qua checkProductExists khi sync, KHÔNG bị pre-filter skip. Mirror đúng
+                    // logic server (purchase-orders.js: _fromWarehouse = _fromWarehouse||tposSynced)
+                    // để luồng TẠO ĐƠN hành xử giống luồng SỬA ĐƠN (đơn qua được Chờ mua luôn).
+                    _fromWarehouse: !!(item._fromWarehouse || item.tposSynced),
                 })),
         };
 

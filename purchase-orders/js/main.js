@@ -804,14 +804,17 @@ class PurchaseOrderController {
                     );
 
                     if (syncResult?.failCount === 0 && syncResult?.successCount > 0) {
-                        // All synced OK → update status to AWAITING_PURCHASE
+                        // Có ≥1 SP đã đồng bộ/verify OK lên TPOS → chuyển Chờ mua.
+                        // SP lấy từ Kho giờ được verify (không bị skip) nên successCount>0
+                        // → tạo đơn với SP cũ qua được Chờ mua luôn (không kẹt ở Nháp).
                         await this.dataManager.updateOrderStatus(
                             orderId,
                             this.config.OrderStatus.AWAITING_PURCHASE
                         );
                         this.switchOrRefreshTab(this.config.OrderStatus.AWAITING_PURCHASE);
                     } else {
-                        // Sync failed → stay as DRAFT, show warning
+                        // Sync lỗi THẬT, hoặc không có SP nào được đồng bộ lên TPOS (vd SP chưa
+                        // có mã) → giữ ở Nháp để user sửa/thử lại (không advance ngầm).
                         this.ui.showToast(
                             'Đồng bộ TPOS có lỗi — đơn giữ ở Nháp để thử lại',
                             'warning'

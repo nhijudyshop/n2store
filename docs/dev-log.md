@@ -227,6 +227,25 @@ User: "có ghi chú sản phẩm" → thêm trigger phân biệt ghi chú CẤP 
 
 Verify: syntax OK; unit-test 9 case ALL PASS (1 SP note → true; note rỗng/null/space → false; SP không có field note → false; products undefined → false; co_ghi_chu đơn KHÔNG nhầm note SP, vẫn bật theo userNote). Status ✅ (chờ deploy)
 
+### [purchase-orders] FIX tạo đơn với SP cũ (lấy từ Kho) bị kẹt ở Nháp, không qua Chờ mua
+
+**Triệu chứng** (user): mua lại SP cũ → "Chọn từ Kho SP" → Tạo đơn hàng → đơn bị đẩy về **Nháp** kèm cảnh báo "Đồng bộ TPOS có lỗi — đơn giữ ở Nháp để thử lại". Nhưng bấm **Chỉnh sửa** đơn Nháp → Cập nhật thì lại chạy được và sang **Chờ mua**.
+
+**Root cause** (đã xác minh full chain):
+
+- Server (`render.com/routes/v2/purchase-orders.js` POST ~728 + PUT ~867) khi lưu item set `_fromWarehouse = !!(item._fromWarehouse || item.tposSynced)`.
+- → Luồng **SỬA**: item nạp lại từ DB có `_fromWarehouse=true` → pre-filter trong `tpos-product-creator.js` (~1270: `tposSynced && !_fromWarehouse && !tposSyncError`) KHÔNG skip → verify qua `checkProductExists` → success → đơn sang Chờ mua. ✅
+- → Luồng **TẠO**: `handleCreateOrder` gọi `syncOrderToTPOS(orderId, orderData.items)` với item **in-memory** từ Kho picker chỉ có `tposSynced=true`, CHƯA có `_fromWarehouse` (server mới thêm khi persist, mà create sync TRƯỚC khi reload) → pre-filter **skip** → `pendingGroups.size===0` → `syncOrderToTPOS` trả **`undefined`** → `handleCreateOrder` coi như lỗi → giữ Nháp. ❌
+
+**Fix chính** = 1 dòng ở chokepoint chung:
+
+1. `purchase-orders/js/form-modal.js` `getFormData()` — thêm field `_fromWarehouse: !!(item._fromWarehouse || item.tposSynced)` trong `items.map()`. Đây là chokepoint chung cho create + edit + save-draft → mirror ĐÚNG logic server. Item Kho giờ được verify (`checkProductExists`) thay vì bị pre-filter skip ngay từ luồng TẠO → `syncOrderToTPOS` trả `successCount>0` → `handleCreateOrder` (giữ nguyên điều kiện `failCount===0 && successCount>0`) chuyển sang Chờ mua.
+2. `purchase-orders/js/lib/tpos-product-creator.js` `syncOrderToTPOS()` — 2 nhánh early-return giờ trả object `{successCount, failCount:0, results, ...}` thay vì `undefined` (defensive, contract rõ ràng).
+
+**KHÔNG đổi** `handleCreateOrder` advance-logic (giữ `failCount===0 && successCount>0`): review adversarial chỉ ra nếu nới thành `!(failCount>0)` thì đơn có SP **chưa có mã** (groupOrderItems bỏ item không mã → `groups.size===0` → successCount=0) sẽ **advance ngầm** lên Chờ mua mà KHÔNG SP nào verify trên TPOS. Giữ điều kiện cũ → case đó an toàn ở Nháp; case Kho vẫn qua Chờ mua nhờ Fix #1.
+
+**Verify**: trace tay full chain + workflow review (regression PASS, adversarial PASS-with-concerns). Mixed order (1 Kho OK + 1 SP mới lỗi) → `failCount>0` → giữ Nháp đúng. `syncOrderToTPOS` throw → catch trả `{failCount:1}` → giữ Nháp. don-inbox gọi `syncOrderToTPOS` fire-and-forget (bỏ qua return) → không ảnh hưởng. Status ✅
+
 ### [web2/order-tags] FIX thẻ "KHÁCH LẠ" gắn nhầm trigger + tách "Thiếu địa chỉ"
 
 Khi verify deploy 5 trigger mới, phát hiện thẻ `code=khach_la` (tên "KHÁCH LẠ", admin tạo) gắn **NHẦM** `trigger='thieu_dia_chi'` → pill "KHÁCH LẠ" thực ra fire theo THIẾU ĐỊA CHỈ. `ON CONFLICT DO NOTHING` của seed khach_la không đè được nên predicate `khach_la` mới không có thẻ trỏ tới. User định nghĩa: **khách lạ = KH không có thông tin ở kho KH** (chưa gán customer_id) → đúng với predicate `o.customerId == null`.
