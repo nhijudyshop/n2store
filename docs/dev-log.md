@@ -14,7 +14,15 @@ Feature lớn (4 phase) cho ô Biến Thể nhập nhiều biến thể theo mó
 - Shared `web2/shared/web2-product-types-cache.js` (`Web2ProductTypesCache`): 1 nguồn loại SP cho Kho SP + Sổ Order (Web2SmartCache name `product-types`).
 - Sidebar `web2-sidebar.js`: item "Loại sản phẩm" trong Cấu hình + WEB2_PAGES.
 
-**Verify:** syntax OK toàn bộ; cần deploy Render (web2-api) để test CRUD end-to-end. Status: 🔄 (chờ deploy + test)
+**Verify:** ✅ web2-api deploy live (`/api/web2-product-types/health` ok, autoDeploy); login+create Áo/Quần/Đầm 200; trang render "3 loại" + modal mở (browser localhost). Status: ✅
+
+### [web2/shared] Phase 2: module dùng chung `Web2VariantPicker` (biến thể theo món)
+
+`web2/shared/web2-variant-picker.js` — NGUỒN DUY NHẤT nhập biến thể theo MÓN (dùng chung Kho SP + Sổ Order). Multi-select loại (chip từ `Web2ProductTypesCache`) → N món; mỗi món 1 ô `"/"`-aware (gợi ý Màu/Size từ `Web2VariantsCache`). Ghép `category="Áo + Quần"` + `variant="Trắng / M + Đen / L"`; `getCombos()` cartesian khi 1 món nhiều token (giữ bulk-create). CSS scoped tự inject; degrade gọn.
+
+API: `mount(el,{category,value,compact,showTypes,onChange})→{getVariant,getCategory,getCombos,setValue,focus,destroy,el}`.
+
+**Verify** (browser inject+mount): round-trip category/value đúng; chip Áo*/Quần*, 2 ô prefill; 1 món "Trắng/Đen/S/M" → combos 4. Status: ✅ (chưa wire — Phase 3/4)
 
 Workflow audit 8 nhóm (11 agent, find + adversarial verify) các fetch WRITE tới route web2 auth-gated thiếu token. **6/8 nhóm sạch**, 5 vi phạm thật:
 
