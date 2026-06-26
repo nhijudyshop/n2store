@@ -20,6 +20,7 @@
     let _refreshTimer = null;
     let _started = false;
     let _hadData = false; // first-load guard: skeleton only until first successful render
+    let _lastData = null; // payload gần nhất → modal chi tiết + AI widget accessor
 
     function $(id) {
         return document.getElementById(id);
@@ -74,6 +75,7 @@
             const r = await fetch(API);
             const data = await r.json();
             if (!data?.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+            _lastData = data;
             renderAll(data);
             _hadData = true;
         } catch (e) {
@@ -100,6 +102,7 @@
         renderServices(data.services || []);
         renderProcess(data.process || {});
 
+        _wireClicks();
         if (window.lucide) lucide.createIcons();
     }
 
@@ -143,17 +146,19 @@
                     ? 'DB Web 1.0 (n2store_chat) — customers, balance_history, customer_wallets, app_users… Web 2.0 KHÔNG còn ở đây.'
                     : 'DB Web 2.0 (n2store_web2) — TOÀN BỘ data Web 2.0: web2_*, native_orders, fast_sale_orders, web2_customers, web2_balance_history, ví KH/transactions… (cutover xong 2026-06-03).';
 
-            const tablesHtml = (stats.tables || [])
+            const allTables = stats.tables || [];
+            const tablesHtml = allTables
                 .slice(0, 8)
                 .map(
                     (t) =>
-                        `<tr>
+                        `<tr data-pool="${escapeHtml(poolKey)}" data-table="${escapeHtml(t.name)}" role="button" tabindex="0" title="Bấm xem chi tiết bảng">
                             <td><code>${escapeHtml(t.name)}</code></td>
                             <td class="num">${fmtNumber(t.rowCount)}</td>
                             <td class="num">${escapeHtml(t.totalPretty || fmtBytes(t.totalBytes))}</td>
                         </tr>`
                 )
                 .join('');
+            const moreTables = allTables.length > 8 ? allTables.length - 8 : 0;
 
             dbCards.push(`<div class="sd-db-card">
                 <div class="sd-db-head">
@@ -196,11 +201,12 @@
                     ${
                         tablesHtml
                             ? `<div class="sd-db-tables">
-                                <h4>Top tables theo size</h4>
+                                <h4>Top tables theo size <span class="sd-db-tables-hint">· bấm dòng xem chi tiết</span></h4>
                                 <table>
                                     <thead><tr><th>Tên</th><th class="num">Rows</th><th class="num">Size</th></tr></thead>
                                     <tbody>${tablesHtml}</tbody>
                                 </table>
+                                ${moreTables ? `<button type="button" class="sd-db-tables-more" data-pool-all="${escapeHtml(poolKey)}">Xem tất cả ${allTables.length} bảng (+${moreTables}) →</button>` : ''}
                             </div>`
                             : ''
                     }
@@ -238,7 +244,7 @@
                       .join('')
                 : '';
 
-            return `<div class="sd-svc-card sd-cat-${escapeHtml(s.category || 'other')}">
+            return `<div class="sd-svc-card sd-cat-${escapeHtml(s.category || 'other')}" data-svc="${escapeHtml(s.name)}" role="button" tabindex="0" title="Bấm xem chi tiết">
                 <div class="sd-svc-head">
                     <span class="sd-svc-name">${escapeHtml(s.name)}</span>
                     <span class="sd-svc-cost ${isPaid ? 'paid' : 'free'}">${costLabel}</span>
@@ -288,6 +294,161 @@
             .join('');
     }
 
+    // ── Detail modal (dùng chung cho service + DB table) ──────────────────────
+    function _ensureModal() {
+        let m = $('sdDetailModal');
+        if (m) return m;
+        m = document.createElement('div');
+        m.id = 'sdDetailModal';
+        m.className = 'sd-modal';
+        m.setAttribute('hidden', '');
+        m.innerHTML = `
+            <div class="sd-modal-backdrop" data-close></div>
+            <div class="sd-modal-box" role="dialog" aria-modal="true" aria-labelledby="sdModalTitle">
+                <header class="sd-modal-head">
+                    <h3 id="sdModalTitle">—</h3>
+                    <button type="button" class="sd-modal-close" data-close aria-label="Đóng">✕</button>
+                </header>
+                <div class="sd-modal-body" id="sdModalBody"></div>
+            </div>`;
+        document.body.appendChild(m);
+        m.addEventListener('click', (e) => {
+            if (e.target.closest('[data-close]')) closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !m.hasAttribute('hidden')) closeModal();
+        });
+        return m;
+    }
+    function openModal(title, bodyHtml) {
+        const m = _ensureModal();
+        m.querySelector('#sdModalTitle').textContent = title;
+        m.querySelector('#sdModalBody').innerHTML = bodyHtml;
+        m.removeAttribute('hidden');
+        document.body.classList.add('sd-modal-open');
+        if (window.lucide) lucide.createIcons();
+        const c = m.querySelector('.sd-modal-close');
+        if (c) c.focus();
+    }
+    function closeModal() {
+        const m = $('sdDetailModal');
+        if (m) m.setAttribute('hidden', '');
+        document.body.classList.remove('sd-modal-open');
+    }
+
+    function _kvRows(obj) {
+        if (!obj || typeof obj !== 'object') return '';
+        return Object.entries(obj)
+            .map(
+                ([k, v]) =>
+                    `<div class="sd-kv"><span class="sd-kv-k">${escapeHtml(k)}</span><span class="sd-kv-v">${escapeHtml(v)}</span></div>`
+            )
+            .join('');
+    }
+
+    function openServiceModal(name) {
+        const s = (_lastData?.services || []).find((x) => x.name === name);
+        if (!s) return;
+        const isPaid = Number(s.costMonth) > 0;
+        const body = `
+            <div class="sd-modal-tags">
+                <span class="sd-tag sd-tag-${escapeHtml(s.category || 'other')}">${escapeHtml(s.category || 'other')}</span>
+                <span class="sd-tag ${isPaid ? 'sd-tag-paid' : 'sd-tag-free'}">${isPaid ? `$${s.costMonth}/mo` : 'Free'}</span>
+            </div>
+            <div class="sd-modal-section">
+                <div class="sd-kv"><span class="sd-kv-k">Nhà cung cấp</span><span class="sd-kv-v">${escapeHtml(s.provider || '—')}</span></div>
+                <div class="sd-kv"><span class="sd-kv-k">Gói</span><span class="sd-kv-v">${escapeHtml(s.plan || '—')}</span></div>
+                <div class="sd-kv"><span class="sd-kv-k">Lớp (layer)</span><span class="sd-kv-v">${escapeHtml(s.layer || '—')}</span></div>
+            </div>
+            <div class="sd-modal-purpose">${escapeHtml(s.purpose || 'Không có mô tả.')}</div>
+            ${s.freeTier ? `<div class="sd-modal-section"><h4>🆓 Free tier</h4>${_kvRows(s.freeTier)}</div>` : ''}
+            ${s.paidLimit ? `<div class="sd-modal-section"><h4>💸 Giới hạn gói trả phí</h4>${_kvRows(s.paidLimit)}</div>` : ''}
+            ${
+                s.url
+                    ? `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener" class="sd-modal-link"><i data-lucide="external-link"></i> Mở dashboard</a>`
+                    : ''
+            }`;
+        openModal(s.name, body);
+    }
+
+    function openTableModal(poolKey, tableName) {
+        const stats = (_lastData?.databases || {})[poolKey];
+        const t = (stats?.tables || []).find((x) => x.name === tableName);
+        if (!t) return;
+        const limitBytes = (DB_LIMITS[poolKey] || {}).bytes || 0;
+        const pct = limitBytes > 0 && t.totalBytes ? (t.totalBytes / limitBytes) * 100 : 0;
+        const body = `
+            <div class="sd-modal-tags">
+                <span class="sd-tag">${escapeHtml(poolKey)}</span>
+                <span class="sd-tag">${escapeHtml(t.totalPretty || fmtBytes(t.totalBytes))}</span>
+            </div>
+            <div class="sd-modal-section">
+                <div class="sd-kv"><span class="sd-kv-k">Số dòng</span><span class="sd-kv-v">${fmtNumber(t.rowCount)}</span></div>
+                <div class="sd-kv"><span class="sd-kv-k">Tổng dung lượng</span><span class="sd-kv-v">${escapeHtml(t.totalPretty || fmtBytes(t.totalBytes))}</span></div>
+                ${t.tableBytes != null ? `<div class="sd-kv"><span class="sd-kv-k">Data (không index)</span><span class="sd-kv-v">${escapeHtml(t.tablePretty || fmtBytes(t.tableBytes))}</span></div>` : ''}
+                ${t.indexBytes != null ? `<div class="sd-kv"><span class="sd-kv-k">Index</span><span class="sd-kv-v">${escapeHtml(t.indexPretty || fmtBytes(t.indexBytes))}</span></div>` : ''}
+                ${t.rowCount && t.totalBytes ? `<div class="sd-kv"><span class="sd-kv-k">Bytes/dòng (TB)</span><span class="sd-kv-v">${fmtBytes(t.totalBytes / t.rowCount)}</span></div>` : ''}
+                <div class="sd-kv"><span class="sd-kv-k">% của DB (1GB)</span><span class="sd-kv-v">${pct.toFixed(2)}%</span></div>
+            </div>`;
+        openModal(`Bảng: ${tableName}`, body);
+    }
+
+    function openAllTablesModal(poolKey) {
+        const stats = (_lastData?.databases || {})[poolKey];
+        const tables = (stats?.tables || []).slice();
+        if (!tables.length) return;
+        const rows = tables
+            .map(
+                (t, i) =>
+                    `<tr data-pool="${escapeHtml(poolKey)}" data-table="${escapeHtml(t.name)}" role="button" tabindex="0">
+                        <td class="num">${i + 1}</td>
+                        <td><code>${escapeHtml(t.name)}</code></td>
+                        <td class="num">${fmtNumber(t.rowCount)}</td>
+                        <td class="num">${escapeHtml(t.totalPretty || fmtBytes(t.totalBytes))}</td>
+                    </tr>`
+            )
+            .join('');
+        openModal(
+            `${tables.length} bảng · ${poolKey}`,
+            `<div class="sd-modal-tablewrap"><table class="sd-modal-table">
+                <thead><tr><th class="num">#</th><th>Tên bảng</th><th class="num">Rows</th><th class="num">Size</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div>`
+        );
+    }
+
+    // Event delegation: 1 listener / panel (service grid + DB grid + modal table).
+    function _wireClicks() {
+        const handler = (e) => {
+            const svc = e.target.closest('[data-svc]');
+            if (svc) return openServiceModal(svc.getAttribute('data-svc'));
+            const all = e.target.closest('[data-pool-all]');
+            if (all) return openAllTablesModal(all.getAttribute('data-pool-all'));
+            const row = e.target.closest('[data-table][data-pool]');
+            if (row)
+                return openTableModal(
+                    row.getAttribute('data-pool'),
+                    row.getAttribute('data-table')
+                );
+        };
+        const keyHandler = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.target.matches('[data-svc],[data-table][data-pool],[data-pool-all]')) {
+                    e.preventDefault();
+                    handler(e);
+                }
+            }
+        };
+        for (const id of ['sdServiceGrid', 'sdDbGrid']) {
+            const el = $(id);
+            if (el && !el._sdWired) {
+                el.addEventListener('click', handler);
+                el.addEventListener('keydown', keyHandler);
+                el._sdWired = true;
+            }
+        }
+    }
+
     // Auto-refresh 60s qua setTimeout chain (không setInterval): tự dừng khi tab
     // ẩn (tiết kiệm fetch) + clear hẳn khi rời trang.
     function _scheduleRefresh() {
@@ -315,5 +476,13 @@
         window.addEventListener('beforeunload', _stopRefresh);
     }
 
-    window.SystemServices = { start, reload: load };
+    window.SystemServices = {
+        start,
+        reload: load,
+        // AI widget accessor — payload services-overview gần nhất (DB + dịch vụ + process).
+        getData: () => _lastData,
+        get data() {
+            return _lastData;
+        },
+    };
 })();

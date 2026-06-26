@@ -1095,6 +1095,64 @@
             note: 'Trang là dashboard báo cáo doanh thu PBH READ-ONLY, backed by /api/pbh-reports/* (summary, revenue, top-customers, by-campaign, top-customers-360). KHÔNG có global nào trên window giữ full dataset: mọi response fetch được lưu vào biến cục bộ `const d` trong từng hàm load* (loadSummary/loadRevenueChart/loadTopCustomers/loadByCampaign/loadTopCustomers360) rồi render thẳng ra DOM bằng innerHTML — không gán window.*. Vì vậy dataAccessors=[]. May mắn là DOM-context CHẤT LƯỢNG TỐT cho trang này: tất cả bảng render đầy đủ (không virtual scroll), pageContext() của widget đã bắt được 6 KPI card + 4 bản',
         },
         {
+            match: '/web2/report-warehouse/',
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
+            accessors: [],
+            suggestions: [
+                {
+                    label: '📦 NCC tồn đọng chưa nhận',
+                    prompt: "Ở view 'Theo NCC' (hoặc 'Theo địa danh'), liệt kê các NCC/địa danh có 'Chưa nhận hàng' (SL + tiền) cao nhất — tức đã đặt nhiều mà hàng chưa về kho. Sắp xếp giảm dần theo tiền chưa nhận, nêu rõ cần đẩy NCC nào về hàng gấp.",
+                },
+                {
+                    label: '🔁 SP mua nhiều bán chậm',
+                    prompt: "Ở view 'Theo sản phẩm', tìm các SP có Mua vào (đã nhận) cao nhưng Bán ra thấp hoặc bằng 0 — hàng nhập về mà chưa bán được. Liệt kê mã, tên, địa danh, NCC, SL/tiền mua vào vs bán ra; ưu tiên chênh lệch lớn lên đầu.",
+                },
+                {
+                    label: '📍 So sánh địa danh',
+                    prompt: "Ở view 'Theo địa danh', so sánh các địa danh (HÀ NỘI/HƯƠNG CHÂU…) theo mua vào, chưa nhận và bán ra. Địa danh nào nhập nhiều nhất, địa danh nào tồn đọng chưa nhận nhiều nhất? Tóm tắt gọn.",
+                },
+                {
+                    label: '🧮 Rà soát tổng cộng',
+                    prompt: 'Tự cộng lại các dòng đang hiển thị và đối chiếu với dòng TỔNG CỘNG ở chân bảng (mua vào / chưa nhận / bán ra, cả SL và tiền). Có lệch không? Chỉ rõ cột nào lệch và số đúng.',
+                },
+                {
+                    label: '💰 Giá trị tồn theo NCC',
+                    prompt: 'Dựa vào bảng đang xem, ước tính giá trị hàng đã nhận (mua vào) và giá trị hàng chưa nhận theo từng NCC/địa danh. Tổng vốn đang nằm ở khâu chưa nhận là bao nhiêu? Cảnh báo nếu vốn kẹt ở chưa-nhận quá lớn.',
+                },
+            ],
+            note: 'Trang Báo cáo kho READ-ONLY, backed by /api/web2-warehouse-report/summary (mua vào = SL nhận thật từ Sổ Order; chưa nhận = phần chưa về kho; bán ra = PBH Hoàn thành). 3 view: Theo địa danh (mặc định) / Theo NCC / Theo sản phẩm; có lọc khoảng ngày + dropdown địa danh. Logic trong 1 IIFE inline (index.html) — KHÔNG expose window dataset (biến cục bộ `lastData`), nên dataAccessors=[]. DOM-context TỐT: bảng render đầy đủ (không virtual scroll), có dòng TỔNG CỘNG khớp các dòng hiển thị. Hướng AI đọc bảng + KPI đang hiển thị; nhắc user đổi view (địa danh/NCC/SP) nếu cần chiều phân tích khác.',
+        },
+        {
+            match: '/web2/system/',
+            model: { provider: 'gemini', model: 'gemini-2.5-flash' },
+            accessors: [
+                {
+                    expr: 'window.SystemServices?.getData?.()',
+                    desc: 'Payload services-overview gần nhất (tab "Dịch vụ & Hệ thống"): databases (mỗi pool: dbSizeBytes, totalTables, tables[] {name,rowCount,totalBytes}, connections, poolInternal), services[] (name, provider, plan, category, costMonth, freeTier, paidLimit, purpose, url), process (uptime, memory, nodeVersion). Nguồn ĐẦY ĐỦ để phân tích chi phí + dung lượng DB + bảng nặng.',
+                    shape: 'Object<{ databases:{[pool]:{dbSizeBytes:number,totalTables:number,tables:Array<{name,rowCount,totalBytes,totalPretty}>,connections,poolInternal}}, services:Array<{name,provider,plan,category,costMonth:number,freeTier?,paidLimit?,purpose,url}>, process:{uptimePretty,memory:{rss,heapUsed,heapTotal},nodeVersion} }>',
+                },
+            ],
+            suggestions: [
+                {
+                    label: '💵 Soát chi phí dịch vụ',
+                    prompt: 'Từ window.SystemServices.getData().services, tính tổng chi phí/tháng (sum costMonth), liệt kê dịch vụ trả phí giảm dần theo giá, và đếm số dịch vụ free. Có dịch vụ nào đắt mà ít dùng / trùng vai trò không? Gợi ý tối ưu chi phí.',
+                },
+                {
+                    label: '🗄️ DB sắp đầy',
+                    prompt: 'Từ window.SystemServices.getData().databases, với mỗi pool tính % dung lượng đã dùng trên 1GB (dbSizeBytes / 1073741824). Pool nào gần đầy (>60%)? Cảnh báo và gợi ý dọn/nâng cấp.',
+                },
+                {
+                    label: '📦 Bảng nặng nhất',
+                    prompt: 'Từ databases[*].tables, liệt kê 10 bảng tốn dung lượng nhất (totalBytes) toàn hệ thống kèm pool, số dòng và bytes/dòng. Bảng nào dòng ít mà nặng (index phình / bloat)? Gợi ý VACUUM/dọn.',
+                },
+                {
+                    label: '🧮 Chi phí mỗi GB',
+                    prompt: 'Dựa trên tổng chi phí Postgres (các service category database) và tổng dung lượng đang dùng, ước tính chi phí thực trên mỗi GB đang dùng. Đánh giá có đang trả dư cho dung lượng không dùng tới không.',
+                },
+            ],
+            note: 'Trang "Cấu hình & Hệ thống" (web2/system). Tab Dịch vụ & Hệ thống fetch /api/services-overview → render DB cards + service grid + process; payload gần nhất expose ở window.SystemServices.getData() (accessor chính, ĐẦY ĐỦ — không bị slice 8 bảng như DOM). Các tab khác (Realtime SSE, Trang, Module, Bên thứ 3) đọc manifest JSON riêng. Ưu tiên accessor cho phân tích chi phí/dung lượng; DOM chỉ hiện top 8 bảng nên KHÔNG đủ cho câu hỏi "bảng nặng nhất toàn hệ thống".',
+        },
+        {
             match: '/web2/order-tags/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
             accessors: [],

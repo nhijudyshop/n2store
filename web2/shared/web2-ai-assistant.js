@@ -101,8 +101,11 @@
     const MAX_HIST = 40; // cắt history tránh phình DOM/lag
 
     // Trang nhạy cảm / không phù hợp → KHÔNG mount (tránh lộ token/secret qua innerText).
+    // `system` BỎ khỏi hide-list (2026-06-26): trang Cấu hình & Hệ thống giờ có
+    // accessor + gợi ý AI riêng (soát chi phí dịch vụ / DB sắp đầy / bảng nặng) →
+    // widget hữu ích, cho hiện. services-dashboard/admin-sse-monitor giữ ẩn (đã redirect → system).
     const HIDE_RE =
-        /\/web2\/(login|ai-assistant|pancake-settings|zalo|system|services-dashboard|admin-sse-monitor|users-permissions|printer-settings)\//;
+        /\/web2\/(login|ai-assistant|pancake-settings|zalo|services-dashboard|admin-sse-monitor|users-permissions|printer-settings)\//;
 
     // Model free hiển thị trong dropdown nhanh (đổi thủ công). '' provider = Auto theo trang.
     const MODEL_OPTIONS = [

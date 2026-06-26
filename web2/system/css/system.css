@@ -1324,3 +1324,274 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================================
+   Services tab — clickable affordances + detail modal (2026-06-26)
+   ============================================================ */
+.sd-svc-card[data-svc] {
+    cursor: pointer;
+}
+.sd-svc-card[data-svc]:focus-visible {
+    outline: 2px solid var(--web2-primary);
+    outline-offset: 2px;
+}
+.sd-svc-card[data-svc]::after {
+    content: 'Chi tiết →';
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--web2-primary);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition:
+        opacity 0.15s var(--web2-ease, ease),
+        transform 0.15s var(--web2-ease, ease);
+    pointer-events: none;
+}
+.sd-svc-card[data-svc] {
+    position: relative;
+}
+.sd-svc-card[data-svc]:hover::after,
+.sd-svc-card[data-svc]:focus-visible::after {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.sd-db-tables-hint {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--web2-text-faded);
+}
+.sd-db-tables tbody tr[data-table] {
+    cursor: pointer;
+    transition: background 0.12s var(--web2-ease, ease);
+}
+.sd-db-tables tbody tr[data-table]:hover {
+    background: var(--web2-table-hover, #f1f5f9);
+}
+.sd-db-tables tbody tr[data-table]:focus-visible {
+    outline: 2px solid var(--web2-primary);
+    outline-offset: -2px;
+}
+.sd-db-tables-more {
+    margin-top: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px dashed var(--web2-border);
+    border-radius: 8px;
+    background: var(--web2-bg-light, #f8fafc);
+    color: var(--web2-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.12s var(--web2-ease, ease),
+        border-color 0.12s var(--web2-ease, ease);
+}
+.sd-db-tables-more:hover {
+    background: var(--web2-primary-soft, #eff6ff);
+    border-color: var(--web2-primary-border, #bfdbfe);
+}
+
+/* Detail modal */
+body.sd-modal-open {
+    overflow: hidden;
+}
+.sd-modal[hidden] {
+    display: none !important;
+}
+.sd-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+}
+.sd-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    animation: sdFade 0.15s var(--web2-ease, ease);
+}
+.sd-modal-box {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--web2-shadow-2, 0 20px 50px rgba(15, 23, 42, 0.25));
+    animation: sdPop 0.18s var(--web2-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+@keyframes sdFade {
+    from {
+        opacity: 0;
+    }
+}
+@keyframes sdPop {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+}
+.sd-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--web2-border);
+    position: sticky;
+    top: 0;
+    background: #fff;
+}
+.sd-modal-head h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--web2-text);
+    word-break: break-word;
+}
+.sd-modal-close {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: var(--web2-bg-light, #f1f5f9);
+    color: var(--web2-text-3);
+    font-size: 15px;
+    cursor: pointer;
+    transition:
+        background 0.12s var(--web2-ease, ease),
+        color 0.12s var(--web2-ease, ease);
+}
+.sd-modal-close:hover {
+    background: var(--web2-danger-soft, #fee2e2);
+    color: var(--web2-danger, #dc2626);
+}
+.sd-modal-body {
+    padding: 16px 18px 20px;
+}
+.sd-modal-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.sd-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--web2-neutral-soft, #f1f5f9);
+    color: var(--web2-text-2);
+}
+.sd-tag-paid {
+    background: #fef3c7;
+    color: #b45309;
+}
+.sd-tag-free {
+    background: var(--web2-success-soft, #dcfce7);
+    color: var(--web2-success, #16a34a);
+}
+.sd-modal-section {
+    margin-top: 14px;
+}
+.sd-modal-section h4 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--web2-text-3);
+}
+.sd-modal-purpose {
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--web2-text-2);
+    background: var(--web2-bg-light, #f8fafc);
+    border-left: 3px solid var(--web2-primary);
+    padding: 10px 12px;
+    border-radius: 0 8px 8px 0;
+}
+.sd-kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--web2-table-line-soft, #eef0f3);
+    font-size: 13px;
+}
+.sd-kv:last-child {
+    border-bottom: none;
+}
+.sd-kv-k {
+    color: var(--web2-text-3);
+}
+.sd-kv-v {
+    font-weight: 600;
+    color: var(--web2-text);
+    text-align: right;
+    word-break: break-word;
+}
+.sd-modal-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--web2-primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.sd-modal-link i {
+    width: 15px;
+    height: 15px;
+}
+.sd-modal-link:hover {
+    background: var(--web2-primary-hover, #2563eb);
+}
+.sd-modal-tablewrap {
+    overflow: auto;
+    max-height: 60vh;
+}
+.sd-modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.sd-modal-table th,
+.sd-modal-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--web2-table-line-soft, #eef0f3);
+    text-align: left;
+}
+.sd-modal-table th {
+    position: sticky;
+    top: 0;
+    background: var(--web2-bg-cell-head, #f9fafb);
+    font-size: 11px;
+    color: var(--web2-text-3);
+    text-transform: uppercase;
+}
+.sd-modal-table td.num,
+.sd-modal-table th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.sd-modal-table tbody tr[data-table] {
+    cursor: pointer;
+}
+.sd-modal-table tbody tr[data-table]:hover {
+    background: var(--web2-table-hover, #f1f5f9);
+}
