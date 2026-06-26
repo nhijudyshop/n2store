@@ -173,6 +173,16 @@
                 min-width: 200px;
                 font-family: inherit;
             }
+            .panel-tools select {
+                padding: 7px 10px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: inherit;
+                background: #fff;
+                cursor: pointer;
+                max-width: 220px;
+            }
             .btn-csv {
                 padding: 7px 12px;
                 border: 1px solid #d1d5db;
@@ -330,14 +340,18 @@
                 <div class="panel">
                     <div class="panel-head">
                         <div class="seg" id="viewSeg">
-                            <button data-view="ncc" class="active">🏭 Theo NCC</button>
+                            <button data-view="region" class="active">📍 Theo địa danh</button>
+                            <button data-view="ncc">🏭 Theo NCC</button>
                             <button data-view="product">📦 Theo sản phẩm</button>
                         </div>
                         <div class="panel-tools">
+                            <select id="regionFilter" title="Lọc theo địa danh">
+                                <option value="">Tất cả địa danh</option>
+                            </select>
                             <input
                                 type="search"
                                 id="searchBox"
-                                placeholder="Tìm theo NCC / mã / tên SP…"
+                                placeholder="Tìm địa danh / NCC / mã / tên SP…"
                             />
                             <button class="btn-csv" id="csvBtn">
                                 <i data-lucide="download" style="width: 14px; height: 14px"></i>
@@ -370,7 +384,8 @@
                     'https://chatomni-proxy.nhijudyshop.workers.dev';
                 const $ = (s) => document.querySelector(s);
 
-                let currentView = 'ncc'; // 'ncc' | 'product'
+                let currentView = 'region'; // 'region' | 'ncc' | 'product' (địa danh = cha)
+                let currentRegion = ''; // '' = tất cả địa danh
                 let lastData = null; // toàn bộ payload gần nhất (để đổi view/search/CSV không cần fetch lại)
                 let sortKey = null;
                 let sortDir = -1; // -1 desc, 1 asc
@@ -453,6 +468,7 @@
                         if (seq !== _loadSeq) return;
                         if (!d.success) throw new Error(d.error || 'load failed');
                         lastData = d;
+                        populateRegions(d.regions || []);
                         renderKpi(d.totals);
                         render();
                     } catch (e) {
@@ -488,35 +504,59 @@
                             <div class="sub">${fmtInt(t.sellQty)} sản phẩm</div>
                         </div>
                         <div class="kpi-card gray">
-                            <div class="label">Nhà cung cấp</div>
-                            <div class="value">${fmtInt(t.supplierCount)}</div>
-                            <div class="sub">${fmtInt(t.productCount)} mã SP</div>
+                            <div class="label">Địa danh</div>
+                            <div class="value">${fmtInt(t.regionCount)}</div>
+                            <div class="sub">${fmtInt(t.supplierCount)} NCC · ${fmtInt(t.productCount)} mã SP</div>
                         </div>
                     `;
                 }
 
-                // ---------- render table (NCC | product) ----------
+                // Đổ danh sách địa danh vào dropdown (giữ lựa chọn hiện tại nếu còn).
+                function populateRegions(regions) {
+                    const sel = $('#regionFilter');
+                    const names = regions
+                        .map((g) => g.region)
+                        .sort((a, b) => a.localeCompare(b, 'vi'));
+                    const keep = names.includes(currentRegion) ? currentRegion : '';
+                    if (keep !== currentRegion) currentRegion = keep;
+                    sel.innerHTML =
+                        '<option value="">Tất cả địa danh</option>' +
+                        names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+                    sel.value = currentRegion;
+                }
+
+                // ---------- render table (region | NCC | product) ----------
                 function currentRows() {
                     if (!lastData) return [];
-                    const rows =
-                        currentView === 'ncc' ? lastData.suppliers || [] : lastData.products || [];
+                    let rows =
+                        currentView === 'region'
+                            ? lastData.regions || []
+                            : currentView === 'ncc'
+                              ? lastData.suppliers || []
+                              : lastData.products || [];
+                    // Lọc theo địa danh (cha). View "region" → chỉ còn dòng địa danh đó.
+                    if (currentRegion) rows = rows.filter((r) => r.region === currentRegion);
                     const q = ($('#searchBox').value || '').trim().toLowerCase();
                     let out = rows;
                     if (q) {
                         out = rows.filter((r) =>
-                            currentView === 'ncc'
-                                ? String(r.supplier || '')
+                            currentView === 'region'
+                                ? String(r.region || '')
                                       .toLowerCase()
                                       .includes(q)
-                                : String(r.code || '')
-                                      .toLowerCase()
-                                      .includes(q) ||
-                                  String(r.name || '')
-                                      .toLowerCase()
-                                      .includes(q) ||
-                                  String(r.supplier || '')
-                                      .toLowerCase()
-                                      .includes(q)
+                                : currentView === 'ncc'
+                                  ? String(r.supplier || '')
+                                        .toLowerCase()
+                                        .includes(q)
+                                  : String(r.code || '')
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                    String(r.name || '')
+                                        .toLowerCase()
+                                        .includes(q) ||
+                                    String(r.supplier || '')
+                                        .toLowerCase()
+                                        .includes(q)
                         );
                     }
                     if (sortKey) {
@@ -545,7 +585,38 @@
                         $('#tableNote').textContent = '';
                         return;
                     }
-                    const isNcc = currentView === 'ncc';
+                    // Cấu hình cột định danh (bên trái) theo từng view. Địa danh = cha.
+                    const ID_COLS = {
+                        region: {
+                            head:
+                                '<th rowspan="2" data-sort="region">Địa danh</th>' +
+                                '<th rowspan="2" class="r" data-sort="supplierCount">Số NCC</th>' +
+                                '<th rowspan="2" class="r" data-sort="productCount">Số SP</th>',
+                            span: 3,
+                            cell: (r) =>
+                                `<td class="ncc-cell">${esc(r.region)}</td><td class="r">${fmtInt(r.supplierCount)}</td><td class="r">${fmtInt(r.productCount)}</td>`,
+                        },
+                        ncc: {
+                            head:
+                                '<th rowspan="2" data-sort="region">Địa danh</th>' +
+                                '<th rowspan="2" data-sort="supplier">NCC</th>' +
+                                '<th rowspan="2" class="r" data-sort="productCount">Số SP</th>',
+                            span: 3,
+                            cell: (r) =>
+                                `<td>${esc(r.region)}</td><td class="ncc-cell">${esc(r.supplier)}</td><td class="r">${fmtInt(r.productCount)}</td>`,
+                        },
+                        product: {
+                            head:
+                                '<th rowspan="2" data-sort="code">Mã</th>' +
+                                '<th rowspan="2" data-sort="name">Tên SP</th>' +
+                                '<th rowspan="2" data-sort="region">Địa danh</th>' +
+                                '<th rowspan="2" data-sort="supplier">NCC</th>',
+                            span: 4,
+                            cell: (r) =>
+                                `<td class="code-cell">${esc(r.code || '—')}</td><td>${esc(r.name)}${r.variant ? ` <span style="color:#9ca3af">· ${esc(r.variant)}</span>` : ''}</td><td>${esc(r.region)}</td><td>${esc(r.supplier)}</td>`,
+                        },
+                    };
+                    const cfg = ID_COLS[currentView] || ID_COLS.region;
                     // Tổng cộng = Σ các dòng ĐANG HIỂN THỊ (sau search) để footer luôn khớp
                     // body. Khi không lọc, rows = toàn bộ → khớp lastData.totals.
                     const tot = rows.reduce(
