@@ -2,6 +2,24 @@
 
 ## 2026-06-26
 
+### [web2 flow money/stock] Fix 6 bug defer (KNH/native restock + ví NCC cap) — verify integration test Postgres thật
+
+Tiếp tục từ audit 12-bug: fix nốt 6 bug money/stock đã defer, **verify bằng integration test trên Postgres local THẬT** (mount route thật + ensureTables + seed + assert invariant + drop DB — pattern test-migration CLAUDE.md). 24 assertions pass.
+
+**web2-returns.js (tồn kho — 14 assertions):**
+
+- **#2/#7** KNH (không nhận hàng): restock chỉ phần CHƯA trả = `full − returned_line_qty` PBH nguồn (gán `items=NET` → `_applyStock` + record + huỷ-phiếu đối xứng). Trước restock FULL sau khi đã thu về 1 phần → +partialQty phantom stock.
+- **#6** native-source thu_ve_1_phan: GHI `returned_line_qty` lên PBH live của native (greedy per-code) + DELETE reverse — trước chỉ pbh-source → huỷ PBH native over-restock.
+
+**purchase-refund.js + lib (ví NCC — 10 assertions):**
+
+- **#5** bỏ cap amount all-or-nothing (1 dòng thiếu cost → bỏ cap toàn phiếu = over-mint). Cap per-line: `amount ≤ Σ min(client, cost)`; dòng không khớp so-order fail-open RIÊNG dòng.
+- **#3** cap QTY `≤ Σ(received − đã trả)` per code (greedy qua dòng so-order đã nhận) → trả vượt → cap/reject, trừ kho đúng phần cap.
+- **#4** tổng hợp `rowReturns` từ code-keyed lines → GHI `returned_row_ids` (như ví NCC `/tx`) → 2 đường return cùng đọc remaining, chặn trả lại SP đã trả 2 lần.
+- lib `web2-so-order-qty.js`: thêm `loadSoOrderReceivedRowsByCode`.
+
+Doc audit cập nhật: [`docs/web2/FLOW-AUDIT-2026-06-26.md`](web2/FLOW-AUDIT-2026-06-26.md) — **12/12 FIXED**. Status: ✅
+
 ### [web2/system + reports + flow] Cải thiện UI system + audit 19-agent luồng nghiệp vụ + fix 5 bug
 
 **1. UI trang Cấu hình & Hệ thống** (`web2/system`):

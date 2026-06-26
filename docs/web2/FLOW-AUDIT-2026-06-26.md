@@ -3,10 +3,13 @@
 > Nguồn: workflow audit 19 agent (trace 6 luồng + adversarial verify). 12 defect xác nhận.
 > Luồng: nhận hàng → tạo PBH → hủy PBH → trả hàng KH → thu về PBH → trả hàng NCC + 2 report.
 
-## Trạng thái
+## Trạng thái — ✅ TẤT CẢ 12 ĐÃ FIX (cập nhật 2026-06-26)
 
-- ✅ **Đã fix** (contained, đã test): #1, #8 (nhận hàng), #9 (hủy PBH restock), #10 (report kho merge), #12 (report doanh thu refunds KPI). #11 (comment) cập nhật.
-- ⏳ **Defer — cần focused + integration test seeded flow** (đụng money/stock transaction, KHÔNG rush): #2/#7 (KNH double-restock), #6 (native partial restock), #3/#4/#5 (ví NCC over-mint / cap).
+- ✅ **Đợt 1 — contained**: #1, #8 (nhận hàng), #9 (hủy PBH restock per-code), #10 (report kho merge), #11 (comment), #12 (report doanh thu refunds KPI).
+- ✅ **Đợt 2 — money/stock transaction, verify bằng integration test Postgres THẬT**:
+    - #2/#7 (KNH double-restock) + #6 (native partial restock) → 14 assertions pass (partial→KNH→cancel + native partial→cancel-PBH + cancel-return; tồn kho khớp mọi bước).
+    - #3/#4/#5 (ví NCC cap qty/cost + returned_row_ids) → 10 assertions pass (return retail→cap cost; return-again→reject; req7/recv4→cap4).
+- Harness test: `scripts`-style local PG `n2store_flow_test` (mount route thật, ensureTables, seed, assert invariant, drop). Pattern theo CLAUDE.md test-migration.
 
 ## Chi tiết 12 finding
 
@@ -18,7 +21,7 @@
 - 🔎 confirmReceiveFromModal builds freshState via `_lookupProductStateForRows(itemsToProcess.map(it => ({ id: it.key, productName: it.name, variant: it.variant })))` — supplier is NOT passed (line 583-587). Inside \_lookupProductStateForRows (lines 51-54) the supplier key `sk = nv + '|' + norm(r.supplier||'')` becomes `nv|''` which misses idxBySup, so it falls back to `idxByNV.get(nv)` = FIRST product with that name+variant across ALL suppliers (first-match-wins, line 47). The server treats (name,variant,supplier) as distinct identities (web2-products.js:1432 match adds supplier; comment 'A1AODO ≠
 - 🔧 Pass supplier into the confirm-path lookup so it uses the same (name|variant|supplier) index as the modal: change line 583-587 to `itemsToProcess.map((it) => ({ id: it.key, productName: it.name, variant: it.variant, supplier: it.supplier }))`. This makes \_lookupProductStateForRows hit idxBySup and return the correct per-NCC product's code/pendingQty, so it.code (line 597) and upsertQty (line 599) target the right web2_products row.
 
-### #2 [HIGH] [⏳ DEFER] — return-customer
+### #2 [HIGH] [✅ FIXED] — return-customer
 
 **khong_nhan_hang (full return) double-restocks units already returned via a prior thu_ve_1_phan (stock leak)**
 
@@ -26,7 +29,7 @@
 - 🔎 For subType='khong_nhan_hang', items is set to the FULL source order_lines: `items = src.items.filter(...)` (line 699). At lines 941-943 `_applyStock(client, items, method, +1)` restocks every order line in full and NEVER consults the source PBH's `returned_line_qty`. But a prior `thu_ve_1_phan` on the same PBH already (a) added +stock for the returned qty (line 942 in that path) and (b) recorded `returned_line_qty[code] += q` on the PBH (lines 949-978) precisely so cancel-time restock would not double count. The dup-guard at lines 808-813 only blocks two active `khong_nhan_hang` per source or
 - 🔧 In the khong_nhan_hang branch, before \_applyStock, subtract any already-returned qty recorded on the source PBH. When sourceOrderType='pbh', within the transaction read source PBH `returned_line_qty` (FOR UPDATE, as already done for thu_ve_1_phan at lines 955-959) and reduce each item's restock quantity by the recorded returned amount: `restockItems = items.map(it => ({...it, quantity: Math.max(0, it.quantity - (returnedMap[it.productCode]||0))}))`, then call `_applyStock(client, restockItems, method, +1)`. Because khong_nhan_hang sets stock_restored=TRUE and zeroes the line, also clear return
 
-### #3 [HIGH] [⏳ DEFER] — supplier-refund
+### #3 [HIGH] [✅ FIXED] — supplier-refund
 
 **quick-refund supplier return is NOT capped by received quantity → stock leak + supplier-wallet over-mint**
 
@@ -34,7 +37,7 @@
 - 🔎 The only live supplier-return UI path (purchase-refund quick/bulk) clamps return qty ONLY by current web2_products.stock (actions.js:210 `Math.min(item.stock, qty)`; api.js:172 `stock = matched.stock`), and sends `products` keyed by product CODE with NO `rowReturns`. web2_products.stock is one row per (name+variant) CODE, SHARED across all suppliers/shipments (so-order-kho-sync.js stockIndex keyed by name|variant; receive does stock += received per code). So if 'Áo Trắng' was received 5 from supplier A + 5 from supplier B (stock=10), a user on supplier A's refund can return qty=10 (passes clie
 - 🔧 Make quick-refund enforce a per-so-order-row received cap on the live (code-keyed) path, not just an amount cap. Build a server-authoritative remaining-returnable map per CODE = Σ received (loadSoOrderCostByCodeMap already joins so-order received rows to product code; extend it / add loadSoOrderReceivedQtyByCodeMap) MINUS already-returned for that code (sum web2_supplier_meta.returned_row_ids across rows mapping to that code, or a new per-code returned counter). In the else branch, reject/cap when `lqty > (receivedByCode[code] - alreadyReturnedByCode[code])`. Additionally have the purchase-ref
 
-### #4 [HIGH] [⏳ DEFER] — supplier-refund
+### #4 [HIGH] [✅ FIXED] — supplier-refund
 
 **Cross-page desync: purchase-refund returns never update returned_row_ids → Ví NCC lets the same goods be returned again**
 
@@ -42,7 +45,7 @@
 - 🔎 The supplier-wallet return modal computes remaining-returnable per row as `received - returnedRowIds[rowId].qty` (supplier-wallet-actions.js:33-34 `already = returnedRowIds[p.rowId].qty; remaining = p.qty - already`) and the server /tx caps newQty by received and persists into web2_supplier_meta.returned_row_ids. But the LIVE purchase-refund quick-refund path (the primary UI) returns goods WITHOUT ever writing returned_row_ids (the rowReturns branch at line 582 is never reached because the UI sends no rowReturns — actions.js:249-264 / 448-463 omit it). So after a user returns 5 units of a row
 - 🔧 Unify the two return paths on one cap source. Easiest correct fix: have purchase-refund quick-refund resolve each product CODE back to its so-order rows and write returned_row_ids (qty+amount) under the same row.id keys the supplier-wallet path uses, inside the same transaction (the lib already loads so-order rows; reuse it to map code→rowId(s) and allocate the returned qty across received rows). Then both the purchase-refund cap and the supplier-wallet `remaining = received - returnedRowIds.qty` read the same accumulated state, preventing double-return.
 
-### #5 [HIGH] [⏳ DEFER] — supplier-refund
+### #5 [HIGH] [✅ FIXED] — supplier-refund
 
 **Amount cost-cap silently fails-open whenever any line's cost is unresolved, allowing wallet over-credit on the live path**
 
@@ -50,7 +53,7 @@
 - 🔎 In the no-rowReturns else branch, `allHaveCost` is set false and the loop `break`s the moment ONE line's cost can't be resolved from so-order (costByCode.get(lcode) missing — happens whenever a product's name+variant doesn't normalize-match a received so-order row, e.g. SP synced before so-order match, renamed variant, or so-order wiped). When allHaveCost=false the entire amount cap is skipped (`if (allHaveCost && costCap>0 && amount > costCap*1.01)`), so the ledger credits the FULL client-supplied amount with no cap. Combined with the price the UI sends being `item.price` (actions.js:260 send
 - 🔧 Cap per-line independently instead of all-or-nothing: for each line apply min(client lineAmount, qty×costByCode[code]) where cost is known, and for lines with unknown cost fall back to a conservative bound (e.g. require cost or reject that line) rather than skipping the cap for the entire phiếu. Mirror the per-row cappedRowAmount logic already used in the rowReturns branch (line 626-632) on the code-keyed branch.
 
-### #6 [HIGH] [⏳ DEFER] — report-revenue
+### #6 [HIGH] [✅ FIXED] — report-revenue
 
 **Partial customer return (thu_ve_1_phan) against a NATIVE order over-restocks when the linked PBH is later cancelled**
 
@@ -58,7 +61,7 @@
 - 🔎 On create of a thu_ve_1_phan return, stock IS credited whenever the source already deducted stock: for sourceOrderType==='native' line 932-938 sets `sourceDeductedStock = pbhChk.rows.length > 0` (a live PBH exists), then line 941-943 `if (sourceDeductedStock) await _applyStock(client, items, method, +1)` adds the returned qty to web2_products.stock. The compensating `returned_line_qty` write that protects against double restock is gated `sourceOrderType === 'pbh'` ONLY (line 949-954: `subType==='thu_ve_1_phan' && sourceOrderType === 'pbh' && ...`). So when the partial return references the NAT
 - 🔧 Drop the `sourceOrderType === 'pbh'` restriction on the returned_line_qty write. When `subType==='thu_ve_1_phan' && sourceDeductedStock` and the source is a native order, resolve the live PBH(s) for that native code (same query already used at lines 932-938 / 928) and add the returned qty into each PBH's returned_line_qty (allocating per code), exactly as the pbh branch does. Mirror the reverse on DELETE (lines 1381-1410) for the native-sourced case too. Alternatively, record returned_line_qty keyed on whichever PBH(s) actually hold the line, regardless of whether the return referenced the nat
 
-### #7 [HIGH] [⏳ DEFER] — report-warehouse
+### #7 [HIGH] [✅ FIXED] — report-warehouse
 
 **KNH (không nhận hàng) over-restocks the qty already returned by a prior thu_ve_1_phan → phantom stock leak**
 
