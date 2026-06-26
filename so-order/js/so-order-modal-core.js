@@ -234,9 +234,21 @@
                 compact: true,
                 category: row.category || '',
                 value: row.variant || '',
-                onChange: ({ variant, category }) => {
+                onChange: ({ variant, category, name }) => {
                     row.variant = variant;
                     row.category = category;
+                    // Tự tạo TÊN SP từ loại+biến thể (vd "ÁO TRẮNG QUẦN ĐEN") — điền vào
+                    // ô Tên. CÓ THỂ SỬA: chỉ điền khi ô tên đang trống hoặc bằng tên
+                    // auto trước đó (user chưa gõ tay / chưa chọn SP từ gợi ý).
+                    const curName = (row.productName || '').trim();
+                    if (name && (curName === '' || curName === (row._autoName || ''))) {
+                        row.productName = name;
+                        row._autoName = name;
+                        const nameInput = document.querySelector(
+                            `#soModalProductsBody input[data-field="productName"][data-uid="${uid}"]`
+                        );
+                        if (nameInput && nameInput.value !== name) nameInput.value = name;
+                    }
                     SO.updateRowMeta?.(uid); // refresh badge "Tồn"/mã theo variant mới
                 },
             });

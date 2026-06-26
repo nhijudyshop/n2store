@@ -2,6 +2,17 @@
 
 ## 2026-06-26
 
+### [so-order][web2/shared] Tự tạo TÊN SP từ biến thể đã chọn (có thể sửa) — Web2VariantPicker
+
+User: chọn biến thể trong modal Sổ Order → tự sinh TÊN SP, điền vào ô Tên (sửa được). VD chọn Áo Trắng + Quần Đen + Giày Đen → "ÁO TRẮNG QUẦN ĐEN GIÀY ĐEN".
+
+**Sửa:**
+
+- `web2/shared/web2-variant-picker.js`: thêm `genName()` (mỗi món "LOẠI BIẾNTHỂ", nối khoảng trắng, IN HOA; "/" trong biến thể → space). onChange payload thêm `name`; controller thêm `getName()`.
+- `so-order-modal-core.js` `_mountModalVariantPickers`: onChange điền `name` vào ô `productName` của dòng — **guard sửa được**: chỉ điền khi tên trống hoặc bằng tên auto trước đó (`row._autoName`); user gõ tay / chọn SP từ gợi ý → KHÔNG ghi đè. Cache-bust picker `c` / modal-core `g`.
+
+**Verify** (Node + browser): genName "Áo Trắng+Quần Đen+Giày Đen"→"ÁO TRẮNG QUẦN ĐEN GIÀY ĐEN" (+ size/edge) ✅; modal: chọn 3 món → ô Tên = "ÁO TRẮNG QUẦN ĐEN GIÀY ĐEN", row.variant/category đúng ✅; sửa tay "TÊN TÙY CHỈNH" rồi đổi biến thể → tên GIỮ nguyên, biến thể vẫn cập nhật ✅. Status: ✅
+
 ### [web2/products] Phase 4: modal Kho SP thêm chọn LOẠI sản phẩm (category) — dùng chung product-types
 
 Hoàn tất feature "Loại SP + biến thể theo món" (Phase 4/4). Modal Kho SP thêm chip multi-select LOẠI (Áo/Quần/Đầm…) từ `Web2ProductTypesCache` (shared) → lưu `web2_products.category` ("Áo + Quần" cho bộ). **GIỮ NGUYÊN** picker Màu/Size + sinh mã SP (mã cần shortCode Màu/Size có cấu trúc — KHÔNG thay bằng Web2VariantPicker để khỏi vỡ mã SP; quyết định có chủ đích).

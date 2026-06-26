@@ -127,12 +127,29 @@
                 return [];
             }
         }
+        // Tên SP gợi ý TỪ lựa chọn: mỗi món "LOẠI BIẾNTHỂ" → nối khoảng trắng, IN HOA.
+        // VD: Áo Trắng + Quần Đen + Giày Đen → "ÁO TRẮNG QUẦN ĐEN GIÀY ĐEN".
+        // "/" trong biến thể (Màu / Size) → khoảng trắng cho tên gọn ("Trắng / M" → "TRẮNG M").
+        function genName() {
+            return pieces
+                .map((p) => {
+                    const t = (p.type || '').trim();
+                    const v = (p.value || '').trim().replace(/\s*\/\s*/g, ' ');
+                    return [t, v].filter(Boolean).join(' ').trim();
+                })
+                .filter(Boolean)
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toUpperCase();
+        }
         function fire() {
             renderPreview();
             onChange({
                 variant: combinedVariant(),
                 category: combinedCategory(),
                 combos: combos(),
+                name: genName(),
             });
         }
 
@@ -312,6 +329,7 @@
             getVariant: combinedVariant,
             getCategory: combinedCategory,
             getCombos: combos,
+            getName: genName,
             setValue,
             focus: () => root.querySelector('.w2vp-input')?.focus(),
             destroy: () => {
