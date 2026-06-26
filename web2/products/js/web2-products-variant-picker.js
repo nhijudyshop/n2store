@@ -133,6 +133,7 @@
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     _renderCombinedHint();
                     _renderVariantMultiPreview();
+                    _maybeAutofillName();
                 });
             });
         }
@@ -141,6 +142,7 @@
             _show(input.value);
             _renderCombinedHint();
             _renderVariantMultiPreview();
+            _maybeAutofillName();
         });
         input.addEventListener('blur', () => setTimeout(() => (dropdown.hidden = true), 180));
     }
@@ -251,6 +253,33 @@
     // Chọn 1 loại = SP đơn (Áo); chọn nhiều = bộ (Áo + Quần). Lưu vào product.category
     // ngăn ' + '. KHÔNG đụng mã SP (vẫn sinh từ Màu/Size shortCode như cũ).
     const _selectedTypes = new Set();
+
+    // ─── Tự tạo TÊN SP từ loại + Màu/Size (có thể sửa) ──────────────────────
+    // VD: loại Áo + Màu Trắng + Size M → "ÁO TRẮNG M". Điền vào #pmName, GUARD:
+    // chỉ điền khi tên trống hoặc bằng tên auto trước (user gõ tay → không đụng).
+    // BỎ QUA khi Màu/Size có "/" (cartesian nhiều SP) — tên auto chỉ cho 1 SP.
+    let _lastAutoName = '';
+    function _genNameFromSelection() {
+        const c = ($('#pmVariantColor')?.value || '').trim();
+        const s = ($('#pmVariantSize')?.value || '').trim();
+        if (c.includes('/') || s.includes('/')) return null; // cartesian → bỏ qua
+        const parts = [..._selectedTypes, c, s].filter(Boolean);
+        if (!parts.length) return null;
+        return parts.join(' ').replace(/\s+/g, ' ').trim().toLocaleUpperCase('vi-VN');
+    }
+    function _maybeAutofillName() {
+        const el = $('#pmName');
+        if (!el) return;
+        const cur = el.value.trim();
+        if (cur !== '' && cur !== _lastAutoName) return; // user gõ tay → giữ nguyên
+        const gen = _genNameFromSelection();
+        if (gen == null || el.value === gen) return;
+        el.value = gen;
+        _lastAutoName = gen;
+        // → autoRegen (mã SP) chạy lại theo tên mới (debounce, đọc DOM lúc fire).
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
     function _renderTypeChips() {
         const box = $('#pmTypeChips');
         if (!box) return;
@@ -272,6 +301,7 @@
                 if (_selectedTypes.has(n)) _selectedTypes.delete(n);
                 else _selectedTypes.add(n);
                 btn.classList.toggle('is-on');
+                _maybeAutofillName();
             });
         });
         if (window.lucide?.createIcons) window.lucide.createIcons();
@@ -286,6 +316,7 @@
             .map((s) => s.trim())
             .filter(Boolean)
             .forEach((t) => _selectedTypes.add(t));
+        _lastAutoName = ''; // reset mỗi lần mở modal (create: tên trống → auto; edit: tên thật → guard giữ)
         _renderTypeChips();
     }
 

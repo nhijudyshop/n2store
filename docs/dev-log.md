@@ -2,6 +2,14 @@
 
 ## 2026-06-26
 
+### [web2/products] Tự tạo TÊN SP từ loại + Màu/Size (có thể sửa) — Kho SP
+
+Mở rộng tính năng tự-tạo-tên sang Kho SP (như đã làm cho Sổ Order). Modal Thêm/Sửa SP: chọn loại (chip) + Màu/Size → ô **Tên SP** tự điền "LOẠI MÀU SIZE" (IN HOA), vd `ÁO TRẮNG M` / bộ `ÁO QUẦN ...`.
+
+**Sửa** `web2/products/js/web2-products-variant-picker.js`: `_genNameFromSelection()` (loại + Màu + Size, `vi-VN` upper; **bỏ qua khi Màu/Size có "/"** = cartesian nhiều SP → tên auto chỉ cho 1 SP) + `_maybeAutofillName()` (guard: chỉ điền khi #pmName trống/bằng auto trước `_lastAutoName`; user gõ tay → giữ). Hook ở chip-click + Màu/Size input/pick. Sau khi điền → dispatch `input` lên #pmName để **autoRegen mã SP** chạy lại theo tên mới. Reset `_lastAutoName` trong `_setSelectedCategory` (mở modal). Cache-bust `?v=20260626b`.
+
+**Verify** (Node + browser): genName "Áo+Trắng+M"→"ÁO TRẮNG M", set→null, no-type→"TRẮNG M" ✅; modal: chọn Áo+Trắng+M → #pmName "ÁO TRẮNG M", category "Áo" ✅; sửa tay "ÁO THUN ABC" rồi đổi Size→L → tên GIỮ, size cập nhật ✅. Mã SP regen theo tên (không vỡ). Status: ✅
+
 ### [web2/report-warehouse] Báo cáo kho: thêm ĐỊA DANH (cha của NCC+SP) + fix review
 
 Follow-up trang Báo cáo kho. User: "chia theo địa danh (HÀ NỘI, HƯƠNG CHÂU…) — cái này CHA của NCC và sản phẩm" + "NCC hiện rõ phần chưa nhận hàng".
