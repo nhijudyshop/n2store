@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `66f79ae` — docs: flow audit 12/12 FIXED + dev-log (money/stock fixes verified integration test)
-**Last updated**: 2026-06-26 16:23:28 +07
-**Latest session**: [`RESUME:20260626-162328-66f79ae`](../20260626-162328-66f79ae.md)
-**Summary**: Fix toàn bộ 12 bug audit luồng web2: report merge/refunds KPI, nhận hàng NCC, KNH/native restock, ví NCC cap qty/cost/returned_row_ids — verify integration test Postgres thật (24 assertions)
+**Latest commit**: `8bdee06` — docs: flow audit round 2 (13 findings, 8 HIGH/MEDIUM fixed + integration-tested, 5 LOW documented)
+**Last updated**: 2026-06-26 18:04:42 +07
+**Latest session**: [`RESUME:20260626-180442-8bdee06`](../20260626-180442-8bdee06.md)
+**Summary**: Audit vòng 2 web2 (7 luồng) → fix 8 bug HIGH/MEDIUM money/stock (ví thu hộ over-mint, create-time race, KPI revoke gộp, dashboard net revenue, delivery sync, from-pbh dedupe, Sửa COD, split guard) verify integration test Postgres thật
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-26 16:23
+- [`docs/`](./docs.md) — updated 2026-06-26 18:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -59,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-26 16:23
+- [`render.com/`](./render.com.md) — updated 2026-06-26 18:04
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
