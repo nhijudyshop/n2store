@@ -198,10 +198,10 @@
                         <span>Số tiền (VND) <em>*</em></span>
                         <input
                             id="sdPayAmount"
-                            type="number"
-                            min="0"
-                            step="1000"
-                            placeholder="VD: 40000000"
+                            type="text"
+                            inputmode="numeric"
+                            data-w2num
+                            placeholder="VD: 40.000.000"
                         />
                     </label>
                     <label class="sd-form-field">
@@ -277,6 +277,7 @@
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-number-input.js?v=20260626a"></script>
         <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-so-order-reader.js?v=20260613a"></script>

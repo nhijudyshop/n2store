@@ -2,6 +2,19 @@
 
 ## 2026-06-26
 
+### [so-order][web2/products] In tem/mã SP dùng CHUNG module web2/products — gỡ modal "In mã vạch" legacy fork
+
+User: ở Sổ Order, in mã SP phải **dùng chung module bên products** (Kho SP), không phải modal "In mã vạch" riêng. Bug: nút "In tem" (nhận hàng) mở modal legacy `soBarcodeModal` ("In mã vạch — <NCC>") thay vì modal in dùng chung.
+
+**Nguyên nhân:** module in của web2/products đã **tách 5 file** (`-print-utils`→`-print-barcode`→`-print-render`→`-print-modal`→`-print` entry, đều populate `window.W2PP`), nhưng so-order **chỉ load file entry** `web2-products-print.js` → `window.W2PP.open` undefined → `Web2ProductsPrint.open` undefined → `SO.openBarcodePrintModal` rớt về modal fork legacy.
+
+**Fix:**
+
+- `so-order/index.html`: load đủ **5 file print theo thứ tự** (thêm utils/barcode/render/modal trước entry). JsBarcode/QR module tự load CDN; Web2Printer/Web2QR đã có sẵn ở so-order.
+- `so-order/js/so-order-barcode.js`: **gỡ HẲN modal fork legacy** + `printBarcodes` + `_updateBarcodeSummary` (~160 dòng). `openBarcodePrintModal` giờ delegate 100% sang `Web2ProductsPrint.open` (1 nguồn như Kho SP); thiếu module → báo lỗi rõ, KHÔNG fork.
+
+**Verify** (browser localhost): sau reload `Web2ProductsPrint.open`=**function** (trước: undefined); gọi `openBarcodePrintModal(...)` mở modal CHUNG (`.w2p-print-header`), KHÔNG tạo `#soBarcodeModal`; 0 console error; 0 dangling ref. Status: ✅
+
 ### [purchase-orders][web2/shared] Cầu nối XUẤT bảng PO (Web 1.0) → mã base64 → NHẬP vào Sổ Order (Web 2.0)
 
 User: ở `purchase-orders/index.html` cho xuất dữ liệu bảng thành 1 mã (base64) → dán vào `so-order/index.html` (đã có sẵn modal "Nhập Sổ Order"), **không đụng chạm code/DB giữa Web 1.0 ↔ Web 2.0** — cầu nối duy nhất là mã copy-paste / file.

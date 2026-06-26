@@ -58,7 +58,9 @@
             <div class="sd-pay-row sd-pay-row-strong"><span>Còn nợ:</span><strong>${fmtVnd(row.ending)}</strong></div>
         `;
         document.getElementById('sdPayDate').value = today;
-        document.getElementById('sdPayAmount').value = '';
+        if (window.Web2NumberInput)
+            Web2NumberInput.setValue(document.getElementById('sdPayAmount'), '');
+        else document.getElementById('sdPayAmount').value = '';
         document.getElementById('sdPayNote').value = '';
         document.getElementById('sdPayModal').hidden = false;
         document.getElementById('sdPayModal').dataset.supplier = supplierKey;
@@ -79,7 +81,10 @@
         if (btn?.disabled) return; // guard: already saving
         const supplier = modal.dataset.supplier;
         const date = document.getElementById('sdPayDate').value;
-        const amount = Number(document.getElementById('sdPayAmount').value) || 0;
+        const amount =
+            (window.Web2NumberInput
+                ? Web2NumberInput.getValue(document.getElementById('sdPayAmount'))
+                : Number(document.getElementById('sdPayAmount').value)) || 0;
         const note = document.getElementById('sdPayNote').value || '';
         if (amount <= 0) {
             notify('Số tiền phải > 0', 'warning');

@@ -267,7 +267,13 @@
                 <div class="sw-modal-body">
                     <label class="sw-field">
                         <span>Số tiền (VND)</span>
-                        <input id="swPayAmount" type="number" min="0" step="1000" value="0" />
+                        <input
+                            id="swPayAmount"
+                            type="text"
+                            inputmode="numeric"
+                            data-w2num
+                            value="0"
+                        />
                     </label>
                     <label class="sw-field">
                         <span>Ghi chú</span>
@@ -292,6 +298,7 @@
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-db-badge.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-number-input.js?v=20260626a"></script>
         <script src="../../web2/shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../../web2/shared/web2-products-api.js?v=20260620a"></script>
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260622r9"></script>

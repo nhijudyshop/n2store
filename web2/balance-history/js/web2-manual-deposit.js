@@ -502,7 +502,9 @@
         if (nccNewInp) nccNewInp.value = '';
         const nccNewWrap = document.getElementById('w2mdNccNewWrap');
         if (nccNewWrap) nccNewWrap.hidden = true;
-        document.getElementById('w2mdAmount').value = '';
+        if (window.Web2NumberInput)
+            Web2NumberInput.setValue(document.getElementById('w2mdAmount'), '');
+        else document.getElementById('w2mdAmount').value = '';
         document.getElementById('w2mdNote').value = '';
         document.getElementById('w2mdError').hidden = true;
         document.querySelectorAll('[name="w2mdTarget"]').forEach((r) => {
@@ -539,7 +541,9 @@
         errEl.hidden = true;
         const target = document.querySelector('[name="w2mdTarget"]:checked')?.value || 'KH';
         const type = document.querySelector('[name="w2mdType"]:checked')?.value || 'deposit';
-        const amount = Number(document.getElementById('w2mdAmount').value);
+        const amount = window.Web2NumberInput
+            ? Web2NumberInput.getValue(document.getElementById('w2mdAmount'))
+            : Number(document.getElementById('w2mdAmount').value);
         const note = document.getElementById('w2mdNote').value.trim();
 
         let phone = null;

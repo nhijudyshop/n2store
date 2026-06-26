@@ -227,7 +227,9 @@
     // ---------- Payment modal ----------
     function openPayModal() {
         document.getElementById('swPaySupplier').textContent = SW.activeSupplier;
-        document.getElementById('swPayAmount').value = 0;
+        if (window.Web2NumberInput)
+            Web2NumberInput.setValue(document.getElementById('swPayAmount'), 0);
+        else document.getElementById('swPayAmount').value = 0;
         document.getElementById('swPayNote').value = '';
         const pm = document.getElementById('swPayModal');
         // HIGH-3 FIX: idempotency key per modal-open (chống ghi đôi thanh toán).
@@ -244,7 +246,10 @@
     async function confirmPay() {
         const btn = document.getElementById('swPayConfirmBtn');
         if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
-        const amount = Number(document.getElementById('swPayAmount').value) || 0;
+        const amount =
+            (window.Web2NumberInput
+                ? Web2NumberInput.getValue(document.getElementById('swPayAmount'))
+                : Number(document.getElementById('swPayAmount').value)) || 0;
         const note = document.getElementById('swPayNote').value || '';
         if (amount <= 0) {
             notify('Số tiền phải > 0', 'warning');

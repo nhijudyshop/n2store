@@ -349,11 +349,12 @@
                     <div class="w2md-field">
                         <label>Số tiền *</label>
                         <input
-                            type="number"
+                            type="text"
+                            inputmode="numeric"
+                            data-w2num
+                            data-w2num-min="1000"
                             id="w2mdAmount"
-                            min="1000"
-                            step="1000"
-                            placeholder="100000"
+                            placeholder="100.000"
                         />
                         <small class="w2md-hint">VND, > 0</small>
                     </div>
@@ -382,6 +383,7 @@
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-db-badge.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-number-input.js?v=20260626a"></script>
         <script src="../../web2/shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/web2-skeleton.js?v=20260625a"></script>
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260622r9"></script>

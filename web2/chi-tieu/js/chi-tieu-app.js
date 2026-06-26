@@ -327,7 +327,7 @@
                     <input type="datetime-local" id="ctfTime" value="${vTime}">
                   </label>
                   <label class="ct-fl">Số tiền
-                    <input type="number" id="ctfAmount" min="0" step="1000" value="${isEdit ? v.amount : ''}" placeholder="0">
+                    <input type="text" inputmode="numeric" data-w2num id="ctfAmount" value="${isEdit ? v.amount : ''}" placeholder="0">
                   </label>
                   <label class="ct-fl">Danh mục
                     <div class="ct-cat-pick">
@@ -362,6 +362,8 @@
               </div>
             </div>
           </div>`;
+        // Format số tiền ngay khi gõ (1.000) — gắn ngay để value edit prefilled hiển thị đúng.
+        if (window.Web2NumberInput) Web2NumberInput.attachAll(mount);
         const close = () => (mount.innerHTML = '');
         document.getElementById('ctFormClose').onclick = close;
         document.getElementById('ctFormCancel').onclick = close;
@@ -386,7 +388,11 @@
         }
 
         document.getElementById('ctFormSave').onclick = async () => {
-            const amount = Math.round(Number(document.getElementById('ctfAmount').value) || 0);
+            const amtEl = document.getElementById('ctfAmount');
+            const amount = Math.round(
+                (window.Web2NumberInput ? Web2NumberInput.getValue(amtEl) : Number(amtEl.value)) ||
+                    0
+            );
             if (amount <= 0) return toast('Nhập số tiền > 0', 'warning');
             const fund = document.getElementById('ctfFund').value;
             const timeVal = document.getElementById('ctfTime').value;

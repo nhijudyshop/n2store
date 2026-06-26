@@ -350,8 +350,13 @@
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = '';
         W._setVariantPickers('');
-        $('#pmPriceBuy').value = 0;
-        $('#pmPriceSell').value = 0;
+        if (window.Web2NumberInput) {
+            Web2NumberInput.setValue($('#pmPriceBuy'), 0);
+            Web2NumberInput.setValue($('#pmPriceSell'), 0);
+        } else {
+            $('#pmPriceBuy').value = 0;
+            $('#pmPriceSell').value = 0;
+        }
         $('#pmStock').value = 0;
         $('#pmImage').value = '';
         $('#pmNote').value = '';
@@ -382,8 +387,13 @@
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = p.name || '';
         W._setVariantPickers(p.variant || '');
-        $('#pmPriceBuy').value = p.originalPrice || 0;
-        $('#pmPriceSell').value = p.price || 0;
+        if (window.Web2NumberInput) {
+            Web2NumberInput.setValue($('#pmPriceBuy'), p.originalPrice || 0);
+            Web2NumberInput.setValue($('#pmPriceSell'), p.price || 0);
+        } else {
+            $('#pmPriceBuy').value = p.originalPrice || 0;
+            $('#pmPriceSell').value = p.price || 0;
+        }
         $('#pmStock').value = p.stock ?? 0;
         $('#pmImage').value = p.imageUrl || '';
         $('#pmNote').value = p.note || '';
@@ -569,8 +579,14 @@
             name: $('#pmName').value.trim(),
             supplier: supplierInput || null,
             variant: W._combinedVariant() || null,
-            price: Number($('#pmPriceSell').value) || 0,
-            originalPrice: Number($('#pmPriceBuy').value) || 0,
+            price:
+                (window.Web2NumberInput
+                    ? Web2NumberInput.getValue($('#pmPriceSell'))
+                    : Number($('#pmPriceSell').value)) || 0,
+            originalPrice:
+                (window.Web2NumberInput
+                    ? Web2NumberInput.getValue($('#pmPriceBuy'))
+                    : Number($('#pmPriceBuy').value)) || 0,
             stock: Number($('#pmStock').value) || 0,
             imageUrl: $('#pmImage').value.trim() || null,
             note: $('#pmNote').value.trim() || null,

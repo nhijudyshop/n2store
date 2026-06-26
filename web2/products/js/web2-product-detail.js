@@ -471,11 +471,11 @@
             <div class="w2pd-form-row">
                 <div class="w2pd-form-field">
                     <label>Giá mua (đ)</label>
-                    <input type="number" data-f="originalPrice" value="${Number(p.originalPrice) || 0}" min="0" />
+                    <input type="text" inputmode="numeric" data-w2num data-f="originalPrice" value="${Number(p.originalPrice) || 0}" />
                 </div>
                 <div class="w2pd-form-field">
                     <label>Giá bán (đ)</label>
-                    <input type="number" data-f="price" value="${Number(p.price) || 0}" min="0" />
+                    <input type="text" inputmode="numeric" data-w2num data-f="price" value="${Number(p.price) || 0}" />
                 </div>
             </div>
             <div class="w2pd-form-row">
@@ -500,6 +500,7 @@
                 <button class="w2pd-btn w2pd-btn-ghost" type="button" data-act="full" title="Form đầy đủ (ảnh, biến thể, mã, NCC)"><i data-lucide="settings-2"></i></button>
             </div>
             <div class="w2pd-form-hint">Ảnh, biến thể, mã, NCC → bấm nút ⚙ mở form đầy đủ.</div>`;
+        if (window.Web2NumberInput) Web2NumberInput.attachAll(pane); // format giá ngay khi gõ (1.000)
         pane.querySelector('[data-act="save"]')?.addEventListener('click', () => _saveEdit(p.code));
         pane.querySelector('[data-act="full"]')?.addEventListener('click', () => {
             close();
@@ -512,6 +513,11 @@
         const pane = _pane('edit');
         if (!pane) return;
         const val = (f) => pane.querySelector(`[data-f="${f}"]`)?.value;
+        // Đọc số tiền đã format (1.000) đúng giá trị thật qua Web2NumberInput.
+        const valNum = (f) => {
+            const el = pane.querySelector(`[data-f="${f}"]`);
+            return (window.Web2NumberInput ? Web2NumberInput.getValue(el) : Number(el?.value)) || 0;
+        };
         const name = (val('name') || '').trim();
         if (!name) return notify('Thiếu tên sản phẩm', 'error');
 
@@ -521,8 +527,8 @@
         const orig = app().getProduct?.(code) || {};
         const next = {
             name,
-            price: Number(val('price')) || 0,
-            originalPrice: Number(val('originalPrice')) || 0,
+            price: valNum('price'),
+            originalPrice: valNum('originalPrice'),
             stock: Number(val('stock')) || 0,
             note: (val('note') || '').trim() || null,
             isActive: val('isActive') === 'true',

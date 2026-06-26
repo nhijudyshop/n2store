@@ -642,11 +642,17 @@
         </script>
 
         <script src="../web2/shared/web2-products-api.js?v=20260625b"></script>
-        <!-- In tem SP: dùng CHUNG nguồn với web2/products (Web2Printer + Web2QR + print module),
-             load đúng thứ tự để QR bake biến thể + routing máy in giống hệt trang Kho SP. -->
-        <script src="../web2/shared/web2-printer.js?v=20260625b"></script>
-        <script src="../web2/shared/web2-qr.js?v=20260625b"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260625b"></script>
+        <!-- In tem/mã SP: dùng CHUNG module in của web2/products (Web2ProductsPrint).
+             [SPLIT 2026-06-18] module in tách 5 file — PHẢI load đủ THEO THỨ TỰ
+             (utils → barcode → render → modal → entry) thì window.W2PP.open mới có,
+             nếu thiếu → Web2ProductsPrint.open=undefined → rớt về modal legacy. -->
+        <script src="../web2/shared/web2-printer.js?v=20260626a"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260626a"></script>
+        <script src="../web2/products/js/web2-products-print-utils.js?v=20260626a"></script>
+        <script src="../web2/products/js/web2-products-print-barcode.js?v=20260626a"></script>
+        <script src="../web2/products/js/web2-products-print-render.js?v=20260626a"></script>
+        <script src="../web2/products/js/web2-products-print-modal.js?v=20260626a"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260626a"></script>
         <script src="../web2/variants/js/web2-variants-api.js?v=20260625b"></script>
         <script src="../web2/shared/web2-sse-bridge.js?v=20260625b"></script>
         <script src="../web2/shared/web2-idb-store.js?v=20260625b"></script>
@@ -679,7 +685,7 @@
         <script src="js/so-order-modal-image.js?v=20260625b"></script>
         <script src="js/so-order-modal-random.js?v=20260625b"></script>
         <script src="js/so-order-receive.js?v=20260625b"></script>
-        <script src="js/so-order-barcode.js?v=20260625b"></script>
+        <script src="js/so-order-barcode.js?v=20260626a"></script>
         <script src="js/so-order-kho-sync.js?v=20260625recon"></script>
         <script src="js/so-order-delete.js?v=20260625b"></script>
         <script src="js/so-order-shipment.js?v=20260625b"></script>
