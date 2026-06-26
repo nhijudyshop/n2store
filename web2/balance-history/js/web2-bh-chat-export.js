@@ -22,9 +22,16 @@
         return null;
     }
     async function openChatForPhone(phone, name) {
-        // Có SĐT → FULL chat (Pancake + Zalo) qua launcher dùng chung Web2CustomerChat.
+        // KH ĐÃ GÁN SĐT → mở chat Pancake ĐẦY ĐỦ (layout:'modal' = 3 cột: sidebar tìm
+        // hội thoại + thread + info), TRẢ LỜI ĐƯỢC (không readonly) — đồng nhất với chat
+        // ở Đơn Web / Live Chat (2026-06-26, thay drawer 1 cột readonly-cảm-giác trước đây).
         if (phone && window.Web2CustomerChat?.open) {
-            window.Web2CustomerChat.open({ phone, name });
+            window.Web2CustomerChat.open({
+                layout: 'modal',
+                phone,
+                name,
+                query: phone || name,
+            });
             return;
         }
         if (!window.Web2CustomerChat?.open) {

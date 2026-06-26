@@ -2,6 +2,17 @@
 
 ## 2026-06-26
 
+### [web2/balance-history] Chat KH đã gán → mở Pancake ĐẦY ĐỦ 3 cột (trả lời được) thay drawer 1 cột
+
+Yêu cầu: trang Lịch sử biến động số dư (SePay), khi mở chat của KH **đã được gán SĐT** (nút 💬 ở dòng giao dịch), đang ra chat drawer 1 cột — đổi thành **chat Pancake đầy đủ** (3 cột: sidebar tìm hội thoại + thread + info), **trả lời được**, đồng nhất với chat ở Đơn Web / Live Chat.
+
+**Files**:
+
+- `web2/balance-history/js/web2-bh-chat-export.js`: `openChatForPhone()` nhánh có SĐT → `Web2CustomerChat.open({ layout:'modal', phone, name, query })` (trước: `{ phone, name }` → mặc định drawer 1 cột). `layout:'modal'` = giao diện 3 cột Pancake (giống native-orders). Nhánh KHÔNG có SĐT (dòng chưa gán) vẫn giữ modal tìm kiếm readonly như cũ.
+- Cache-bust `web2-bh-chat-export.js?v=20260626pc`.
+
+**Verify** (Playwright MCP, localhost): gọi `W2BH.openChatForPhone('0123456788','Test')` → DOM có `.w2cc-modal` (3 cột), KHÔNG còn `.w2cc-drawer`; sidebar tìm hội thoại hiện (search pre-fill SĐT) + thread "Chọn hội thoại bên trái để bắt đầu". Screenshot xác nhận giao diện "Chat khách hàng" 3 cột. (Hội thoại/tin thật cần token Pancake tươi ở browser thật — headless không load được, giới hạn hạ tầng đã biết.) Status ✅
+
 ### [native-orders] Nút XOÁ đơn (admin-only) — giỏ hàng/đơn huỷ xoá được, đơn đã chốt PBH KHÔNG
 
 Yêu cầu (ảnh cột "Thao tác"): thêm nút xoá, **chỉ admin** xoá được, **đơn hàng (đã chốt PBH) không xoá được**. Trước đây nút xoá chỉ hiện cho đơn `web2_inbox` RỖNG (nháp/huỷ + giỏ trống) — quá hẹp.
