@@ -177,8 +177,70 @@ async function loadSoOrderCostByCodeMap(client) {
     return map;
 }
 
+/**
+ * Build map productCode → [{ rowId, received, costVnd }] — các dòng so-order ĐÃ NHẬN
+ * gom theo CODE (join (name,variant) chuẩn-hoá → web2_products.code, mirror client).
+ *
+ * Dùng cho cap quick-refund NCC theo CODE (purchase-refund không gửi rowReturns):
+ * cap qty ≤ Σ(received − đã trả từng row), cap amount ≤ Σ(alloc × costVnd), và ghi
+ * returned_row_ids per-row → đồng bộ với đường ví NCC /tx (cùng đọc remaining).
+ * KHÔNG match được code → bỏ (caller fail-open per-code, không chặn refund hợp lệ).
+ *
+ * @param {{query: Function}} client
+ * @returns {Promise<Map<string, Array<{rowId:string, received:number, costVnd:number}>>>}
+ */
+async function loadSoOrderReceivedRowsByCode(client) {
+    const map = new Map();
+    let prodRows;
+    try {
+        prodRows = await client.query(`SELECT code, name, variant FROM web2_products`);
+    } catch (e) {
+        return map;
+    }
+    const codeByKey = new Map();
+    for (const p of prodRows.rows || []) {
+        if (!p.code) continue;
+        const key = _norm(p.name) + '|' + _norm(p.variant || '');
+        if (!codeByKey.has(key)) codeByKey.set(key, p.code);
+    }
+    let r;
+    try {
+        r = await client.query(`SELECT data FROM web2_so_order WHERE doc_id = 'main' LIMIT 1`);
+    } catch (e) {
+        return map;
+    }
+    const data = r.rows[0]?.data;
+    const tabs = data && Array.isArray(data.tabs) ? data.tabs : [];
+    for (const tab of tabs) {
+        const rate = _rateToVnd(tab && tab.currency, tab);
+        const shipments = tab && Array.isArray(tab.shipments) ? tab.shipments : [];
+        for (const sh of shipments) {
+            const rows = sh && Array.isArray(sh.rows) ? sh.rows : [];
+            for (const row of rows) {
+                if (!row || row.id == null) continue;
+                const st = row.status || 'draft';
+                if (st !== 'received' && st !== 'partial_received') continue;
+                const orderedQty = Number(row.qty) || 0;
+                const received =
+                    st === 'partial_received'
+                        ? Math.min(Number(row.qtyReceived) || 0, orderedQty)
+                        : orderedQty;
+                if (!(received > 0)) continue;
+                const key = _norm(row.productName) + '|' + _norm(row.variant || '');
+                const code = codeByKey.get(key);
+                if (!code) continue;
+                const costVnd = (Number(row.costPrice) || 0) * rate;
+                if (!map.has(code)) map.set(code, []);
+                map.get(code).push({ rowId: String(row.id), received, costVnd });
+            }
+        }
+    }
+    return map;
+}
+
 module.exports = {
     loadSoOrderReceivedQtyMap,
     loadSoOrderReceivedMap,
     loadSoOrderCostByCodeMap,
+    loadSoOrderReceivedRowsByCode,
 };

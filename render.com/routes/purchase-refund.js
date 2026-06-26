@@ -34,7 +34,11 @@ const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const { recordAuditEvent } = require('../services/web2-audit-sink');
 // Trần over-refund SERVER-AUTHORITATIVE — đọc SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với web2-supplier-wallet (/tx) — xem lib/web2-so-order-qty.js.
-const { loadSoOrderReceivedMap, loadSoOrderCostByCodeMap } = require('../lib/web2-so-order-qty');
+const {
+    loadSoOrderReceivedMap,
+    loadSoOrderCostByCodeMap,
+    loadSoOrderReceivedRowsByCode,
+} = require('../lib/web2-so-order-qty');
 router.use(requireWeb2AuthSoft);
 
 // -----------------------------------------------------
@@ -437,12 +441,85 @@ router.post('/quick-refund', async (req, res) => {
         // soMap dùng lại cho qty-cap returned_row_ids bên dưới (1 query). Hoàn NCC = giá
         // nhập, KHÔNG có lý do vượt cost → khác COD khách (nhập tay, không cap).
         let soMap = null;
-        const _rr = b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
-        if (_rr) {
+        // ===== FIX audit #3/#4/#5: hợp nhất quick-refund (code-keyed, KHÔNG rowReturns) về
+        // CÙNG đường với ví NCC /tx (rowReturns per-row). TRƯỚC đây else-branch chỉ cap AMOUNT
+        // theo cost với điều kiện all-or-nothing (1 dòng thiếu cost → BỎ cap TOÀN phiếu = over-mint
+        // ví NCC #5), KHÔNG cap QTY theo SL đã nhận (#3), KHÔNG ghi returned_row_ids (#4 → ví NCC
+        // cho trả lại SP đã trả). Giờ: tổng hợp rowReturns từ dòng so-order ĐÃ NHẬN của từng code
+        // (phân bổ greedy, cap qty ≤ received − đã trả), set b.rowReturns → tái dùng cap qty/amount
+        // per-row + ghi returned_row_ids + cancel-reversal CÓ SẴN. Code KHÔNG khớp so-order →
+        // fail-open RIÊNG dòng đó (không chặn refund hợp lệ + không phá cap dòng khác).
+        if (!b.rowReturns || typeof b.rowReturns !== 'object') {
+            const rowsByCode = await loadSoOrderReceivedRowsByCode(client);
+            // Đảm bảo meta NCC tồn tại + đọc returned_row_ids hiện tại (remaining per row).
+            await client.query(
+                `INSERT INTO web2_supplier_meta (supplier, created_at, updated_at)
+                 VALUES ($1,$2,$2) ON CONFLICT (supplier) DO NOTHING`,
+                [supplier, now]
+            );
+            const metaPre = await client.query(
+                `SELECT returned_row_ids FROM web2_supplier_meta WHERE supplier = $1 FOR UPDATE`,
+                [supplier]
+            );
+            const curReturned = metaPre.rows[0]?.returned_row_ids || {};
+            const priceByCode = new Map();
+            for (const p of products) {
+                const c = (p?.code || p?.product_code || '').trim();
+                if (c && !priceByCode.has(c))
+                    priceByCode.set(c, Number(p?.price || p?.unitPrice || 0) || 0);
+            }
+            const synth = {};
+            let capAmount = 0; // trần amount = Σ resolved min(client, cost) + Σ unresolved client
+            let resolvedAny = false; // có ít nhất 1 code khớp so-order → cap authoritative
+            for (const [lcode, lqty] of [...lines]) {
+                const rows = rowsByCode.get(lcode);
+                const priceVnd = priceByCode.get(lcode) || 0;
+                if (!rows || !rows.length) {
+                    // Không khớp so-order → fail-open RIÊNG dòng: giữ qty + amount client.
+                    capAmount += lqty * priceVnd;
+                    continue;
+                }
+                resolvedAny = true;
+                let toReturn = lqty;
+                let allocated = 0;
+                for (const row of rows) {
+                    if (toReturn <= 0) break;
+                    const already = Number(curReturned[row.rowId]?.qty) || 0;
+                    const room = Math.max(0, row.received - already);
+                    const alloc = Math.min(toReturn, room);
+                    if (alloc <= 0) continue;
+                    toReturn -= alloc;
+                    allocated += alloc;
+                    const prev = synth[row.rowId] || { qty: 0, amount: 0 };
+                    const rowCredit = Math.min(alloc * priceVnd, alloc * row.costVnd);
+                    synth[row.rowId] = {
+                        qty: prev.qty + alloc,
+                        amount: prev.amount + rowCredit,
+                        ordered: row.received,
+                    };
+                    capAmount += rowCredit;
+                }
+                // Cap tồn trừ = qty THỰC phân bổ được (≤ remaining). 0 → bỏ dòng.
+                if (allocated > 0) lines.set(lcode, allocated);
+                else lines.delete(lcode);
+            }
+            if (Object.keys(synth).length) b.rowReturns = synth;
+            // Cap amount: khi có code khớp so-order → capAmount là TRẦN authoritative
+            // (Σ resolved cost + Σ unresolved client). Áp UNCONDITIONAL (kể cả capAmount=0
+            // khi đã trả hết) → chặn over-mint #5. Không code nào khớp → giữ nguyên (fail-open).
+            if (resolvedAny) amount = Math.min(amount, capAmount);
+            // Đã trả hết / không còn SL để trả → reject (tránh tạo phiếu 0đ / trừ kho rỗng).
+            if (lines.size === 0 || amount <= 0) {
+                const err = new Error('Không còn SL để trả (đã trả hết số đã nhận từ NCC)');
+                err.httpStatus = 400;
+                throw err;
+            }
+        } else {
+            // Client gửi rowReturns sẵn (ví NCC /tx style) → cap amount theo cost per-row.
             soMap = await loadSoOrderReceivedMap(client);
             let maxAmount = 0;
             let allHaveCost = true;
-            for (const [rid, v] of Object.entries(_rr)) {
+            for (const [rid, v] of Object.entries(b.rowReturns)) {
                 const q = Number(v?.qty) || 0;
                 if (q <= 0) continue;
                 const cv = soMap.get(String(rid))?.costVnd;
@@ -453,36 +530,7 @@ router.post('/quick-refund', async (req, res) => {
                 }
             }
             if (allHaveCost && maxAmount > 0 && amount > maxAmount * 1.01) {
-                console.warn(
-                    `[PURCHASE-REFUND] quick-refund ${code}: cost-cap amount=${amount} > computed=${maxAmount} → cap`
-                );
                 amount = maxAmount;
-            }
-        } else {
-            // FIX cost-cap quick/bulk refund KHÔNG gửi rowReturns (audit 2026-06-23, CRITICAL):
-            // UI chính (quick + bulk) gửi products keyed by CODE, KHÔNG rowReturns → nhánh _rr
-            // trên không chạy → cost-cap vô hiệu. Tệ hơn: `price` client gửi = giá BÁN retail
-            // (matched.price) → ledger ví NCC credit theo retail thay vì COST nhập → mint ví NCC.
-            // Cap SERVER-AUTHORITATIVE theo cost THẬT so-order map by product code (client không
-            // sửa được): amount ≤ Σ(line.qty × costByCode[code]) khi MỌI line tra được cost.
-            // Thiếu cost (so-order wipe / SP chưa match name+variant) → fail-open giữ flow cũ
-            // (không block refund hợp lệ). Cho hoàn ÍT hơn (giảm giá/đối trừ); chỉ chặn phồng >1%.
-            const costByCode = await loadSoOrderCostByCodeMap(client);
-            let costCap = 0;
-            let allHaveCost = true;
-            for (const [lcode, lqty] of lines) {
-                const cv = costByCode.get(lcode);
-                if (Number.isFinite(cv) && cv > 0) costCap += lqty * cv;
-                else {
-                    allHaveCost = false;
-                    break;
-                }
-            }
-            if (allHaveCost && costCap > 0 && amount > costCap * 1.01) {
-                console.warn(
-                    `[PURCHASE-REFUND] quick-refund ${code}: code-cost-cap amount=${amount} > cost=${costCap} → cap`
-                );
-                amount = costCap;
             }
         }
 
