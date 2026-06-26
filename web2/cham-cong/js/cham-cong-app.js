@@ -285,10 +285,10 @@
             ${s && s.last_error ? `<span class="cc-sync-err" title="${esc(s.last_error)}">⚠ lỗi</span>` : ''}
             ${
                 dataStale
-                    ? `<span class="cc-sync-backup">· ⚠ Máy <b>kết nối</b> nhưng KHÔNG có chấm công mới <b>${staleDays} ngày</b> (mới nhất ${esc(latestTxt)}). Tới shop bấm <b>lay-du-lieu.bat</b> + kiểm tra máy DG-600 (đang ghi nhận? đầy bộ nhớ?).</span>`
+                    ? `<span class="cc-sync-backup">· ⚠ Máy <b>kết nối</b> nhưng KHÔNG có chấm công mới <b>${staleDays} ngày</b> (mới nhất ${esc(latestTxt)}). Kiểm tra: máy <b>DG-600</b> còn ghi nhận / đủ bộ nhớ + <b>agent Chấm công</b> trên máy POS còn chạy (cài lại ở <b>Cấu hình in → Cài máy chấm công DG-600</b>).</span>`
                     : active
                       ? ''
-                      : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Tới shop (cùng wifi) bấm <b>lay-du-lieu.bat</b> để lấy ngay.</span>`
+                      : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Mở lại máy POS ở shop (agent Chấm công tự chạy nền), hoặc cài lại ở <b>Cấu hình in → Cài máy chấm công DG-600</b>.</span>`
             }
         `;
     }
@@ -388,7 +388,7 @@
                 <p class="cc-empty-hint">${
                     hasUnassigned
                         ? 'Vào tab <b>Nhân viên</b> để gán mỗi PIN máy vào 1 nhân viên Web 2.0 — sau khi gán sẽ hiện ở đây.'
-                        : 'Chạy agent đồng bộ ở máy shop (<b>install-windows.bat</b> / <b>lay-du-lieu.bat</b>) để nạp dữ liệu từ máy DG-600. Danh sách PIN sẽ tự xuất hiện.'
+                        : 'Cài <b>agent Chấm công</b> 1 lần ở máy POS shop: vào <b>Cấu hình in → Cài máy chấm công DG-600</b> → bấm <b>Tải file cài Chấm công (.bat)</b> → chạy 1 lần (tự chạy nền). Máy DG-600 đẩy dữ liệu lên, danh sách PIN tự xuất hiện.'
                 }</p>
             </div>`;
             return;

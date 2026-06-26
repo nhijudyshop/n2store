@@ -2,6 +2,14 @@
 
 ## 2026-06-26
 
+### [web2/cham-cong] Gỡ tham chiếu lay-du-lieu.bat — 1 NGUỒN AUTO duy nhất (ADMS proxy từ printer-settings)
+
+User: "xóa lay-du-lieu.bat đi chỉ lấy bằng 1 nguồn auto". Có 2 hệ agent: (cũ) `web2-attendance-sync/` lay-du-lieu.bat + install-windows.bat (ZKLib LAN poll → push `source='agent'`, đã chết 23/06) — **folder đã bị gỡ khỏi repo**, chỉ còn UI text tham chiếu; (giữ) `attendance-sync/` → `cai-cham-cong.bat` → `adms-proxy.js` (DG-600 push ADMS → `source='adms'`), tải từ **Cấu hình in → Cài máy chấm công DG-600** (web2-attendance-installer.js). 1 nguồn auto duy nhất.
+
+**Fix** (`cham-cong-app.js` 3 message): thay mọi "bấm lay-du-lieu.bat / install-windows.bat" → trỏ về nguồn auto duy nhất "**Cấu hình in → Cài máy chấm công DG-600**" (data-stale warning, PC-off backup, empty-state). KHÔNG đụng `web2/video-maker` install-windows.bat (đó là VieNeu TTS, khác feature). Cache-bust `?v=20260626fix5`.
+
+⚠ Migration phía shop (không làm được từ code): cài `cai-cham-cong.bat` (tự gỡ bản cũ + autostart nền) + cấu hình máy DG-600 menu Comm/Cloud/ADMS đẩy về IP PC:proxyPort. Agent cũ source='agent' trên PC nên gỡ tay.
+
 ### [web2/cham-cong] Sync strip phân biệt KẾT NỐI vs DỮ LIỆU mới (bắt case máy online nhưng không đẩy chấm công)
 
 User báo: data dừng ở 23/06 dù strip hiện "Đang đồng bộ · Lần cuối 08:32 26/06". Chẩn đoán: `last_sync_time` bị `touchAdmsStatus` bump mỗi heartbeat ADMS (~10s) của máy DG-600 → strip xanh dù KHÔNG có punch mới. Strip cũ chỉ đo CONNECTION freshness, không đo DATA freshness → đánh lừa.
