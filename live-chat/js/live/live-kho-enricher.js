@@ -79,9 +79,23 @@
 
     async function postBatch(url, body) {
         try {
+            // ENFORCE (2026-06-26): /api/web2/customers/batch-* gated requireWeb2AuthSoft
+            // → cần x-web2-token (fallback path khi LiveCustomerSync chưa load).
+            const headers = window.Web2Auth?.authHeaders
+                ? window.Web2Auth.authHeaders({ 'Content-Type': 'application/json' })
+                : (() => {
+                      const h = { 'Content-Type': 'application/json' };
+                      try {
+                          const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                          if (t) h['x-web2-token'] = t;
+                      } catch {
+                          /* ignore */
+                      }
+                      return h;
+                  })();
             const resp = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(body),
             });
             const json = await resp.json();

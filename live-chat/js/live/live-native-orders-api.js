@@ -16,6 +16,20 @@ const NativeOrdersApi = {
         return `${root}/api/native-orders`;
     },
 
+    // ENFORCE (2026-06-26): route /api/native-orders/* gated requireWeb2AuthSoft →
+    // WRITE phải gửi x-web2-token (giống LiveApi._w2AuthHeaders). Thiếu → 401.
+    _w2AuthHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    },
+
     async _fetchJson(url, options = {}) {
         const response = await fetch(url, {
             ...options,
@@ -86,7 +100,7 @@ const NativeOrdersApi = {
     async update(code, fields) {
         return this._fetchJson(`${this._getBaseUrl()}/${encodeURIComponent(code)}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this._w2AuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(fields || {}),
         });
     },
@@ -94,6 +108,7 @@ const NativeOrdersApi = {
     async remove(code) {
         return this._fetchJson(`${this._getBaseUrl()}/${encodeURIComponent(code)}`, {
             method: 'DELETE',
+            headers: this._w2AuthHeaders(),
         });
     },
 };

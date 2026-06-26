@@ -2,6 +2,16 @@
 
 ## 2026-06-26
 
+### [live-chat][native-orders] FIX 5 web2 WRITE thiếu x-web2-token (Part A — audit workflow)
+
+Workflow audit 8 nhóm (11 agent, find + adversarial verify) các fetch WRITE tới route web2 auth-gated thiếu token. **6/8 nhóm sạch**, 5 vi phạm thật:
+
+- `live-native-orders-api.js`: `update()` PATCH + `remove()` DELETE `/api/native-orders/:code` (gated requireWeb2AuthSoft) → thêm helper `_w2AuthHeaders` (mirror `LiveApi._w2AuthHeaders`) + dùng cho cả 2.
+- `live-kho-enricher.js`: `postBatch` POST `/api/web2/customers/batch-by-fbid|phone` (fallback khi LiveCustomerSync chưa load) → thêm `Web2Auth.authHeaders`.
+- `native-orders-pbh-bill.js`: POST `/:code/split-order` + `/:code/cancel` → thêm `...Web2Auth.authHeaders()` (các sibling cancelPbh/createPbh đã có, 2 chỗ này bị sót).
+
+Bump cache-bust 3 file `?v=20260626tok`. node --check OK. Cùng Part B (global guard 401→đăng xuất) đảm bảo: write có token (không 401 oan) + nếu token hết hạn vẫn auto đăng xuất re-login. Các nhóm purchase-refund/customer-wallet/products/jt-tracking/balance-history/web2-shared/so-order/pancake = sạch (không thiếu token). Status ✅
+
 ### [web2/shared] Auth guard: web2 WRITE 401 (token thiếu/hết hạn) → tự ĐĂNG XUẤT (Part B)
 
 User: "thiếu token thì đăng xuất để user đăng nhập lại". Thêm vào `web2-auth.js`:

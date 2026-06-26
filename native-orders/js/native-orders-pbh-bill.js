@@ -698,7 +698,10 @@
                 `${NO.WORKER_URL}/api/native-orders/${encodeURIComponent(code)}/split-order`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                    },
                 }
             );
             const data = await r.json();
@@ -813,7 +816,10 @@
                 `${NO.WORKER_URL}/api/native-orders/${encodeURIComponent(code)}/cancel`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                    },
                     body: JSON.stringify({ reason: reason || null }),
                 }
             );
