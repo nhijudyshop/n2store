@@ -2473,12 +2473,42 @@ async function _cancelPbhInTx(client, number, performedBy) {
             `[FAST-SALE-ORDERS] cancel ${pr.number} → restocked ${restock.restored} lines, wallet refund ${walletRefunded}đ`
         );
     }
+    // FIX audit R2 (#2 delivery desync): huỷ PBH → huỷ luôn phiếu giao hàng linked
+    // (cùng transaction) để board giao hàng + KPI dlv_* không hiện đơn LIVE cho PBH
+    // đã huỷ (đã restock + hoàn ví). CHỈ huỷ DLV chưa giao/chưa trả/chưa huỷ. Bọc try:
+    // bảng delivery_invoices có thể vắng ở vài env → không chặn cancel.
+    let deliveryCancelled = 0;
+    try {
+        const dlv = await client.query(
+            `UPDATE delivery_invoices
+             SET state = 'cancel',
+                 state_history = COALESCE(state_history, '[]'::jsonb) || jsonb_build_object(
+                     'from', state, 'to', 'cancel', 'at', extract(epoch from now()) * 1000, 'by', '(huỷ PBH nguồn)'),
+                 date_updated = NOW()
+             WHERE fso_number = $1 AND state NOT IN ('delivered', 'returned', 'cancel')
+             RETURNING number`,
+            [pr.number]
+        );
+        deliveryCancelled = dlv.rows.length;
+        if (deliveryCancelled && _notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:delivery',
+                    { action: 'cancel-from-pbh', pbh: pr.number, ts: Date.now() },
+                    'update'
+                );
+            } catch (e) {}
+        }
+    } catch (e) {
+        console.warn('[FAST-SALE-ORDERS] cancel: delivery sync skip:', e.message);
+    }
     return {
         prevRow: pr,
         wasNotCancelled: notCancelled,
         updRow: upd.rows[0],
         restock,
         walletRefunded,
+        deliveryCancelled,
     };
 }
 

@@ -262,6 +262,24 @@ router.post('/from-pbh', requireWeb2AuthSoft, async (req, res) => {
         if (fso.state === 'cancel')
             return res.status(400).json({ error: 'Không thể giao PBH đã hủy' });
 
+        // FIX audit R2 (#3): chặn tạo phiếu giao TRÙNG cho 1 PBH (double-click / 2 NV)
+        // khi giao NGUYÊN đơn (không gửi deliveryLines subset). Mỗi phiếu snapshot full
+        // line + full COD → trùng = SL/COD nhân đôi. Giao 1 phần (có deliveryLines) cho qua.
+        const isWholePbh = !(Array.isArray(b.deliveryLines) && b.deliveryLines.length);
+        if (isWholePbh) {
+            const existed = await pool.query(
+                `SELECT number FROM delivery_invoices
+                 WHERE fso_number = $1 AND state NOT IN ('cancel', 'returned') LIMIT 1`,
+                [b.pbhNumber]
+            );
+            if (existed.rows.length) {
+                return res.status(409).json({
+                    error: `PBH ${b.pbhNumber} đã có phiếu giao ${existed.rows[0].number} — không tạo trùng`,
+                    existing: existed.rows[0].number,
+                });
+            }
+        }
+
         const lines =
             Array.isArray(b.deliveryLines) && b.deliveryLines.length
                 ? b.deliveryLines

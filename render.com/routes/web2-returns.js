@@ -632,6 +632,18 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                                 }
                                 throw e;
                             }
+                            // FIX audit R2: lần "Sửa COD / trừ công nợ" THỨ 2 cho CÙNG đơn bị
+                            // dedupe nuốt (referenceId=sCode, type return-cod) → ví KHÔNG trừ
+                            // thật nhưng phiếu vẫn ghi walletCredited=-codReduction → lệch sổ +
+                            // huỷ phiếu sau processDeposit(+codReduction) = over-refund. Chặn:
+                            // đã có phiếu trừ công nợ cho đơn này → reject, không tạo phiếu khống.
+                            if (wd?.alreadyProcessed) {
+                                const err = new Error(
+                                    `Đơn ${sCode} đã có phiếu Sửa COD trừ công nợ khách — không trừ lần 2`
+                                );
+                                err.httpStatus = 409;
+                                throw err;
+                            }
                             walletTxId = wd?.transaction?.id || null;
                             walletCredited = -codReduction; // âm = đã trừ ví
                         }
