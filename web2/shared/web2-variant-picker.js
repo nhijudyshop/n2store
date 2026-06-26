@@ -141,7 +141,7 @@
                 .join(' ')
                 .replace(/\s+/g, ' ')
                 .trim()
-                .toUpperCase();
+                .toLocaleUpperCase('vi-VN');
         }
         function fire() {
             renderPreview();
