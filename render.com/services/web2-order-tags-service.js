@@ -86,6 +86,12 @@ const TRIGGERS = [
         group: 'PBH / Trạng thái',
         desc: 'Giỏ hàng chưa có sản phẩm nào (SL = 0, chưa huỷ). Ngược với điều kiện hiện pill KPI — giỏ rỗng không được tính KPI nên không có người phụ trách.',
     },
+    {
+        id: 'da_doi_soat',
+        label: 'Đã đối soát',
+        group: 'PBH / Trạng thái',
+        desc: 'PBH của đơn đã đóng gói/giao (fulfillment ∈ packed / shipped / delivered) — đã đối soát đóng gói xong.',
+    },
     // Thanh toán
     {
         id: 'chua_nhan_ck',
@@ -169,6 +175,32 @@ const TRIGGERS = [
         group: 'KPI',
         desc: 'Pill ĐỘNG hiện TÊN nhân viên được tính KPI cho đơn/giỏ. Livestream: theo dải STT đã phân công ở web2_kpi_assignments (khớp 100% dashboard KPI). Inbox: người tạo đơn (created_by, tính 100% SL). Bấm pill xem nguồn, cách resolve, base (lúc chốt) vs SL hiện tại, SL upsell + tiền KPI (×5.000đ/SP). Bản ghi livestream có STT KHÔNG nằm trong dải nào → pill ĐỎ báo lỗi chia dải (admin cần chia lại range cho đủ).',
     },
+    // Khách hàng
+    {
+        id: 'khach_la',
+        label: 'Khách lạ',
+        group: 'Khách hàng',
+        desc: 'Đơn/giỏ CHƯA gán khách hàng (không có customer_id) — khách lạ chưa khớp hồ sơ KH.',
+    },
+    // Nội dung / Tương tác
+    {
+        id: 'co_ghi_chu',
+        label: 'Có ghi chú',
+        group: 'Nội dung / Tương tác',
+        desc: 'Đơn/giỏ có ghi chú (note hệ thống hoặc ghi chú NV tự nhập userNote).',
+    },
+    {
+        id: 'co_tin_nhan',
+        label: 'Có tin nhắn',
+        group: 'Nội dung / Tương tác',
+        desc: 'Đơn/giỏ có ≥1 tin nhắn từ khách (messageCount > 0).',
+    },
+    {
+        id: 'co_binh_luan',
+        label: 'Có bình luận',
+        group: 'Nội dung / Tương tác',
+        desc: 'Đơn/giỏ có thêm bình luận (commentCount > 1). Lưu ý: mỗi bản ghi mặc định đã tính 1 bình luận gốc nên ngưỡng là > 1 (≥2) để lọc đơn thực sự có bình luận bổ sung/gộp.',
+    },
 ];
 
 const TRIGGER_IDS = new Set(TRIGGERS.map((t) => t.id));
@@ -200,6 +232,16 @@ const PREDICATES = {
     // (kpi_user cần products.length > 0) → giỏ rỗng có pill "Giỏ trống", không có pill KPI.
     gio_trong: (o) =>
         o.status !== 'cancelled' && (!Array.isArray(o.products) || o.products.length === 0),
+    // Đã đối soát: PBH fulfillment đã đóng gói/giao xong.
+    da_doi_soat: (o) => ['packed', 'shipped', 'delivered'].includes(o.pbhFulfillmentState),
+    // Khách lạ: chưa gán customer_id (chưa khớp hồ sơ KH).
+    khach_la: (o) => o.customerId == null,
+    // Có ghi chú: note hệ thống HOẶC ghi chú NV (userNote).
+    co_ghi_chu: (o) => _hasText(o.note) || _hasText(o.userNote),
+    // Có tin nhắn từ khách.
+    co_tin_nhan: (o) => Number(o.messageCount || 0) > 0,
+    // Có bình luận bổ sung. comment_count mặc định 1 (bình luận gốc) → ngưỡng > 1.
+    co_binh_luan: (o) => Number(o.commentCount || 0) > 1,
 
     chua_nhan_ck: (o) =>
         o.status === 'draft' &&
@@ -574,6 +616,20 @@ async function ensureTable(pool) {
         await pool.query(
             `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
              VALUES ('gio_trong', 'Giỏ trống', 'gio_trong', '#94a3b8', 'shopping-cart', 15, 'system', $1, $1)
+             ON CONFLICT (code) DO NOTHING`,
+            [Date.now()]
+        );
+        // Default tags bổ sung (2026-06-26 — user yêu cầu thêm trigger): Khách lạ, Có
+        // ghi chú, Có tin nhắn, Có bình luận, Đã đối soát. Cùng cơ chế idempotent như
+        // 'Giỏ trống' (ON CONFLICT DO NOTHING — không đè nếu admin đã chỉnh; muốn ẩn → is_active=false).
+        await pool.query(
+            `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
+             VALUES
+               ('da_doi_soat',  'Đã đối soát',  'da_doi_soat',  '#16a34a', 'package-check',  12, 'system', $1, $1),
+               ('khach_la',     'Khách lạ',     'khach_la',     '#f59e0b', 'user-x',          8, 'system', $1, $1),
+               ('co_ghi_chu',   'Có ghi chú',   'co_ghi_chu',   '#0ea5e9', 'sticky-note',    40, 'system', $1, $1),
+               ('co_tin_nhan',  'Có tin nhắn',  'co_tin_nhan',  '#6366f1', 'message-circle', 41, 'system', $1, $1),
+               ('co_binh_luan', 'Có bình luận', 'co_binh_luan', '#8b5cf6', 'message-square', 42, 'system', $1, $1)
              ON CONFLICT (code) DO NOTHING`,
             [Date.now()]
         );

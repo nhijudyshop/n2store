@@ -2,6 +2,22 @@
 
 ## 2026-06-26
 
+### [web2/order-tags] Thêm 5 trigger mới (user: "không đủ trigger")
+
+User mở "Thêm thẻ" thấy dropdown ngắn → giải thích: dropdown CHỈ hiện trigger CHƯA dùng (1 trigger = 1 thẻ; 8/23 đã dùng bị ẩn gồm cả gio_trong vừa tạo). User chọn thêm 5 trigger mới.
+
+**Files** (`render.com/services/web2-order-tags-service.js`) — mỗi trigger thêm 3 chỗ (TRIGGERS registry + PREDICATES + seed idempotent):
+
+- `khach_la` "Khách lạ" (nhóm **Khách hàng** — mới) — `o.customerId == null` (chưa gán KH). Màu amber, icon user-x.
+- `co_ghi_chu` "Có ghi chú" (nhóm **Nội dung / Tương tác** — mới) — `_hasText(note) || _hasText(userNote)`.
+- `co_tin_nhan` "Có tin nhắn" — `messageCount > 0`.
+- `co_binh_luan` "Có bình luận" — `commentCount > 1` (⚠ comment_count mặc định 1 = bình luận gốc → ngưỡng >1 để lọc đơn thực sự có bình luận bổ sung, tránh tag luôn-bật vô nghĩa).
+- `da_doi_soat` "Đã đối soát" (nhóm **PBH / Trạng thái**) — `pbhFulfillmentState ∈ {packed,shipped,delivered}`.
+
+Đã xác minh field server-side: `customerId/note/userNote/messageCount/commentCount` (mapRow native-orders) + `pbhFulfillmentState` (set ở route line 1756, TRƯỚC `enrichOrdersWithTags` line 1829). KHÔNG cần đổi frontend (order-tags page fetch `/triggers` động; native-orders render `o.autoTags`).
+
+**Verify**: syntax OK; unit-test 16 assertion 5 predicate ALL PASS (khach_la null/0/123, co_ghi_chu note/userNote/rỗng, co_tin_nhan >0, co_binh_luan 3/1/0, da_doi_soat packed/delivered/pending/null). E2E chờ deploy (seed + predicate server-side). Status ✅ (chờ deploy)
+
 ### [web2/order-tags + native-orders] TAG mới "Giỏ trống" (trigger gio_trong)
 
 Yêu cầu: thêm tag trigger cho giỏ trống / giỏ không có sản phẩm (tiếp nối câu hỏi "sao giỏ 2-3 không có pill KPI" — vì kpi_user cần `products.length > 0`). Tag này đánh dấu rõ giỏ rỗng.
