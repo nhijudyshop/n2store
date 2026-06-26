@@ -2,6 +2,26 @@
 
 ## 2026-06-26
 
+### [web2/report-warehouse] Báo cáo kho: thêm ĐỊA DANH (cha của NCC+SP) + fix review
+
+Follow-up trang Báo cáo kho. User: "chia theo địa danh (HÀ NỘI, HƯƠNG CHÂU…) — cái này CHA của NCC và sản phẩm" + "NCC hiện rõ phần chưa nhận hàng".
+
+**Thêm chiều ĐỊA DANH (region = `tab.label` Sổ Order / `web2_products.region`):**
+
+- `web2-warehouse-report.js`: mỗi product/supplier mang `region`; thêm `regions[]` rollup (mỗi địa danh: Số NCC + Số SP + mua vào/chưa nhận/bán ra). suppliers gom theo (region, NCC) — NCC lồng trong địa danh. SELECT thêm `region` từ web2_products (canonical), fallback `tab.label`.
+- `report-warehouse/index.html`: dropdown lọc **Địa danh**, view thứ 3 **📍 Theo địa danh** (mặc định), cột **Địa danh** trong bảng NCC + SP. KPI "Nhà cung cấp" → "Địa danh" (N địa danh · X NCC · Y SP). CSV theo view (region/ncc/sp) kèm cột địa danh.
+
+**Fix từ adversarial review (workflow 12 agent, 7 defect confirmed):**
+
+- **HIGH** footer TỔNG CỘNG: tính lại Σ theo dòng ĐANG HIỂN THỊ (khớp body khi lọc/search), label "TỔNG (đã lọc)" khi có filter.
+- **MED** "Mua vào (đã nhận)" partial_received: dùng SL nhận thật `min(qtyReceived, qty)` (mirror `lib/web2-so-order-qty.js`), KHÔNG đếm nguyên SL đặt; "Chưa nhận" = `qty − nhận thật`.
+- **MED** CSV formula injection: prefix `'` cho cell bắt đầu `= + - @ \t \r` (mirror supplier-debt).
+- **MED** KPI kẹt skeleton khi load lỗi → reset.
+- **LOW** nút Thử lại inline-onclick ReferenceError → addEventListener.
+- **LOW** tên file CSV theo `lastData.range` (không phải ô input).
+
+**Verify**: unit harness 40+ assertions pass (region rollup HÀ NỘI/HƯƠNG CHÂU/SÀI GÒN, partial qtyReceived, currency, date filter). Browser smoke: 3 view (địa danh/NCC/SP) + cột Địa danh + dropdown lọc + footer khớp dòng hiển thị, **0 console errors**. Status: ✅
+
 ### [so-order][web2/shared] Tự tạo TÊN SP từ biến thể đã chọn (có thể sửa) — Web2VariantPicker
 
 User: chọn biến thể trong modal Sổ Order → tự sinh TÊN SP, điền vào ô Tên (sửa được). VD chọn Áo Trắng + Quần Đen + Giày Đen → "ÁO TRẮNG QUẦN ĐEN GIÀY ĐEN".

@@ -643,7 +643,7 @@
                     const headTop = `
                         <tr>
                             <th rowspan="2">#</th>
-                            ${isNcc ? '<th rowspan="2" data-sort="supplier">NCC</th><th rowspan="2" class="r" data-sort="productCount">Số SP</th>' : '<th rowspan="2" data-sort="code">Mã</th><th rowspan="2" data-sort="name">Tên SP</th><th rowspan="2" data-sort="supplier">NCC</th>'}
+                            ${cfg.head}
                             <th class="grp buy" colspan="2">Mua vào (đã nhận)</th>
                             <th class="grp pending" colspan="2">Chưa nhận hàng</th>
                             <th class="grp sell" colspan="2">Bán ra</th>
@@ -658,12 +658,9 @@
                         .map((r, i) => {
                             const zero =
                                 !r.buyQty && !r.pendingQty && !r.sellQty ? ' class="zero"' : '';
-                            const idCells = isNcc
-                                ? `<td class="ncc-cell">${esc(r.supplier)}</td><td class="r">${fmtInt(r.productCount)}</td>`
-                                : `<td class="code-cell">${esc(r.code || '—')}</td><td>${esc(r.name)}${r.variant ? ` <span style="color:#9ca3af">· ${esc(r.variant)}</span>` : ''}</td><td>${esc(r.supplier)}</td>`;
                             return `<tr${zero}>
                                 <td>${i + 1}</td>
-                                ${idCells}
+                                ${cfg.cell(r)}
                                 <td class="r money">${r.buyQty ? fmtInt(r.buyQty) : '—'}</td>
                                 <td class="r money">${r.buyAmount ? fmtMoney(r.buyAmount) : '—'}</td>
                                 <td class="r pend">${r.pendingQty ? fmtInt(r.pendingQty) : '—'}</td>
@@ -674,9 +671,8 @@
                         })
                         .join('');
 
-                    const spanLeft = isNcc ? 2 : 3; // số cột định danh (sau #)
                     const foot = `<tr>
-                        <td colspan="${spanLeft + 1}">${filtered ? 'TỔNG (đã lọc)' : 'TỔNG CỘNG'}</td>
+                        <td colspan="${cfg.span + 1}">${filtered ? 'TỔNG (đã lọc)' : 'TỔNG CỘNG'}</td>
                         <td class="r">${fmtInt(tot.buyQty)}</td>
                         <td class="r">${fmtMoney(tot.buyAmount)}</td>
                         <td class="r pend">${fmtInt(tot.pendingQty)}</td>
@@ -700,45 +696,71 @@
                                 else {
                                     sortKey = k;
                                     sortDir =
-                                        k === 'supplier' || k === 'name' || k === 'code' ? 1 : -1;
+                                        k === 'supplier' ||
+                                        k === 'name' ||
+                                        k === 'code' ||
+                                        k === 'region'
+                                            ? 1
+                                            : -1;
                                 }
                                 render();
                             })
                         );
 
-                    $('#tableNote').textContent = isNcc
-                        ? `${rows.length} NCC · "Chưa nhận hàng" = phần chưa về kho (dòng Nháp + phần còn lại của dòng nhận 1 phần). Mua vào = SL nhận thật.`
-                        : `${rows.length} mã SP · Mua vào = hàng đã nhận thật (Sổ Order); Bán ra = PBH Hoàn thành. Lọc theo khoảng ngày.`;
+                    const scope = currentRegion ? ` · địa danh "${currentRegion}"` : '';
+                    $('#tableNote').textContent =
+                        currentView === 'region'
+                            ? `${rows.length} địa danh${scope} · Địa danh (HÀ NỘI, HƯƠNG CHÂU…) là cha của NCC + SP. "Chưa nhận" = phần chưa về kho.`
+                            : currentView === 'ncc'
+                              ? `${rows.length} NCC theo địa danh${scope} · "Chưa nhận hàng" = phần chưa về kho (Nháp + phần còn lại của dòng nhận 1 phần). Mua vào = SL nhận thật.`
+                              : `${rows.length} mã SP${scope} · Mua vào = hàng đã nhận thật (Sổ Order); Bán ra = PBH Hoàn thành. Lọc theo khoảng ngày.`;
                 }
 
                 // ---------- CSV ----------
+                const METRIC_HEAD = [
+                    'Mua vào SL',
+                    'Mua vào Tiền',
+                    'Chưa nhận SL',
+                    'Chưa nhận Tiền',
+                    'Bán ra SL',
+                    'Bán ra Tiền',
+                ];
+                const metricCells = (r) => [
+                    r.buyQty,
+                    r.buyAmount,
+                    r.pendingQty,
+                    r.pendingAmount,
+                    r.sellQty,
+                    r.sellAmount,
+                ];
+                const CSV_CFG = {
+                    region: {
+                        tag: 'diadanh',
+                        head: ['Địa danh', 'Số NCC', 'Số SP', ...METRIC_HEAD],
+                        row: (r) => [r.region, r.supplierCount, r.productCount, ...metricCells(r)],
+                    },
+                    ncc: {
+                        tag: 'ncc',
+                        head: ['Địa danh', 'NCC', 'Số SP', ...METRIC_HEAD],
+                        row: (r) => [r.region, r.supplier, r.productCount, ...metricCells(r)],
+                    },
+                    product: {
+                        tag: 'sp',
+                        head: ['Mã', 'Tên SP', 'Biến thể', 'Địa danh', 'NCC', ...METRIC_HEAD],
+                        row: (r) => [
+                            r.code || '',
+                            r.name,
+                            r.variant || '',
+                            r.region,
+                            r.supplier,
+                            ...metricCells(r),
+                        ],
+                    },
+                };
                 function exportCsv() {
                     if (!lastData) return;
                     const rows = currentRows();
-                    const isNcc = currentView === 'ncc';
-                    const headers = isNcc
-                        ? [
-                              'NCC',
-                              'Số SP',
-                              'Mua vào SL',
-                              'Mua vào Tiền',
-                              'Chưa nhận SL',
-                              'Chưa nhận Tiền',
-                              'Bán ra SL',
-                              'Bán ra Tiền',
-                          ]
-                        : [
-                              'Mã',
-                              'Tên SP',
-                              'Biến thể',
-                              'NCC',
-                              'Mua vào SL',
-                              'Mua vào Tiền',
-                              'Chưa nhận SL',
-                              'Chưa nhận Tiền',
-                              'Bán ra SL',
-                              'Bán ra Tiền',
-                          ];
+                    const cfg = CSV_CFG[currentView] || CSV_CFG.region;
                     // Quote RFC4180 + chống CSV/formula injection: cell bắt đầu = + - @ TAB CR
                     // → Excel/Sheets thực thi như công thức → prefix dấu ' (mirror supplier-debt csvEscape).
                     const csvCell = (v) => {
@@ -746,33 +768,8 @@
                         if (/^[=+\-@\t\r]/.test(s.trimStart())) s = "'" + s;
                         return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
                     };
-                    const lines = [headers.join(',')];
-                    for (const r of rows) {
-                        const arr = isNcc
-                            ? [
-                                  r.supplier,
-                                  r.productCount,
-                                  r.buyQty,
-                                  r.buyAmount,
-                                  r.pendingQty,
-                                  r.pendingAmount,
-                                  r.sellQty,
-                                  r.sellAmount,
-                              ]
-                            : [
-                                  r.code || '',
-                                  r.name,
-                                  r.variant || '',
-                                  r.supplier,
-                                  r.buyQty,
-                                  r.buyAmount,
-                                  r.pendingQty,
-                                  r.pendingAmount,
-                                  r.sellQty,
-                                  r.sellAmount,
-                              ];
-                        lines.push(arr.map(csvCell).join(','));
-                    }
+                    const lines = [cfg.head.join(',')];
+                    for (const r of rows) lines.push(cfg.row(r).map(csvCell).join(','));
                     const blob = new Blob(['﻿' + lines.join('\n')], {
                         type: 'text/csv;charset=utf-8',
                     });
@@ -782,7 +779,7 @@
                     // Tên file theo khoảng ngày ĐÃ FETCH (lastData.range), không phải ô input
                     // hiện tại — tránh lệch khi user đổi ngày nhưng chưa load xong.
                     const rg = lastData.range || {};
-                    a.download = `bao-cao-kho-${isNcc ? 'ncc' : 'sp'}-${rg.from || $('#fromDate').value}_${rg.to || $('#toDate').value}.csv`;
+                    a.download = `bao-cao-kho-${cfg.tag}-${rg.from || $('#fromDate').value}_${rg.to || $('#toDate').value}.csv`;
                     a.click();
                     setTimeout(() => URL.revokeObjectURL(url), 2000);
                 }
@@ -823,6 +820,10 @@
                             render();
                         })
                     );
+                    $('#regionFilter').addEventListener('change', (e) => {
+                        currentRegion = e.target.value || '';
+                        render();
+                    });
                     let _t;
                     $('#searchBox').addEventListener('input', () => {
                         clearTimeout(_t);
