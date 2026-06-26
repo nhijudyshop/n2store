@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f17cf53` — docs(dev-log): system UI + flow audit + 5 fixes (2026-06-26)
-**Last updated**: 2026-06-26 15:35:00 +07
-**Latest session**: [`RESUME:20260626-153500-f17cf53`](../20260626-153500-f17cf53.md)
-**Summary**: System UI (modal/AI widget) + audit 19-agent luồng (12 bug) + fix 5 (report merge/refunds KPI, nhận hàng NCC, hủy PBH restock); defer 6 money/stock
+**Latest commit**: `66f79ae` — docs: flow audit 12/12 FIXED + dev-log (money/stock fixes verified integration test)
+**Last updated**: 2026-06-26 16:23:28 +07
+**Latest session**: [`RESUME:20260626-162328-66f79ae`](../20260626-162328-66f79ae.md)
+**Summary**: Fix toàn bộ 12 bug audit luồng web2: report merge/refunds KPI, nhận hàng NCC, KNH/native restock, ví NCC cap qty/cost/returned_row_ids — verify integration test Postgres thật (24 assertions)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-26 15:35
+- [`docs/`](./docs.md) — updated 2026-06-26 16:23
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -61,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-26 15:35
+- [`render.com/`](./render.com.md) — updated 2026-06-26 16:23
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07

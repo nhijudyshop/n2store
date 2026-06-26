@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260626-153500-f17cf53`
-**Session file**: [`./20260626-153500-f17cf53.md`](../20260626-153500-f17cf53.md)
-**Commit**: `f17cf53` — docs(dev-log): system UI + flow audit + 5 fixes (2026-06-26)
-**Last updated**: 2026-06-26 15:35:00 +07
-**Summary**: System UI (modal/AI widget) + audit 19-agent luồng (12 bug) + fix 5 (report merge/refunds KPI, nhận hàng NCC, hủy PBH restock); defer 6 money/stock
+**Latest session**: `RESUME:20260626-162328-66f79ae`
+**Session file**: [`./20260626-162328-66f79ae.md`](../20260626-162328-66f79ae.md)
+**Commit**: `66f79ae` — docs: flow audit 12/12 FIXED + dev-log (money/stock fixes verified integration test)
+**Last updated**: 2026-06-26 16:23:28 +07
+**Summary**: Fix toàn bộ 12 bug audit luồng web2: report merge/refunds KPI, nhận hàng NCC, KNH/native restock, ví NCC cap qty/cost/returned_row_ids — verify integration test Postgres thật (24 assertions)
 
 ## Files changed in this commit (`docs/`)
 
@@ -16,11 +16,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `66f79ae95` docs: flow audit 12/12 FIXED + dev-log (money/stock fixes verified integration test) _(2026-06-26)_
+- `66e5026a2` chore(session): RESUME:20260626-153500-f17cf53 _(2026-06-26)_
 - `f17cf5397` docs(dev-log): system UI + flow audit + 5 fixes (2026-06-26) _(2026-06-26)_
 - `52f5e4b5a` fix(web2 flow): nhận hàng đúng NCC (#1/#8) + hủy PBH restock per-code (#9) + audit doc _(2026-06-26)_
 - `ecb116569` chore(session): RESUME:20260626-150059-b91dee9 _(2026-06-26)_
-- `b91dee909` feat(web2/products): tự tạo TÊN SP từ loại + Màu/Size (sửa được) — Kho SP _(2026-06-26)_
-- `eb64dfa01` chore(session): RESUME:20260626-144207-cdb8d3b _(2026-06-26)_
 
 ---
 
@@ -28,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260626-153500-f17cf53` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260626-162328-66f79ae` cho Claude walk chain theo CLAUDE.md protocol.
