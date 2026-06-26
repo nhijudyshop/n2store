@@ -391,7 +391,7 @@
         const mount = document.getElementById('ccModalMount');
         mount.innerHTML = `
           <div class="cc-modal-backdrop" id="ccDtBackdrop">
-            <div class="cc-modal cc-modal-lg">
+            <div class="cc-modal cc-modal-lg" role="dialog" aria-modal="true" aria-label="Chi tiết bảng lương nhân viên">
               <div class="cc-modal-head">
                 <div>Chi tiết lương · <b>${cc.esc(R.name)}</b> · ${cc.state.monthKey}${isLocked() ? ' <span style="color:#059669;font-size:12px">🔒 đã chốt</span>' : ''}</div>
                 <button class="cc-x" id="ccDtClose">✕</button>
@@ -610,7 +610,7 @@
         const mount = document.getElementById('ccModalMount');
         mount.innerHTML = `
           <div class="cc-modal-backdrop" id="ccPlBackdrop">
-            <div class="cc-modal cc-modal-lg">
+            <div class="cc-modal cc-modal-lg" role="dialog" aria-modal="true" aria-label="Sửa bảng lương nhân viên">
               <div class="cc-modal-head">
                 <div>Điều chỉnh lương · <b>${cc.esc(cc.empName(du))}</b> · ${cc.state.monthKey}</div>
                 <button class="cc-x" id="ccPlClose">✕</button>

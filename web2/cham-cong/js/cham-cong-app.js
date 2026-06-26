@@ -373,7 +373,10 @@
                 <span class="cc-d-wd">${wd}</span><span class="cc-d-num">${dnum}</span></th>`;
         }
 
+        // Glyph trong chấm (a11y WCAG 1.4.1 — KHÔNG chỉ phân biệt bằng màu).
+        const GLYPH = { ontime: '✓', lateearly: '!', missing: '?', absent: '' };
         let rows = '';
+        const needFix = []; // ngày chấm THIẾU (quên 1 lượt) cả tháng → hàng đợi đối soát.
         for (const du of dus) {
             const cfg = cfgFor(du);
             const recs = recordsFor(du.device_user_id);
@@ -397,17 +400,34 @@
                 const r = month.dayResults[dk] || {};
                 const isFull = isFulldaySet(du.device_user_id, dk);
                 const st = S.dayStatus(r, isFull); // ontime|lateearly|missing|absent
+                if (st === 'missing')
+                    needFix.push({ uid: du.device_user_id, name: empName(du), dk });
                 const wd = weekdayShort(dk);
                 const note = state.dayNotes[`${du.device_user_id}_${dk}`];
                 const noteCls = note ? ' has-note' : '';
                 const noteTitle = note ? ` · 📝 ${esc(note)}` : '';
-                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${S.STATUS_LABEL[st]} — bấm xem chi tiết${noteTitle}"><span class="cc-dot cc-dot-${st}"></span></td>`;
+                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${S.STATUS_LABEL[st]} — bấm xem chi tiết${noteTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${S.STATUS_LABEL[st]}" data-g="${GLYPH[st] || ''}"></span></td>`;
             }
             rows += `<tr>${cells}</tr>`;
         }
+        // Hàng đợi ĐỐI SOÁT cả tháng: ngày chấm THIẾU (quên bấm vào/ra) → hiện 0đ âm thầm.
+        // Trước đây chỉ cảnh báo "hôm nay"; giờ gom toàn tháng để admin sửa, không sót lương.
+        const fixHtml = needFix.length
+            ? `<div class="cc-reconcile" role="region" aria-label="Cần đối soát chấm công thiếu">
+                 <b>⚠ Cần đối soát (${needFix.length})</b>
+                 <span class="cc-reconcile-hint">— ngày chấm THIẾU 1 lượt (đang tính 0đ). Bấm để sửa:</span>
+                 <span class="cc-reconcile-list">${needFix
+                     .map(
+                         (x) =>
+                             `<button class="cc-reconcile-chip" data-uid="${esc(x.uid)}" data-dk="${x.dk}" title="${esc(x.name)} — ${x.dk} · bấm để chấm bù">${esc(x.name)} · ${x.dk.slice(8)}/${x.dk.slice(5, 7)}</button>`
+                     )
+                     .join('')}</span>
+               </div>`
+            : '';
 
         el.innerHTML = `
             ${renderTodayHtml()}
+            ${fixHtml}
             <div class="cc-grid-wrap">
               <table class="cc-grid cc-grid-dots">
                 <thead><tr>${head}</tr></thead>
@@ -415,15 +435,23 @@
               </table>
             </div>
             <div class="cc-legend">
-              <span><i class="cc-dot cc-dot-ontime"></i> Đúng giờ</span>
-              <span><i class="cc-dot cc-dot-lateearly"></i> Đi muộn / Về sớm</span>
-              <span><i class="cc-dot cc-dot-missing"></i> Chấm công thiếu</span>
+              <span><i class="cc-dot cc-dot-ontime" data-g="✓"></i> Đúng giờ</span>
+              <span><i class="cc-dot cc-dot-lateearly" data-g="!"></i> Đi muộn / Về sớm</span>
+              <span><i class="cc-dot cc-dot-missing" data-g="?"></i> Chấm công thiếu</span>
               <span><i class="cc-dot cc-dot-absent"></i> Nghỉ làm</span>
             </div>`;
 
-        el.querySelectorAll('.cc-cell').forEach((c) => {
-            c.addEventListener('click', () => openDay(c.dataset.uid, c.dataset.dk));
-        });
+        // Event delegation: 1 listener trên #ccBody (thay ~496 listener/ô) — bind 1 LẦN
+        // (el tồn tại qua các lần render; innerHTML chỉ thay con). Ô lưới + chip đối soát
+        // đều mở openDay theo data-uid/data-dk.
+        if (!el.dataset.ccDelegated) {
+            el.dataset.ccDelegated = '1';
+            el.addEventListener('click', (e) => {
+                const t = e.target.closest('.cc-cell, .cc-reconcile-chip');
+                if (t && el.contains(t) && t.dataset.uid && t.dataset.dk)
+                    openDay(t.dataset.uid, t.dataset.dk);
+            });
+        }
     }
 
     // ── Day detail popup (xem punch + công đủ + thêm/xoá tay) ─────────────────
@@ -478,7 +506,7 @@
         const mount = document.getElementById('ccModalMount');
         mount.innerHTML = `
           <div class="cc-modal-backdrop" id="ccDayBackdrop">
-            <div class="cc-modal cc-modal-detail">
+            <div class="cc-modal cc-modal-detail" role="dialog" aria-modal="true" aria-label="Chấm công chi tiết ngày">
               <div class="cc-modal-head">
                 <div class="cc-dh-title">Chấm công</div>
                 <button class="cc-x" id="ccDayClose">✕</button>
@@ -700,6 +728,13 @@
 
         document.querySelectorAll('.cc-tab').forEach((b) => {
             b.addEventListener('click', () => setTab(b.dataset.tab));
+        });
+        // A11y: Esc đóng modal đang mở. Mọi modal cham-cong (ngày / chi tiết / sửa lương)
+        // mount vào #ccModalMount, đóng = clear innerHTML (giống nút ✕ / click backdrop).
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const mount = document.getElementById('ccModalMount');
+            if (mount && mount.querySelector('.cc-modal-backdrop')) mount.innerHTML = '';
         });
         const monthInp = document.getElementById('ccMonth');
         if (monthInp) {

@@ -713,12 +713,23 @@
     padding: 0;
 }
 .cc-dot {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 13px;
     height: 13px;
     border-radius: 50%;
     vertical-align: middle;
     background: var(--web2-text-faded);
+}
+/* Glyph trong chấm — a11y WCAG 1.4.1: trạng thái KHÔNG chỉ phân biệt bằng màu
+   (✓ đúng giờ · ! muộn/sớm · ? chấm thiếu · trống = nghỉ). */
+.cc-dot[data-g]::after {
+    content: attr(data-g);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
 }
 .cc-dot-ontime {
     background: var(--web2-primary);
@@ -756,6 +767,54 @@
     text-transform: uppercase;
     font-size: 12px;
     letter-spacing: 0.2px;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Hàng đợi ĐỐI SOÁT — ngày chấm thiếu cả tháng (Group C). */
+.cc-reconcile {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 12px;
+    padding: 9px 12px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    font-size: 12.5px;
+    color: #9a3412;
+}
+.cc-reconcile-hint {
+    color: #b45309;
+    font-weight: 500;
+}
+.cc-reconcile-list {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.cc-reconcile-chip {
+    border: 1px solid #fdba74;
+    background: #ffedd5;
+    color: #9a3412;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+.cc-reconcile-chip:hover {
+    background: #fed7aa;
+    border-color: #fb923c;
+}
+.cc-reconcile-chip:focus-visible {
+    outline: 2px solid #ea580c;
+    outline-offset: 1px;
 }
 .cc-name-days {
     flex: none;

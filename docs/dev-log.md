@@ -2,6 +2,20 @@
 
 ## 2026-06-26
 
+### [web2/cham-cong] FIX đợt 4 (Group C đối soát + Group D a11y/perf)
+
+**Group C — hàng đợi ĐỐI SOÁT chấm thiếu cả tháng** (`cham-cong-app.js` renderTimesheet): ngày chấm THIẾU 1 lượt (quên bấm vào/ra) đang trả 0đ âm thầm — trước chỉ cảnh báo "hôm nay". Giờ gom TOÀN THÁNG mọi NV (status `missing`) → panel "⚠ Cần đối soát (N)" với chip `NV · DD/MM` bấm mở openDay chấm bù. Verify screenshot: panel cam + 3 chip.
+
+**Group D — a11y + perf**:
+
+- **Chấm có GLYPH** (a11y WCAG 1.4.1 — không chỉ phân biệt màu): ✓ đúng giờ · ! muộn/sớm · ? chấm thiếu · trống = nghỉ. `cc-dot` flex-center + `[data-g]::after` (`cham-cong.css`) + `aria-label` từng chấm. Verify screenshot: glyph trắng trong chấm màu.
+- **Event delegation**: 1 listener trên `#ccBody` (bind 1 lần qua `dataset.ccDelegated`) thay ~496 listener/ô tạo lại mỗi render SSE. Ô lưới + chip đối soát chung handler.
+- **Modal Esc + ARIA**: global keydown Esc đóng modal đang mở (`#ccModalMount`); thêm `role="dialog" aria-modal aria-label` cho 3 modal (ngày + chi tiết + sửa lương). Verify: Escape → modal đóng.
+- **Sticky name truncate**: `.cc-name-txt` max-width 110px + ellipsis (tên dài không phá lưới mobile). Verify: "NGUYỄN THỊ M…".
+- **SSE doc**: thêm `web2:attendance` vào registry topics CLAUDE.md.
+
+Cache-bust app `?v=20260626fix`, css `?v=20260626fix`. **CHƯA làm (LOW polish, follow-up)**: memoize calcMonth per-emp, gỡ CSS chết render cũ, modal body-scroll-lock (Tier-1 anti-lag) + period-lock full server-recompute.
+
 ### [web2/cham-cong] FIX đợt 3 (Group B — backend security)
 
 - **Secret ingest FAIL-CLOSED** (`render.com/routes/web2-attendance.js` requireAgentSecret): thiếu `WEB2_ATTENDANCE_SECRET` trước đây MỞ (ai cũng chèn punch) → giờ trả **503**, trừ khi bật cờ tường minh `WEB2_ATTENDANCE_ALLOW_OPEN=1` (dev). Prod đã set secret → không đổi hành vi. (Giữ `?secret=` query vì agent đẩy chấm công là phần mềm NGOÀI repo — không xác minh được header; bỏ query cần phối hợp cấu hình agent, hoãn như ADMS.)

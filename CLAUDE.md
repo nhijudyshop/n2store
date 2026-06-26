@@ -349,7 +349,7 @@ Khi code feature Web 2.0:
 
 **Nếu debug UI không update**: mở SSE Monitor xem log live, không cần đọc Render Dashboard logs (truy cập chậm + cần web access).
 
-Topics đã active (xem `docs/web2/SSE-REALTIME.md` §9): `web2:products`, `web2:variants`, `web2:users`, `web2:native-orders`, `web2:fast-sale-orders`, `web2:cart`, `web2:notifications`, `web2:reconcile`, `web2:purchase-refund`, `web2:livestream-snapshots`, `web2:wallet:<phone>`, `web2:customer-wallet`, `web2:<slug>` (78 generic), `web2:_admin:sse-log` (admin).
+Topics đã active (xem `docs/web2/SSE-REALTIME.md` §9): `web2:products`, `web2:variants`, `web2:users`, `web2:native-orders`, `web2:fast-sale-orders`, `web2:cart`, `web2:notifications`, `web2:reconcile`, `web2:purchase-refund`, `web2:livestream-snapshots`, `web2:wallet:<phone>`, `web2:customer-wallet`, `web2:attendance` (chấm công — actions records/device-users/payroll/day-note/fullday/holidays/sync/heartbeat/period-lock), `web2:<slug>` (78 generic), `web2:_admin:sse-log` (admin).
 
 ### SSE Server TÁCH RIÊNG Web 1.0 và Web 2.0 (BẮT BUỘC từ 2026-05-26)
 
