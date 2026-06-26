@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9b51f2d` — chore(web2): SUP_SEP dùng escape '\u0000' thay NUL byte (file binary → text, grep/diff lại được)
-**Last updated**: 2026-06-26 14:37:45 +07
-**Latest session**: [`RESUME:20260626-143745-9b51f2d`](../20260626-143745-9b51f2d.md)
-**Summary**: Báo cáo kho Web 2.0: mua vào/bán ra/chưa nhận theo Địa danh→NCC→SP, lọc ngày, adversarial review fixed
+**Latest commit**: `cdb8d3b` — docs(session): fill Báo cáo kho session notes
+**Last updated**: 2026-06-26 14:42:08 +07
+**Latest session**: [`RESUME:20260626-144207-cdb8d3b`](../20260626-144207-cdb8d3b.md)
+**Summary**: docs(session): fill Báo cáo kho session notes
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
