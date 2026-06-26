@@ -265,6 +265,10 @@ class PurchaseOrderUIComponents {
                 </div>
 
                 <div class="filter-group filter-group--actions">
+                    <button id="btnExportSoOrder" class="btn btn-outline" title="Xuất bảng → mã dán vào Sổ Order (Web 2.0)">
+                        <i data-lucide="share-2"></i>
+                        <span>Xuất Sổ Order</span>
+                    </button>
                     <button id="btnReloadTable" class="btn btn-outline" title="Tải lại bảng">
                         <i data-lucide="refresh-cw"></i>
                     </button>
@@ -383,6 +387,11 @@ class PurchaseOrderUIComponents {
         const reloadBtn = container.querySelector('#btnReloadTable');
         if (reloadBtn && handlers.onReload) {
             reloadBtn.addEventListener('click', handlers.onReload);
+        }
+
+        const exportSoBtn = container.querySelector('#btnExportSoOrder');
+        if (exportSoBtn && handlers.onExportSoOrder) {
+            exportSoBtn.addEventListener('click', handlers.onExportSoOrder);
         }
     }
 

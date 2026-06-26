@@ -479,6 +479,13 @@ class PurchaseOrderController {
             onStatusFilter: (status) => this.dataManager.setStatusFilter(status),
             onClear: () => this.dataManager.clearFilters(),
             onReload: () => this.dataManager.refresh(),
+            onExportSoOrder: () => {
+                if (!window.SoOrderExport) {
+                    this.ui.showToast('Module xuất Sổ Order chưa tải', 'error');
+                    return;
+                }
+                window.SoOrderExport.open(this.dataManager.orders);
+            },
         });
     }
 

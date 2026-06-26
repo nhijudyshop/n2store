@@ -87,6 +87,26 @@
         return def;
     }
 
+    // ── Token N2 (mã base64 export từ trang khác, vd Web 1.0 Purchase Orders) ─
+    // Spec (data contract, KHÔNG share code với bên export):
+    //   "N2IMPORT1:" + base64( UTF-8 JSON { ..., rows:[...] } )
+    // Bên export tự sinh; bên này tự giải — chỉ chung định dạng chuỗi.
+    const N2_TOKEN_PREFIX = 'N2IMPORT1:';
+
+    function b64DecodeUtf8(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+    }
+
+    // text → JSON string nếu là token N2 hợp lệ; ngược lại null.
+    function decodeN2Token(trimmed) {
+        if (!trimmed.startsWith(N2_TOKEN_PREFIX)) return null;
+        const b64 = trimmed.slice(N2_TOKEN_PREFIX.length).replace(/\s+/g, '');
+        return b64DecodeUtf8(b64); // ném lỗi nếu base64 hỏng → caller bắt
+    }
+
     // ── CSV parsing ─────────────────────────────────────────────────────
     function detectDelimiter(text) {
         const firstLine = (text.split(/\r?\n/).find((l) => l.trim() !== '') || '').slice(0, 4000);
@@ -214,8 +234,16 @@
 
     // ── Parse text input (auto JSON vs CSV) → raw records ───────────────
     function parseInput(text) {
-        const trimmed = text.trim();
+        let trimmed = text.trim();
         if (!trimmed) return { records: [], format: null, error: 'Chưa có dữ liệu' };
+        // Token N2 (mã base64) → giải về JSON rồi parse tiếp như JSON thường.
+        if (trimmed.startsWith(N2_TOKEN_PREFIX)) {
+            try {
+                trimmed = decodeN2Token(trimmed).trim();
+            } catch (e) {
+                return { records: [], format: 'token', error: 'Mã N2 không hợp lệ: ' + e.message };
+            }
+        }
         // JSON?
         if (trimmed[0] === '[' || trimmed[0] === '{') {
             try {
@@ -346,7 +374,7 @@
                         <div class="w2imp-filename" hidden></div>
                     </div>
                     <div class="w2imp-pane" data-pane="paste" hidden>
-                        <textarea class="w2imp-textarea" rows="7" placeholder="Dán nội dung CSV (cách nhau bởi dấu phẩy) hoặc JSON ([{...}]) vào đây rồi bấm Xem trước…"></textarea>
+                        <textarea class="w2imp-textarea" rows="7" placeholder="Dán CSV, JSON ([{...}]) hoặc MÃ N2 (N2IMPORT1:…) vào đây rồi bấm Xem trước…"></textarea>
                         <button class="w2imp-btn w2imp-btn-ghost" data-act="parse-paste" type="button">
                             <i data-lucide="eye"></i> Xem trước
                         </button>
