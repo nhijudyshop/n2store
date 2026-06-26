@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7bee461` — feat(web2/order-tags): thêm 5 trigger (khach_la, co_ghi_chu, co_tin_nhan, co_binh_luan, da_doi_soat)
-**Last updated**: 2026-06-26 07:44:03 +07
-**Latest session**: [`RESUME:20260626-074403-7bee461`](../20260626-074403-7bee461.md)
-**Summary**: feat(web2/order-tags): thêm 5 trigger (khach_la, co_ghi_chu, co_tin_nhan, co_binh_luan, da_doi_soat)
+**Latest commit**: `c5d43f1` — feat(web2/order-tags): trigger 'Có ghi chú SP' (ghi chú cấp dòng SP) + đổi tên co_ghi_chu → 'Có ghi chú đơn'
+**Last updated**: 2026-06-26 08:32:17 +07
+**Latest session**: [`RESUME:20260626-083217-c5d43f1`](../20260626-083217-c5d43f1.md)
+**Summary**: feat(web2/order-tags): trigger 'Có ghi chú SP' (ghi chú cấp dòng SP) + đổi tên co_ghi_chu → 'Có ghi chú...
 
 ## Folders affected in this commit
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-26 07:44
+- [`docs/`](./docs.md) — updated 2026-06-26 08:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -59,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-26 07:44
+- [`render.com/`](./render.com.md) — updated 2026-06-26 08:32
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
