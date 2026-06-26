@@ -401,4 +401,209 @@ router.post('/web2-cleanup-dead', async (req, res) => {
     }
 });
 
+// =====================================================================
+// POST /web2-wipe-9pages — Wipe data của 9 trang VẬN HÀNH Web 2.0 do shop
+// tạo (beta), + data downstream LIÊN KẾT để KHÔNG còn trạng thái mồ côi:
+//   Đơn Web (native_orders), PBH (fast_sale_orders + history),
+//   Đối soát/giao (pbh_fulfillment_logs), Sổ Order (web2_so_order),
+//   Kho SP (web2_products + history), Ví/Công nợ NCC (web2_supplier_ledger/
+//   _meta + sequence), CK dashboard (web2_payment_signals + customer_intents),
+//   Trả hàng NCC (web2_records[slug=purchase-refund]),
+//   + downstream: ví KH (web2_customer_wallets/_wallet_transactions/_adjustments),
+//     KPI (web2_kpi_*), tag đơn, cart, campaign-cha, web2_returns, QR thanh toán,
+//     pending matches; + UNLINK (giữ dòng) các dòng web2_balance_history đã match.
+//
+// GIỮ NGUYÊN (KHÔNG đụng): web2_customers (hồ sơ KH), web2_balance_history
+//   (log SePay gốc — chỉ reset cờ match), web2_variants (Kho Biến Thể — trang
+//   riêng), web2_users/_user_sessions/_entities/_zalo_accounts/_migrations,
+//   web2_records (TRỪ slug 'purchase-refund').
+//
+// Auto-backup <t>_bak_<tag> TRƯỚC mọi thao tác. KHÔNG CASCADE (fail loud nếu
+// 1 bảng NGOÀI danh sách FK tới bảng wipe). web2Db only.
+//   Body { confirm:'YES-RESET', dryRun? }  Header x-admin-secret = CLEANUP_SECRET
+// =====================================================================
+const WIPE9_TRUNCATE = [
+    // Đơn / PBH / đối soát-giao
+    'native_orders',
+    'fast_sale_orders',
+    'fast_sale_order_history',
+    'pbh_fulfillment_logs',
+    // Sổ Order + Kho SP
+    'web2_so_order',
+    'web2_products',
+    'web2_product_history',
+    // Ví / Công nợ NCC
+    'web2_supplier_ledger',
+    'web2_supplier_meta',
+    // CK dashboard
+    'web2_payment_signals',
+    'web2_customer_intents',
+    // Ví KH (downstream của PBH/CK — xóa để không mồ côi)
+    'web2_customer_wallets',
+    'web2_wallet_transactions',
+    'web2_wallet_adjustments',
+    // KPI (derived từ đơn)
+    'web2_kpi_assignments',
+    'web2_kpi_assignments_history',
+    'web2_kpi_events',
+    // Phụ trợ đơn/SP
+    'web2_order_tags',
+    'web2_cart_history',
+    'web2_campaign_products',
+    'web2_live_parent_campaigns',
+    'web2_returns',
+    'web2_payment_qr_codes',
+    'web2_pending_matches',
+];
+const WIPE9_RECORDS_SLUG = 'purchase-refund';
+const WIPE9_SEQUENCE = 'web2_supplier_move_seq';
+const WIPE9_BALANCE_TABLE = 'web2_balance_history';
+const WIPE9_BALANCE_MATCHED_WHERE =
+    'linked_customer_phone IS NOT NULL OR wallet_processed = TRUE OR debt_added = TRUE';
+
+router.post('/web2-wipe-9pages', async (req, res) => {
+    if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    if (db === req.app.locals.chatDb) {
+        return res.status(400).json({
+            error: 'web2Db === chatDb (WEB2_DATABASE_URL unset) — TỪ CHỐI để không đụng Web 1.0',
+        });
+    }
+    const dryRun = req.body?.dryRun === true;
+    if (!dryRun && req.body?.confirm !== 'YES-RESET') {
+        return res.status(400).json({ error: "cần confirm:'YES-RESET' (hoặc dryRun:true)" });
+    }
+    const tag = tsTag();
+    const out = {
+        dryRun,
+        tag,
+        truncate: [],
+        recordsPurchaseRefund: null,
+        sequence: null,
+        balanceUnlink: null,
+    };
+    try {
+        // FK cascade-risk guard: nếu 1 bảng NGOÀI danh sách wipe FK tới bảng wipe,
+        // TRUNCATE (no-cascade) sẽ fail → báo trước & DỪNG (không âm thầm xoá lan).
+        const wipeSet = new Set(WIPE9_TRUNCATE);
+        const { rows: fks } = await db.query(`
+            SELECT tc.table_name AS child, ccu.table_name AS parent
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.constraint_column_usage ccu
+              ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+            WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public'`);
+        const cascadeRisk = fks.filter((f) => wipeSet.has(f.parent) && !wipeSet.has(f.child));
+        if (cascadeRisk.length) {
+            return res.status(409).json({
+                error: 'FK cascade-risk: bảng NGOÀI danh sách tham chiếu bảng wipe — DỪNG',
+                cascadeRisk,
+            });
+        }
+
+        // 1. Backup + count + collect existing truncate targets.
+        const existing = [];
+        for (const t of WIPE9_TRUNCATE) {
+            if (!(await tableExists(db, t))) {
+                out.truncate.push({ table: t, exists: false });
+                continue;
+            }
+            const n = Number((await db.query(`SELECT COUNT(*)::bigint n FROM "${t}"`)).rows[0].n);
+            const bak = `${t}_bak_${tag}`;
+            if (!dryRun) {
+                await db.query(`DROP TABLE IF EXISTS "${bak}"`);
+                await db.query(`CREATE TABLE "${bak}" AS TABLE "${t}"`);
+            }
+            out.truncate.push({ table: t, rows: n, backupTable: dryRun ? null : bak });
+            existing.push(`"${t}"`);
+        }
+
+        // 2. web2_records slug='purchase-refund' (PARTIAL — chỉ slug này; bảng đa-tenant).
+        if (await tableExists(db, 'web2_records')) {
+            const n = Number(
+                (
+                    await db.query(
+                        `SELECT COUNT(*)::bigint n FROM web2_records WHERE entity_slug=$1`,
+                        [WIPE9_RECORDS_SLUG]
+                    )
+                ).rows[0].n
+            );
+            let bak = null;
+            if (!dryRun && n > 0) {
+                bak = `web2_records_prefund_bak_${tag}`;
+                await db.query(`DROP TABLE IF EXISTS "${bak}"`);
+                await db.query(
+                    `CREATE TABLE "${bak}" AS SELECT * FROM web2_records WHERE entity_slug=$1`,
+                    [WIPE9_RECORDS_SLUG]
+                );
+            }
+            out.recordsPurchaseRefund = { rows: n, backupTable: bak };
+        }
+
+        // 3. web2_balance_history — count matched rows (sẽ UNLINK, GIỮ dòng).
+        if (await tableExists(db, WIPE9_BALANCE_TABLE)) {
+            const n = Number(
+                (
+                    await db.query(
+                        `SELECT COUNT(*)::bigint n FROM ${WIPE9_BALANCE_TABLE} WHERE ${WIPE9_BALANCE_MATCHED_WHERE}`
+                    )
+                ).rows[0].n
+            );
+            let bak = null;
+            if (!dryRun) {
+                bak = `${WIPE9_BALANCE_TABLE}_bak_${tag}`;
+                await db.query(`DROP TABLE IF EXISTS "${bak}"`);
+                await db.query(`CREATE TABLE "${bak}" AS TABLE "${WIPE9_BALANCE_TABLE}"`);
+            }
+            out.balanceUnlink = { matchedRows: n, backupTable: bak };
+        }
+
+        // 4. Sequence presence.
+        const seqExists =
+            (
+                await db.query(
+                    `SELECT 1 FROM information_schema.sequences WHERE sequence_schema='public' AND sequence_name=$1`,
+                    [WIPE9_SEQUENCE]
+                )
+            ).rows.length > 0;
+        out.sequence = { name: WIPE9_SEQUENCE, exists: seqExists, reset: false };
+
+        if (dryRun) {
+            return res.json({ success: true, ...out, note: 'DRY-RUN — chưa đụng gì' });
+        }
+
+        // ===== EXECUTE =====
+        if (existing.length) {
+            await db.query(`TRUNCATE TABLE ${existing.join(', ')} RESTART IDENTITY`);
+        }
+        if (out.recordsPurchaseRefund && out.recordsPurchaseRefund.rows > 0) {
+            const r = await db.query(`DELETE FROM web2_records WHERE entity_slug=$1`, [
+                WIPE9_RECORDS_SLUG,
+            ]);
+            out.recordsPurchaseRefund.deleted = r.rowCount;
+        }
+        if (seqExists) {
+            await db.query(`ALTER SEQUENCE "${WIPE9_SEQUENCE}" RESTART`);
+            out.sequence.reset = true;
+        }
+        if (out.balanceUnlink) {
+            const r = await db.query(
+                `UPDATE ${WIPE9_BALANCE_TABLE}
+                 SET linked_customer_phone = NULL, display_name = NULL, match_method = NULL,
+                     debt_added = FALSE, wallet_processed = FALSE, verification_status = 'PENDING',
+                     verified_by = NULL, verified_at = NULL
+                 WHERE ${WIPE9_BALANCE_MATCHED_WHERE}`
+            );
+            out.balanceUnlink.updated = r.rowCount;
+        }
+        console.log(
+            `[web2-wipe-9pages] EXECUTED tag=${tag} truncated=${existing.length} prefund=${out.recordsPurchaseRefund?.deleted || 0} seqReset=${out.sequence.reset} balanceUnlinked=${out.balanceUnlink?.updated || 0}`
+        );
+        return res.json({ success: true, ...out });
+    } catch (e) {
+        console.error('[web2-wipe-9pages] error:', e.message);
+        return res.status(500).json({ success: false, error: e.message, ...out });
+    }
+});
+
 module.exports = router;
