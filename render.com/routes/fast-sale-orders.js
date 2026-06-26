@@ -1701,7 +1701,10 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
         // (merged PBH spans nhiều member) nên existsQ theo source_id KHÔNG thấy → trước
         // đây tạo PBH thứ 2 = double trừ kho + double trừ ví (stale-tab/direct-API).
         // Bắt theo source_code membership giống cancel route (native-orders.js:119-122).
-        if (existingPbhs.length === 0 && !splitMode) {
+        // FIX audit R2 (#4): chạy CẢ khi split=true (chỉ bỏ qua khi src đã 'cancelled' =
+        // re-PBH sau huỷ). Trước đây `&& !splitMode` → split=true bỏ qua guard → member
+        // của PBH gộp mint được PBH riêng = double trừ kho + ví.
+        if (existingPbhs.length === 0 && src.status !== 'cancelled') {
             const mergedQ = await pool.query(
                 `SELECT * FROM fast_sale_orders
                  WHERE source_type = 'native_order' AND state <> 'cancel'
@@ -2156,10 +2159,22 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
         let walletDeductedNow = 0;
         try {
             await withTransaction(pool, async (client) => {
+                // FIX audit R2 (#1 race): LOCK + RE-READ PBH row TRƯỚC khi trừ ví. Trước đây
+                // dùng r.rows[0].residual STALE (từ INSERT RETURNING) + KHÔNG lock row → chạy
+                // SONG SONG với applyWalletToUnpaidPbhs (deposit về, FOR UPDATE SKIP LOCKED bắt
+                // được PBH này vì TX2 chưa lock) → 2 đường cùng trừ ví theo residual GỐC = ví
+                // bị trừ > số đơn nợ + residual bị clobber. Lock + dùng residual TƯƠI →
+                // 2 đường serialize trên cùng row, đường sau chỉ trừ phần dư.
+                const fresh = await client.query(
+                    `SELECT * FROM fast_sale_orders WHERE id = $1 FOR UPDATE`,
+                    [r.rows[0].id]
+                );
+                const pbhFresh = fresh.rows[0];
+                if (!pbhFresh || pbhFresh.state === 'cancel') return;
                 const wlt = await _applyWalletToPbh(
                     client,
                     src.phone,
-                    r.rows[0],
+                    pbhFresh,
                     req.body?._editor?.userName || req.body?.userName || null
                 );
                 if (wlt.deducted > 0) {
@@ -2649,20 +2664,28 @@ router.post('/:number/cancel', requireWeb2AuthSoft, async (req, res) => {
 // chưa bị revoke, emit actual_revoked với cùng beneficiary + qty_delta âm.
 async function _emitRevokeKpi(pool, orderCode, req) {
     if (!orderCode) return;
+    // FIX audit R2 (#2): PBH GỘP có source_code = 'NJ-A+NJ-B'. KPI actual_confirmed phát
+    // theo TỪNG mã native (order_code = src.code). Phải TÁCH '+' + revoke theo ANY mã thành
+    // viên, nếu không huỷ PBH gộp KHÔNG thu hồi KPI → actual_confirmed phồng vĩnh viễn.
+    const codes = String(orderCode)
+        .split('+')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    if (!codes.length) return;
     const kpiModule = require('./v2/kpi');
     const editor = (req?.body && req.body._editor) || _extractPbhUser(req) || {};
     const actorId = Number(editor.userId || editor.user_id) || Number(editor.id) || null;
     const events = await pool.query(
-        `SELECT e.id, e.product_code, e.qty_delta, e.beneficiary_user_id, e.beneficiary_name,
+        `SELECT e.id, e.order_code, e.product_code, e.qty_delta, e.beneficiary_user_id, e.beneficiary_name,
                 e.customer_id, e.source, e.campaign_id, e.order_campaign_stt
          FROM web2_kpi_events e
-         WHERE e.order_code = $1 AND e.event_type = 'actual_confirmed'
+         WHERE e.order_code = ANY($1::text[]) AND e.event_type = 'actual_confirmed'
            AND NOT EXISTS (
                SELECT 1 FROM web2_kpi_events r
                WHERE r.event_type = 'actual_revoked'
                  AND r.revokes_event_id = e.id
            )`,
-        [orderCode]
+        [codes]
     );
     for (const ev of events.rows) {
         await kpiModule.emitKpiEvent(pool, {
@@ -2672,7 +2695,7 @@ async function _emitRevokeKpi(pool, orderCode, req) {
             beneficiary_user_id: ev.beneficiary_user_id,
             beneficiary_name: ev.beneficiary_name,
             beneficiary_source: 'assignment',
-            order_code: orderCode,
+            order_code: ev.order_code || codes[0],
             order_campaign_stt: ev.order_campaign_stt,
             customer_id: ev.customer_id,
             product_code: ev.product_code,

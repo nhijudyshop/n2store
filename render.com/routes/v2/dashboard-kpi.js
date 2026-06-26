@@ -46,6 +46,22 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
             out.pbh_done_today = 0;
         }
 
+        // FIX audit R2 (#3): TRỪ trả hàng → doanh thu NET (trước chỉ tính PBH done = phồng).
+        // web2_returns.created_at = BIGINT epoch ms; status='active'.
+        try {
+            const rf = await pool.query(
+                `SELECT COALESCE(SUM(total_amount), 0)::bigint AS s
+                 FROM web2_returns
+                 WHERE status = 'active'
+                   AND (to_timestamp(created_at / 1000.0) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`
+            );
+            out.refund_today = Number(rf.rows[0]?.s || 0);
+            out.revenue_today = Math.max(0, out.revenue_today - out.refund_today);
+        } catch {
+            out.refund_today = 0;
+        }
+
         // Revenue 7 days
         try {
             const r = await pool.query(
@@ -62,6 +78,23 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                  GROUP BY d ORDER BY d`
             );
             out.revenue_7d = r.rows.map((x) => ({ date: x.d, amount: Number(x.s) }));
+            // FIX audit R2 (#3): trừ trả hàng theo từng ngày VN (net revenue 7d).
+            try {
+                const rf = await pool.query(
+                    `SELECT (to_timestamp(created_at / 1000.0) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d,
+                            COALESCE(SUM(total_amount), 0)::bigint AS s
+                     FROM web2_returns
+                     WHERE status = 'active'
+                       AND (to_timestamp(created_at / 1000.0) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           > (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 7
+                     GROUP BY d`
+                );
+                const refByDay = new Map(rf.rows.map((x) => [String(x.d), Number(x.s)]));
+                out.revenue_7d = out.revenue_7d.map((b) => ({
+                    date: b.date,
+                    amount: Math.max(0, b.amount - (refByDay.get(String(b.date)) || 0)),
+                }));
+            } catch {}
         } catch {
             out.revenue_7d = [];
         }
