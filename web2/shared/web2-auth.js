@@ -193,6 +193,26 @@
         }
     }
 
+    // ENFORCE (2026-06-26): web2 WRITE bị 401 (token THIẾU hoặc HẾT HẠN) → ĐĂNG XUẤT
+    // để user đăng nhập lại. Guard 1-lần (nhiều fetch 401 đồng thời → 1 redirect).
+    // Redirect login kèm ?next=<trang hiện tại>&expired=1 (login đọc để báo "hết phiên").
+    let _authExpiredFiring = false;
+    function handleAuthExpired() {
+        if (_authExpiredFiring) return;
+        _authExpiredFiring = true;
+        try {
+            clear();
+        } catch {
+            /* ignore */
+        }
+        const next = location.pathname + location.search;
+        try {
+            location.replace(loginUrl() + '?next=' + encodeURIComponent(next) + '&expired=1');
+        } catch {
+            location.href = loginUrl();
+        }
+    }
+
     // ENFORCE-PREP (2026-06-12): helper chuẩn gắn x-web2-token cho fetch —
     // mọi client gọi route soft-gated dùng cái này (hoặc đọc localStorage
     // 'web2_auth' trực tiếp nếu page không load Web2Auth). Không token → {}.
@@ -225,6 +245,46 @@
         }
     }
 
+    // Global fetch guard: bắt 401 từ MỌI web2 WRITE (POST/PATCH/PUT/DELETE) →
+    // handleAuthExpired. Bao phủ TOÀN BỘ call site KHÔNG cần sửa từng nơi (kể cả
+    // chỗ lỡ thiếu x-web2-token → 401 → đăng xuất → đăng nhập lại → retry có token).
+    // CHỈ act khi: status===401 + URL là API web2 + KHÔNG phải endpoint auth (tránh
+    // loop). 403 (thiếu QUYỀN, vẫn đăng nhập) KHÔNG đăng xuất.
+    function installWriteAuthGuard() {
+        if (!global.fetch || global.__web2WriteAuthGuard) return;
+        global.__web2WriteAuthGuard = true;
+        const _origFetch = global.fetch.bind(global);
+        const WRITE = /^(POST|PATCH|PUT|DELETE)$/i;
+        function isWeb2WriteUrl(url) {
+            const u = String(url || '');
+            if (/\/(login|logout|me|verify)(\b|\/|\?|$)/i.test(u)) return false; // tránh loop auth
+            return (
+                /\/api\/(web2|v2\/web2|native-orders|fast-sale-orders|wallet-deposits|realtime\/web2)/i.test(
+                    u
+                ) || /web2-api[\w.-]*\.onrender\.com/i.test(u)
+            );
+        }
+        global.fetch = function (input, init) {
+            const method =
+                (init && init.method) ||
+                (input && typeof input === 'object' && input.method) ||
+                'GET';
+            const url = typeof input === 'string' ? input : input && input.url;
+            const p = _origFetch(input, init);
+            if (WRITE.test(method) && isWeb2WriteUrl(url)) {
+                return p.then((res) => {
+                    try {
+                        if (res && res.status === 401) handleAuthExpired();
+                    } catch {
+                        /* ignore */
+                    }
+                    return res;
+                });
+            }
+            return p;
+        };
+    }
+
     global.Web2Auth = {
         getStored,
         storeLogin,
@@ -234,12 +294,14 @@
         can,
         requireAuth,
         logout,
+        handleAuthExpired,
         loginUrl,
         guardPage,
         STORAGE_KEY,
         API,
     };
 
-    // Tự chạy guard ngay khi load (bắt buộc đăng nhập).
+    // Tự chạy guard ngay khi load (bắt buộc đăng nhập) + cài fetch-guard 401.
     guardPage();
+    installWriteAuthGuard();
 })(window);

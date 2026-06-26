@@ -2,6 +2,15 @@
 
 ## 2026-06-26
 
+### [web2/shared] Auth guard: web2 WRITE 401 (token thiếu/hết hạn) → tự ĐĂNG XUẤT (Part B)
+
+User: "thiếu token thì đăng xuất để user đăng nhập lại". Thêm vào `web2-auth.js`:
+
+- `Web2Auth.handleAuthExpired()` — guard 1-lần: `clear()` token + `location.replace(login?next=<trang>&expired=1)`.
+- **Global fetch guard** (`installWriteAuthGuard`): wrap `window.fetch`, bắt `status===401` từ MỌI **WRITE** (POST/PATCH/PUT/DELETE) tới route web2 (`/api/web2*`, `/api/v2/web2*`, `/api/native-orders`, `/api/fast-sale-orders`, `/api/wallet-deposits`, `/api/realtime/web2`, hoặc `web2-api*.onrender.com`) → `handleAuthExpired()`. Loại endpoint auth (login/logout/me/verify) tránh loop; 403 (thiếu QUYỀN) KHÔNG đăng xuất. Bao phủ TOÀN BỘ call site không cần sửa từng nơi — kể cả chỗ lỡ thiếu token (401 → đăng xuất → đăng nhập lại → retry có token).
+
+Part A (audit + thêm `x-web2-token` cho các write còn thiếu, để không bị 401→đăng xuất oan) chạy workflow riêng. node --check OK. Status ✅
+
 ### [live-chat] FIX 401 live-hidden-commenters — \_save thiếu x-web2-token
 
 Console live-chat: `POST /api/web2/live-hidden-commenters/create` **401** (+ GET `/get/global` 404 là first-run BÌNH THƯỜNG → seed defaults). RCA: route `/:entity/create` + `/update/:code` (web2-generic.js) gated `requireWeb2AuthSoft` → cần `x-web2-token`. File có helper `_lhcHeaders()` (gửi token) và `_hideRemote`/`_unhideRemote` đã dùng (đợt A4), nhưng **`_save` vẫn dùng header trần** `{Content-Type}` → create/update 401 cho MỌI user (không chỉ session test) → record global không seed/persist được.
