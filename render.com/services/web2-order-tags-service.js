@@ -185,9 +185,15 @@ const TRIGGERS = [
     // Nội dung / Tương tác
     {
         id: 'co_ghi_chu',
-        label: 'Có ghi chú',
+        label: 'Có ghi chú đơn',
         group: 'Nội dung / Tương tác',
-        desc: 'Đơn/giỏ có ghi chú (note hệ thống hoặc ghi chú NV tự nhập userNote).',
+        desc: 'Đơn/giỏ có ghi chú CẤP ĐƠN (note hệ thống hoặc ghi chú NV tự nhập userNote). Khác với "Có ghi chú SP" (ghi chú ở từng dòng sản phẩm).',
+    },
+    {
+        id: 'co_ghi_chu_sp',
+        label: 'Có ghi chú SP',
+        group: 'Nội dung / Tương tác',
+        desc: 'Đơn/giỏ có ≥1 DÒNG SẢN PHẨM kèm ghi chú riêng (vd size/màu/yêu cầu KH cho từng SP). Khác với "Có ghi chú đơn" (ghi chú cấp đơn).',
     },
     {
         id: 'co_tin_nhan',
@@ -236,8 +242,12 @@ const PREDICATES = {
     da_doi_soat: (o) => ['packed', 'shipped', 'delivered'].includes(o.pbhFulfillmentState),
     // Khách lạ: chưa gán customer_id (chưa khớp hồ sơ KH).
     khach_la: (o) => o.customerId == null,
-    // Có ghi chú: note hệ thống HOẶC ghi chú NV (userNote).
+    // Có ghi chú đơn: note hệ thống HOẶC ghi chú NV (userNote) — cấp ĐƠN.
     co_ghi_chu: (o) => _hasText(o.note) || _hasText(o.userNote),
+    // Có ghi chú SP: ≥1 dòng sản phẩm có note riêng (size/màu/yêu cầu KH). products là
+    // JSONB, mỗi line lưu field `note` (client setLineNote → line.note).
+    co_ghi_chu_sp: (o) =>
+        Array.isArray(o.products) && o.products.some((p) => p && _hasText(p.note)),
     // Có tin nhắn từ khách.
     co_tin_nhan: (o) => Number(o.messageCount || 0) > 0,
     // Có bình luận bổ sung. comment_count mặc định 1 (bình luận gốc) → ngưỡng > 1.
@@ -627,9 +637,10 @@ async function ensureTable(pool) {
              VALUES
                ('da_doi_soat',  'Đã đối soát',  'da_doi_soat',  '#16a34a', 'package-check',  12, 'system', $1, $1),
                ('khach_la',     'Khách lạ',     'khach_la',     '#f59e0b', 'user-x',          8, 'system', $1, $1),
-               ('co_ghi_chu',   'Có ghi chú',   'co_ghi_chu',   '#0ea5e9', 'sticky-note',    40, 'system', $1, $1),
-               ('co_tin_nhan',  'Có tin nhắn',  'co_tin_nhan',  '#6366f1', 'message-circle', 41, 'system', $1, $1),
-               ('co_binh_luan', 'Có bình luận', 'co_binh_luan', '#8b5cf6', 'message-square', 42, 'system', $1, $1)
+               ('co_ghi_chu',    'Có ghi chú đơn', 'co_ghi_chu',    '#0ea5e9', 'sticky-note',    40, 'system', $1, $1),
+               ('co_ghi_chu_sp', 'Có ghi chú SP',  'co_ghi_chu_sp', '#0d9488', 'notebook-pen',   43, 'system', $1, $1),
+               ('co_tin_nhan',   'Có tin nhắn',    'co_tin_nhan',   '#6366f1', 'message-circle', 41, 'system', $1, $1),
+               ('co_binh_luan',  'Có bình luận',   'co_binh_luan',  '#8b5cf6', 'message-square', 42, 'system', $1, $1)
              ON CONFLICT (code) DO NOTHING`,
             [Date.now()]
         );
@@ -647,6 +658,13 @@ async function ensureTable(pool) {
             `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
              VALUES ('thieu_dia_chi', 'Thiếu địa chỉ', 'thieu_dia_chi', '#ef4444', 'map-pin-off', 35, 'system', $1, $1)
              ON CONFLICT (code) DO NOTHING`,
+            [Date.now()]
+        );
+        // Đổi tên thẻ co_ghi_chu 'Có ghi chú' → 'Có ghi chú đơn' (phân biệt với 'Có ghi chú SP'
+        // vừa thêm). Chỉ đổi khi còn tên default hệ thống — KHÔNG đè nếu admin đã đổi tên.
+        await pool.query(
+            `UPDATE web2_order_tags SET name = 'Có ghi chú đơn', updated_at = $1
+             WHERE code = 'co_ghi_chu' AND name = 'Có ghi chú'`,
             [Date.now()]
         );
     } catch (e) {

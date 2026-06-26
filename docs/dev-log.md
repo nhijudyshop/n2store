@@ -2,6 +2,17 @@
 
 ## 2026-06-26
 
+### [web2/order-tags] Thêm trigger "Có ghi chú SP" (ghi chú cấp dòng sản phẩm)
+
+User: "có ghi chú sản phẩm" → thêm trigger phân biệt ghi chú CẤP DÒNG SP với ghi chú cấp đơn.
+
+**Files** (`web2-order-tags-service.js`):
+
+- `co_ghi_chu_sp` "Có ghi chú SP" (nhóm Nội dung / Tương tác) — predicate `Array.isArray(o.products) && o.products.some(p => _hasText(p.note))`. Mỗi dòng SP trong JSONB `products` lưu field `note` (client `setLineNote` → `line.note`, vd size/màu/yêu cầu KH). Màu teal #0d9488, icon notebook-pen, prio 43. Seed idempotent.
+- Đổi tên `co_ghi_chu` "Có ghi chú" → **"Có ghi chú đơn"** (registry + seed + UPDATE idempotent thẻ cũ chỉ khi còn tên default) để phân biệt rõ với "Có ghi chú SP".
+
+Verify: syntax OK; unit-test 9 case ALL PASS (1 SP note → true; note rỗng/null/space → false; SP không có field note → false; products undefined → false; co_ghi_chu đơn KHÔNG nhầm note SP, vẫn bật theo userNote). Status ✅ (chờ deploy)
+
 ### [web2/order-tags] FIX thẻ "KHÁCH LẠ" gắn nhầm trigger + tách "Thiếu địa chỉ"
 
 Khi verify deploy 5 trigger mới, phát hiện thẻ `code=khach_la` (tên "KHÁCH LẠ", admin tạo) gắn **NHẦM** `trigger='thieu_dia_chi'` → pill "KHÁCH LẠ" thực ra fire theo THIẾU ĐỊA CHỈ. `ON CONFLICT DO NOTHING` của seed khach_la không đè được nên predicate `khach_la` mới không có thẻ trỏ tới. User định nghĩa: **khách lạ = KH không có thông tin ở kho KH** (chưa gán customer_id) → đúng với predicate `o.customerId == null`.
