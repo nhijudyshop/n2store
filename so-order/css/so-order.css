@@ -3092,3 +3092,23 @@ body.so-edit-table-mode .so-table tbody td.so-cell-edit {
 body.so-edit-table-mode .so-data-row:hover td.so-cell-edit {
     background: #fef3c7;
 }
+
+/* Loại SP badge trong cột Biến Thể (Web2VariantPicker category) */
+.so-cell-cat {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 7px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #e0e7ff;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    vertical-align: middle;
+}
+/* Cell đang sửa biến thể bằng popover picker */
+td.so-vp-editing {
+    outline: 2px solid #4f46e5;
+    outline-offset: -2px;
+    background: #eef2ff !important;
+}

@@ -675,6 +675,8 @@
                 supplier: rowData.supplier || '',
                 productName: rowData.productName || '',
                 variant: rowData.variant || '',
+                // category = loại SP theo món, ngăn ' + ' (vd "Áo + Quần"). Web2VariantPicker.
+                category: rowData.category || '',
                 qty: Number(rowData.qty) || 0,
                 sellPrice: Number(rowData.sellPrice) || 0,
                 costPrice: Number(rowData.costPrice) || 0,

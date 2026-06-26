@@ -601,9 +601,15 @@
             ? `<div class="so-cell-code" title="Mã SP trong Kho SP Web 2.0">${SO.escapeHtml(khoCode)}</div>`
             : '';
         // SL gộp vào cột Biến thể (chế độ xem). Không variant → chỉ "SL N".
+        // category (loại SP theo món, vd "Áo + Quần") hiện badge nhỏ phía trên biến thể.
         const variantView = (r.variant || '').trim();
+        const catView = (r.category || '').trim();
         const qtyNum = Number(r.qty) || 0;
+        const catBadge = catView
+            ? `<span class="so-cell-cat" title="Loại sản phẩm">${SO.escapeHtml(catView)}</span>`
+            : '';
         const variantCellInner =
+            catBadge +
             (variantView ? SO.escapeHtml(variantView) : '') +
             `<span class="so-cell-sl">${variantView ? ' · ' : ''}SL ${qtyNum}</span>`;
         // P1 2026-05-30: meta = { ncc: {render, span}, inv: {render, span} }.

@@ -45,6 +45,12 @@
             SO.inlineCellEditingKey = null;
             if (window.lucide?.createIcons) window.lucide.createIcons();
         };
+        // Biến thể → dùng Web2VariantPicker (chọn loại + nhập biến thể theo món,
+        // ghép " + " cho BỘ). Popover fixed neo theo cell. Fallback: input cũ.
+        if (field === 'variant' && window.Web2VariantPicker) {
+            SO._beginVariantPickerEdit(td, rowId, shipmentId, r, tab, restore);
+            return;
+        }
         const commit = (rawValue) => {
             let value = rawValue;
             if (field === 'qty' || field === 'sellPrice' || field === 'costPrice') {
@@ -192,6 +198,93 @@
                 },
             });
         }
+    };
+
+    // Inline edit ô Biến Thể bằng Web2VariantPicker (popover fixed neo theo cell).
+    // Chọn loại (Áo/Quần…) + nhập biến thể từng món → lưu { variant, category }.
+    // KHÔNG auto-expand cartesian ở đây (tránh nhân đôi SL của dòng đang sửa) —
+    // expand nhiều dòng là tính năng lúc TẠO (modal/Kho SP), không phải lúc sửa.
+    SO._beginVariantPickerEdit = function _beginVariantPickerEdit(
+        td,
+        rowId,
+        shipmentId,
+        r,
+        tab,
+        restore
+    ) {
+        const rect = td.getBoundingClientRect();
+        const W = 340;
+        const pop = document.createElement('div');
+        pop.className = 'so-vp-popover';
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - W - 8));
+        const top = Math.min(rect.bottom + 4, window.innerHeight - 80);
+        pop.style.cssText = `position:fixed;z-index:99999;left:${left}px;top:${top}px;width:${W}px;max-width:calc(100vw - 16px);background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.22);padding:12px;`;
+        document.body.appendChild(pop);
+        td.classList.add('so-vp-editing');
+
+        const ctl = window.Web2VariantPicker.mount(pop, {
+            compact: true,
+            category: r.category || '',
+            value: r.variant || '',
+        });
+        setTimeout(() => ctl.focus(), 40);
+
+        let done = false;
+        const cleanup = () => {
+            document.removeEventListener('mousedown', onDocDown, true);
+            document.removeEventListener('keydown', onKey, true);
+            try {
+                ctl.destroy();
+            } catch (e) {}
+            pop.remove();
+            td.classList.remove('so-vp-editing');
+        };
+        const cancel = () => {
+            if (done) return;
+            done = true;
+            cleanup();
+            restore();
+        };
+        const commit = () => {
+            if (done) return;
+            done = true;
+            const variant = ctl.getVariant();
+            const category = ctl.getCategory();
+            cleanup();
+            if (variant === (r.variant || '') && category === (r.category || '')) {
+                restore();
+                return;
+            }
+            window.SoOrderStorage.updateRow(SO.state, tab.id, shipmentId, rowId, {
+                variant,
+                category,
+            });
+            SO.pushSync();
+            SO.inlineCellEditingKey = null;
+            SO.renderAll();
+            SO.flashRow(rowId);
+        };
+        const onDocDown = (e) => {
+            if (pop.contains(e.target) || td.contains(e.target)) return;
+            commit();
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+            } else if (e.key === 'Enter' && !e.isComposing) {
+                const t = e.target;
+                if (t && t.classList && t.classList.contains('w2vp-input')) {
+                    e.preventDefault();
+                    commit();
+                }
+            }
+        };
+        // Defer để cú dblclick mở KHÔNG bị bắt là "click ngoài" → đóng ngay.
+        setTimeout(() => {
+            document.addEventListener('mousedown', onDocDown, true);
+            document.addEventListener('keydown', onKey, true);
+        }, 0);
     };
 
     // Commit 1 field từ bulk edit mode. Re-use validation (variant) +

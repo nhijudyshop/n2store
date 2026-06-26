@@ -2,6 +2,20 @@
 
 ## 2026-06-26
 
+### [so-order] Phase 3a: ô Biến Thể inline dùng Web2VariantPicker (nhập nhiều biến thể theo món)
+
+Wire `Web2VariantPicker` vào inline edit (double-click) ô Biến Thể của Sổ Order — yêu cầu gốc của user ("input nhập 2 biến thể"). Double-click ô → popover fixed neo theo cell: chọn loại (Áo/Quần/Đầm, multi-select) → N ô biến thể `"/"`-aware → ghép `"Trắng + Đen"`, lưu `{variant, category}`.
+
+**Sửa:**
+
+- `so-order/index.html`: load `web2-product-types-api.js` + `web2-product-types-cache.js` + `web2-variant-picker.js`; cache-bust 4 file sửa `?v=20260626e`.
+- `so-order-inline-edit.js`: `beginInlineCellEdit` field `variant` → `_beginVariantPickerEdit` (popover + commit on click-outside/Enter, cancel Esc). KHÔNG auto-expand cartesian khi sửa (tránh nhân đôi SL) — expand chỉ ở lúc TẠO.
+- `so-order-storage.js`: `addRow` thêm field `category`. (`updateRow` đã nhận mọi field.)
+- `so-order-render.js`: cột Biến Thể hiện badge `category` (`.so-cell-cat`) trước biến thể.
+- `so-order.css`: style `.so-cell-cat` + `.so-vp-editing`.
+
+**Verify** (browser localhost, web2 auth): double-click ô → popover chips [Áo,Quần,Đầm] + 1 ô; chọn Áo+Quần → 2 ô; gõ Trắng/Đen → click ngoài → row `variant="Trắng + Đen"`, `category="Áo + Quần"`, cell "Áo + Quần Trắng + Đen · SL 1", popover đóng. Status: ✅ (Phase 3b modal + Phase 4 products tiếp theo)
+
 ### [web2/product-types] Phase 1: trang quản lý "Loại sản phẩm" (Áo/Quần/Đầm…) — CRUD admin
 
 Feature lớn (4 phase) cho ô Biến Thể nhập nhiều biến thể theo món + module dùng chung. **Phase 1**: trang quản lý LOẠI sản phẩm trong menu Cấu hình (mirror Kho Biến Thể). Bỏ nhãn "Set" — combo = multi-select loại đơn (quyết định user). Kế hoạch đầy đủ: `~/.claude/plans/jaunty-munching-llama.md`.
