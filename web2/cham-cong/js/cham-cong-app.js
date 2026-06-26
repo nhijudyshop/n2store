@@ -76,10 +76,16 @@
     function isManualEmp(du) {
         return String(du.device_user_id || '').startsWith('MANUAL-');
     }
-    // Hiện trên Bảng công / Bảng lương: NV đã gán (employee_id) HOẶC NV thủ công
-    // (do admin chủ động tạo). PIN máy chưa gán = rác → ẩn.
+    // Hiện trên BẢNG LƯƠNG: NV đã gán (employee_id) HOẶC NV thủ công (admin tạo, lương
+    // tháng — vẫn cần trả lương dù không chấm máy). PIN máy chưa gán = rác → ẩn.
     function isVisibleEmp(du) {
         return !!du.employee_id || isManualEmp(du);
+    }
+    // CẦN CHẤM CÔNG (Bảng công / Hôm nay / đối soát): CHỈ NV đã GÁN user (employee_id).
+    // "Không gán user thì không cần chấm công" — NV thủ công lương tháng / PIN chưa gán
+    // KHÔNG bấm máy → không hiện ở chấm công (vẫn ở tab Nhân viên để gán + ở Bảng lương).
+    function needsAttendance(du) {
+        return !!du.employee_id;
     }
     function recordsFor(deviceUserId) {
         return state.recordsByUserDate[deviceUserId] || {};
