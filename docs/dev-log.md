@@ -10,6 +10,14 @@ User yêu cầu xóa data DB Web 2.0 cho 9 trang: fastsaleorder-invoice, reconci
 
 **Đã chạy** (user chọn scope "9 trang + dọn liên kết"): 244 dòng truncated (19 bảng có data) + 3 purchase-refund + 37 balance unlinked, 24+2 backup. **GIỮ**: web2_customers, web2_balance_history (dòng), web2_variants (108), auth/config. Verify post-wipe: mọi target=0, variants=108 nguyên. Backup `*_bak_20260626_104302_4ccb` còn trên web2Db — drop sau khi yên tâm qua `POST /api/admin/web2-cleanup-dead {confirm:'YES-CLEANUP'}`. Status: ✅
 
+### [web2/cham-cong] Hôm nay chưa tan ca → "đang làm", KHÔNG tính chấm thiếu (đến 20:05 mới tính)
+
+User: "Hôm nay 26/06 nên không cần tính chấm thiếu, sau 20h:05 mới tính". Lỗi: grid dot + đối soát dùng `S.dayStatus()` trả 'missing' cho mọi ngày 1-lượt → HÔM NAY (NV mới vào sáng, chưa bấm ra) bị tô đỏ "chấm thiếu" + vào đối soát, dù đang làm việc, sẽ bấm ra cuối ca.
+
+**Fix** (`cham-cong-app.js` renderTimesheet): thêm trạng thái `inprogress` — HÔM NAY + `nowMin <= work_end + grace` (vd 20:06) + status 'missing' (1 lượt) → đổi thành `inprogress` ("Đang làm"), KHÔNG vào `needFix` (đối soát). Dot sky `#0ea5e9` glyph •, thêm legend "Đang làm (chưa tan ca)". Đồng bộ ngưỡng `renderTodayHtml` quenRa: `nowMin > endMin` → `nowMin > endMin + grace`.
+
+**Verify** (Playwright + admin login, ~10:46): đối soát **19→9** (mọi chip 26/06 biến mất, chỉ còn missing ngày cũ Còi 12/13/16/25, Dung 03, Bo 13/15/16/24); cột hôm nay **10 dot "đang làm" (sky), 0 đỏ "chấm thiếu"**, 1 xám (chưa vào). Cache-bust app/css `?v=20260626att2`.
+
 ### [web2/cham-cong] NV chưa gán user → KHÔNG cần chấm công (ẩn khỏi Bảng công/Hôm nay/đối soát, GIỮ Bảng lương)
 
 User: "không gán user thì không cần chấm công". Trước đây `isVisibleEmp = employee_id || manual` → NV thủ công lương tháng chưa gán (Chị Út, Phước Lớn, Thái, Vú Thanh, Vú Trang) hiện ở Bảng công + "Chưa vào" + đối soát dù KHÔNG bấm máy → nhiễu.

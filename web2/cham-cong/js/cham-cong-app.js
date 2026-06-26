@@ -340,7 +340,9 @@
                 else if (nowMin > startMin + grace) chuaVao.push(name);
                 // chưa tới giờ vào → bỏ qua
             } else if (recs.length === 1) {
-                if (nowMin > endMin) quenRa.push(name);
+                // 1 lượt: chỉ tính "quên bấm ra" SAU giờ tan ca + dung sai (vd 20:05).
+                // Trước đó = đang làm (sẽ bấm ra cuối ca).
+                if (nowMin > endMin + grace) quenRa.push(name);
                 else dangLam++;
             } else {
                 daDu++;
@@ -401,6 +403,17 @@
         }
         const { days } = monthRange();
         const today = new Intl.DateTimeFormat('en-CA', { timeZone: VN_TZ }).format(new Date());
+        // Phút trong ngày hiện tại (GMT+7) — để biết HÔM NAY đã qua giờ tan ca chưa.
+        const nowP = new Intl.DateTimeFormat('en-GB', {
+            timeZone: VN_TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        })
+            .format(new Date())
+            .split(':')
+            .map(Number);
+        const nowMin = nowP[0] * 60 + nowP[1];
 
         let head = `<th class="cc-th-name">Nhân viên</th>`;
         for (const dk of days) {
@@ -413,11 +426,15 @@
         }
 
         // Glyph trong chấm (a11y WCAG 1.4.1 — KHÔNG chỉ phân biệt bằng màu).
-        const GLYPH = { ontime: '✓', lateearly: '!', missing: '?', absent: '' };
+        const GLYPH = { ontime: '✓', lateearly: '!', missing: '?', absent: '', inprogress: '•' };
         let rows = '';
         const needFix = []; // ngày chấm THIẾU (quên 1 lượt) cả tháng → hàng đợi đối soát.
         for (const du of dus) {
             const cfg = cfgFor(du);
+            // Mốc "đã qua giờ tan ca" của NV = work_end + dung sai (vd 20:00 + 6' = 20:06).
+            const todayCutoff =
+                S.hmToMinutes(cfg.workEnd || '20:00') +
+                (Number.isFinite(Number(cfg.graceMinutes)) ? Number(cfg.graceMinutes) : 6);
             const recs = recordsFor(du.device_user_id);
             const month = S.calcMonth(
                 state.monthKey,
@@ -438,14 +455,18 @@
             for (const dk of days) {
                 const r = month.dayResults[dk] || {};
                 const isFull = isFulldaySet(du.device_user_id, dk);
-                const st = S.dayStatus(r, isFull); // ontime|lateearly|missing|absent
+                let st = S.dayStatus(r, isFull); // ontime|lateearly|missing|absent
+                // HÔM NAY chưa qua giờ tan ca + dung sai → 1 lượt vào = ĐANG LÀM (sẽ bấm ra
+                // cuối ca), KHÔNG tính "chấm thiếu" / không vào đối soát. Chỉ sau giờ đó mới tính.
+                if (st === 'missing' && dk === today && nowMin <= todayCutoff) st = 'inprogress';
                 if (st === 'missing')
                     needFix.push({ uid: du.device_user_id, name: empName(du), dk });
                 const wd = weekdayShort(dk);
                 const note = state.dayNotes[`${du.device_user_id}_${dk}`];
                 const noteCls = note ? ' has-note' : '';
                 const noteTitle = note ? ` · 📝 ${esc(note)}` : '';
-                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${S.STATUS_LABEL[st]} — bấm xem chi tiết${noteTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${S.STATUS_LABEL[st]}" data-g="${GLYPH[st] || ''}"></span></td>`;
+                const stLabel = st === 'inprogress' ? 'Đang làm (chưa tan ca)' : S.STATUS_LABEL[st];
+                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${stLabel} — bấm xem chi tiết${noteTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${stLabel}" data-g="${GLYPH[st] || ''}"></span></td>`;
             }
             rows += `<tr>${cells}</tr>`;
         }
@@ -477,6 +498,7 @@
               <span><i class="cc-dot cc-dot-ontime" data-g="✓"></i> Đúng giờ</span>
               <span><i class="cc-dot cc-dot-lateearly" data-g="!"></i> Đi muộn / Về sớm</span>
               <span><i class="cc-dot cc-dot-missing" data-g="?"></i> Chấm công thiếu</span>
+              <span><i class="cc-dot cc-dot-inprogress" data-g="•"></i> Đang làm (chưa tan ca)</span>
               <span><i class="cc-dot cc-dot-absent"></i> Nghỉ làm</span>
             </div>`;
 

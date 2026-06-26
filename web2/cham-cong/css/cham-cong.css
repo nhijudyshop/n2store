@@ -749,6 +749,10 @@
 .cc-dot-absent {
     background: #d7dde5;
 }
+/* Đang làm (hôm nay, chưa tới giờ tan ca) — 1 lượt vào, chưa tính chấm thiếu. */
+.cc-dot-inprogress {
+    background: #0ea5e9;
+}
 .cc-grid-dots .cc-cell:hover .cc-dot {
     box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.18);
 }
