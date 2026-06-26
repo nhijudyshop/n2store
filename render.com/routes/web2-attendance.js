@@ -46,13 +46,26 @@ let _secretWarned = false;
 function requireAgentSecret(req, res, next) {
     const expected = String(process.env.WEB2_ATTENDANCE_SECRET || '').trim();
     if (!expected) {
+        // FAIL-CLOSED (2026-06-26): thiếu secret → CHẶN ingest (trước đây MỞ → ai cũng
+        // chèn punch). Dev/test muốn mở phải bật cờ tường minh WEB2_ATTENDANCE_ALLOW_OPEN=1.
+        if (String(process.env.WEB2_ATTENDANCE_ALLOW_OPEN || '') === '1') {
+            if (!_secretWarned) {
+                _secretWarned = true;
+                console.warn(
+                    '[WEB2-ATTENDANCE] ALLOW_OPEN=1 → ingest MỞ không secret (CHỈ dev/beta).'
+                );
+            }
+            return next();
+        }
         if (!_secretWarned) {
             _secretWarned = true;
-            console.warn(
-                '[WEB2-ATTENDANCE] WEB2_ATTENDANCE_SECRET chưa set → ingest endpoint MỞ (chỉ nên dùng dev/beta).'
+            console.error(
+                '[WEB2-ATTENDANCE] WEB2_ATTENDANCE_SECRET chưa set → ingest BỊ CHẶN (fail-closed). Set secret, hoặc WEB2_ATTENDANCE_ALLOW_OPEN=1 cho dev.'
             );
         }
-        return next();
+        return res
+            .status(503)
+            .json({ success: false, error: 'Ingest chấm công chưa cấu hình secret (server)' });
     }
     const got = String(
         req.headers['x-web2-attendance-secret'] || (req.query && req.query.secret) || ''
@@ -828,12 +841,52 @@ router.get('/period-lock', requireWeb2Admin, async (req, res) => {
         return fail(res, 500, e.message);
     }
 });
+// Validate snapshot bảng lương client gửi khi CHỐT (admin-only nên rủi ro thấp, nhưng
+// fail-fast với client lỗi/bịa). Chặn NaN/∞/số khổng lồ + nhất quán nội bộ mỗi dòng.
+// ⚠ Công thức phải KHỚP cham-cong-salary.js:238 (tongLuong) & :239 (conCanTra) — sửa 1 nơi nhớ nơi kia.
+function validateLockSnapshot(snap, mk) {
+    if (!snap || typeof snap !== 'object') return 'snapshot rỗng';
+    if (snap.monthKey && String(snap.monthKey) !== mk) return 'monthKey lệch';
+    const rows = snap.rows;
+    if (!Array.isArray(rows)) return 'thiếu rows';
+    const fin = (n) => Number.isFinite(Number(n));
+    const CAP = 1e12; // 1 nghìn tỷ — chặn số bịa khổng lồ
+    const FIELDS = [
+        'luongChinh',
+        'lamThem',
+        'phuCap',
+        'thuong',
+        'giamTru',
+        'tongLuong',
+        'daTra',
+        'conCanTra',
+    ];
+    for (const row of rows) {
+        const m = row && row.m;
+        if (!m || typeof m !== 'object') return 'row thiếu m';
+        for (const k of FIELDS) {
+            if (m[k] != null && (!fin(m[k]) || Math.abs(Number(m[k])) > CAP))
+                return `${k} không hợp lệ`;
+        }
+        const num = (x) => Number(x) || 0;
+        const expTong =
+            num(m.luongChinh) + num(m.lamThem) + num(m.phuCap) + num(m.thuong) - num(m.giamTru);
+        if (fin(m.tongLuong) && Math.abs(num(m.tongLuong) - expTong) > 2)
+            return 'tongLuong không khớp các khoản';
+        if (fin(m.conCanTra) && Math.abs(num(m.conCanTra) - (num(m.tongLuong) - num(m.daTra))) > 2)
+            return 'conCanTra không khớp';
+    }
+    return null;
+}
+
 router.post('/period-lock', requireWeb2Admin, async (req, res) => {
     try {
         const b = req.body || {};
         const mk = String(b.monthKey || '').trim();
         if (!MK_RE.test(mk)) return fail(res, 400, 'monthKey không hợp lệ');
         const snapshot = b.snapshot && typeof b.snapshot === 'object' ? b.snapshot : {};
+        const vErr = validateLockSnapshot(snapshot, mk);
+        if (vErr) return fail(res, 400, 'Snapshot lương không hợp lệ: ' + vErr);
         const by = req.web2User?.display_name || req.web2User?.username || 'admin';
         const t = now();
         await getDb(req).query(

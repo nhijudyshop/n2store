@@ -2,6 +2,12 @@
 
 ## 2026-06-26
 
+### [web2/cham-cong] FIX đợt 3 (Group B — backend security)
+
+- **Secret ingest FAIL-CLOSED** (`render.com/routes/web2-attendance.js` requireAgentSecret): thiếu `WEB2_ATTENDANCE_SECRET` trước đây MỞ (ai cũng chèn punch) → giờ trả **503**, trừ khi bật cờ tường minh `WEB2_ATTENDANCE_ALLOW_OPEN=1` (dev). Prod đã set secret → không đổi hành vi. (Giữ `?secret=` query vì agent đẩy chấm công là phần mềm NGOÀI repo — không xác minh được header; bỏ query cần phối hợp cấu hình agent, hoãn như ADMS.)
+- **`/api/web2-users/list` bỏ PII cho non-admin** (`web2-users.js`): non-admin chỉ nhận id/tên/role/active/avatar — bỏ email/SĐT/note/permissions của NGƯỜI KHÁC (admin vẫn đủ qua `reveal`). Fix tại handler, KHÔNG đụng `mapRow` (dùng chung self-profile).
+- **period-lock validate snapshot** (`web2-attendance.js` POST /period-lock): chặn NaN/∞/số > 1e12 + nhất quán nội bộ mỗi dòng (`tongLuong = luongChinh+lamThem+phuCap+thuong−giamTru`, `conCanTra = tongLuong−daTra`, ±2đ rounding). Reject 400 nếu lệch. Admin-only nên rủi ro thấp; đây là fail-fast với client lỗi/bịa (full server-recompute = follow-up lớn hơn, cần đưa salary.js thành module universal). Verify: unit-test accept valid + reject tampered/NaN/absurd/lệch-monthKey/thiếu-rows.
+
 ### [web2/cham-cong] FIX đợt 2 — grace smooth + monthly late reset + dup-PIN dedupe tổng
 
 Sau audit, user chọn fix tiếp (ADMS auth hoãn — beta). Group A (sai tiền/chính sách):

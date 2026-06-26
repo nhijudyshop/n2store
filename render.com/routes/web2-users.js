@@ -760,9 +760,17 @@ router.get('/list', requireWeb2Auth, async (req, res) => {
         const r = await pool.query(sql, [limit, offset]);
         const cnt = await pool.query(`SELECT COUNT(*)::int AS n FROM web2_users ${where}`);
         const reveal = req.web2User?.role === 'admin';
+        // PII guard (2026-06-26): non-admin gọi /list CHỈ nhận field tối thiểu (id/tên/role/
+        // active/avatar) — bỏ email/SĐT/note/permissions của NGƯỜI KHÁC. Admin thấy đủ.
+        const project = (u) => {
+            if (reveal || !u) return u;
+            const { email, phone, note, permissions, customPermissions, passwordPlain, ...safe } =
+                u;
+            return safe;
+        };
         res.json({
             success: true,
-            users: r.rows.map((row) => mapRow(row, { reveal })),
+            users: r.rows.map((row) => project(mapRow(row, { reveal }))),
             total: cnt.rows[0].n,
             limit,
             offset,
