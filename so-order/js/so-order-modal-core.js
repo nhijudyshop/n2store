@@ -138,22 +138,22 @@
             </td>
             <td class="so-td-money">
                 <input
-                    type="number"
+                    type="text"
+                    inputmode="decimal"
+                    data-w2num="decimal"
                     data-field="costPrice"
                     data-uid="${row.uid}"
-                    min="0"
-                    step="any"
                     value="${row.costPrice}"
                     class="so-input-v2 so-input-num so-input-money"
                 />
             </td>
             <td class="so-td-money">
                 <input
-                    type="number"
+                    type="text"
+                    inputmode="decimal"
+                    data-w2num="decimal"
                     data-field="sellPrice"
                     data-uid="${row.uid}"
-                    min="0"
-                    step="any"
                     value="${row.sellPrice}"
                     class="so-input-v2 so-input-num so-input-money"
                 />
@@ -199,6 +199,8 @@
         const addWrap = document.getElementById('soModalAddRowWrap');
         if (addWrap) addWrap.hidden = SO.modalMode !== 'create' && SO.modalMode !== 'edit-shipment';
         SO.wireModalRowInputs();
+        // Format giá nhập/bán ngay khi gõ (1.000 · thập phân 2,64 cho NCC ngoại tệ).
+        if (window.Web2NumberInput) Web2NumberInput.attachAll(tbody);
         SO.wireModalImagePasteDrop();
         SO._renderOrderInvoiceImage(); // ô ảnh hóa đơn cấp đơn (header)
         if (window.lucide?.createIcons) window.lucide.createIcons();
@@ -316,10 +318,12 @@
         const field = input.dataset.field;
         if (field !== 'costPrice' && field !== 'sellPrice') return;
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
-        const raw = Number(input.value) || 0;
+        const raw =
+            (window.Web2NumberInput ? Web2NumberInput.getValue(input) : Number(input.value)) || 0;
         const expanded = SO._maybeExpandVndShorthand(raw, tab);
         if (expanded === raw) return;
-        input.value = String(expanded);
+        if (window.Web2NumberInput) Web2NumberInput.setValue(input, expanded);
+        else input.value = String(expanded);
         const row = SO.modalRows.find((r) => r.uid === uid);
         if (row) row[field] = expanded;
         SO.updateRowTotal(uid);
@@ -339,7 +343,11 @@
         const row = SO.modalRows.find((r) => r.uid === uid);
         if (!row) return;
         const v = input.value;
-        if (field === 'qty' || field === 'costPrice' || field === 'sellPrice') {
+        if (field === 'costPrice' || field === 'sellPrice') {
+            // Giá có thể đã format (1.000) → đọc số thật qua Web2NumberInput.
+            row[field] =
+                (window.Web2NumberInput ? Web2NumberInput.getValue(input) : Number(v)) || 0;
+        } else if (field === 'qty') {
             row[field] = Number(v) || 0;
         } else {
             row[field] = v;
@@ -432,8 +440,10 @@
         );
         // THÀNH TIỀN = Tổng tiền − Giảm giá + Phí ship (per-đơn, nhập ở modal).
         const form = document.getElementById('soOrderForm');
-        const discount = Number(form?.elements?.shipDiscount?.value) || 0;
-        const shipping = Number(form?.elements?.shipShipping?.value) || 0;
+        const _gv = (el) =>
+            (window.Web2NumberInput ? Web2NumberInput.getValue(el) : Number(el?.value)) || 0;
+        const discount = _gv(form?.elements?.shipDiscount);
+        const shipping = _gv(form?.elements?.shipShipping);
         const grand = Math.max(0, subtotal - discount + shipping);
         const qtyEl = document.getElementById('soModalTotalQty');
         if (qtyEl) qtyEl.textContent = totalQty.toLocaleString('vi-VN');

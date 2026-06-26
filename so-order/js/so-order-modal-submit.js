@@ -19,12 +19,14 @@
         // 2026-06-17: KG / Kiện / Tiền HĐ + Giảm / Ship đều PER-ĐƠN (theo
         // invoiceGroupId) — KHÔNG ghi vào shipment. Lưu qua setOrderAdjustment.
         // (edit-shipment nhiều đơn → đọc từng cụm per-NCC, KHÔNG dùng orderAdj này.)
+        const _gv = (el) =>
+            (window.Web2NumberInput ? Web2NumberInput.getValue(el) : Number(el?.value)) || 0;
         const orderAdj = {
-            discount: Number(form.elements.shipDiscount?.value) || 0,
-            shipping: Number(form.elements.shipShipping?.value) || 0,
+            discount: _gv(form.elements.shipDiscount),
+            shipping: _gv(form.elements.shipShipping),
             weightKg: Number(form.elements.shipWeightKg?.value) || 0,
             caseCount: Number(form.elements.shipCaseCount?.value) || 0,
-            contractAmount: Number(form.elements.shipContractAmount?.value) || 0,
+            contractAmount: _gv(form.elements.shipContractAmount),
         };
         // 2026-06-16: KHÔNG còn field status trong modal (bỏ đổi tay). Tạo mới →
         // addRow default 'draft'. Sửa → updateRow không có key status → giữ nguyên
