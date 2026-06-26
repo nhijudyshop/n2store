@@ -45,7 +45,11 @@ function _isUniqueViolation(err) {
 // "Số dư không đủ") → 2 call đồng thời KHÔNG over-deduct (call sau bị reject, catch
 // nuốt). Idempotency cấp PBH do unique PBH number. Nếu cần dùng ngoài file → đi qua
 // applyWalletToUnpaidPbhs (wrapper transaction + SKIP LOCKED), đừng export hàm này.
-async function _applyWalletToPbh(pool, phone, pbhRow, performedBy) {
+// refId: idempotency key của LẦN trừ này. Lúc TẠO PBH dùng bare pbh.number (trừ 1
+// lần, retry create-endpoint không double-trừ). Khi ÁP LẠI ví sau (deposit về →
+// applyWalletToUnpaidPbhs) caller PHẢI truyền refId UNIQUE → là lần trừ MỚI THẬT
+// (không bị dedupe nuốt = ghi khống wallet_deducted → over-mint lúc huỷ refund).
+async function _applyWalletToPbh(pool, phone, pbhRow, performedBy, refId) {
     const out = { deducted: 0, residualAfter: Number(pbhRow.residual || 0) };
     if (!phone || out.residualAfter <= 0) return out;
     try {
@@ -53,15 +57,19 @@ async function _applyWalletToPbh(pool, phone, pbhRow, performedBy) {
         const balance = wallet ? Number(wallet.balance) || 0 : 0;
         const deduct = Math.min(balance, out.residualAfter);
         if (deduct <= 0) return out;
-        await web2WalletService.processWithdraw(
+        const wr = await web2WalletService.processWithdraw(
             pool,
             phone,
             deduct,
             'native-order-pbh',
-            pbhRow.number,
+            refId || pbhRow.number,
             `Thu hộ PBH ${pbhRow.number}`,
             performedBy || '(tạo PBH)' // performed_by — audit ai trừ ví
         );
+        // FIX audit R2 (HIGH over-mint): nếu processWithdraw bị DEDUPE (alreadyProcessed)
+        // → ví KHÔNG bị trừ thật → KHÔNG ghi nhận deducted (giữ 0). Trước đây bỏ qua cờ
+        // này → caller += wallet_deducted = khống → huỷ PBH refund quá tay = mint ví.
+        if (wr && wr.alreadyProcessed) return out;
         out.deducted = deduct;
         out.residualAfter = out.residualAfter - deduct;
     } catch (e) {
@@ -95,14 +103,19 @@ async function applyWalletToUnpaidPbhs(pool, phone, performedBy) {
                  FOR UPDATE SKIP LOCKED`,
                 [phone]
             );
+            let _reapplyIdx = 0;
             for (const pbh of rows) {
                 const wallet = await web2WalletService.getWallet(client, phone);
                 if (!wallet || Number(wallet.balance) <= 0) break; // hết ví → dừng
+                // refId UNIQUE per lần áp (KHÁC bare number của lần trừ lúc tạo PBH) →
+                // là lần trừ MỚI THẬT, không bị dedupe nuốt. Bounded an toàn bởi
+                // balance + residual (FOR UPDATE) nên chạy lại chỉ áp phần dư.
                 const wlt = await _applyWalletToPbh(
                     client,
                     phone,
                     pbh,
-                    performedBy || '(CK tự thanh toán)'
+                    performedBy || '(CK tự thanh toán)',
+                    `${pbh.number}:reapply:${Date.now()}-${_reapplyIdx++}`
                 );
                 if (wlt.deducted > 0) {
                     await client.query(
