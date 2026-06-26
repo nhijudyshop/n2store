@@ -1,16 +1,16 @@
 {
-    "generatedAt": "2026-06-26T04:41:02.922Z",
+    "generatedAt": "2026-06-26T07:07:56.057Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
-        "sharedModules": 137,
-        "pages": 43,
-        "backendRoutes": 57,
+        "sharedModules": 139,
+        "pages": 44,
+        "backendRoutes": 59,
         "backendServices": 35,
-        "frontendFiles": 434,
-        "functions": 3478
+        "frontendFiles": 438,
+        "functions": 3496
     },
     "sharedByCategory": {
-        "other": 40,
+        "other": 42,
         "beauty": 3,
         "chat": 35,
         "popup-ui": 6,
@@ -193,7 +193,7 @@
             "purpose": "Alert/confirm/prompt popup",
             "api": [],
             "lines": 481,
-            "consumerCount": 56,
+            "consumerCount": 57,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -213,6 +213,7 @@
                 "web2/order-tags",
                 "web2/pancake-settings",
                 "web2/payment-confirm",
+                "web2/product-types",
                 "web2/products",
                 "web2/purchase-refund",
                 "web2/reconcile",
@@ -335,8 +336,8 @@
             "globals": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
             "purpose": "Token storage and page guard",
             "api": [],
-            "lines": 246,
-            "consumerCount": 131,
+            "lines": 308,
+            "consumerCount": 133,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -361,6 +362,7 @@
                 "web2/pancake-settings",
                 "web2/payment-confirm",
                 "web2/photo-studio",
+                "web2/product-types",
                 "web2/products",
                 "web2/purchase-refund",
                 "web2/reconcile",
@@ -706,7 +708,7 @@
             "purpose": "String escaping utilities",
             "api": [],
             "lines": 64,
-            "consumerCount": 48,
+            "consumerCount": 50,
             "consumerPages": [
                 "native-orders",
                 "so-order",
@@ -723,6 +725,7 @@
                 "web2/order-tags",
                 "web2/payment-confirm",
                 "web2/product-card",
+                "web2/product-types",
                 "web2/products",
                 "web2/purchase-refund",
                 "web2/reconcile",
@@ -1062,12 +1065,14 @@
             "purpose": "WEB2.0 shared — 1 NGUỒN format số khi NHẬP (live thousand \".\" + decimal \",\") cho Web 2.0.",
             "api": [],
             "lines": 372,
-            "consumerCount": 13,
+            "consumerCount": 16,
             "consumerPages": [
+                "native-orders",
                 "so-order",
                 "web2/balance-history",
                 "web2/chi-tieu",
                 "web2/products",
+                "web2/purchase-refund",
                 "web2/supplier-debt",
                 "web2/supplier-wallet"
             ],
@@ -1080,7 +1085,7 @@
             "purpose": "Optimistic UI pattern",
             "api": [],
             "lines": 110,
-            "consumerCount": 24,
+            "consumerCount": 25,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1093,6 +1098,7 @@
                 "web2/jt-tracking",
                 "web2/pancake-settings",
                 "web2/payment-confirm",
+                "web2/product-types",
                 "web2/products",
                 "web2/users",
                 "web2/variants",
@@ -1244,6 +1250,17 @@
             "category": "products"
         },
         {
+            "file": "web2/shared/web2-product-types-cache.js",
+            "name": "Web2ProductTypesCache",
+            "globals": ["Web2ProductTypesCache"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "lines": 209,
+            "consumerCount": 4,
+            "consumerPages": ["web2/product-types", "web2/products"],
+            "category": "other"
+        },
+        {
             "file": "web2/shared/web2-products-api.js",
             "name": "Web2ProductsApi",
             "globals": ["Web2ProductsApi"],
@@ -1350,7 +1367,7 @@
             "globals": ["Web2Sidebar"],
             "purpose": "Main sidebar navigation",
             "api": [],
-            "lines": 945,
+            "lines": 958,
             "consumerCount": 16,
             "consumerPages": [
                 "web2/cham-cong",
@@ -1378,7 +1395,7 @@
             "purpose": "WEB2.0 module — GitHub-style skeleton loading.",
             "api": [],
             "lines": 268,
-            "consumerCount": 33,
+            "consumerCount": 34,
             "consumerPages": [
                 "web2/ai-assistant",
                 "web2/ai-hub",
@@ -1400,6 +1417,7 @@
                 "web2/multi-tool",
                 "web2/order-tags",
                 "web2/pancake-settings",
+                "web2/product-types",
                 "web2/products",
                 "web2/purchase-refund",
                 "web2/returns",
@@ -1419,7 +1437,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "lines": 605,
-            "consumerCount": 6,
+            "consumerCount": 7,
             "consumerPages": [],
             "category": "other"
         },
@@ -1457,7 +1475,7 @@
             "purpose": "SSE bridge for realtime updates",
             "api": [],
             "lines": 289,
-            "consumerCount": 62,
+            "consumerCount": 63,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1479,6 +1497,7 @@
                 "web2/multi-tool",
                 "web2/order-tags",
                 "web2/payment-confirm",
+                "web2/product-types",
                 "web2/products",
                 "web2/purchase-refund",
                 "web2/reconcile",
@@ -1619,9 +1638,23 @@
             "purpose": "Multi-variant handler",
             "api": [],
             "lines": 192,
-            "consumerCount": 5,
+            "consumerCount": 6,
             "consumerPages": ["so-order", "web2/products"],
             "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-variant-picker.js",
+            "name": "Web2VariantPicker",
+            "globals": ["Web2VariantPicker"],
+            "purpose": "WEB2.0 module.",
+            "api": [
+                "Deps (đọc, KHÔNG gọi API trực tiếp): Web2VariantsCache (gợi ý Màu/Size),",
+                "Web2ProductTypesCache (loại), Web2VariantMulti (cartesian/expand). An toàn dùng"
+            ],
+            "lines": 328,
+            "consumerCount": 3,
+            "consumerPages": ["so-order"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-variants-cache.js",
@@ -1630,7 +1663,7 @@
             "purpose": "Variants cache with Firestore",
             "api": [],
             "lines": 253,
-            "consumerCount": 13,
+            "consumerCount": 14,
             "consumerPages": ["so-order", "web2/products", "web2/variants"],
             "category": "products"
         },
@@ -1849,7 +1882,7 @@
         {
             "page": "live-chat",
             "fileCount": 86,
-            "totalLines": 23785,
+            "totalLines": 23814,
             "globals": [
                 "API_CONFIG",
                 "APP_CONFIG",
@@ -1936,7 +1969,7 @@
         {
             "page": "native-orders",
             "fileCount": 21,
-            "totalLines": 7190,
+            "totalLines": 7208,
             "globals": [
                 "NativeOrdersApi",
                 "NativeOrders",
@@ -1948,7 +1981,7 @@
             "oversized": [
                 {
                     "file": "native-orders/js/native-orders-pbh-bill.js",
-                    "lines": 831
+                    "lines": 849
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
@@ -2025,6 +2058,10 @@
                     "category": "chat"
                 },
                 {
+                    "name": "Web2NumberInput",
+                    "category": "other"
+                },
+                {
                     "name": "Web2Optimistic",
                     "category": "optimistic"
                 },
@@ -2053,12 +2090,12 @@
                     "category": "wallet"
                 }
             ],
-            "usesSharedCount": 24
+            "usesSharedCount": 25
         },
         {
             "page": "so-order",
             "fileCount": 25,
-            "totalLines": 7261,
+            "totalLines": 7426,
             "globals": ["SoOrder", "SoOrderStorage"],
             "oversized": [],
             "usesShared": [
@@ -2131,11 +2168,15 @@
                     "category": "products"
                 },
                 {
+                    "name": "Web2VariantPicker",
+                    "category": "other"
+                },
+                {
                     "name": "Web2VariantsCache",
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 18
+            "usesSharedCount": 19
         },
         {
             "page": "web2/ai-assistant",
@@ -3237,9 +3278,47 @@
             "usesSharedCount": 1
         },
         {
+            "page": "web2/product-types",
+            "fileCount": 2,
+            "totalLines": 469,
+            "globals": ["Web2ProductTypesApi", "Web2ProductTypesApp"],
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
+                },
+                {
+                    "name": "Web2ProductTypesCache",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Skeleton",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 7
+        },
+        {
             "page": "web2/products",
             "fileCount": 13,
-            "totalLines": 4361,
+            "totalLines": 4415,
             "globals": [
                 "Web2ProductDetail",
                 "Web2ProductsCore",
@@ -3298,6 +3377,10 @@
                     "category": "products"
                 },
                 {
+                    "name": "Web2ProductTypesCache",
+                    "category": "other"
+                },
+                {
                     "name": "Web2QR",
                     "category": "qr-barcode"
                 },
@@ -3326,12 +3409,12 @@
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 19
+            "usesSharedCount": 20
         },
         {
             "page": "web2/purchase-refund",
             "fileCount": 6,
-            "totalLines": 1849,
+            "totalLines": 1862,
             "globals": ["PurchaseRefund"],
             "oversized": [],
             "usesShared": [
@@ -3358,6 +3441,10 @@
                 {
                     "name": "Web2ImageLightbox",
                     "category": "image"
+                },
+                {
+                    "name": "Web2NumberInput",
+                    "category": "other"
                 },
                 {
                     "name": "Web2ProductsCache",
@@ -3392,7 +3479,7 @@
                     "category": "format-util"
                 }
             ],
-            "usesSharedCount": 14
+            "usesSharedCount": 15
         },
         {
             "page": "web2/reconcile",
@@ -3493,8 +3580,8 @@
         },
         {
             "page": "web2/shared",
-            "fileCount": 137,
-            "totalLines": 41067,
+            "fileCount": 139,
+            "totalLines": 41679,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -3532,7 +3619,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 945
+                    "lines": 958
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
@@ -4092,6 +4179,12 @@
                 "lines": 578
             },
             {
+                "file": "render.com/routes/web2-product-types.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 PRODUCT TYPES — kho quản lý LOẠI sản phẩm (Áo / Quần / Đầm / …)",
+                "lines": 249
+            },
+            {
                 "file": "render.com/routes/web2-products.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 PRODUCTS REST API",
@@ -4162,6 +4255,12 @@
                 "kind": "route",
                 "purpose": "web2-vieneu-registry — sổ đăng ký MÁY SERVER tự host của shop (tự dò máy online).",
                 "lines": 148
+            },
+            {
+                "file": "render.com/routes/web2-warehouse-report.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — BÁO CÁO KHO (warehouse report)",
+                "lines": 254
             },
             {
                 "file": "render.com/routes/web2-zalo.js",

@@ -247,14 +247,65 @@
             fail ? 'warning' : 'success'
         );
     }
+    // ─── Loại sản phẩm (category) — chip multi-select từ Web2ProductTypesCache ──
+    // Chọn 1 loại = SP đơn (Áo); chọn nhiều = bộ (Áo + Quần). Lưu vào product.category
+    // ngăn ' + '. KHÔNG đụng mã SP (vẫn sinh từ Màu/Size shortCode như cũ).
+    const _selectedTypes = new Set();
+    function _renderTypeChips() {
+        const box = $('#pmTypeChips');
+        if (!box) return;
+        const cache = window.Web2ProductTypesCache;
+        const all = cache?.getAll?.() || [];
+        if (!all.length) {
+            box.innerHTML = `<span class="pm-type-empty">Chưa có loại — <a href="../product-types/index.html" target="_blank">thêm ở Cấu hình →</a></span>`;
+            return;
+        }
+        box.innerHTML = all
+            .map(
+                (t) =>
+                    `<button type="button" class="pm-type-chip${_selectedTypes.has(t.name) ? ' is-on' : ''}" data-type="${escapeHtml(t.name)}">${escapeHtml(t.name)}</button>`
+            )
+            .join('');
+        box.querySelectorAll('.pm-type-chip').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const n = btn.dataset.type;
+                if (_selectedTypes.has(n)) _selectedTypes.delete(n);
+                else _selectedTypes.add(n);
+                btn.classList.toggle('is-on');
+            });
+        });
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+    function _getSelectedCategory() {
+        return [..._selectedTypes].join(' + ');
+    }
+    function _setSelectedCategory(catStr) {
+        _selectedTypes.clear();
+        String(catStr || '')
+            .split('+')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .forEach((t) => _selectedTypes.add(t));
+        _renderTypeChips();
+    }
+
     function _wireVariantPicker() {
         _wireVariantPickerFor('pmVariantColor', 'pmVariantColorSuggest', 'color');
         _wireVariantPickerFor('pmVariantSize', 'pmVariantSizeSuggest', 'size');
         _renderCombinedHint();
+        if (window.Web2ProductTypesCache) {
+            window.Web2ProductTypesCache.init?.()
+                .then(() => _renderTypeChips())
+                .catch(() => {});
+        }
+        _renderTypeChips();
     }
 
     // Export to shared namespace.
     W._combinedVariant = _combinedVariant;
+    W._getSelectedCategory = _getSelectedCategory;
+    W._setSelectedCategory = _setSelectedCategory;
+    W._renderTypeChips = _renderTypeChips;
     W._setVariantPickers = _setVariantPickers;
     W._renderCombinedHint = _renderCombinedHint;
     W._renderVariantMultiPreview = _renderVariantMultiPreview;

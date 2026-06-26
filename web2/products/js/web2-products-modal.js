@@ -350,6 +350,7 @@
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = '';
         W._setVariantPickers('');
+        W._setSelectedCategory?.('');
         if (window.Web2NumberInput) {
             Web2NumberInput.setValue($('#pmPriceBuy'), 0);
             Web2NumberInput.setValue($('#pmPriceSell'), 0);
@@ -387,6 +388,7 @@
         if ($('#pmCodeHint')) $('#pmCodeHint').textContent = '';
         $('#pmName').value = p.name || '';
         W._setVariantPickers(p.variant || '');
+        W._setSelectedCategory?.(p.category || '');
         if (window.Web2NumberInput) {
             Web2NumberInput.setValue($('#pmPriceBuy'), p.originalPrice || 0);
             Web2NumberInput.setValue($('#pmPriceSell'), p.price || 0);
@@ -579,6 +581,8 @@
             name: $('#pmName').value.trim(),
             supplier: supplierInput || null,
             variant: W._combinedVariant() || null,
+            // Loại SP (Áo/Quần…) — chọn nhiều = bộ "Áo + Quần". Web2ProductTypesCache.
+            category: (W._getSelectedCategory && W._getSelectedCategory()) || null,
             price:
                 (window.Web2NumberInput
                     ? Web2NumberInput.getValue($('#pmPriceSell'))
@@ -629,6 +633,7 @@
             name: fields.name,
             supplier: fields.supplier,
             variant: fields.variant,
+            category: fields.category,
             price: fields.price,
             originalPrice: fields.originalPrice,
             stock: fields.stock,

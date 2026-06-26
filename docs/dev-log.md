@@ -2,6 +2,19 @@
 
 ## 2026-06-26
 
+### [web2/report-warehouse + render] Báo cáo kho mới: Mua vào (Sổ Order) vs Bán ra (PBH) theo SP + NCC, lọc ngày, cột "Chưa nhận hàng"
+
+User: "Thêm vào Báo cáo phần báo cáo kho: Sản phẩm (tổng SL + tiền mua vào / bán ra), NCC (tổng SL + tiền mua vào / bán ra của NCC), cho điều chỉnh ngày tháng" + "NCC hiện rõ phần chưa nhận hàng". Quyết định (hỏi user): **trang mới riêng**; **mua vào = chỉ hàng Đã Nhận**; **bán ra = chỉ PBH Hoàn thành (done)**.
+
+**Thêm:**
+
+- `render.com/routes/web2-warehouse-report.js` (NEW, WEB2.0): `GET /api/web2-warehouse-report/summary?from&to` → `{ totals, products[], suppliers[] }`. **Mua vào (đã nhận)** = `web2_so_order` rows status `received|partial_received` (tiền = costPrice × tab.rate VND), lọc theo `shipment.date`. **Chưa nhận hàng** = rows status `draft` (đã đặt chưa về kho). **Bán ra** = `fast_sale_orders` state='done', `order_lines`, lọc `date_invoice` (AT TIME ZONE 'Asia/Ho_Chi_Minh'). NCC + tên SP canonical join `web2_products.supplier/name` theo code; merge buy↔sell theo code (rows chưa gắn mã → name-keyed). Read-only, pool `web2Db||chatDb`, gate `requireWeb2AuthSoft`.
+- `web2/report-warehouse/index.html` (NEW): KPI (Mua vào / Chưa nhận hàng [amber] / Bán ra / Số NCC), filter ngày (từ–đến + preset Hôm nay/7/30/Tháng này/90), toggle **Theo NCC** ↔ **Theo SP**, bảng cột nhóm Mua vào · **Chưa nhận hàng** (highlight `#fffbeb`/`#b45309`) · Bán ra, sort click header, search, **Xuất CSV** (BOM UTF-8), SSE reload (`web2:so-order` + `web2:fast-sale-orders`).
+- `render.com/server.js`: mount `/api/web2-warehouse-report` (cạnh web2-so-order). Worker tự route qua `isWeb2Path('/api/web2*')` → web2-api (không cần sửa worker).
+- `web2/shared/web2-sidebar.js`: thêm "Báo cáo kho" (icon `warehouse`) vào nhóm "Báo cáo", giữa Thống kê giao hàng và Tra cứu vận đơn J&T.
+
+**Verify**: unit harness 30/30 assertions pass (currency rate, status buckets, lọc ngày, code-merge, canonical supplier, alt field names quantity/qty + priceUnit/price, discount, gom NCC + "(Không rõ NCC)"). Browser render smoke (mock fetch): KPI + 2 bảng đúng số, cột Chưa nhận amber `#fffbeb`/`#b45309`, toggle SP/NCC + CSV OK, **0 console errors**. Status: ✅ (chờ deploy web2-api để online smoke)
+
 ### [so-order] Phase 3b: modal "Tạo Đơn Hàng" dùng Web2VariantPicker (biến thể theo món)
 
 Wire `Web2VariantPicker` vào ô Biến Thể mỗi dòng trong modal Tạo/Sửa đơn (thay input đơn cũ).

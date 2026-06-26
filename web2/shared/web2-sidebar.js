@@ -344,6 +344,11 @@
                     our: '../web2/report-delivery/index.html',
                 },
                 {
+                    label: 'Báo cáo kho',
+                    icon: 'warehouse',
+                    our: '../web2/report-warehouse/index.html',
+                },
+                {
                     label: 'Tra cứu vận đơn J&T',
                     icon: 'package-search',
                     our: '../web2/jt-tracking/index.html',
