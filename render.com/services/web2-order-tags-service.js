@@ -180,7 +180,7 @@ const TRIGGERS = [
         id: 'khach_la',
         label: 'Khách lạ',
         group: 'Khách hàng',
-        desc: 'Đơn/giỏ CHƯA gán khách hàng (không có customer_id) — khách lạ chưa khớp hồ sơ KH.',
+        desc: 'Khách KHÔNG có thông tin ở kho KH (đơn chưa gán customer_id — chưa khớp hồ sơ web2_customers).',
     },
     // Nội dung / Tương tác
     {
@@ -630,6 +630,22 @@ async function ensureTable(pool) {
                ('co_ghi_chu',   'Có ghi chú',   'co_ghi_chu',   '#0ea5e9', 'sticky-note',    40, 'system', $1, $1),
                ('co_tin_nhan',  'Có tin nhắn',  'co_tin_nhan',  '#6366f1', 'message-circle', 41, 'system', $1, $1),
                ('co_binh_luan', 'Có bình luận', 'co_binh_luan', '#8b5cf6', 'message-square', 42, 'system', $1, $1)
+             ON CONFLICT (code) DO NOTHING`,
+            [Date.now()]
+        );
+        // FIX mislabel (2026-06-26): thẻ code='khach_la' (tên "KHÁCH LẠ") trước đây gắn
+        // NHẦM trigger='thieu_dia_chi' → pill "KHÁCH LẠ" thực ra fire theo THIẾU ĐỊA CHỈ.
+        // User định nghĩa: khách lạ = KH không có thông tin ở kho KH (chưa gán customer_id).
+        // → Trả trigger về 'khach_la'. Idempotent: chỉ flip khi còn nhầm (chạy 1 lần).
+        await pool.query(
+            `UPDATE web2_order_tags SET trigger = 'khach_la', updated_at = $1
+             WHERE code = 'khach_la' AND trigger = 'thieu_dia_chi'`,
+            [Date.now()]
+        );
+        // Trả 'thieu_dia_chi' cho 1 thẻ ĐÚNG TÊN riêng (sau khi giải phóng khỏi thẻ KHÁCH LẠ).
+        await pool.query(
+            `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
+             VALUES ('thieu_dia_chi', 'Thiếu địa chỉ', 'thieu_dia_chi', '#ef4444', 'map-pin-off', 35, 'system', $1, $1)
              ON CONFLICT (code) DO NOTHING`,
             [Date.now()]
         );

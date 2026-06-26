@@ -2,6 +2,18 @@
 
 ## 2026-06-26
 
+### [web2/order-tags] FIX thẻ "KHÁCH LẠ" gắn nhầm trigger + tách "Thiếu địa chỉ"
+
+Khi verify deploy 5 trigger mới, phát hiện thẻ `code=khach_la` (tên "KHÁCH LẠ", admin tạo) gắn **NHẦM** `trigger='thieu_dia_chi'` → pill "KHÁCH LẠ" thực ra fire theo THIẾU ĐỊA CHỈ. `ON CONFLICT DO NOTHING` của seed khach_la không đè được nên predicate `khach_la` mới không có thẻ trỏ tới. User định nghĩa: **khách lạ = KH không có thông tin ở kho KH** (chưa gán customer_id) → đúng với predicate `o.customerId == null`.
+
+**Fix** (`web2-order-tags-service.js` `ensureTable`, idempotent, no auth):
+
+- `UPDATE web2_order_tags SET trigger='khach_la' WHERE code='khach_la' AND trigger='thieu_dia_chi'` — trả thẻ "KHÁCH LẠ" về đúng trigger `khach_la` (chỉ flip khi còn nhầm). Giữ nguyên tên/màu/icon admin (`KHÁCH LẠ`/#ca8a04/person-standing).
+- Seed thẻ "Thiếu địa chỉ" riêng (`thieu_dia_chi`, #ef4444, map-pin-off, prio 35) `ON CONFLICT DO NOTHING` — không mất chức năng cảnh báo thiếu địa chỉ.
+- Cập nhật desc trigger `khach_la` = "không có thông tin ở kho KH (chưa gán customer_id)".
+
+Kết quả: "KHÁCH LẠ" giờ fire đúng (không có trong kho KH) + có thẻ "Thiếu địa chỉ" riêng. Predicate `thieu_dia_chi` (`!_hasText(o.address)`) đã có sẵn. Status ✅ (chờ deploy verify)
+
 ### [web2/order-tags] Thêm 5 trigger mới (user: "không đủ trigger")
 
 User mở "Thêm thẻ" thấy dropdown ngắn → giải thích: dropdown CHỈ hiện trigger CHƯA dùng (1 trigger = 1 thẻ; 8/23 đã dùng bị ẩn gồm cả gio_trong vừa tạo). User chọn thêm 5 trigger mới.
