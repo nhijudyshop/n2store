@@ -584,6 +584,10 @@
                         id: it.key,
                         productName: it.name,
                         variant: it.variant,
+                        // FIX audit #1: PHẢI truyền supplier → lookup dùng index
+                        // (name|variant|supplier), tránh khớp nhầm SP cùng tên+biến thể
+                        // khác NCC (A1AODO ≠ B1AODO) → cộng tồn/upsert sai mã.
+                        supplier: it.supplier,
                     }))
                 );
             } catch (lkErr) {
@@ -595,9 +599,13 @@
             for (const it of itemsToProcess) {
                 const ps = freshState.get(it.key);
                 if (ps?.code) it.code = ps.code; // code tươi (seed codeByKey bên dưới)
-                const upsertQty = ps
-                    ? Math.max(0, (receivedMap.get(it.key) || 0) - (Number(ps.pendingQty) || 0))
-                    : it.qty;
+                // FIX audit #8: lookup fail → KHÔNG upsert nguyên it.qty (double-count
+                // pending khi dòng đã nhận 1 phần). Dùng remainingPending (pending biết
+                // lúc mở modal) làm sàn → chỉ top-up phần còn thiếu.
+                const knownPending = ps
+                    ? Number(ps.pendingQty) || 0
+                    : Number(it.remainingPending ?? it.qty) || 0;
+                const upsertQty = Math.max(0, (receivedMap.get(it.key) || 0) - knownPending);
                 if (upsertQty <= 0) continue; // pending trong Kho đã đủ → không upsert
                 upsertPayload.push({
                     name: it.name,

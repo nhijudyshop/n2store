@@ -851,11 +851,17 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     // KNH nhưng TRỪ MỘT PHẦN: lock PBH nguồn FOR UPDATE, re-cap theo số TƯƠI,
                     // trừ walletCredit (clamp 0) phân bổ theo từng PBH, snapshot {id,dec} để
                     // DELETE phiếu trả cộng lại. KHÔNG set stock_restored (chỉ trả 1 phần).
-                    // ⚠ KNOWN-LIMITATION (audit vòng 4, defer): vì KHÔNG trừ qty đã trả khỏi
-                    // order_lines của PBH nguồn, nếu SAU ĐÓ huỷ TOÀN BỘ PBH nguồn thì
-                    // restockOrderLines restock cả dòng đã trả → over-restock đúng phần này.
-                    // Chuỗi này hiếm (trả 1 phần rồi huỷ cả đơn). Fix triệt để cần sửa
-                    // order_lines (đụng totals/reconcile PBH) → để dịp focused, không rush.
+                    // ⚠ KNOWN-LIMITATION (cập nhật audit 2026-06-26):
+                    //   • pbh-source: thu_ve_1_phan GHI returned_line_qty[code] lên PBH nguồn
+                    //     (dưới, ~L949) → restockOrderLines TRỪ ra khi huỷ PBH. Per-code
+                    //     aggregation (audit #9, fast-sale-orders.js) đã chặn under-restock khi
+                    //     PBH có dòng trùng mã. ⇒ over-restock partial-then-cancel ĐÃ được xử lý.
+                    //   • CÒN LẠI (defer, cần focused + integration test seeded flow):
+                    //     - audit #6: native-source thu_ve_1_phan KHÔNG ghi returned_line_qty lên
+                    //       PBH live của native → huỷ PBH đó restock cả phần đã trả (over-restock).
+                    //     - audit #2/#7: KNH (khong_nhan_hang) full-return SAU 1 phiếu thu_ve_1_phan
+                    //       restock FULL order_lines, không trừ returned_line_qty → +partialQty thừa.
+                    //   Xem docs/web2/FLOW-AUDIT-2026-06-26.md để fix có chủ đích (đụng money/stock).
                     if (subType === 'thu_ve_1_phan' && walletCredit > 0 && sourceOrderCode) {
                         const lockQ =
                             sourceOrderType === 'pbh'

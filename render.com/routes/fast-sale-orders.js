@@ -598,12 +598,19 @@ async function restockOrderLines(pool, orderRow) {
         orderRow.returned_line_qty && typeof orderRow.returned_line_qty === 'object'
             ? orderRow.returned_line_qty
             : {};
+    // FIX audit #9: GỘP qty theo CODE TRƯỚC, rồi mới trừ returned_line_qty[code] ĐÚNG 1 LẦN.
+    // Trước đây trừ per-LINE → PBH có 2 dòng cùng mã (vd dòng bán + dòng returnLine append
+    // từ native) bị trừ returned 2 lần → under-restock (tồn rò rỉ khi hủy PBH).
+    const needByCode = new Map();
     for (const line of lines) {
         const code = line.productCode || line.product_code || line.code;
         const qty = Number(line.quantity || line.qty || 0);
         if (!code || qty <= 0) continue;
+        needByCode.set(code, (needByCode.get(code) || 0) + qty);
+    }
+    for (const [code, totalQty] of needByCode) {
         const alreadyReturned = Number(returnedMap[code]) || 0;
-        const restockQty = Math.max(0, qty - alreadyReturned);
+        const restockQty = Math.max(0, totalQty - alreadyReturned);
         if (restockQty <= 0) continue;
         await pool.query(
             `UPDATE web2_products SET stock = stock + $1, updated_at = $2 WHERE code = $3`,
