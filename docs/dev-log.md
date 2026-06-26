@@ -2,6 +2,14 @@
 
 ## 2026-06-26
 
+### [web2/cham-cong] Sync strip phân biệt KẾT NỐI vs DỮ LIỆU mới (bắt case máy online nhưng không đẩy chấm công)
+
+User báo: data dừng ở 23/06 dù strip hiện "Đang đồng bộ · Lần cuối 08:32 26/06". Chẩn đoán: `last_sync_time` bị `touchAdmsStatus` bump mỗi heartbeat ADMS (~10s) của máy DG-600 → strip xanh dù KHÔNG có punch mới. Strip cũ chỉ đo CONNECTION freshness, không đo DATA freshness → đánh lừa.
+
+**Fix** (`cham-cong-app.js` renderSyncStrip + `latestRecordDateKey()` helper + css): tách "**Đang kết nối**" (heartbeat) khỏi "**Dữ liệu mới nhất: DD/MM**" (date_key bản ghi mới nhất). Khi xem tháng hiện tại + data trễ ≥2 ngày → strip chuyển `off` (đỏ) + cảnh báo "⚠ Máy kết nối nhưng KHÔNG có chấm công mới N ngày — bấm lay-du-lieu.bat + kiểm tra DG-600". `.cc-sync .cc-sync-stale` đỏ (specificity 0,2,0 thắng `.cc-sync b`).
+
+Xác nhận deploy của tôi KHÔNG gây lỗi này: ingest gate trả **401** (secret đã set env) chứ không 503 (fail-closed) → agent đúng secret vẫn vào được; gap 23/06 có trước deploy hôm nay. Verify: unit-test staleDays (23/06 vs 26/06 = 3 ngày stale; hôm qua=không; tháng cũ=không) ALL PASS; screenshot strip "Đang kết nối · Dữ liệu mới nhất 23/06 (đỏ) · ⚠ 3 ngày". Cache-bust app/css `?v=20260626fix4`.
+
 ### [web2/cham-cong] FIX đợt 4 (Group C đối soát + Group D a11y/perf)
 
 **Group C — hàng đợi ĐỐI SOÁT chấm thiếu cả tháng** (`cham-cong-app.js` renderTimesheet): ngày chấm THIẾU 1 lượt (quên bấm vào/ra) đang trả 0đ âm thầm — trước chỉ cảnh báo "hôm nay". Giờ gom TOÀN THÁNG mọi NV (status `missing`) → panel "⚠ Cần đối soát (N)" với chip `NV · DD/MM` bấm mở openDay chấm bù. Verify screenshot: panel cam + 3 chip.

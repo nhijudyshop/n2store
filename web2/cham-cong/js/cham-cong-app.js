@@ -90,6 +90,15 @@
     function payrollFor(empId) {
         return state.payrollById[`${empId}_${state.monthKey}`] || null;
     }
+    // date_key MỚI NHẤT trong records đã tải (tháng đang xem). Dùng để phân biệt
+    // "máy kết nối" (heartbeat) với "có chấm công MỚI" — máy có thể ping mà không đẩy data.
+    function latestRecordDateKey() {
+        let max = null;
+        for (const uid in state.recordsByUserDate) {
+            for (const dk in state.recordsByUserDate[uid]) if (!max || dk > max) max = dk;
+        }
+        return max;
+    }
     function monthRange() {
         const days = S.daysOfMonth(state.monthKey);
         return { start: days[0], end: days[days.length - 1], days };
@@ -245,17 +254,41 @@
                   month: '2-digit',
               }).format(last)
             : '—';
-        el.className = 'cc-sync ' + (active ? 'ok' : 'off');
+        // ── DATA freshness (KHÁC connection freshness) ──────────────────────
+        // "Lần cuối" = heartbeat máy (ping ADMS ~10s → connected=true dù KHÔNG có punch
+        // mới). Tách riêng "Dữ liệu mới nhất" = date_key bản ghi mới nhất → bắt được case
+        // máy ONLINE nhưng KHÔNG đẩy chấm công (vd thu dữ liệu chết giữa ngày).
+        const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: VN_TZ }).format(new Date());
+        const latestDk = latestRecordDateKey();
+        const viewingCurMonth = state.monthKey === todayKey.slice(0, 7);
+        const staleDays =
+            viewingCurMonth && latestDk
+                ? Math.round(
+                      (new Date(todayKey + 'T00:00:00+07:00') -
+                          new Date(latestDk + 'T00:00:00+07:00')) /
+                          86400000
+                  )
+                : 0;
+        const dataStale = staleDays >= 2; // ≥2 ngày không có chấm công mới → cảnh báo
+        const latestTxt = latestDk ? `${latestDk.slice(8)}/${latestDk.slice(5, 7)}` : '—';
+        el.className = 'cc-sync ' + (active && !dataStale ? 'ok' : 'off');
         el.innerHTML = `
             <span class="cc-sync-dot"></span>
-            <span>Máy chấm công: <b>${active ? 'Đang đồng bộ' : 'Chưa đồng bộ'}</b></span>
+            <span>Máy chấm công: <b>${active ? 'Đang kết nối' : 'Chưa kết nối'}</b></span>
             <span class="cc-sync-sep">·</span>
             <span>Lần cuối: <b>${esc(lastTxt)}</b></span>
+            ${
+                viewingCurMonth
+                    ? `<span class="cc-sync-sep">·</span><span>Dữ liệu mới nhất: <b class="${dataStale ? 'cc-sync-stale' : ''}">${esc(latestTxt)}</b></span>`
+                    : ''
+            }
             ${s && s.last_error ? `<span class="cc-sync-err" title="${esc(s.last_error)}">⚠ lỗi</span>` : ''}
             ${
-                active
-                    ? ''
-                    : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Tới shop (cùng wifi) bấm <b>lay-du-lieu.bat</b> để lấy ngay.</span>`
+                dataStale
+                    ? `<span class="cc-sync-backup">· ⚠ Máy <b>kết nối</b> nhưng KHÔNG có chấm công mới <b>${staleDays} ngày</b> (mới nhất ${esc(latestTxt)}). Tới shop bấm <b>lay-du-lieu.bat</b> + kiểm tra máy DG-600 (đang ghi nhận? đầy bộ nhớ?).</span>`
+                    : active
+                      ? ''
+                      : `<span class="cc-sync-backup">· 🔌 PC đồng bộ đang tắt? Tới shop (cùng wifi) bấm <b>lay-du-lieu.bat</b> để lấy ngay.</span>`
             }
         `;
     }
