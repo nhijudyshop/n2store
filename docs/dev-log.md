@@ -15,6 +15,20 @@ Wire `Web2VariantPicker` vào ô Biến Thể mỗi dòng trong modal Tạo/Sử
 
 **Verify** (browser): mở Tạo Đơn → ô Biến Thể có picker (chips Áo/Quần/Đầm + dropdown gợi ý Màu thật từ kho); chọn Áo+Quần + gõ Trắng/Đen → `modalRows[0].variant="Trắng + Đen"`, `category="Áo + Quần"`; old input = 0. Status: ✅ (Phase 4 products tiếp)
 
+### [issue-tracking] Nút Xóa: CHỈ ADMIN + chuyển sang HARD delete (soft bị ràng buộc DB chặn)
+
+Follow-up của nút 🗑️ bên dưới. User: "chỉ admin mới xóa được" + "xóa đơn Nguyễn Yến trong DB". Phát hiện **soft delete hỏng toàn DB**: ràng buộc `customer_tickets_status_check` (render.com/migrations/001_create_customer_360_schema.sql:230) KHÔNG cho `status='DELETED'` → `DELETE /v2/tickets/:id` (soft) luôn fail. Thêm nữa, guard chống trùng FIX_COD/BOOM (render.com/routes/v2/tickets.js:478-487) chỉ bỏ qua `CANCELLED` → phiếu soft-deleted vẫn **chặn tạo lại** đơn cùng mã. ⇒ User chọn **hard delete** (xoá hẳn, tạo lại được).
+
+**Sửa** (`issue-tracking/js/script.js`):
+
+- Gate nút 🗑️ đổi từ quyền `issue-tracking:delete` → **`window.authManager.isAdminTemplate()`** (roleTemplate==='admin'). Nút Hủy 🚫 giữ nguyên quyền `delete`.
+- `window.deleteTicket`: check `isAdminTemplate()` (defense-in-depth) + `ApiService.deleteTicket(code, true)` (HARD) + confirm "XÓA VĨNH VIỄN… KHÔNG khôi phục được (tạo lại phiếu mới OK)". Audit `newData.status='HARD_DELETED'`.
+- `index.html`: cache-bust `script.js?v=20260626b`.
+
+**Đã xoá theo yêu cầu**: ticket `TV-2026-01043` (Nguyễn Yến 0911353040, đơn NJD/2026/72854 #441206, FIX_COD/CUSTOMER_DEBT, 200k, COMPLETED) — hard delete qua API, verify `search` 0 match + fetch 404. (Lưu ý: KHÔNG tự hoàn lại 200k đã trừ nợ ví khách.)
+
+**Verify** (Playwright headless, admin): `isAdminTemplate=true`, tab Hoàn Tất **220/220** phiếu có nút 🗑️ (giảm 1 vì vừa xoá). Status: ✅
+
 ### [issue-tracking] Thêm nút Xóa phiếu (🗑️) cho phiếu đã hoàn tất / đã hủy / chờ đối soát
 
 User yêu cầu "xóa đơn như hình" — phiếu **Sửa COD (Hoàn Tất)** trong trang issue-tracking chỉ có nút Sửa (✏️), không có cách xóa khỏi danh sách. Backend đã sẵn `DELETE /api/v2/tickets/:id` (xóa mềm `status='DELETED'`, list query đã loại `status != 'DELETED'`, bắn SSE `deleted` → tự refetch) + `ApiService.deleteTicket(code, hard)` — chỉ thiếu UI gọi.

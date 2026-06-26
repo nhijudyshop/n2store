@@ -3180,9 +3180,11 @@ function renderActionButtons(ticket) {
     // Delete (xóa mềm → status DELETED, ẩn khỏi danh sách): dành cho phiếu KHÔNG còn
     // ở trạng thái PENDING_GOODS (đã nhận hàng / hoàn tất / đã hủy) — nơi nút Hủy (🚫)
     // ở trên không áp dụng. Dùng status (không dùng isUntouched) để MỌI phiếu đã hoàn
-    // tất đều xoá được (kể cả RETURN_SHIPPER còn công nợ ảo chưa dùng). Cùng quyền 'delete'.
+    // tất đều xoá được (kể cả RETURN_SHIPPER còn công nợ ảo chưa dùng).
+    // CHỈ ADMIN mới xóa được (roleTemplate === 'admin'), không chỉ quyền 'delete'.
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
     const deleteButton =
-        canCancel && ticket.status !== 'PENDING_GOODS'
+        isAdmin && ticket.status !== 'PENDING_GOODS'
             ? `<button onclick="deleteTicket('${id}')" title="Xóa phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>`
             : '';
 
@@ -3638,19 +3640,18 @@ window.cancelTicket = async function (firebaseId) {
 };
 
 /**
- * Delete ticket — XÓA MỀM (status → DELETED, ẩn khỏi danh sách, vẫn giữ bản ghi)
- * Requires 'delete' permission. Dùng cho phiếu đã xử lý/hoàn tất/đã hủy.
+ * Delete ticket — XÓA VĨNH VIỄN (hard delete: DELETE FROM customer_tickets).
+ * CHỈ ADMIN. Dùng cho phiếu đã xử lý/hoàn tất/đã hủy.
+ * Vì sao hard (không soft): ràng buộc DB `customer_tickets_status_check` KHÔNG cho
+ *   status='DELETED' → soft delete fail; và guard chống trùng FIX_COD/BOOM chỉ bỏ qua
+ *   'CANCELLED' nên phiếu soft-deleted vẫn chặn tạo lại đơn. Hard delete xoá hẳn → tạo lại OK.
  * Lưu ý: với FIX_COD/BOOM, xoá phiếu KHÔNG tự đảo ngược thay đổi ví/công nợ đã thực hiện.
  * Backend tự thu hồi công nợ ảo CHƯA dùng của RETURN_SHIPPER (và chặn nếu đã dùng).
  */
 window.deleteTicket = async function (firebaseId) {
-    // Permission check
-    if (!window.authManager?.hasDetailedPermission('issue-tracking', 'delete')) {
-        notificationManager.error(
-            'Bạn không có quyền xóa phiếu. Liên hệ Admin để cấp quyền.',
-            5000,
-            'Không có quyền'
-        );
+    // Permission check — CHỈ ADMIN mới được xóa phiếu
+    if (!window.authManager?.isAdminTemplate?.()) {
+        notificationManager.error('Chỉ Admin mới có quyền xóa phiếu.', 5000, 'Không có quyền');
         return;
     }
 
@@ -3664,7 +3665,7 @@ window.deleteTicket = async function (firebaseId) {
     const displayCode = ticket.ticketCode || `#${firebaseId.slice(-4)}`;
 
     // Build confirmation message (type-aware warnings)
-    let confirmMsg = `Xác nhận XÓA phiếu ${displayCode}${ticket.orderId ? ' - Đơn ' + ticket.orderId : ''}?\n\nPhiếu sẽ bị ẩn khỏi danh sách (xóa mềm — vẫn giữ bản ghi để đối soát).`;
+    let confirmMsg = `Xác nhận XÓA VĨNH VIỄN phiếu ${displayCode}${ticket.orderId ? ' - Đơn ' + ticket.orderId : ''}?\n\n⚠️ Phiếu sẽ bị xoá hẳn khỏi DB, KHÔNG khôi phục được. (Có thể tạo lại phiếu mới cho đơn này sau khi xoá.)`;
     if (ticket.type === 'FIX_COD' || ticket.type === 'BOOM') {
         confirmMsg +=
             '\n\n⚠️ Lưu ý: Các thay đổi ví/công nợ đã thực hiện cho phiếu này sẽ KHÔNG tự động hoàn lại.';
@@ -3678,9 +3679,9 @@ window.deleteTicket = async function (firebaseId) {
 
     showLoading(true);
     try {
-        // Soft delete (status → DELETED). SSE 'deleted' event sẽ tự refetch & ẩn dòng.
-        const result = await ApiService.deleteTicket(ticketIdentifier, false);
-        console.log('[DELETE] Ticket deleted successfully:', firebaseId, result);
+        // Hard delete (DELETE FROM customer_tickets). SSE 'deleted' event sẽ tự refetch & ẩn dòng.
+        const result = await ApiService.deleteTicket(ticketIdentifier, true);
+        console.log('[DELETE] Ticket permanently deleted:', firebaseId, result);
 
         const revoked = result?.virtualCreditCancelled ? ' + thu hồi công nợ ảo' : '';
         notificationManager.success(`Đã xóa phiếu ${displayCode}${revoked}`, 3000, 'Xóa phiếu');
@@ -3705,7 +3706,7 @@ window.deleteTicket = async function (firebaseId) {
                         status: ticket.status || '',
                     },
                     newData: {
-                        status: 'DELETED',
+                        status: 'HARD_DELETED',
                         virtualCreditCancelled: !!result?.virtualCreditCancelled,
                     },
                     entityId: ticket.ticketCode || firebaseId,
