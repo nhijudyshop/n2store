@@ -2,6 +2,21 @@
 
 ## 2026-06-26
 
+### [web2 flow R2] Audit vòng 2 (7 luồng còn lại) → fix 8 bug HIGH/MEDIUM money/stock + verify integration test
+
+2 workflow audit (delivery/reconcile + native→PBH/bulk-cancel/ví KH/ví NCC/KPI) → **13 defect**. Fix toàn bộ HIGH+MEDIUM (8), document LOW/frontend (5). Doc: [`docs/web2/FLOW-AUDIT-2026-06-26-R2.md`](web2/FLOW-AUDIT-2026-06-26-R2.md).
+
+- **#1 [HIGH]** tạo PBH trừ ví thu hộ áp-lại bị dedupe nuốt → over-mint lúc huỷ. `_applyWalletToPbh` honor `alreadyProcessed` + `applyWalletToUnpaidPbhs` refId UNIQUE (verify 7 assertions).
+- **#1b [HIGH]** create-time ví (TX2) đọc residual STALE + không lock → race. LOCK + re-read PBH row trong TX2.
+- **#2 [HIGH]** `_emitRevokeKpi` huỷ PBH GỘP không thu hồi KPI (source_code 'A+B' không tách). Split '+' + `order_code = ANY`.
+- **#3 [HIGH]** dashboard-kpi revenue_today/7d TRỪ web2_returns → doanh thu NET (verify 200k−50k=150k).
+- **#4 [MEDIUM]** from-native-order split=true bỏ qua merged-guard → double trừ. Guard chạy cả split.
+- **delivery [MEDIUM]** huỷ PBH → huỷ phiếu giao linked (cùng tx, SSE); from-pbh chặn phiếu giao TRÙNG (verify 6 assertions).
+- **Sửa COD [MEDIUM]** lần 2 cùng đơn → reject 409 (trước: ghi khống → over-refund).
+- **Document (LOW, follow-up)**: pollDeposits unmatched (FE), bulk-confirm native sync (dead route), processWithdraw 23505 recovery, returns deposit idemKey (đã mitigate code UNIQUE), matchSupplier substring (cần UX manual-assign).
+
+Test: 4 suite cũ (37 assertions) + 2 suite mới không regression. Status: ✅
+
 ### [web2 flow money/stock] Fix 6 bug defer (KNH/native restock + ví NCC cap) — verify integration test Postgres thật
 
 Tiếp tục từ audit 12-bug: fix nốt 6 bug money/stock đã defer, **verify bằng integration test trên Postgres local THẬT** (mount route thật + ensureTables + seed + assert invariant + drop DB — pattern test-migration CLAUDE.md). 24 assertions pass.
