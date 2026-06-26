@@ -61,6 +61,19 @@ function normCode(c) {
         .trim()
         .toUpperCase();
 }
+// Chuẩn hoá (name,variant) để join so-order row ↔ web2_products khi row CHƯA gắn
+// matchedCode (mirror Web2ProductsCache._normalize / lib web2-so-order-qty._norm).
+function _norm(text) {
+    return String(text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/g, 'd')
+        .trim();
+}
+function _nameKey(name, variant) {
+    return _norm(name) + '|' + _norm(variant);
+}
 function isYmd(s) {
     return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 }
@@ -112,8 +125,21 @@ router.get('/summary', async (req, res) => {
             return p;
         };
 
-        const soCodes = new Set();
-        const sellCodes = new Set();
+        // ---------- Kho web2_products: code↔(name,variant) + canonical name/NCC/địa danh ----------
+        // Load 1 lần: dùng để (a) resolve mã cho so-order row CHƯA gắn matchedCode → MERGE
+        // mua vào ↔ bán ra theo CODE (fix audit #10), (b) lấy tên/NCC/địa danh canonical.
+        const prodRes = await pool
+            .query(`SELECT code, name, variant, supplier, region FROM web2_products`)
+            .catch(() => ({ rows: [] }));
+        const metaByCode = new Map(); // CODE → {name, supplier, region}
+        const nameToCode = new Map(); // norm(name)|norm(variant) → CODE (first match wins)
+        for (const pr of prodRes.rows || []) {
+            if (!pr.code) continue;
+            const cc = normCode(pr.code);
+            metaByCode.set(cc, pr);
+            const nk = _nameKey(pr.name, pr.variant);
+            if (!nameToCode.has(nk)) nameToCode.set(nk, cc);
+        }
 
         // ---------- MUA VÀO + CHƯA NHẬN (Sổ Order) ----------
         const soRes = await pool
@@ -135,12 +161,13 @@ router.get('/summary', async (req, res) => {
                         const qty = num(r && r.qty);
                         if (qty <= 0) continue;
                         const costVnd = num(r && r.costPrice) * rate;
-                        const code = normCode(r && r.matchedCode);
                         const name = String((r && r.productName) || '').trim();
                         const variant = String((r && r.variant) || '').trim();
-                        const key = code
-                            ? 'C:' + code
-                            : 'N:' + name.toLowerCase() + '|' + variant.toLowerCase();
+                        // Resolve mã: matchedCode (nếu có) → fallback join (name,variant)→kho.
+                        // Nhờ vậy row chưa gắn mã vẫn MERGE với bán ra cùng SP (audit #10).
+                        let code = normCode(r && r.matchedCode);
+                        if (!code) code = nameToCode.get(_nameKey(name, variant)) || '';
+                        const key = code ? 'C:' + code : 'N:' + _nameKey(name, variant);
                         const p = getP(key, {
                             code: code || null,
                             name,
@@ -148,7 +175,6 @@ router.get('/summary', async (req, res) => {
                             supplier: String((r && r.supplier) || '').trim(),
                             region: tabRegion,
                         });
-                        if (code) soCodes.add(code);
                         if (!p.name && name) p.name = name;
                         if (!p.variant && variant) p.variant = variant;
                         if (!p.supplier && r && r.supplier) p.supplier = String(r.supplier).trim();
@@ -181,35 +207,26 @@ router.get('/summary', async (req, res) => {
         for (const row of sellRes.rows) {
             const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
             for (const l of lines) {
-                const code = normCode(l && (l.productCode || l.product_code || l.code));
                 const qty = num(l && (l.quantity != null ? l.quantity : l.qty));
                 if (qty <= 0) continue;
                 const price = num(l && (l.priceUnit != null ? l.priceUnit : l.price));
                 const disc = num(l && (l.discountAmount != null ? l.discountAmount : l.discount));
                 const amount = qty * price - disc;
                 const name = String((l && (l.productName || l.name)) || '').trim();
-                const key = code ? 'C:' + code : 'N:' + name.toLowerCase() + '|';
+                let code = normCode(l && (l.productCode || l.product_code || l.code));
+                if (!code) code = nameToCode.get(_nameKey(name, '')) || '';
+                const key = code ? 'C:' + code : 'N:' + _nameKey(name, '');
                 const p = getP(key, { code: code || null, name, variant: '' });
-                if (code) sellCodes.add(code);
-                if (!p.name && name) p.name = name;
                 p.sellQty += qty;
                 p.sellAmount += amount;
             }
         }
 
-        // ---------- Tên + NCC canonical từ web2_products ----------
-        const allCodes = [...new Set([...soCodes, ...sellCodes])];
-        if (allCodes.length) {
-            const pr = await pool
-                .query(
-                    `SELECT code, name, supplier, region FROM web2_products WHERE code = ANY($1::text[])`,
-                    [allCodes]
-                )
-                .catch(() => ({ rows: [] }));
-            const meta = new Map(pr.rows.map((x) => [normCode(x.code), x]));
+        // ---------- Tên + NCC + địa danh canonical từ web2_products (đã load ở trên) ----------
+        {
             for (const p of products.values()) {
                 if (!p.code) continue;
-                const m = meta.get(normCode(p.code));
+                const m = metaByCode.get(normCode(p.code));
                 if (!m) continue;
                 if (m.name) p.name = m.name; // tên canonical kho
                 if (m.supplier) p.supplier = String(m.supplier).trim(); // NCC canonical kho

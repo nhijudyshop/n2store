@@ -84,14 +84,17 @@ router.get('/summary', async (req, res) => {
             )
             .catch(() => ({ rows: [{}] }));
 
+        // FIX (audit #12): bảng `refunds` legacy đã CHẾT — Web 2.0 ghi trả hàng vào
+        // web2_returns (created_at = BIGINT epoch ms, status active|cancelled). KPI "Trả
+        // hàng hoàn thành" = phiếu trả còn hiệu lực (status='active') trong cửa sổ days.
         const rf = await pool
             .query(
                 `
             SELECT
                 COUNT(*)::int AS total,
-                COALESCE(SUM(amount_refund), 0)::numeric AS total_refund_amount
-            FROM refunds
-            WHERE state = 'completed' AND date_created >= to_timestamp($1::bigint / 1000.0)
+                COALESCE(SUM(total_amount), 0)::numeric AS total_refund_amount
+            FROM web2_returns
+            WHERE status = 'active' AND created_at >= $1
         `,
                 [cutoffMs]
             )
