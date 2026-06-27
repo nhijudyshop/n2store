@@ -2,6 +2,26 @@
 
 ## 2026-06-27
 
+### [web2/shared] Trang chỉ-admin: ẩn khỏi menu nhân viên + chặn truy cập URL trực tiếp (1 nguồn)
+
+User: group "Quản trị viên" + 6 trang (`system`, `pancake-settings`, `delivery-zone`, `audit-log`, `order-tags`, `livestream-poller`) chỉ admin được vào; **mọi trang admin-only phải ẩn khỏi menu** để nhân viên không thấy.
+
+**Files**:
+
+- `web2/shared/web2-perm.js` — thêm `ADMIN_ONLY_SLUGS` (1 NGUỒN: 6 trang trên + 3 trang group Quản trị viên `cham-cong`/`chi-tieu`/`users`) + helper `isAdminOnlySlug`/`isAdminOnlyUrl` (export). Mở rộng page-guard `_runGuard`: admin-only slug → **FAIL-CLOSED** chặn mọi non-admin (overlay "Bạn không có quyền xem trang này"), không phụ thuộc dữ liệu permissions (khác per-user 'view' revoke vốn default-open). An toàn vì web2-auth.js đã redirect user chưa đăng nhập về login + `getStored()` đọc localStorage đồng bộ → tới guard luôn có user.
+- `web2/shared/web2-sidebar.js` — thêm `adminOnly: true` cho 5 NAV item (livestream-poller/pancake-settings/delivery-zone/order-tags/audit-log; `system` + group Quản trị viên đã có sẵn). `renderItem` ẩn item khi `item.adminOnly || Web2Perm.isAdminOnlyUrl(item.our)` (backstop 1-nguồn, phòng quên flag). Bump autoload `web2-perm.js?v=20260627adm`.
+- Bump `web2-sidebar.js?v=20260627adm` trên **53 trang HTML** (cache-bust GH Pages).
+
+**Lưu ý**: command palette (Ctrl+K) harvest từ DOM sidebar đã render → tự loại trang admin-only cho non-admin, không cần sửa. Mobile bottombar chỉ có item cố định (không admin).
+
+**Verify** (browser test localhost, mô phỏng role qua `web2_auth`):
+
+- Admin: thấy đủ 9 item admin-only + group (53 sub-link). ✅
+- Staff: 9 item ẩn hết, group ẩn (53→44 link), `Web2Perm.isAdmin()=false`. ✅
+- Staff nav trực tiếp `web2/system?tab=services` → overlay chặn `#web2PermBlock`. ✅
+- Không false-positive: staff/products KHÔNG chặn, admin/system KHÔNG chặn. ✅
+- Unit test node: slugFromUrl + isAdminOnlyUrl đúng 9 trang admin (gồm `?tab=services`), `users` vs `users-permissions` không nhầm. Status: ✅
+
 ### [inventory-tracking] Cho nhập GIÁ thập phân (ô Sản phẩm) + KG thập phân (ô Kiện Hàng) — dấu phẩy kiểu VN
 
 User (modal "Thêm Đợt Hàng Mới" trang `inventory-tracking`): cho nhập số thập phân, dấu phẩy kiểu VN (vd `54,5`). Chốt: áp dụng **cả 2 ô**; ô Sản phẩm chỉ **giá** thập phân (SL giữ số nguyên).
