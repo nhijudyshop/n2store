@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Đổi chỗ banner hint ↔ panel điều khiển TV
+
+User: đổi vị trí hint (banner cam) và panel "📺 Điều khiển màn TV". → panel điều khiển TV lên TRÊN (ngay sau header), hint xuống DƯỚI cùng. Chỉ chỉnh CSS `order`: `.lc-tvctl{order:1}` `.lc-cols{order:2}` `.lc-hint{order:3}`. Verify browser: tvTop 61 < colsTop 390 < hintTop 1211 ✅. Cache-bust css `tv3`.
+
 ### [web2/live-control] Fix scroll cả trang + đẩy panel "Điều khiển màn TV" xuống dưới
 
 User: (1) không scroll được, (2) chuyển panel điều khiển TV xuống dưới.

@@ -54,7 +54,8 @@
     box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.13);
 }
 .lc-hint {
-    margin: 0 0 14px;
+    order: 3; /* hint (hướng dẫn) xuống DƯỚI cùng — đổi chỗ với panel điều khiển TV */
+    margin: 16px 0 0;
     padding: 11px 15px;
     background: #fff7ed;
     border: 1px solid #fed7aa;
@@ -69,6 +70,7 @@
 
 /* 2 cột */
 .lc-cols {
+    order: 2; /* board+picker ở giữa: dưới panel điều khiển TV, trên hint */
     display: grid;
     grid-template-columns: 1.1fr 0.9fr;
     gap: 16px;
@@ -513,8 +515,8 @@
 
 /* ── Điều khiển màn TV (layout + lật trang + mini-TV preview) ───────── */
 .lc-tvctl {
-    order: 10; /* đẩy XUỐNG DƯỚI cùng (sau .lc-cols) trong lc-root flex column */
-    margin: 16px 0 0;
+    order: 1; /* panel điều khiển TV lên TRÊN (ngay sau header, trên .lc-cols) */
+    margin: 0 0 14px;
     border: 1px solid #e6e9f0;
     border-radius: 14px;
     background: #fff;
