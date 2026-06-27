@@ -173,7 +173,8 @@
             return (j && j.control) || { rows: 1, cols: 4, page: 0 };
         },
         // Chi tiết giỏ KH của 1 SP (đơn draft chứa SP) — cho popup GIỎ / KH MỚI.
-        // → [{ orderCode, stt, customerName, phone, address, fbName, qty, isNewCust }]
+        // → [{ orderCode, stt, customerName, phone, address, fbId, fbName, qty,
+        //      isNewCust, avatar, comment }] (avatar+comment từ web2_live_comments).
         async getCartDetail(code) {
             const j = await _json(`${CP_BASE()}/cart-detail?code=${encodeURIComponent(code)}`);
             return (j && j.items) || [];

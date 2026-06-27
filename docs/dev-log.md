@@ -2,6 +2,16 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Popup giỏ khách: thêm AVATAR + COMMENT livestream (như live-chat)
+
+User: coi được comment + avatar như live-chat. → enrich popup GIỎ/KH MỚI: mỗi KH hiện avatar + bình luận livestream.
+
+- **Backend** (`/cart-detail`): sau khi lấy đơn draft, JOIN `web2_live_comments` theo `fb_id` (DISTINCT ON fb_id, comment mới nhất) → gắn `avatar` + `comment` mỗi KH. Defensive try/catch (bảng thiếu → bỏ qua, vẫn trả list).
+- **Frontend** (`cartRowHtml`): avatar tròn 38px (fallback chữ cái đầu nếu lỗi/không có, `referrerpolicy=no-referrer` cho FB CDN) + comment trong khung quote `.lc-cart-comment` (line-clamp 3).
+- Cache-bust `tv5`.
+
+Status: ✅ code + syntax OK, chờ deploy verify.
+
 ### [web2/live-control] Bấm GIỎ / KH MỚI ở board → popup chi tiết giỏ khách
 
 User: bấm số GIỎ / KH MỚI xem được thông tin (ai đang có SP trong giỏ).

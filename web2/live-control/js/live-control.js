@@ -438,8 +438,23 @@
               ? '<span class="lc-cart-newbadge">KH mới</span>'
               : '<span class="lc-cart-muted">chưa có SĐT</span>';
         var addr = it.address ? '<div class="lc-cart-addr">📍 ' + esc(it.address) + '</div>' : '';
+        // Avatar livestream (như live-chat) + fallback chữ cái đầu nếu lỗi/không có.
+        var initial = esc((String(name).trim()[0] || '?').toUpperCase());
+        var avatar = it.avatar
+            ? '<img class="lc-cart-avatar" src="' +
+              esc(safeImg(it.avatar)) +
+              '" alt="" referrerpolicy="no-referrer" ' +
+              "onerror=\"this.style.display='none';this.nextElementSibling.style.display='grid'\" />" +
+              '<span class="lc-cart-avatar lc-cart-avatar-fb" style="display:none">' +
+              initial +
+              '</span>'
+            : '<span class="lc-cart-avatar lc-cart-avatar-fb">' + initial + '</span>';
+        var comment = it.comment
+            ? '<div class="lc-cart-comment">“' + esc(it.comment) + '”</div>'
+            : '';
         return (
             '<div class="lc-cart-row">' +
+            avatar +
             '<div class="lc-cart-cinfo">' +
             '<div class="lc-cart-cname">' +
             esc(name) +
@@ -449,6 +464,7 @@
             contact +
             '</div>' +
             addr +
+            comment +
             '</div>' +
             '<div class="lc-cart-qty">' +
             (it.qty || 0) +

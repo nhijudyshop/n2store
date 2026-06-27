@@ -614,12 +614,46 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
                 customerName: row.customer_name || null,
                 phone: phone || null,
                 address: address || null,
+                fbId: row.fb_user_id || null,
                 fbName: row.fb_user_name || null,
                 qty: Number(row.qty) || 0,
                 isNewCust: !phone && !address, // KH mới = chưa có SĐT & địa chỉ
                 createdAt: Number(row.created_at) || 0,
+                avatar: null, // gắn sau từ web2_live_comments
+                comment: null,
             };
         });
+        // Enrich avatar + comment livestream (như live-chat) theo fb_id từ
+        // web2_live_comments (comment mới nhất / KH). Defensive: lỗi/bảng thiếu →
+        // bỏ qua, vẫn trả list cơ bản.
+        const fbIds = [...new Set(items.map((it) => it.fbId).filter(Boolean))];
+        if (fbIds.length) {
+            try {
+                const cr = await pool.query(
+                    `SELECT DISTINCT ON (fb_id) fb_id, avatar, message
+                     FROM web2_live_comments
+                     WHERE fb_id = ANY($1::text[])
+                     ORDER BY fb_id, created_time DESC NULLS LAST`,
+                    [fbIds]
+                );
+                const cmap = new Map();
+                for (const row of cr.rows) {
+                    cmap.set(String(row.fb_id), {
+                        avatar: row.avatar || null,
+                        comment: row.message || null,
+                    });
+                }
+                for (const it of items) {
+                    const c = it.fbId && cmap.get(String(it.fbId));
+                    if (c) {
+                        it.avatar = c.avatar;
+                        it.comment = c.comment;
+                    }
+                }
+            } catch (e) {
+                console.warn('[WEB2-CAMPAIGN-PRODUCTS] cart-detail enrich failed:', e.message);
+            }
+        }
         res.json({ success: true, items });
     } catch (e) {
         console.error('[WEB2-CAMPAIGN-PRODUCTS] cart-detail error:', e.message);
