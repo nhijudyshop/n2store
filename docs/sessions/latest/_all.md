@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a27494e` — feat(web2/ai-hub): hiệu ứng 'AI đang tạo' cao cấp — gradient + shimmer + ring cầu vồng + sparkle (Ghép đồ + Tạo ảnh)
-**Last updated**: 2026-06-27 15:29:33 +07
-**Latest session**: [`RESUME:20260627-152933-a27494e`](../20260627-152933-a27494e.md)
-**Summary**: feat(web2/ai-hub): hiệu ứng 'AI đang tạo' cao cấp — gradient + shimmer + ring cầu vồng + sparkle (Ghé...
+**Latest commit**: `5dd946d` — fix(web2/live-control): cuộn cả trang được + đẩy panel điều khiển TV xuống dưới
+**Last updated**: 2026-06-27 16:04:14 +07
+**Latest session**: [`RESUME:20260627-160414-5dd946d`](../20260627-160414-5dd946d.md)
+**Summary**: fix(web2/live-control): cuộn cả trang được + đẩy panel điều khiển TV xuống dưới
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
@@ -28,14 +27,14 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 15:29
+- [`docs/`](./docs.md) — updated 2026-06-27 16:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 13:25
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 16:04
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
@@ -82,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 15:29
+- [`web2/`](./web2.md) — updated 2026-06-27 16:04
