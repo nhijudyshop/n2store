@@ -595,13 +595,13 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
     try {
         const r = await pool.query(
             `SELECT n.code AS order_code, n.display_stt, n.customer_name, n.phone,
-                    n.address, n.fb_user_id, n.fb_user_name, n.created_at,
+                    n.address, n.fb_user_id, n.fb_user_name, n.fb_page_id, n.created_at,
                     SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS qty
              FROM native_orders n, jsonb_array_elements(n.products) prod
              WHERE COALESCE(prod->>'productCode', prod->>'code') = $1
                AND n.status = 'draft'
              GROUP BY n.id, n.code, n.display_stt, n.customer_name, n.phone, n.address,
-                      n.fb_user_id, n.fb_user_name, n.created_at
+                      n.fb_user_id, n.fb_user_name, n.fb_page_id, n.created_at
              ORDER BY n.created_at DESC NULLS LAST`,
             [code]
         );
@@ -615,22 +615,24 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
                 phone: phone || null,
                 address: address || null,
                 fbId: row.fb_user_id || null,
+                fbPageId: row.fb_page_id || null, // page để resolve avatar qua /api/fb-avatar
                 fbName: row.fb_user_name || null,
                 qty: Number(row.qty) || 0,
                 isNewCust: !phone && !address, // KH mới = chưa có SĐT & địa chỉ
                 createdAt: Number(row.created_at) || 0,
-                avatar: null, // gắn sau từ web2_live_comments
+                avatar: null, // hash pancake (thường null) — FE fallback /api/fb-avatar
                 comment: null,
             };
         });
-        // Enrich avatar + comment livestream (như live-chat) theo fb_id từ
-        // web2_live_comments (comment mới nhất / KH). Defensive: lỗi/bảng thiếu →
-        // bỏ qua, vẫn trả list cơ bản.
+        // Enrich comment livestream + page (cho avatar) theo fb_id từ
+        // web2_live_comments (comment mới nhất / KH). Avatar pages.fm hầu hết null →
+        // FE dựng URL /api/fb-avatar?id=fbId&page=pageId (page nơi KH là contact
+        // Pancake → ảnh thật, như live-chat). Defensive: lỗi/thiếu bảng → bỏ qua.
         const fbIds = [...new Set(items.map((it) => it.fbId).filter(Boolean))];
         if (fbIds.length) {
             try {
                 const cr = await pool.query(
-                    `SELECT DISTINCT ON (fb_id) fb_id, avatar, message
+                    `SELECT DISTINCT ON (fb_id) fb_id, avatar, message, page_id
                      FROM web2_live_comments
                      WHERE fb_id = ANY($1::text[])
                      ORDER BY fb_id, created_time DESC NULLS LAST`,
@@ -641,6 +643,7 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
                     cmap.set(String(row.fb_id), {
                         avatar: row.avatar || null,
                         comment: row.message || null,
+                        pageId: row.page_id || null,
                     });
                 }
                 for (const it of items) {
@@ -648,6 +651,8 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
                     if (c) {
                         it.avatar = c.avatar;
                         it.comment = c.comment;
+                        // Page comment (nơi KH là contact Pancake) ưu tiên cho avatar.
+                        if (c.pageId) it.fbPageId = c.pageId;
                     }
                 }
             } catch (e) {

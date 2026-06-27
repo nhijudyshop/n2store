@@ -429,6 +429,26 @@
     // ── Popup chi tiết GIỎ / KH MỚI (bấm số ở board) ──
     // Liệt kê đơn draft chứa SP (mỗi đơn = 1 giỏ khách). mode 'new' = lọc KH chưa
     // có SĐT & địa chỉ. Dùng class shared .w2p-* (popup.js) cho overlay/card/scroll.
+    // URL avatar KH — như live-chat getAvatarUrl: hash pancake → content.pancake.vn;
+    // else fb_id + page → worker /api/fb-avatar (resolve avatar thật từ Pancake page).
+    function cartAvatarUrl(it) {
+        var a = it.avatar;
+        if (a && typeof a === 'string') {
+            if (a.indexOf('content.pancake.vn') >= 0) return a;
+            if (/^[a-f0-9]{32,}$/i.test(a)) return 'https://content.pancake.vn/2.1-25/avatars/' + a;
+            if (a.indexOf('http') === 0) return a;
+        }
+        if (it.fbId) {
+            var base =
+                (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+                (window.WEB2_CONFIG && window.WEB2_CONFIG.WORKER_URL) ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
+            var u = base + '/api/fb-avatar?id=' + encodeURIComponent(it.fbId);
+            if (it.fbPageId) u += '&page=' + encodeURIComponent(it.fbPageId);
+            return u;
+        }
+        return null;
+    }
     function cartRowHtml(it) {
         var name = it.customerName || it.fbName || '(chưa có tên)';
         var stt = it.stt != null ? ' <span class="lc-cart-stt">#' + it.stt + '</span>' : '';
@@ -440,9 +460,10 @@
         var addr = it.address ? '<div class="lc-cart-addr">📍 ' + esc(it.address) + '</div>' : '';
         // Avatar livestream (như live-chat) + fallback chữ cái đầu nếu lỗi/không có.
         var initial = esc((String(name).trim()[0] || '?').toUpperCase());
-        var avatar = it.avatar
+        var avatarUrl = cartAvatarUrl(it);
+        var avatar = avatarUrl
             ? '<img class="lc-cart-avatar" src="' +
-              esc(safeImg(it.avatar)) +
+              esc(avatarUrl) +
               '" alt="" referrerpolicy="no-referrer" ' +
               "onerror=\"this.style.display='none';this.nextElementSibling.style.display='grid'\" />" +
               '<span class="lc-cart-avatar lc-cart-avatar-fb" style="display:none">' +
