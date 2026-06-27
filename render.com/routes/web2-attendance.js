@@ -488,6 +488,23 @@ router.put('/day-notes/:id', requireWeb2Admin, async (req, res) => {
 // Upsert 1 batch punch. Trả số dòng thực sự ghi. Dùng chung agent + import + manual.
 // Tự tạo dòng web2_attendance_device_users tối thiểu cho mỗi PIN mới gặp → punch
 // nhập tay/ADMS/import HIỆN ngay trong bảng công (không cần agent đẩy device-users).
+// FIX audit R3 (#2): khoá kỳ lương PHẢI enforce SERVER-SIDE. Trước chỉ chặn ở frontend
+// (state.lock của tháng đang xem) → tab cũ/khác tháng/API trực tiếp vẫn sửa được punch/
+// payroll/fullday/holiday của tháng ĐÃ CHỐT → mở khoá lại số liệu lệch snapshot đã duyệt.
+async function isMonthLocked(db, monthKey) {
+    if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return false;
+    try {
+        const r = await db.query(
+            `SELECT 1 FROM web2_attendance_period_lock WHERE month_key = $1 LIMIT 1`,
+            [monthKey]
+        );
+        return r.rows.length > 0;
+    } catch {
+        return false; // bảng chưa tồn tại / lỗi đọc → không chặn (fail-open an toàn)
+    }
+}
+const LOCK_MSG = (mk) => `Kỳ lương ${mk} đã CHỐT (khoá) — mở khoá kỳ trước khi sửa.`;
+
 async function insertRecords(db, rows, source) {
     let inserted = 0;
     const seenUids = new Set();
@@ -598,7 +615,11 @@ router.post('/records/import', requireWeb2Admin, async (req, res) => {
 router.post('/records', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
-        const inserted = await insertRecords(db, [req.body || {}], 'manual');
+        const b = req.body || {};
+        const _dt = parsePunchTime(b.check_time ?? b.checkTime ?? b.recordTime ?? b.time);
+        const _mk = _dt ? dateKeyVN(_dt).slice(0, 7) : null;
+        if (_mk && (await isMonthLocked(db, _mk))) return fail(res, 409, LOCK_MSG(_mk));
+        const inserted = await insertRecords(db, [b], 'manual');
         if (!inserted) return fail(res, 400, 'Dữ liệu punch không hợp lệ');
         _notify('records', { inserted, source: 'manual' });
         return ok(res, { inserted });
@@ -631,9 +652,13 @@ router.delete('/records/clear-all', requireWeb2Admin, async (req, res) => {
 router.delete('/records/:id', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
-        await db.query(`DELETE FROM web2_attendance_records WHERE id = $1`, [
-            String(req.params.id),
+        const _id = String(req.params.id);
+        const _rec = await db.query(`SELECT date_key FROM web2_attendance_records WHERE id = $1`, [
+            _id,
         ]);
+        const _mk = _rec.rows[0]?.date_key ? String(_rec.rows[0].date_key).slice(0, 7) : null;
+        if (_mk && (await isMonthLocked(db, _mk))) return fail(res, 409, LOCK_MSG(_mk));
+        await db.query(`DELETE FROM web2_attendance_records WHERE id = $1`, [_id]);
         _notify('records', { deleted: req.params.id });
         return ok(res, {});
     } catch (e) {
@@ -671,6 +696,7 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
         if (!m) return fail(res, 400, 'id bảng lương không hợp lệ');
         const empId = m[1];
         const monthKey = m[2];
+        if (await isMonthLocked(db, monthKey)) return fail(res, 409, LOCK_MSG(monthKey));
         const b = req.body || {};
         const r = await db.query(
             `INSERT INTO web2_attendance_payroll
@@ -735,6 +761,8 @@ router.post('/fullday', requireWeb2Admin, async (req, res) => {
         const dateKey = String(req.body?.dateKey || '').slice(0, 10);
         if (!empId || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey))
             return fail(res, 400, 'empId/dateKey không hợp lệ');
+        if (await isMonthLocked(db, dateKey.slice(0, 7)))
+            return fail(res, 409, LOCK_MSG(dateKey.slice(0, 7)));
         const id = `${empId}_${dateKey}`;
         await db.query(
             `INSERT INTO web2_attendance_fullday (id, emp_id, date_key, created_at)
@@ -751,9 +779,11 @@ router.post('/fullday', requireWeb2Admin, async (req, res) => {
 router.delete('/fullday/:id', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
-        await db.query(`DELETE FROM web2_attendance_fullday WHERE id = $1`, [
-            String(req.params.id),
-        ]);
+        const _fid = String(req.params.id);
+        const _fdk = _fid.slice(-10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(_fdk) && (await isMonthLocked(db, _fdk.slice(0, 7))))
+            return fail(res, 409, LOCK_MSG(_fdk.slice(0, 7)));
+        await db.query(`DELETE FROM web2_attendance_fullday WHERE id = $1`, [_fid]);
         _notify('fullday', { deleted: req.params.id });
         return ok(res, {});
     } catch (e) {
@@ -778,6 +808,8 @@ router.post('/holidays', requireWeb2Admin, async (req, res) => {
         const db = getDb(req);
         const dateKey = String(req.body?.dateKey || '').slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return fail(res, 400, 'dateKey không hợp lệ');
+        if (await isMonthLocked(db, dateKey.slice(0, 7)))
+            return fail(res, 409, LOCK_MSG(dateKey.slice(0, 7)));
         await db.query(
             `INSERT INTO web2_attendance_holidays (date_key, note, created_at)
              VALUES ($1,$2,$3) ON CONFLICT (date_key) DO UPDATE SET note = EXCLUDED.note`,
@@ -793,9 +825,10 @@ router.post('/holidays', requireWeb2Admin, async (req, res) => {
 router.delete('/holidays/:dateKey', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
-        await db.query(`DELETE FROM web2_attendance_holidays WHERE date_key = $1`, [
-            String(req.params.dateKey).slice(0, 10),
-        ]);
+        const _hdk = String(req.params.dateKey).slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(_hdk) && (await isMonthLocked(db, _hdk.slice(0, 7))))
+            return fail(res, 409, LOCK_MSG(_hdk.slice(0, 7)));
+        await db.query(`DELETE FROM web2_attendance_holidays WHERE date_key = $1`, [_hdk]);
         _notify('holidays', { deleted: req.params.dateKey });
         return ok(res, {});
     } catch (e) {
