@@ -24,14 +24,21 @@ Web 2.0 (tab Ghép đồ): dò /list?engine=gemini-tryon → thấy máy online 
 Pool account: mỗi request xoay round-robin; account dính giới hạn → cooldown, nhảy account kế.
 ```
 
-## Chạy (Mac)
+## Tự bật khi mở máy + chạy NỀN ẨN
+
+- **Windows (khuyên dùng):** cài qua bộ cài `cai-may-pos.bat` trên Web 2.0 (tab Ghép đồ → "Tải bộ cài" → chọn **[4] Gemini**). Tự chạy `pythonw` (không cửa sổ) + bỏ vào **Startup** → **tự bật mỗi khi mở máy, chạy ẩn hoàn toàn**.
+- **Mac:** double-click **`install-mac.command`** (1 lần) → tạo **LaunchAgent** → chạy **nền ẩn (không cửa sổ Terminal) + tự bật mỗi khi đăng nhập**. Gỡ: `uninstall-mac.command`. Log ở `gemini-tryon.log`.
+
+> Khi chạy nền ẩn, **dùng cookie qua trang cấu hình** `http://localhost:8131/` (accounts.json) — browser-cookie3 có thể không đọc được Chrome ở chế độ nền.
+
+## Chạy thủ công (test, có cửa sổ)
 
 1. `brew install cloudflared` (1 lần, để Web 2.0 tự dò máy).
-2. Double-click **`run-mac.command`** (lần đầu tự tạo venv + cài thư viện).
+2. Double-click **`run-mac.command`** (lần đầu tự tạo venv + cài thư viện) — có cửa sổ Terminal để xem log.
 3. Mở **http://localhost:8131/** → trang cấu hình → **dán cookie nhiều account** (xem dưới).
 4. Khi thấy `👕 Máy '... (Gemini)' đã ONLINE` → mở Web 2.0 → tab **Ghép đồ** → máy tự hiện để chọn.
 
-Windows/Linux: `python serve.py` (cài `pip install -r requirements.txt` trước; Windows tải `cloudflared.exe` vào thư mục này). Bản 1-click Windows cài qua bộ cài `cai-may-pos.bat` (menu) trên Web 2.0.
+Linux: `python serve.py` (cài `pip install -r requirements.txt` trước).
 
 ## Thêm account (3 cách)
 
