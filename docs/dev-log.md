@@ -2,6 +2,14 @@
 
 ## 2026-06-27
 
+### [web2 sepay R4] Test SePay webhook → ví Web 2.0 (E2E) → 🐞 FIX bug CHECK constraint thiếu `pending_no_order`
+
+User: "sepay có chức năng webhook tạo giao dịch nên dùng tạo giao dịch test web 2.0". Webhook `/api/sepay/webhook` là endpoint dùng chung fan-out 2 nhánh độc lập; test đi ĐÚNG nhánh Web 2.0 (`insertWeb2BalanceHistory`+`processWeb2Match`, như fan-out + retry cron), **KHÔNG đụng Web 1.0** (`balance_history`/`processDebtUpdate`). Verify 22 assertions Postgres thật (`sepay-webhook-test.js`).
+
+- **🐞 FIX [MEDIUM] `web2-sepay-matching.js`** — CHECK constraint `web2_balance_history_match_method_check` THIẾU value `pending_no_order` (gate `_gateBlock` dùng từ 2026-06-07 + reprocess exclusion 2026-06-20). Guard migration cũ `IF EXISTS THEN RETURN` → constraint không bao giờ update → prod thiếu. Hệ quả: `UPDATE SET match_method='pending_no_order'` vi phạm constraint → throw (try/catch nuốt) → `match_method` giữ NULL → reprocess cron KHÔNG loại được row gated → **retry storm mỗi 10 phút** + đếm sai `no_match`. (Tiền AN TOÀN — gate return trước credit; bug correctness/efficiency.) Fix: thêm `pending_no_order` vào CHECK + guard SELF-HEAL (chỉ RETURN khi def đã chứa value, thiếu → DROP+ADD 1 lần idempotent).
+- **Verify luồng SePay→ví ĐÚNG**: A) SĐT+đơn active → auto-credit `exact_phone`; B) trùng `sepay_id` → idempotent không double; C) CK#2 cùng KH → cộng dồn, đúng 2 GD; D) SĐT không đơn → gate chặn `pending_no_order` (giờ lưu được sau fix); E) QR → bypass gate → credit; F) `out` → không credit; G) amount≤0 → từ chối.
+- **Lưu ý**: clone `0123456788` KHÔNG dùng cho test extractor SePay (prefix 012 vô lệ VN → extractor từ chối ĐÚNG); dùng prefix 09x. Đây là test LOCAL `n2store_flow_test`, không đụng prod.
+
 ### [web2 flow R4] Vòng XÁC MINH báo cáo kho + revenue + công thức lương → 0 bug code (verify integration test)
 
 Vòng 4 = verification (không sửa code). Kiểm 2 báo cáo user yêu cầu đúng (`report-warehouse`, `report-revenue`) + công thức lương/khoá kỳ. Doc: [`docs/web2/FLOW-AUDIT-2026-06-27-R4.md`](web2/FLOW-AUDIT-2026-06-27-R4.md).

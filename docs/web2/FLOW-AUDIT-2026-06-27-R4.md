@@ -1,6 +1,6 @@
 # Web 2.0 Flow Audit — Round 4 (2026-06-27)
 
-> Vòng 4 = **vòng XÁC MINH** (verification), nối R1/R2/R3. Trọng tâm: 2 báo cáo user yêu cầu kiểm đúng (`report-warehouse`, `report-revenue`) + công thức lương/khoá kỳ. **Kết quả: 0 bug code mới** — code (gồm `web2-warehouse-report.js` mới viết) đã ĐÚNG; verify bằng integration test Postgres thật. 1 limitation cosmetic ghi nhận (không fix vì fix có rủi ro over-merge).
+> Vòng 4 = **vòng XÁC MINH** (verification), nối R1/R2/R3. Trọng tâm: 2 báo cáo user yêu cầu kiểm đúng (`report-warehouse`, `report-revenue`) + công thức lương/khoá kỳ + **luồng SePay webhook → ví Web 2.0** (user yêu cầu test bằng webhook tạo giao dịch). **Kết quả: báo cáo + lương ĐÚNG; tìm + fix 1 bug THẬT trong luồng SePay** (CHECK constraint thiếu `pending_no_order` → gate marker fail → retry storm). Verify bằng integration test Postgres thật. 1 limitation cosmetic ghi nhận (không fix).
 
 ## Tổng quan
 
@@ -10,6 +10,7 @@
 | `pbh-reports` revenue + refund KPI (web2_returns)                                 | ✅ ĐÚNG (R1 #12 fix giữ nguyên)         | đọc code, refund `status='active' AND created_at>=cutoffMs` |
 | Lương: công thức `cham-cong-salary.js` vs `validateLockSnapshot` server           | ✅ KHỚP                                 | đọc code đối chiếu                                          |
 | Snapshot khoá kỳ: shape `m` ↔ field validator đọc                                 | ✅ KHỚP                                 | đọc code                                                    |
+| **SePay webhook → ví Web 2.0** (deposit/gate/QR/idempotency)                      | ✅ ĐÚNG + 🐞 1 bug FIXED                | 22 assertions (`sepay-webhook-test.js`)                     |
 | Warehouse: SP unmatched có variant → tách dòng buy/sell                           | ⚠ limitation cosmetic (totals vẫn đúng) | không fix                                                   |
 
 ---
@@ -45,6 +46,24 @@ Khi 1 SP **không có trong `web2_products`** (không resolve được code) VÀ
 
 ---
 
+## 5. SePay webhook → ví Web 2.0 — E2E test + 🐞 fix bug constraint
+
+User: _"sepay có chức năng webhook tạo giao dịch nên bạn dùng tạo giao dịch để test chức năng web 2.0"_.
+
+**Kiến trúc**: webhook `/api/sepay/webhook` là endpoint VẬT LÝ dùng chung, fan-out 2 nhánh ĐỘC LẬP: Web 1.0 (`balance_history` + `processDebtUpdate`) và Web 2.0 (`_processWeb2Path` → `insertWeb2BalanceHistory` + `processWeb2Match` → ví `web2_*`). Test đi ĐÚNG nhánh Web 2.0 (như fan-out + retry cron `server.js:350`), **KHÔNG đụng Web 1.0** (tôn trọng tách lớp — user nhắc đúng).
+
+**Verify 22 assertions** (`sepay-webhook-test.js`, Postgres thật): A) SĐT match + đơn active → auto-credit `exact_phone`; B) trùng `sepay_id` → idempotent (không double); C) CK thứ 2 cùng KH → cộng dồn, đúng 2 GD nạp; D) SĐT có KH nhưng KHÔNG đơn → **gate chặn** (`pending_no_order`, không credit); E) QR → bypass gate → credit; F) `transferType=out` → không credit; G) amount ≤ 0 → từ chối.
+
+### 🐞 Bug FIXED — CHECK constraint thiếu `pending_no_order` → gate marker fail → retry storm
+
+**Phát hiện qua test**: scenario D gate đúng (không credit tiền — money AN TOÀN) NHƯNG `match_method` không lưu được. Root cause: `_gateBlock` (`web2-sepay-matching.js:362`) ghi `UPDATE ... SET match_method='pending_no_order'`, value này dùng từ 2026-06-07 + reprocess exclusion 2026-06-20, **NHƯNG KHÔNG có trong CHECK constraint** `web2_balance_history_match_method_check`. Guard migration cũ `IF EXISTS constraint THEN RETURN` → constraint tạo 1 lần, không bao giờ update danh sách → prod thiếu value.
+
+**Hệ quả**: UPDATE vi phạm constraint → throw → bị `try/catch` của `_gateBlock` nuốt → `match_method` giữ NULL → `reprocessUnmatched` (exclusion `NOT IN (...,'pending_no_order')`) KHÔNG loại được row gated → **cron re-process mỗi 10 phút mãi mãi (retry storm)** + đếm sai là `no_match`. (Tiền KHÔNG bị credit sai — gate return trước `processDeposit`; bug là correctness/efficiency, MEDIUM.)
+
+**Fix** (`web2-sepay-matching.js`): (1) thêm `'pending_no_order'` vào danh sách CHECK; (2) đổi guard SELF-HEAL — chỉ `RETURN` khi `pg_get_constraintdef` ĐÃ chứa `pending_no_order`, thiếu → `DROP + ADD` (1 lần, idempotent sau đó → không lock lần deploy sau). Verify: constraint test DB tự heal, scenario D giờ lưu `pending_no_order`, re-run idempotent.
+
+---
+
 ## Phương pháp
 
-Integration test mount route Express thật trên Postgres local `n2store_flow_test`, seed Sổ Order (JSONB doc) + Kho SP + PBH, assert từng con số + reconcile rollup, KHÔNG đụng prod. Harness: `warehouse-test.js` (29). R4 không đổi code → chỉ doc.
+Integration test trên Postgres local `n2store_flow_test`, seed dữ liệu thật, assert từng con số, KHÔNG đụng prod. Harness: `warehouse-test.js` (29 — báo cáo kho) + `sepay-webhook-test.js` (22 — SePay→ví, nhánh Web 2.0 thuần). R4: fix 1 bug (`web2-sepay-matching.js` CHECK constraint) + verify 51 assertions.

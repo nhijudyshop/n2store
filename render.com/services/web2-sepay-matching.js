@@ -114,19 +114,30 @@ async function ensureSchema(pool) {
         // lớn) mỗi lần Render restart → webhook SePay đến trong cửa sổ đó bị block.
         // Guard pg_constraint → sau lần tạo đầu, block thành catalog-lookup KHÔNG lock.
         // ⚠ Đổi danh sách match_method về sau: DROP constraint thủ công 1 lần rồi deploy.
+        // FIX audit (2026-06-27): guard cũ "IF EXISTS constraint THEN RETURN" → constraint
+        // tạo 1 lần, KHÔNG update khi danh sách đổi. 'pending_no_order' (gate _gateBlock,
+        // 2026-06-07) + reprocess exclusion (2026-06-20) dùng value này nhưng KHÔNG có
+        // trong CHECK → UPDATE SET match_method='pending_no_order' (line ~362) VI PHẠM
+        // constraint → throw (bị try/catch nuốt) → match_method giữ NULL → reprocess cron
+        // (exclusion NOT IN (...,'pending_no_order')) KHÔNG loại được → RETRY STORM mỗi tick.
+        // Guard mới SELF-HEAL: chỉ RETURN khi constraint def ĐÃ chứa 'pending_no_order';
+        // thiếu → DROP+ADD (1 lần). Sau fix def chứa → RETURN (không lock lần sau).
         await pool.query(`
             DO $$
+            DECLARE def text;
             BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM pg_constraint c
-                    JOIN pg_class t ON t.oid = c.conrelid
-                    WHERE t.relname = 'web2_balance_history'
-                      AND c.conname = 'web2_balance_history_match_method_check'
-                ) THEN
-                    RETURN;
+                SELECT pg_get_constraintdef(c.oid) INTO def
+                FROM pg_constraint c
+                JOIN pg_class t ON t.oid = c.conrelid
+                WHERE t.relname = 'web2_balance_history'
+                  AND c.conname = 'web2_balance_history_match_method_check';
+                IF def IS NOT NULL AND position('pending_no_order' in def) > 0 THEN
+                    RETURN; -- đã up-to-date → không lock
                 END IF;
                 ALTER TABLE web2_balance_history
                     DROP CONSTRAINT IF EXISTS balance_history_match_method_check;
+                ALTER TABLE web2_balance_history
+                    DROP CONSTRAINT IF EXISTS web2_balance_history_match_method_check;
                 ALTER TABLE web2_balance_history
                     ADD CONSTRAINT web2_balance_history_match_method_check
                     CHECK (match_method IS NULL OR match_method IN (
@@ -135,6 +146,7 @@ async function ensureSchema(pool) {
                         'single_match',
                         'pending_match',
                         'pending_low_confidence',
+                        'pending_no_order', -- gate: KH match SĐT nhưng KHÔNG đơn active (_gateBlock)
                         'manual_entry',
                         'manual_link',
                         'manual_resolve',  -- user pick KH cho pending multi-match (web2-pending-match.js)
