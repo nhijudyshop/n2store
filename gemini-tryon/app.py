@@ -219,12 +219,14 @@ app.add_middleware(
 class TryonReq(BaseModel):
     prompt: str = ""
     images: List[str] = []
+    account: Optional[str] = None  # admin chọn account cụ thể (None = xoay tua)
     secret: Optional[str] = None
 
 
 class GenReq(BaseModel):
     prompt: str = ""
     image: Optional[str] = None
+    account: Optional[str] = None
     secret: Optional[str] = None
 
 
@@ -251,11 +253,19 @@ def _ready_pool() -> List[Account]:
     return ready or [a for a in _state["accounts"] if a.ready]  # hết account khoẻ → vẫn thử account cooldown
 
 
-async def _run_gemini(prompt: str, image_dataurls: List[str]) -> dict:
+async def _run_gemini(prompt: str, image_dataurls: List[str], account: Optional[str] = None) -> dict:
     prompt = (prompt or "").strip()[:MAX_PROMPT]
     if not prompt:
         return {"ok": False, "error": "Thiếu mô tả (prompt)"}
-    pool = _ready_pool()
+    # account chỉ định (admin chọn account cụ thể) → CHỈ dùng account đó (kể cả đang cooldown,
+    # admin chủ động ép). Không chỉ định → xoay tua bình thường.
+    if account:
+        chosen = [a for a in _state["accounts"] if a.label == account and a.ready]
+        if not chosen:
+            return {"ok": False, "error": f"Account '{account}' không tồn tại / cookie lỗi."}
+        pool = chosen
+    else:
+        pool = _ready_pool()
     if not pool:
         errs = "; ".join(f"{a.label}: {a.error}" for a in _state["accounts"] if a.error) or "chưa init cookie"
         return {"ok": False, "error": "Không account Gemini nào sẵn sàng (" + errs + ")"}
@@ -421,14 +431,14 @@ async def tryon(req: TryonReq):
         return {"ok": False, "error": "Sai secret"}
     if not req.images:
         return {"ok": False, "error": "Thiếu ảnh (cần ít nhất ảnh người/mặt)"}
-    return await _run_gemini(req.prompt, req.images)
+    return await _run_gemini(req.prompt, req.images, account=req.account)
 
 
 @app.post("/generate")
 async def generate(req: GenReq):
     if not _check_secret(req.secret):
         return {"ok": False, "error": "Sai secret"}
-    return await _run_gemini(req.prompt, [req.image] if req.image else [])
+    return await _run_gemini(req.prompt, [req.image] if req.image else [], account=req.account)
 
 
 @app.get("/", response_class=HTMLResponse)

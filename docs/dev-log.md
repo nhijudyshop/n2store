@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [gemini-tryon + web2/ai-hub] Admin chọn nguồn tạo ảnh (account cụ thể / Nano Banana paid)
+
+User "admin cho chọn account banana". Thêm **selector nguồn CHỈ admin** trong tab Ghép đồ (`.w2t-src`): "🔄 Tự động (xoay tua free)" · "👤 <account> · N ảnh" (từng account của máy shop, lấy từ /health) · "🍌 Nano Banana TRẢ PHÍ". Nhân viên KHÔNG thấy selector → luôn free auto (không lỡ tay tốn tiền). `isAdmin()` (Web2Perm.isAdmin fallback session role). **Sidecar `app.py`**: `/tryon` + `/generate` nhận `account` (label) → `_run_gemini(account=)` chỉ dùng account đó (admin né account full/lỗi). `run()` route: paid→callPaidNano, acc:<label>→callGeminiMachine(acc), auto→xoay tua. Bump `web2-tryon.js?v=20260627i`. ⚠ Máy shop reinstall để nhận app.py mới.
+
 ### [web2/products] P1 — SP CHA–CON (biến thể): schema + mã cha/con + API + đồng bộ tồn cha
 
 Feature lớn 4 phase (plan `~/.claude/plans/jaunty-munching-llama.md`): SP nhiều biến thể → 1 CHA (mã gốc, tồn=tổng) + N CON (mã cha+biến thể, SL riêng). Quyết định user: **mã con = mã cha + viết tắt biến thể** (HCAO→HCAOGHI/HCAODO); **cha là dòng THẬT** trong DB. **P1 = backend** (additive, an toàn — SP cũ phẳng không đổi).

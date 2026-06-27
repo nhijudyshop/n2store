@@ -114,6 +114,17 @@
             global.notificationManager?.show?.(m, t || 'info');
         } catch (_) {}
     }
+    // Admin Web 2.0? (role='admin'). Dùng Web2Perm nếu có, fallback đọc session. Chỉ admin mới
+    // được chọn nguồn (account cụ thể / Nano Banana trả phí); nhân viên luôn dùng free auto.
+    function isAdmin() {
+        try {
+            if (global.Web2Perm?.isAdmin) return global.Web2Perm.isAdmin();
+            const s = JSON.parse(localStorage.getItem('web2_users_session') || '{}');
+            return String((s.user && s.user.role) || s.role || '').toLowerCase() === 'admin';
+        } catch (_) {
+            return false;
+        }
+    }
 
     // Nén ảnh client (resize ≤ MAX_DIM + JPEG) → payload nhỏ, gửi nhanh.
     function compressFile(file) {
@@ -181,6 +192,8 @@
 .w2t-srv-actions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .w2t-srv-actions button,.w2t-srv-cfg{border:1px solid #c7d2fe;background:#eef2ff;color:#4f46e5;border-radius:8px;padding:5px 10px;font-size:.74rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 .w2t-srv-actions button:hover,.w2t-srv-cfg:hover{background:#e0e7ff}
+.w2t-srv-src{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:.74rem;color:#4f46e5;font-weight:600}
+.w2t-srv-src select{flex:1;min-width:0;border:1px solid #c7d2fe;background:#fff;color:#4f46e5;border-radius:8px;padding:5px 8px;font:inherit;font-size:.74rem;font-weight:600;cursor:pointer}
 .w2t-srv-status{font-size:.73rem;color:#64748b;line-height:1.4}
 .w2t-srv-status.on{color:#16a34a;font-weight:600}
 .w2t-field{display:flex;flex-direction:column;gap:6px}
@@ -304,6 +317,10 @@
                         <button type="button" class="w2t-srv-refresh">🔄 Dò máy</button>
                         <button type="button" class="w2t-srv-cfg">⚙️ Mở cấu hình account (máy shop)</button>
                     </div>
+                    <div class="w2t-srv-src" hidden>
+                        <span>👑 Admin — nguồn:</span>
+                        <select class="w2t-src"></select>
+                    </div>
                     <div class="w2t-srv-status">Đang dò máy Gemini…</div>
                 </details>
             </div>
@@ -373,6 +390,36 @@
                 srvStatus.textContent =
                     '⚪ Chưa thấy máy Gemini free online — bật sidecar trên máy shop (bộ cài trên) rồi 🔄 Dò máy. Chế độ CHỈ-FREE: không tự dùng Nano Banana trả phí.';
             }
+            populateSrc();
+        }
+        // ADMIN chọn nguồn: tự động (xoay tua free) · account cụ thể · Nano Banana TRẢ PHÍ.
+        // Nhân viên KHÔNG thấy selector → luôn dùng free auto (không lỡ tay tốn tiền).
+        async function populateSrc() {
+            const wrap = $('.w2t-srv-src');
+            const sel = $('.w2t-src');
+            if (!wrap || !sel) return;
+            if (!isAdmin()) {
+                wrap.hidden = true;
+                return;
+            }
+            wrap.hidden = false;
+            let opts = '<option value="auto">🔄 Tự động — máy free (xoay tua)</option>';
+            if (geminiUrl) {
+                try {
+                    const r = await fetch(geminiUrl + '/health', {
+                        signal: AbortSignal.timeout(5000),
+                    });
+                    const h = await r.json();
+                    (h.accounts || []).forEach((a) => {
+                        const tag = a.ready ? (a.cooling ? ' · nghỉ' : '') : ' · lỗi';
+                        opts += `<option value="acc:${esc(a.label)}">👤 ${esc(a.label)} · ${a.uses || 0} ảnh${tag}</option>`;
+                    });
+                } catch (_) {}
+            }
+            opts += '<option value="paid">🍌 Nano Banana (TRẢ PHÍ)</option>';
+            const prev = sel.value;
+            sel.innerHTML = opts;
+            if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
         }
         $('.w2t-srv-install')?.addEventListener('click', () => {
             if (global.Web2PosInstaller?.downloadInstaller) {
@@ -540,14 +587,18 @@
 
         // Gọi máy Gemini FREE (sidecar gemini-tryon) — trả dataUrl ảnh. RETRY khi tunnel chập
         // chờn (ERR_NETWORK_CHANGED / 502-504 / fetch fail tạm thời — hay xảy ra với cloudflared).
-        async function callGeminiMachine(promptText, images) {
+        async function callGeminiMachine(promptText, images, account) {
             let lastErr;
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                     const r = await fetch(geminiUrl + '/tryon', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: promptText, images }),
+                        body: JSON.stringify({
+                            prompt: promptText,
+                            images,
+                            account: account || undefined,
+                        }),
                         signal: AbortSignal.timeout(180000),
                     });
                     if (r.status >= 502 && r.status <= 504) throw new Error('tunnel ' + r.status); // transient
@@ -610,15 +661,24 @@
             const prog = startFakeProgress((p) => {
                 if (pctEl) pctEl.textContent = p + '%';
             });
+            // Nguồn: nhân viên = luôn free auto. ADMIN có thể chọn account cụ thể / Nano Banana paid.
+            const srcSel = (isAdmin() && $('.w2t-src')?.value) || 'auto';
             try {
-                // CHẾ ĐỘ CHỈ-FREE (user chọn): chỉ dùng máy Gemini free, KHÔNG tự rớt về Nano Banana
-                // trả phí → không bao giờ tốn tiền bất ngờ. Free hết lượt/lỗi → báo rõ, chờ reset/thêm acc.
-                if (!geminiUrl) {
+                let src;
+                if (srcSel === 'paid') {
+                    // ADMIN chủ động chọn Nano Banana TRẢ PHÍ.
+                    src = await callPaidNano(promptText, images);
+                } else if (geminiUrl) {
+                    // Free máy shop: 'auto' xoay tua, 'acc:<label>' = account admin chọn.
+                    const acc = srcSel.startsWith('acc:') ? srcSel.slice(4) : null;
+                    src = await callGeminiMachine(promptText, images, acc);
+                } else {
+                    // CHỈ-FREE mà chưa có máy → báo rõ (KHÔNG tự dùng paid; admin muốn paid thì chọn ở trên).
                     throw new Error(
-                        'Chưa có máy Gemini free online — bật sidecar trên máy shop rồi bấm 🔄 Dò máy.'
+                        'Chưa có máy Gemini free online — bật sidecar máy shop rồi 🔄 Dò máy' +
+                            (isAdmin() ? ' (hoặc admin chọn "Nano Banana trả phí" ở trên).' : '.')
                     );
                 }
-                const src = await callGeminiMachine(promptText, images);
                 prog.done();
                 renderResultCard(card, src);
                 if (opts.onResult) opts.onResult(src);
