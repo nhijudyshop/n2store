@@ -157,6 +157,18 @@ function _auditCampaign(req, action, campaignId, note) {
 // =0 nếu trống. toAdd newest-first → newest nhận sort nhỏ nhất (base − len) =
 // trên cùng, oldest = base − 1, đều nhỏ hơn mọi row visible hiện có.
 async function autoSyncPending(pool, campaignId) {
+    // GUARD: chỉ auto-add khi chiến dịch CHA tồn tại (tránh tạo orphan
+    // campaign_products cho campaignId rác). Fail-open: query lỗi (bảng chưa
+    // ensured lúc boot) → bỏ guard, vẫn chạy như cũ (KHÔNG chặn feature).
+    try {
+        const camp = await pool.query(
+            `SELECT 1 FROM web2_live_parent_campaigns WHERE id = $1 LIMIT 1`,
+            [campaignId]
+        );
+        if (!camp.rows.length) return 0;
+    } catch (e) {
+        /* bảng parent chưa tồn tại / lỗi tạm → fail-open */
+    }
     // LIMIT bound worst-case (CHO_MUA là working-set nhỏ, nhưng phòng tích tụ):
     // chỉ auto-add tối đa 300 SP chờ hàng mới nhất / lần. Đủ cho 1 phiên live.
     const pend = await pool.query(
