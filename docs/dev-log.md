@@ -2,7 +2,16 @@
 
 ## 2026-06-27
 
-### [web2/login + web2/overview] Login → Đơn Web (native-orders) + 🐞 FIX bug đường dẫn overview (404 toàn bộ link)
+### [web2 flow R4] Vòng XÁC MINH báo cáo kho + revenue + công thức lương → 0 bug code (verify integration test)
+
+Vòng 4 = verification (không sửa code). Kiểm 2 báo cáo user yêu cầu đúng (`report-warehouse`, `report-revenue`) + công thức lương/khoá kỳ. Doc: [`docs/web2/FLOW-AUDIT-2026-06-27-R4.md`](web2/FLOW-AUDIT-2026-06-27-R4.md).
+
+- **Báo cáo kho (`web2-warehouse-report.js`, code mới session trước) — ĐÚNG, 29 assertions** (`warehouse-test.js`): mua vào (received đủ / partial `min(qtyReceived,qty)` / draft 0 / cancelled loại), tiền `costPrice×rate`, chưa nhận = qty−nhận, bán ra CHỈ `state='done'` trong range theo `date_invoice` GMT+7 (confirmed/done-cũ không đếm), lọc mua theo `shipment.date`, merge buy↔sell theo CODE (1 dòng), rollup ĐỊA DANH(cha)/NCC + **totals reconcile** Σregions=Σsuppliers=Σproducts=totals.
+- **Revenue (`pbh-reports`) — ĐÚNG**: refund KPI R1 #12 (`web2_returns status='active' AND created_at>=cutoffMs`) giữ nguyên đúng; revenue GMT+7 nhất quán. Semantic khác warehouse cố ý (revenue đếm state≠cancel = đã lập phiếu; warehouse bán ra = done).
+- **Lương/khoá kỳ — công thức KHỚP**: `cham-cong-salary.js` (`tongLuong=luong+OT+PC+thưởng−giảm`, `conCanTra=tong−đãtrả`) trùng khít `validateLockSnapshot` server; snapshot `m` đủ field validator.
+- **⚠ Limitation cosmetic (KHÔNG fix)**: SP unmatched (không có trong kho) + có variant → tách dòng buy/sell (totals vẫn đúng). Fix sẽ over-merge variants → chấp nhận giới hạn.
+
+Test: `warehouse-test.js` (29) — không regression. Status: ✅
 
 User: "đăng nhập thì vào native-orders". Đổi login redirect: mọi user → `../../native-orders/index.html` (login ở `/web2/login/` depth 2, native-orders ở ROOT → cần `../../`; bỏ role-based admin→system của lần trước). `landingFor()` giờ trả native-orders cho tất cả.
 
