@@ -2,6 +2,17 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Fix avatar giỏ khách: dựng URL qua worker /api/fb-avatar (id+page)
+
+User "chưa thấy avatar". Đọc module live-chat: avatar KH dựng bằng `SharedUtils.getAvatarUrl(fbId, pageId, ...)` → worker `/api/fb-avatar?id=<fbId>&page=<pageId>` (Pancake `pages/{page}/avatar/{fbId}` → ảnh thật, fallback Graph → SVG default). `web2_live_comments.avatar` LUÔN null (poller không lưu) nên JOIN không đủ — phải dùng fb-avatar proxy.
+
+**Quan trọng**: proxy chỉ trả ảnh thật khi `page` = page KH là contact Pancake. Test: fbId Minh Minh ra SVG 215B trên page sai, **jpeg 3029B trên page 117267091364524** (page comment của họ).
+
+- **Backend** `/cart-detail`: thêm `n.fb_page_id` + lấy `page_id` từ JOIN `web2_live_comments` → trả `fbPageId` (ưu tiên page comment, fallback page đơn).
+- **Frontend** `cartAvatarUrl(it)` (mirror getAvatarUrl): hash pancake → content.pancake.vn; else `fbId`+`page` → worker fb-avatar; onerror → fallback chữ cái.
+
+Verify browser: 2 avatar `loaded:[true,true]` naturalWidth 100×100 (ảnh thật, screenshot xác nhận Minh Minh + Lisa Trang ảnh FB thật). Cache-bust `tv6`.
+
 ### [web2/live-control] Popup giỏ khách: thêm AVATAR + COMMENT livestream (như live-chat)
 
 User: coi được comment + avatar như live-chat. → enrich popup GIỎ/KH MỚI: mỗi KH hiện avatar + bình luận livestream.
