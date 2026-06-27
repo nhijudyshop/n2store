@@ -2,6 +2,19 @@
 
 ## 2026-06-27
 
+### [web2/live-control + live-tv] Địa danh pre-order: KH MỚI → KH (vượt NCC được + báo hiệu)
+
+User: thêm chọn ĐỊA DANH (Hương Châu/Hà Nội). SP đúng địa danh chọn → cột "KH MỚI" thành "KH" (đếm TẤT CẢ khách), được VƯỢT NCC (số KH đỏ + badge "VƯỢT +N", CÒN = 0). Mặc định Hương Châu.
+
+Chốt công thức (user): **CÒN = max(0, NCC − GIỎ − [KH MỚI | KH])**; chế độ KH thì KH cộng vượt được, vuot = max(0, GIỎ + KH − NCC).
+
+- **Backend** (`web2-campaign-products.js`): aggregate thêm `all_cust` (COUNT DISTINCT khách, không lọc) = KH; `web2_live_tv_control` thêm cột `region` (default 'HƯƠNG CHÂU'); `/control` GET/PATCH thêm `region`.
+- **Shared** (`web2-live-tv-display.js`): `khConModel(v, region)` = NGUỒN DUY NHẤT (isKhMode/khLabel/khCount/con/vuot) dùng chung board + TV + preview → không lệch. cardState thêm allCust. variant-group propagate allCust/totalAllCust.
+- **live-control**: vrowHtml dùng khConModel (SP đúng địa danh → "KH" đếm allCust, vượt → số đỏ + badge "VƯỢT +N"); selector "📍 KH theo" trong panel; load/save/SSE region → renderBoard; mini-preview CÒN theo công thức mới.
+- **live-tv**: variantRowHtml CÒN dùng khConModel (khớp board); control + SSE thêm region.
+
+Phạm vi (Q2): chỉ SP đúng địa danh dùng "KH"; SP khác giữ "KH MỚI". Verify SQL: region migration idempotent, all_cust=3/new_cust=1/sold=6 ✅. node --check 6 file ✅. Cache-bust `tv7`. ⚠ Lưu ý double-count tiềm năng: GIỎ=tổng SL (gồm cả khách này), KH=đầu khách → 1 khách trừ 2 lần (theo đúng công thức user); chờ user soát số thật.
+
 ### [native-orders] Picker + lọc chiến dịch cha: dùng listAssignments() (đồng nhất live-chat)
 
 Nối tiếp fix live-chat: native-orders cũng có 2 chỗ comment-driven gây sai với live cũ / web2-api.

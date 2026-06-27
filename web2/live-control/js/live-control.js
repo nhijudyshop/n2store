@@ -345,6 +345,10 @@
     }
     function miniCardHtml(g) {
         var st = window.Web2LiveTvDisplay.cardState(g);
+        // CÒN theo công thức mới (per-variant + địa danh) → khớp board + màn TV.
+        var con = (g.variants || []).reduce(function (a, v) {
+            return a + window.Web2LiveTvDisplay.khConModel(v, state.tvControl.region).con;
+        }, 0);
         var cls = 'lc-mini-card';
         if (g.pinned) cls += ' is-pinned';
         if (st.soldOut) cls += ' is-soldout';
@@ -366,9 +370,9 @@
             '<i>NCC</i></span><span>' +
             st.sold +
             '<i>GIỎ</i></span><span class="' +
-            (st.con <= 0 ? 'z' : '') +
+            (con <= 0 ? 'z' : '') +
             '">' +
-            st.con +
+            con +
             '<i>CÒN</i></span></div></div></div>'
         );
     }
