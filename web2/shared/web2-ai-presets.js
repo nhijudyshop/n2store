@@ -3,17 +3,19 @@
  * Trợ lý AI — THƯ VIỆN MẪU CÂU LỆNH (preset library) dùng chung cho tab Tạo ảnh / Ghép đồ
  * và Vai trò chat.
  *
- * Nguồn (curated, có ghi nguồn — license CC BY 4.0 / community):
- *   • Câu lệnh ảnh: github.com/YouMind-OpenLab/awesome-nano-banana-pro-prompts (10k+ prompt,
- *     16 ngôn ngữ) + github.com/PicoTrex/Awesome-Nano-Banana-images (case + prompt thực tế).
- *     Đã CHỌN LỌC + Việt hoá nhóm hợp shop thời trang (sản phẩm, người mẫu, mặc-lên-người,
- *     đổi nền, flat-lay, avatar, poster).
+ * Nguồn (curated 2026-06-27, ~49 prompt CHỌN LỌC từ repo Nano Banana nhiều sao + Việt hoá
+ * cho shop thời trang nữ N2Store):
+ *   • PicoTrex/Awesome-Nano-Banana-images (23k★) — case ảnh sản phẩm / ghép đồ / đổi nền / phục hồi.
+ *   • YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.7k★) — công thức ánh sáng 85mm/f2.8,
+ *     flat-lay knolling, infographic Bento, giữ danh tính khuôn mặt.
+ *   • JimmyLv/awesome-nano-banana (8.8k★) — bìa tạp chí, chân dung B&W, 3D chibi, anime.
+ *   Nhóm: 🛍️ sản phẩm · 👗 người mẫu · 🧥 thử đồ (try-on Pro) · 🧑‍🤝‍🧑 GHÉP MẶT · 🖼️ đổi nền ·
+ *   👤 avatar · 📐 flat-lay · 🎉 poster. Prompt try-on/ghép-mặt viết TIẾNG ANH (giữ danh tính tốt hơn).
  *   • Vai trò chat: cảm hứng từ pattern kỹ thuật của
- *     github.com/x1xhlol/system-prompts-and-models-of-ai-tools (định nghĩa vai trò rõ ràng,
- *     liệt kê năng lực, quy tắc giọng điệu + định dạng output) — viết riêng cho shop N2Store.
+ *     github.com/x1xhlol/system-prompts-and-models-of-ai-tools — viết riêng cho shop N2Store.
  *
  * API:
- *   window.AiPresets.image            → [{id, cat, title, prompt, needsImage, source}]
+ *   window.AiPresets.image            → [{id, cat, title, prompt, needsImage, inputImages, source}]
  *   window.AiPresets.roles            → [{id, title, desc, system}]
  *   window.AiPresets.DEFAULT_ROLE     → system prompt mặc định cho cuộc chat shop mới
  *   window.AiPresets.pickImage(cb,opts) → mở modal chọn câu lệnh ảnh → cb(prompt, preset)
@@ -23,12 +25,14 @@
     'use strict';
 
     // ───────────────────────── Câu lệnh tạo ảnh ─────────────────────────
-    // needsImage=true → câu lệnh SỬA/GHÉP ảnh tải lên (chỉ chạy tốt với Nano Banana).
+    // needsImage=true → câu lệnh SỬA/GHÉP ảnh tải lên (chỉ chạy tốt với Nano Banana / tab
+    // "Ghép đồ" / sidecar gemini-tryon). inputImages = mô tả ảnh cần + THỨ TỰ (ảnh 1, ảnh 2…).
     const CATS = [
         { id: 'all', label: 'Tất cả' },
         { id: 'product', label: '🛍️ Ảnh sản phẩm' },
         { id: 'fashion', label: '👗 Thời trang / Người mẫu' },
-        { id: 'onmodel', label: '🧥 Mặc lên người (cần ảnh)' },
+        { id: 'onmodel', label: '🧥 Thử đồ / Mặc lên người (cần ảnh)' },
+        { id: 'faceswap', label: '🧑‍🤝‍🧑 Ghép mặt (cần ảnh)' },
         { id: 'scene', label: '🖼️ Đổi nền / Phong cảnh (cần ảnh)' },
         { id: 'avatar', label: '👤 Ảnh đại diện (cần ảnh)' },
         { id: 'layout', label: '📐 Flat-lay / Bố cục' },
@@ -36,231 +40,462 @@
     ];
 
     const IMAGE = [
-        // ── Ảnh sản phẩm (text→ảnh, không cần ảnh gốc) ──
+        // ── product ──
         {
-            id: 'prod-white',
+            id: 'prod-white-ecom',
             cat: 'product',
-            title: 'Sản phẩm nền trắng (ảnh chính sàn TMĐT)',
-            prompt: 'Ảnh sản phẩm thương mại chuyên nghiệp: [tên sản phẩm] đặt chính giữa trên nền trắng tinh sạch sẽ, ánh sáng studio đều dịu, bóng đổ mềm tự nhiên, độ nét cao, không watermark, phong cách ảnh bìa sản phẩm sàn thương mại điện tử, 8K.',
+            title: 'Nền trắng TMĐT chuẩn sàn',
+            prompt: 'High-resolution e-commerce product photo of {sản phẩm thời trang, ví dụ: chiếc túi xách da nữ màu be} on a seamless pure-white background (#FFFFFF), studio softbox lighting from top-left, gentle wraparound fill so there are no harsh shadows, a faint soft contact shadow directly under the product for grounding. Product perfectly centered, sharp focus edge-to-edge, true-to-life colors, every stitch, zipper and material texture crisp. Clean commercial catalog style, front three-quarter angle, square 1:1, ready for Shopee/Lazada/TikTok Shop listing. No text, no props, no reflection.',
             needsImage: false,
-            source: 'youmind/awesome-nano-banana-pro-prompts',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23.1k★) — product photography conventions',
         },
         {
-            id: 'prod-podium',
+            id: 'prod-marble-podium',
             cat: 'product',
-            title: 'Sản phẩm trên bục đá cẩm thạch sang trọng',
-            prompt: '[tên sản phẩm] cao cấp đặt trên bục đá cẩm thạch nhiều tầng, bao quanh bởi hoa tươi và dải lụa mềm mại, ánh sáng điện ảnh dịu, bóng đổ nhẹ, phong cách quảng cáo sang trọng siêu thực, thẩm mỹ tối giản cao cấp, 8K.',
+            title: 'Bục đá cẩm thạch sang trọng',
+            prompt: 'Luxury product photography of {sản phẩm, ví dụ: lọ nước hoa nữ thủy tinh} resting on a polished white Carrara marble podium with soft grey veining. Cylindrical stone pedestal, beige plaster wall behind with a long warm window-light streak falling across it. Directional late-afternoon sunlight casting a soft elongated shadow to the right, shallow depth of field, high-end editorial mood. Minimalist, premium beauty-brand aesthetic, warm neutral palette, fine material detail in razor-sharp focus, vertical 3:4. No text.',
             needsImage: false,
-            source: 'youmind (No.94 Rose Gold)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.7k★) — high-end product/marble lighting',
         },
         {
-            id: 'prod-spa',
+            id: 'prod-water-splash',
             cat: 'product',
-            title: 'Mỹ phẩm / skincare phong cách spa Nhật',
-            prompt: 'Chai/hũ [tên sản phẩm] đặt trên bục đá, xung quanh là nguyên liệu thiên nhiên (lá xanh, bọt kem mịn, lát trái cây), thẩm mỹ spa kiểu Nhật, bố cục sang trọng tối giản, ánh sáng tự nhiên dịu nhẹ, quảng cáo chăm sóc da chân thực cao, 8K.',
+            title: 'Nước bắn động lực kịch tính',
+            prompt: 'Dynamic commercial product shot of {sản phẩm, ví dụ: chai sữa rửa mặt} in a dramatic modern scene with an explosive outward burst of crystal-clear water splashes and droplets frozen mid-air around the product, suggesting freshness and purity. High-speed flash freeze-motion, water crowns and ribbons swirling outward, key brand color (soft aqua-blue) gradient background, promotional advertising still, no text, product emphasized razor-sharp in the center, glossy highlights catching the light, vertical 9:16. Cinematic, high-detail.',
             needsImage: false,
-            source: 'youmind (No.88 Matcha)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23.1k★) — splash; YouMind No.14 cinematic splash',
         },
         {
-            id: 'prod-splash',
+            id: 'prod-spa-skincare',
             cat: 'product',
-            title: 'Sản phẩm với hiệu ứng nước/giọt bắn tươi mát',
-            prompt: '[tên sản phẩm] thanh lịch, bao quanh bởi các giọt nước lấp lánh và bong bóng trong suốt, nền tối giản sang trọng với tia nắng dịu nhẹ, bục trưng bày bóng bẩy, không khí mùa hè tươi mới, quảng cáo siêu thực, nhiếp ảnh thương mại cao cấp, 8K.',
+            title: 'Spa skincare nền thiên nhiên',
+            prompt: 'Serene spa-style skincare product photo of {sản phẩm, ví dụ: hũ kem dưỡng da} on a wet smooth river stone surrounded by fresh green eucalyptus leaves, a few water droplets on the jar, soft morning daylight diffused through a sheer curtain. Calm wellness atmosphere, muted sage-green and cream palette, gentle steam haze in the background, soft natural shadows, dewy fresh feel. Macro-clean focus on the product label and cream texture, shallow depth of field, vertical 3:4. Premium clean-beauty editorial, no text.',
             needsImage: false,
-            source: 'youmind (No.97 Lemon skincare)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23.1k★) — skincare/cosmetic styling',
         },
-        // ── Thời trang / người mẫu (text→ảnh) ──
         {
-            id: 'fashion-studio',
+            id: 'prod-pastel-color',
+            cat: 'product',
+            title: 'Nền pastel khối màu kẹo',
+            prompt: 'Playful flat-color product photo of {sản phẩm, ví dụ: đôi giày sneaker nữ} floating slightly above a two-tone pastel backdrop (soft pink curving into baby-blue), studio lighting with a clean soft gradient shadow beneath. Candy-color minimalist set, smooth seamless paper sweep, one geometric pastel prop (a cube or arch) for depth, bright cheerful Gen-Z e-commerce mood. Product centered and sharp, vibrant true colors, even soft shadows, square 1:1. Modern, fun, no text.',
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.7k★) — pastel/brand-color background styling',
+        },
+        {
+            id: 'prod-flatlay-set',
+            cat: 'product',
+            title: 'Flatlay bộ sản phẩm đồng bộ',
+            prompt: 'Top-down flat-lay product set of {bộ sản phẩm, ví dụ: phụ kiện thời trang nữ — túi, khăn lụa, kính mát, son} arranged neatly on a warm beige linen surface with intentional negative space and a balanced rhythm (not a uniform grid). Soft diffused overhead daylight, gentle natural shadows, a few styling accents (dried flowers, a folded scarf) framing the composition. Cohesive earthy-neutral palette, every item crisp and color-accurate, lifestyle editorial flat-lay for a fashion brand lookbook, square 1:1. No text.',
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23.1k★) — merch/product display layouts',
+        },
+        {
+            id: 'prod-macro-fabric',
+            cat: 'product',
+            title: 'Macro chất liệu vải cận cảnh',
+            prompt: 'Extreme macro close-up of {chất liệu vải, ví dụ: vải lụa satin màu hồng phấn / vải tweed dệt / vải linen mộc} showing the weave structure, fiber texture and subtle sheen in fine detail. Soft raking side-light grazing across the surface to reveal every thread, shallow depth of field with creamy bokeh falloff, true fabric color, a single soft fold or drape adding dimension. Tactile premium textile feel, clean neutral surround, commercial material-detail shot for a fashion product page, horizontal 16:9. No text.',
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.7k★) — Macro: cận cảnh kết cấu sản phẩm',
+        },
+        {
+            id: 'prod-miniature-hand',
+            cat: 'product',
+            title: 'Tay cầm sản phẩm tí hon sang chảnh',
+            prompt: "High-resolution advertising photo of a woman delicately holding a realistic miniature {sản phẩm, ví dụ: chiếc đầm dạ hội / túi xách} between her thumb and forefinger. Clean fresh background, studio lighting, soft shadows. Elegant hand with natural skin tone and glossy manicured nails, positioned to highlight the product's shape and detail. The product looks tiny yet richly detailed with precise branding, centered in frame, shallow depth of field. Mimics luxury product photography and minimalist commercial style, vertical 3:4. No text.",
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23.1k★) — 例 53 精致可爱的产品照片 (by @azed_ai)',
+        },
+        // ── fashion ──
+        {
+            id: 'fashion-studio-lookbook-asian',
             cat: 'fashion',
-            title: 'Người mẫu studio tối giản (lookbook)',
-            prompt: 'Ảnh studio toàn thân chính diện của một người mẫu nữ trẻ Đông Á, tóc bob thời thượng, mặc [mô tả trang phục], đứng trước phông nền màu kem trung tính sạch sẽ, ánh sáng studio dịu, tập trung hoàn toàn vào người mẫu và trang phục, phong cách lookbook thời trang cao cấp.',
+            title: 'Người mẫu nữ - Lookbook studio nền trơn',
+            prompt: 'Full-body e-commerce lookbook photo of a young East Asian female fashion model, early 20s, natural glowing skin, soft neutral makeup, hair styled simply. She is wearing [trang phục], standing in a relaxed confident pose with one hand on her hip against a seamless soft beige studio backdrop. Three-point softbox studio lighting with a large key light at 45 degrees and gentle fill, crisp clean shadows. Shot on 85mm lens, f/4, eye-level, vertical 3:4 framing with headroom and full shoes visible. Fabric texture, seams and drape of the clothing rendered sharply. Editorial catalog aesthetic, true-to-color, high resolution, photorealistic.',
             needsImage: false,
-            source: 'youmind (No.105/109 lookbook)',
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: 'YouMind-OpenLab (Elegant Studio Portraits) + cuigh editorial patterns',
         },
         {
-            id: 'fashion-store',
+            id: 'fashion-boutique-instore',
             cat: 'fashion',
-            title: 'Người mẫu trong cửa hàng tối giản hiện đại',
-            prompt: 'Ảnh chân dung thời trang toàn thân của một cô gái trẻ sành điệu đứng tự tin trong cửa hàng quần áo tối giản hiện đại, mặc [mô tả trang phục], phông nền nội thất gỗ ấm áp với giá treo quần áo tông trung tính, ánh sáng dịu, sàn sáng bóng, phong cách thương mại điện tử.',
+            title: 'Người mẫu nữ - Trong cửa hàng boutique',
+            prompt: 'Lifestyle fashion photo of a young East Asian woman, mid 20s, gentle natural makeup, wearing [trang phục], browsing inside a bright modern clothing boutique. Background has softly blurred clothing racks, warm wood shelves and a marble counter with shallow depth of field. Soft diffused daylight mixed with warm boutique spotlights, airy and inviting mood. Three-quarter body framing, candid mid-step pose looking slightly off camera. Shot on 50mm lens, f/2.0, vertical orientation. Warm cinematic color grade, realistic skin, clean fabric detail, photorealistic retail catalog feel.',
             needsImage: false,
-            source: 'youmind (No.108)',
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "YouMind Use-Case 'E-commerce Main Image' + JimmyLv lifestyle patterns",
         },
         {
-            id: 'fashion-home',
+            id: 'fashion-outdoor-garden-daylight',
             cat: 'fashion',
-            title: 'Đồ mặc nhà / homewear ngoài trời gần gũi',
-            prompt: 'Ảnh chân dung cận cảnh chân thực của một phụ nữ trẻ châu Á da trắng, đứng ngoài trời trong không gian nhà ở (hiên trước/sân vườn), cơ thể hơi nghiêng, đầu quay về máy ảnh, biểu cảm dịu dàng, mặc bộ [đồ mặc nhà / homewear] đồng bộ, ánh sáng tự nhiên ban ngày, phong cách đời thường sang trọng.',
+            title: 'Người mẫu nữ - Ngoài trời nắng dịu sân vườn',
+            prompt: 'Outdoor fashion editorial of a young East Asian female model wearing [trang phục], standing in a sunlit green garden with soft bokeh foliage and dappled sunlight behind her. Golden-hour backlight creating a gentle rim around her hair, warm soft fill on the face from a reflector. Full-body composition, natural relaxed walking pose, hair lightly moving in the breeze. Shot on 85mm lens, f/2.8, vertical 3:4 framing. Fresh airy color palette, true fabric colors, lifelike skin texture, professional outdoor catalog photography, photorealistic.',
             needsImage: false,
-            source: 'youmind (No.104)',
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "PicoTrex/YouMind 'Urban Rooftop Sunset' golden-hour outdoor pattern",
         },
         {
-            id: 'fashion-riviera',
+            id: 'fashion-street-style-urban',
             cat: 'fashion',
-            title: 'Thời trang phong cách Riviera Địa Trung Hải',
-            prompt: 'Ảnh thời trang biên tập của một [nam/nữ] mặc [mô tả trang phục] vải lanh, đứng trên ban công khu nghỉ dưỡng ven biển, ánh nắng vàng ấm, gió nhẹ, phong cách Mediterranean Riviera sang trọng thư thái, tông màu ấm điện ảnh.',
+            title: 'Người mẫu nữ - Street style đường phố',
+            prompt: 'Candid street-style fashion shot of a stylish young East Asian woman wearing [trang phục], walking on a clean modern city sidewalk with softly blurred storefronts, glass facades and bokeh city lights behind her. Overcast soft daylight, even flattering illumination, slight motion energy in the stride. Full-body vertical composition shot slightly low angle to lengthen the silhouette. Shot on 35mm lens, f/2.5, documentary editorial look. Crisp clothing detail, accurate colors, natural confident expression, modern urban fashion magazine aesthetic, photorealistic.',
             needsImage: false,
-            source: 'youmind (No.21/85)',
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "YouMind 'Cityscape/Street' subject + cuigh editorial street patterns",
         },
-        // ── Mặc lên người (cần ảnh gốc) ──
         {
-            id: 'onmodel-keepface',
+            id: 'fashion-korean-minimalist-editorial',
+            cat: 'fashion',
+            title: 'Người mẫu nữ - Phong cách Hàn tối giản',
+            prompt: 'Minimalist Korean editorial portrait of a young East Asian female model wearing [trang phục], styled with clean dewy glass-skin makeup, soft natural brows and tinted lips, hair neat and effortless. Standing against a soft off-white wall with subtle warm tones, gentle directional window light wrapping the face, clean low-contrast soft shadows. Three-quarter to full-body framing, calm serene expression, hands relaxed. Shot on 85mm lens, f/2.8, vertical. Soft film-like color grade, true fabric color, timeless minimalist K-fashion aesthetic, photorealistic high resolution.',
+            needsImage: false,
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "PicoTrex/YouMind 'Minimalist Korean Beauty Editorial'",
+        },
+        {
+            id: 'fashion-luxury-magazine-editorial',
+            cat: 'fashion',
+            title: 'Người mẫu nữ - Sang trọng bìa tạp chí',
+            prompt: 'High-fashion luxury magazine editorial of an elegant young East Asian woman wearing [trang phục], posed confidently in a sophisticated interior with marble columns, soft draped curtains and warm ambient glow. Dramatic directional studio lighting with a strong key light, sculpted highlights and deep refined shadows for a premium look. Full-body or three-quarter framing, poised graceful posture, captivating expression. Shot on 85mm lens, f/4, vertical cover-style composition. Rich cinematic color grade, luxurious atmosphere, immaculate fabric texture, glossy magazine-cover aesthetic, photorealistic.',
+            needsImage: false,
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "JimmyLv Case 49 'Fashion Magazine Cover' + YouMind 'Luxury Editorial'",
+        },
+        {
+            id: 'fashion-everyday-cafe-casual',
+            cat: 'fashion',
+            title: 'Người mẫu nữ - Đời thường quán cà phê',
+            prompt: 'Cozy everyday lifestyle photo of a relatable young East Asian woman wearing [trang phục], sitting and smiling naturally at a bright minimalist cafe table near a large window. Soft warm daylight from the side, gentle shadows, blurred wood interior and plants in the background. Three-quarter body candid pose, holding a coffee cup, warm friendly mood. Shot on 50mm lens, f/2.0, vertical orientation. Natural skin texture, true clothing color, soft warm color grade, approachable daily-wear catalog aesthetic, photorealistic.',
+            needsImage: false,
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "JimmyLv lifestyle/casual patterns + YouMind 'Influencer/Model' subject",
+        },
+        {
+            id: 'fashion-white-studio-fullbody-clean',
+            cat: 'fashion',
+            title: 'Người mẫu nữ - Studio trắng full-body sàn TMĐT',
+            prompt: 'Clean pure-white background full-body e-commerce model photo of a young East Asian female model wearing [trang phục], standing straight in a neutral catalog pose facing the camera, arms relaxed at the sides. Bright even high-key studio lighting from multiple softboxes, minimal soft shadow under the feet, no color cast. Whole body and shoes fully in frame with comfortable margins, vertical 3:4. Shot on 70mm lens, f/5.6, eye-level. Razor-sharp fabric detail, accurate true colors, marketplace product-listing standard, professional clean photorealistic.',
+            needsImage: false,
+            inputImages: 'không cần ảnh upload (text→ảnh)',
+            source: "YouMind 'E-commerce Main Image' use-case standard (white-bg catalog)",
+        },
+        // ── onmodel ──
+        {
+            id: 'onmodel-tryon-pro',
             cat: 'onmodel',
-            title: 'Mặc trang phục lên ảnh người (giữ nguyên mặt)',
-            prompt: 'Dùng hình ảnh đã tải lên, GIỮ NGUYÊN khuôn mặt, kiểu tóc và tông màu da của người. Cho người này mặc [mô tả trang phục], dáng vừa vặn tự nhiên, nếp vải và ánh sáng chân thực, thay thế trang phục cũ. Ảnh thời trang toàn thân chân thực, chuyên nghiệp.',
+            title: 'Thử đồ Pro - ghép hài hoà nhất (giữ mặt + dáng)',
+            prompt: "Take the person from the FIRST image as the fixed model. Dress them in the exact clothing item(s) shown in the following image(s), replacing their original outfit completely. ABSOLUTELY preserve the person's face, facial structure, skin tone, hairstyle, body shape, height proportions and pose from the first image - do not alter their identity in any way. For each garment, faithfully reproduce its true colour, fabric texture, knit/weave, pattern, print, logo, embroidery, buttons, seams, collar and length exactly as in the product image - never invent or simplify details. Make the clothing drape and fit the body naturally with realistic fabric folds, gravity, tension at shoulders and waist, and correct garment proportions. CRITICAL for a seamless composite: match the lighting direction, colour temperature and intensity of the original photo so the garment, skin and face share one consistent light; cast soft, physically-correct contact shadows where fabric meets the body; keep skin tone uniform across face, neck, hands and arms with no colour seam at the neckline or wrists; render hands, fingers, neck and collarbone undistorted and anatomically correct. Full-body framing, photorealistic, sharp focus, natural matte skin texture with visible pores (no plastic smoothing), professional fashion e-commerce photography, high resolution, 4:5 aspect ratio.",
             needsImage: true,
-            source: 'youmind (No.96) + ghép đồ',
-        },
-        {
-            id: 'onmodel-product',
-            cat: 'onmodel',
-            title: 'Đưa sản phẩm (áo/váy) lên người mẫu',
-            prompt: 'Lấy món trang phục trong ảnh và cho một người mẫu [nữ/nam] mặc lên người một cách tự nhiên, vừa vặn, nếp vải và đổ bóng chân thực, người mẫu đứng tạo dáng trong studio ánh sáng dịu nền trung tính, ảnh thời trang thương mại điện tử chất lượng cao.',
-            needsImage: true,
-            source: 'PicoTrex (multi-image fusion)',
+            inputImages:
+                'Ảnh 1: người mẫu (toàn thân, rõ mặt + dáng). Ảnh 2 trở đi: từng món đồ cần mặc (ảnh sản phẩm hoặc ảnh phẳng).',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23k★) + YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.6k★) - identity-lock + garment fidelity + light-matching',
         },
         {
             id: 'onmodel-flatlay-to-model',
             cat: 'onmodel',
-            title: 'Từ ảnh phẳng quần áo → mặc lên người thật',
-            prompt: 'Từ ảnh chụp phẳng (flat-lay) của bộ trang phục này, dựng một người mẫu thật mặc đúng bộ đồ đó, giữ nguyên màu sắc, hoạ tiết và kiểu dáng, dáng đứng tự nhiên, ánh sáng studio, nền sạch, ảnh sản phẩm thời trang chuyên nghiệp.',
+            title: 'Đồ phẳng (flat-lay) lên người mẫu',
+            prompt: "Use the FIRST image as the model and keep her face, hairstyle, skin tone, body shape and pose perfectly unchanged. The following image(s) are flat-lay product shots of clothing laid on a surface. Reconstruct each flat garment into a fully worn three-dimensional piece on the model's body: infer the natural drape, volume, sleeve and hem length, and how the fabric falls with gravity. Keep the exact colour, print, pattern, texture, trims and any logo from the flat-lay - do not alter the design. Replace her current outfit. Add realistic fabric folds, soft self-shadows inside the garment, and physically-correct contact shadows on the body. Match the model photo's existing lighting and white balance so skin and clothing look lit by the same source, with consistent skin tone from face to hands. Full-body, clean seamless light studio background, photorealistic fashion catalogue photo, sharp detail, natural skin texture, 4:5 aspect ratio.",
             needsImage: true,
-            source: 'PicoTrex',
+            inputImages:
+                'Ảnh 1: người mẫu toàn thân. Ảnh 2 trở đi: ảnh đồ chụp phẳng (flat-lay) trên mặt phẳng.',
+            source: 'JimmyLv/awesome-nano-banana (8.7k★) figure-from-reference case + YouMind Fashion Item category',
         },
-        // ── Đổi nền / phong cảnh (cần ảnh) ──
         {
-            id: 'scene-white',
+            id: 'onmodel-product-shot-to-model',
+            cat: 'onmodel',
+            title: 'Áo từ ảnh sản phẩm (mannequin/treo) lên model',
+            prompt: "FIRST image = the model whose face, hair, skin tone, body and pose must stay exactly the same. The following image(s) show a garment photographed on a mannequin, a hanger or worn by a different person. Transfer ONLY that garment onto the model, removing the mannequin/hanger and any other person entirely. Preserve the garment's precise cut, colour, fabric, knit, print, buttons, collar, cuffs, length and every logo or graphic exactly as shown. Fit it naturally to the model's frame with correct sizing, realistic folds and tension lines. Replace her original clothing. Ensure one coherent lighting setup: match light direction and colour temperature to the model photo, add gentle realistic shadows where the garment meets the neck, shoulders, waist and arms, and keep skin colour seamless with no visible mask edge at the collar or sleeves. Render neck, collarbone, hands and fingers anatomically correct and free of warping. Full-body photorealistic e-commerce shot, high resolution, sharp focus, natural skin pores, 4:5 aspect ratio.",
+            needsImage: true,
+            inputImages:
+                'Ảnh 1: người mẫu. Ảnh 2 trở đi: ảnh sản phẩm trên ma-nơ-canh / móc treo / người khác mặc.',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23k★) garment-transfer + YouMind pro prompts identity preservation',
+        },
+        {
+            id: 'onmodel-full-outfit-stack',
+            cat: 'onmodel',
+            title: 'Phối nguyên set (áo + quần/váy + phụ kiện) lên model',
+            prompt: 'Use the FIRST image as the fixed model - keep her face, hairstyle, skin tone, body proportions and pose identical. The following images are separate pieces of one outfit (e.g. top, bottom/skirt, outerwear, bag, shoes). Dress the model in all of them together as a complete coordinated look, replacing her original clothes. For each piece keep its exact colour, fabric, texture, pattern, hardware and logo from its product image. Layer the garments in a natural order (innermost to outermost) with believable overlap, realistic folds and correct proportions; place accessories naturally (bag on shoulder or hand, shoes on feet). Maintain one unified lighting setup matched to the model photo, with soft contact shadows between layers and on the floor, and a consistent skin tone across face, neck, arms and legs. Full-body styled lookbook composition, photorealistic, clean neutral studio backdrop, sharp editorial detail, natural matte skin, 4:5 aspect ratio.',
+            needsImage: true,
+            inputImages:
+                'Ảnh 1: người mẫu toàn thân. Ảnh 2 trở đi: từng món trong set (áo, quần/váy, áo khoác, túi, giày...).',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.6k★) multi-item fashion lookbook + JimmyLv OOTD',
+        },
+        {
+            id: 'onmodel-change-pose-keep-outfit',
+            cat: 'onmodel',
+            title: 'Đổi tư thế / góc chụp nhưng giữ nguyên bộ đồ',
+            prompt: "Use the uploaded image only as the identity and wardrobe reference. Generate a NEW photo of the exact same woman wearing the exact same outfit, but in a different, natural full-body fashion pose: standing three-quarter turned, one hand relaxed at the side and the other lightly on the hip, weight shifted to one leg, looking softly toward the camera. Preserve her face, facial structure, skin tone, hairstyle and the garment's colour, fabric, print, cut, length, buttons and logo with maximum accuracy - same outfit, just a new angle and posture. Re-render fabric folds and shadows to suit the new pose realistically. Soft directional studio lighting from the front-side, seamless light-grey backdrop with a subtle gradient, gentle floor contact shadow. Photographed at eye level with an 85mm lens at f/2.8, photorealistic, sharp focus on the face, natural skin texture with visible pores, premium fashion e-commerce quality, 4:5 aspect ratio.",
+            needsImage: true,
+            inputImages: '1 ảnh: người mẫu đang mặc sẵn bộ đồ (toàn thân càng tốt).',
+            source: "YouMind-OpenLab pro prompts (12.6k★) 'same person, multiple dynamic poses' + 85mm editorial recipe",
+        },
+        {
+            id: 'onmodel-tryon-natural-light',
+            cat: 'onmodel',
+            title: 'Thử đồ - ánh nắng tự nhiên ngoài trời (lookbook đời thường)',
+            prompt: "Take the person from the FIRST image as the model and keep her face, hair, skin tone, body shape and pose unchanged. Dress her in the clothing item(s) from the following image(s), replacing the original outfit and preserving each garment's exact colour, fabric, texture, pattern, trims and logo. Fit everything naturally with realistic folds and proportions. Re-light the whole scene as a candid outdoor lookbook: warm late-afternoon natural sunlight from a single side, soft diffused fill, gentle organic shadows, a softly blurred everyday street or cafe background with shallow depth of field. Crucially, light the garment, skin and face with this same warm directional sun so the composite is seamless, with consistent skin tone from face to hands and soft contact shadows where fabric meets the body. Full-body, photorealistic candid fashion photography, 85mm look with creamy bokeh, natural matte skin texture, no plastic smoothing, 4:5 aspect ratio.",
+            needsImage: true,
+            inputImages: 'Ảnh 1: người mẫu. Ảnh 2 trở đi: món đồ cần mặc (ảnh sản phẩm/flat-lay).',
+            source: 'YouMind-OpenLab pro prompts (12.6k★) dappled-sunlight outdoor + Canon 85mm golden-light recipe',
+        },
+        {
+            id: 'onmodel-tryon-clean-white',
+            cat: 'onmodel',
+            title: 'Thử đồ - nền trắng studio chuẩn sàn TMĐT',
+            prompt: "FIRST image = the model; keep her face, hairstyle, skin tone, body proportions and pose exactly the same. Dress her in the clothing from the following image(s), replacing the original outfit and faithfully preserving each garment's true colour, fabric texture, weave, print, pattern, buttons, collar, hem and any logo. Fit it to the body naturally with correct sizing, realistic fabric folds and tension at the shoulders and waist. Present as a clean e-commerce product photo on a pure seamless white background (#FFFFFF), bright even softbox studio lighting from both sides with a soft frontal fill, a subtle natural floor contact shadow under the model for grounding. Keep one consistent lighting and white balance across garment, skin and face; uniform skin tone from face to hands with no seam at the neckline; undistorted neck, hands and fingers. Full-body centred composition, photorealistic, crisp focus, true-to-life colours suitable for a marketplace listing, natural skin texture, 4:5 aspect ratio.",
+            needsImage: true,
+            inputImages:
+                'Ảnh 1: người mẫu toàn thân. Ảnh 2 trở đi: món đồ (ảnh sản phẩm hoặc flat-lay).',
+            source: 'PicoTrex/Awesome-Nano-Banana-images (23k★) studio cases + YouMind seamless white-studio recipe',
+        },
+        // ── faceswap ──
+        {
+            id: 'faceswap-onto-model',
+            cat: 'faceswap',
+            title: 'Ghép mặt người vào model (giữ thân + đồ)',
+            prompt: "You are given two images. IMAGE 1 is the FACE SOURCE: take this person's face, facial features, expression, skin tone and identity. IMAGE 2 is the TARGET MODEL: keep the model's hair, neck, body, pose, hands, outfit, background and the camera angle exactly as they are. Seamlessly place the face from IMAGE 1 onto the head of the person in IMAGE 2. Match the face to the model's head orientation and viewing angle, blend skin tone and lighting so the face inherits the exact same light direction, color temperature, soft shadows and highlights of IMAGE 2. Preserve the original face shape, eyes, nose, lips, eyebrows and natural facial proportions from IMAGE 1 with maximum accuracy — do not beautify or change the identity. The transition at the jawline, hairline and neck must be invisible. Keep every garment, fold, accessory and the entire scene of IMAGE 2 unchanged. Output one photorealistic, seamless full-resolution image with no visible compositing, no double edges and no blur.",
+            needsImage: true,
+            inputImages:
+                '2 ảnh: ảnh mặt (nguồn, IMAGE 1) + ảnh model/thân hình mặc đồ (đích, IMAGE 2)',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (identity-preserve) + PicoTrex Case 22 (try-on harmonization)',
+        },
+        {
+            id: 'faceswap-customer-on-shop-model',
+            cat: 'faceswap',
+            title: 'Ghép mặt khách lên ảnh mẫu mặc đồ shop',
+            prompt: "Two images are provided. IMAGE 1 is the CUSTOMER'S FACE (identity source). IMAGE 2 is a SHOP LOOKBOOK photo of a model wearing the product outfit. Transfer the customer's exact face and identity from IMAGE 1 onto the model in IMAGE 2 so the customer appears to be the one wearing the shop's clothing. Preserve the customer's real facial identity — face shape, eye shape, eyebrows, nose, lips, skin tone and natural expression — without making them look like a different person. Keep the model's body, pose, hairstyle, the full outfit, every accessory, the studio set and the original lighting of IMAGE 2 completely intact. Re-render the face under the same key light, fill light and shadow pattern as IMAGE 2, matching head tilt and angle for a natural fit. Blend the hairline, jaw and neck flawlessly. Result: a clean photorealistic e-commerce-ready image, sharp facial detail, true-to-life skin texture, no plastic look, no seams.",
+            needsImage: true,
+            inputImages: '2 ảnh: ảnh mặt khách (nguồn) + ảnh model mặc đồ shop (đích)',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (No.98 keep exact real face) + PicoTrex Case 21 OOTD',
+        },
+        {
+            id: 'faceswap-keep-face-change-hair',
+            cat: 'faceswap',
+            title: 'Giữ mặt, đổi kiểu tóc theo ảnh tham chiếu',
+            prompt: "Two images are provided. IMAGE 1 is the PERSON whose face and identity must be fully preserved. IMAGE 2 is the HAIRSTYLE REFERENCE. Keep the exact face, facial features, expression, skin tone, head angle and body of the person in IMAGE 1 unchanged. Replace only the hair of the person in IMAGE 1 with the hairstyle, length, texture and color shown in IMAGE 2, fitting it naturally to the person's head shape and hairline. Render realistic strands, natural shine and soft shadows where the hair falls on the forehead, ears and shoulders, matching the lighting and color temperature of IMAGE 1. Do not alter the face, makeup, outfit or background. Output a single photorealistic portrait with a seamless, believable new hairstyle and no editing artifacts.",
+            needsImage: true,
+            inputImages: '2 ảnh: ảnh người (giữ mặt) + ảnh kiểu tóc tham chiếu',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 15 (Change Multiple Hairstyles) + Case 44 lighting consistency',
+        },
+        {
+            id: 'faceswap-studio-portrait-from-face',
+            cat: 'faceswap',
+            title: 'Chân dung studio từ 1 ảnh mặt',
+            prompt: "Use the uploaded photo as the primary identity reference. Preserve the person's exact facial identity, face shape, hairstyle, hair texture, skin tone, eye shape, eyebrows, nose and lips with maximum accuracy — do not change the face or make them look like a different person. Generate a high-end studio portrait of this same person from the shoulders up: clean seamless light-grey backdrop, soft large-softbox key light from 45 degrees with a gentle fill and a subtle rim light separating the hair from the background, natural luminous skin texture, catchlights in the eyes, calm confident expression, modern minimal styling. Shot on an 85mm lens at f/2.0, shallow depth of field, editorial beauty lighting, crisp focus on the eyes, true-to-life color, photorealistic, high resolution.",
+            needsImage: true,
+            inputImages: '1 ảnh: ảnh mặt rõ nét của khách/người mẫu',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (Preserve exact facial identity) + PicoTrex studio-lighting',
+        },
+        {
+            id: 'faceswap-two-faces-into-couple-shot',
+            cat: 'faceswap',
+            title: 'Ghép 2 mặt vào ảnh đôi mặc đồ shop',
+            prompt: "Three images are provided. IMAGE 1 and IMAGE 2 are two FACE SOURCES (two different people). IMAGE 3 is a TARGET photo showing two models wearing the shop's outfits together. Place the face from IMAGE 1 onto the model on the left and the face from IMAGE 2 onto the model on the right of IMAGE 3. Preserve each person's true facial identity, features, skin tone and natural expression. Keep both models' bodies, hairstyles, poses, the full outfits, every accessory, and the original background and lighting of IMAGE 3 unchanged. Match each face to its model's head angle and to the scene's light direction, color temperature, soft shadows and highlights. Blend both hairlines, jaws and necks invisibly. Output one cohesive photorealistic couple image with seamless face swaps, sharp facial detail and no visible compositing.",
+            needsImage: true,
+            inputImages: '3 ảnh: ảnh mặt người 1 + ảnh mặt người 2 + ảnh đôi model mặc đồ (đích)',
+            source: 'YouMind-OpenLab/awesome-nano-banana-pro-prompts (multi-face identity) + PicoTrex Case 21/22',
+        },
+        {
+            id: 'faceswap-harmonize-skin-tone',
+            cat: 'faceswap',
+            title: 'Ghép mặt + hoà tông da, ánh sáng tự nhiên',
+            prompt: "Two images are provided. IMAGE 1 is the FACE to keep (identity source). IMAGE 2 is the TARGET body/scene. Composite the face from IMAGE 1 onto the person in IMAGE 2 and focus heavily on harmonization: re-light the face to exactly match IMAGE 2's lighting setup — same key light direction, intensity, color temperature, ambient bounce and shadow softness. Color-grade and blend the facial skin tone so it transitions smoothly into the neck and ears of IMAGE 2 with no tonal mismatch or visible seam. Preserve the identity, facial features and natural expression from IMAGE 1; keep the hair, body, pose, outfit, accessories and background of IMAGE 2 untouched. Add realistic micro-shadows under the jaw and matching specular highlights on the skin. Output one photorealistic, perfectly blended image — no halo, no edge artifacts, no over-smoothing, full resolution.",
+            needsImage: true,
+            inputImages: '2 ảnh: ảnh mặt (nguồn) + ảnh thân/model (đích)',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 44 (Lighting Control) + Case 22',
+        },
+        // ── scene ──
+        {
+            id: 'scene-tach-nen-trang',
             cat: 'scene',
-            title: 'Tách nền → nền trắng studio sạch',
-            prompt: 'Giữ nguyên chủ thể trong ảnh, thay nền thành nền trắng studio sạch sẽ với bóng đổ mềm tự nhiên dưới chân, ánh sáng đều, phong cách ảnh sản phẩm thương mại điện tử.',
+            title: 'Tách nền sạch sang nền trắng studio',
+            prompt: 'Cleanly extract the main subject (the person and their full outfit) from the photo and place them on a pure seamless white studio background (#FFFFFF). Keep every edge of hair, fabric, and accessories sharp and natural — no halo, no leftover background pixels. Preserve the original soft, even product-photography lighting on the clothing, recreate a subtle natural contact shadow under the feet so the subject does not look like it is floating. Do not change the outfit, pose, body or face. E-commerce catalog look, high resolution.',
             needsImage: true,
-            source: 'nano-banana editing',
+            inputImages: '1 ảnh người mặc đồ (nền bất kỳ)',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 49 (extract subject + transparent/white bg)',
         },
         {
-            id: 'scene-beach',
+            id: 'scene-nen-bai-bien',
             cat: 'scene',
-            title: 'Đổi nền → bãi biển hoàng hôn',
-            prompt: 'Giữ nguyên người và trang phục trong ảnh, đổi phông nền thành bãi biển hoàng hôn ánh vàng ấm, ánh sáng ngược dịu, không khí thư thái sang trọng, hoà sáng tự nhiên giữa chủ thể và nền.',
+            title: 'Đổi nền bãi biển hoàng hôn',
+            prompt: 'Replace the background of this photo with a serene tropical beach at golden hour: soft turquoise sea, gentle waves, pale sand, and a warm low sun on the horizon. Keep the person and their outfit exactly as in the original. Relight the subject to match the scene — warm golden rim light from the sun direction, soft fill on the shadow side, gentle sand-reflected glow on the lower body. Match white balance to the warm sunset tone, add a faint natural breeze feel to loose fabric and hair. Realistic depth of field with the background slightly soft. Lifestyle fashion lookbook style.',
             needsImage: true,
-            source: 'nano-banana editing',
+            inputImages: '1 ảnh người mặc đồ',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 94 (background scene + warm ambient relight)',
         },
         {
-            id: 'scene-street',
+            id: 'scene-nen-pho-thi',
             cat: 'scene',
-            title: 'Đổi nền → phố thời trang đường phố',
-            prompt: 'Giữ nguyên người và trang phục, đặt vào bối cảnh phố thị thời trang đường phố (street style), ánh sáng ban ngày tự nhiên, hậu cảnh mờ nhẹ (bokeh), phong cách lookbook năng động.',
+            title: 'Đổi nền phố thị street-style',
+            prompt: 'Place the person against a stylish urban street background: a clean European-style boulevard with soft-focus shopfronts, warm cafe awnings and bokeh city lights in the distance. Keep the subject, outfit, pose and face unchanged. Relight to match an overcast-to-soft-daylight street: even diffused key light, subtle cool ambient in the shadows, gentle reflections from the pavement. Shallow depth of field (background blurred at roughly f/2.8) so the outfit stays the hero. Editorial street-style fashion photography, natural color grading.',
             needsImage: true,
-            source: 'nano-banana editing',
+            inputImages: '1 ảnh người mặc đồ',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 94 + YouMind Profile/Avatar street-style portrait',
         },
         {
-            id: 'scene-restore',
+            id: 'scene-nen-quan-cafe',
             cat: 'scene',
-            title: 'Phục hồi & nâng nét ảnh cũ/mờ',
-            prompt: 'Phục hồi và nâng cấp ảnh này lên độ phân giải cao: làm rõ nét chi tiết, khử nhiễu, cân bằng màu tự nhiên, giữ nguyên bố cục và nhận diện chủ thể, kết quả sắc nét chân thực.',
+            title: 'Đổi nền quán cafe ấm cúng',
+            prompt: 'Set the person inside a cozy minimalist coffee shop: warm wooden tables, hanging Edison-bulb lights softly blurred, a window with diffused daylight behind. Keep the subject, outfit, pose and identity exactly the same. Relight with warm interior tones — soft window light as key from one side, gentle amber bounce on the shadow side. Comfortable lifestyle mood, shallow depth of field so the cafe background is creamy bokeh, the clothing remains crisp and well-lit. Natural cozy color grade, fashion lifestyle catalog look.',
             needsImage: true,
-            source: 'PicoTrex (No.74 restoration)',
+            inputImages: '1 ảnh người mặc đồ',
+            source: 'JimmyLv/awesome-nano-banana Case 72 (neutral warm ambient bg) + PicoTrex background relight',
         },
-        // ── Ảnh đại diện (cần ảnh) ──
         {
-            id: 'avatar-studio',
+            id: 'scene-nen-san-vuon',
+            cat: 'scene',
+            title: 'Đổi nền sân vườn xanh mát',
+            prompt: 'Replace the background with a bright, airy garden: lush green foliage, a few soft pastel flowers, and dappled morning sunlight filtering through leaves. Keep the person, outfit, pose and face untouched. Relight to match outdoor garden daylight — soft natural key light, gentle dappled highlights, fresh cool-green ambient fill. Slight breeze feel in light fabric. Background pleasantly out of focus so the dress/outfit stays sharp and vivid. Fresh, feminine lifestyle fashion mood, clean natural color grading.',
+            needsImage: true,
+            inputImages: '1 ảnh người mặc đồ',
+            source: "YouMind-OpenLab Profile/Avatar 'enchanted garden' setting + PicoTrex Case 94 relight",
+        },
+        {
+            id: 'scene-phuc-hoi-anh-cu',
+            cat: 'scene',
+            title: 'Phục hồi & tô màu ảnh cũ',
+            prompt: 'Restore and colorize this old, faded photo. Remove scratches, dust, creases and noise, repair any torn or missing areas seamlessly, and recover lost detail in faces, hair and fabric. Apply natural, realistic colors true to skin tones and likely clothing colors. Improve sharpness and dynamic range while keeping the result believable and not over-processed. Preserve the original composition, pose and identity exactly. High-resolution archival-quality restoration.',
+            needsImage: true,
+            inputImages: '1 ảnh cũ (mờ/ố/rách)',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 20 (restore + colorize) + Example 74 (high-res restoration)',
+        },
+        {
+            id: 'scene-nang-net-anh-mo',
+            cat: 'scene',
+            title: 'Nâng nét & cải thiện ảnh mờ',
+            prompt: 'Enhance this dull, low-quality photo. Increase resolution and sharpness, recover fine texture in fabric weave, hair and skin, reduce blur and digital noise. Boost contrast and dynamic range moderately, balance the colors and improve the lighting so the image looks richer and more professional — without making it look artificial or over-saturated. Keep the subject, outfit, pose, face and proportions exactly the same. Clean, crisp e-commerce-ready result.',
+            needsImage: true,
+            inputImages: '1 ảnh mờ/tối/chất lượng thấp',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 7 (auto enhance) + Example 74 (high-res)',
+        },
+        // ── avatar ──
+        {
+            id: 'avatar-studio-chan-dung',
             cat: 'avatar',
-            title: 'Ảnh đại diện studio thanh lịch',
-            prompt: 'Từ ảnh khuôn mặt đã tải lên, tạo ảnh chân dung studio chuyên nghiệp: ánh sáng mềm thanh lịch, phông nền trơn trung tính, biểu cảm tự nhiên thân thiện, giữ nguyên đặc điểm khuôn mặt, chất lượng ảnh thẻ cao cấp.',
+            title: 'Avatar studio chuyên nghiệp',
+            prompt: "Create a polished professional studio headshot from this photo while keeping the person's exact facial identity, features and expression. Frame as a clean upper-body portrait on a smooth neutral grey-to-white gradient studio backdrop. Use soft three-point studio lighting: large softbox key at 45 degrees, gentle fill, subtle hair/rim light for separation, catchlights in the eyes. Flattering, natural skin retouching (keep pores and realism, no plastic look), crisp focus on the eyes, shallow depth of field. Refined, premium personal-brand avatar look, high resolution.",
             needsImage: true,
-            source: 'youmind (Profile/Avatar)',
+            inputImages: '1 ảnh chân dung (thấy rõ mặt)',
+            source: 'JimmyLv Case 99 (editorial portrait) + YouMind Profile/Avatar studio lighting',
         },
         {
-            id: 'avatar-id',
+            id: 'avatar-anh-the',
             cat: 'avatar',
-            title: 'Ảnh thẻ chuyên nghiệp (hồ sơ)',
-            prompt: 'Từ ảnh đã tải lên, tạo ảnh thẻ chuyên nghiệp độ phân giải cao: trang phục lịch sự, nền xanh/xám trơn, ánh sáng đều, giữ nguyên khuôn mặt, phù hợp hồ sơ công việc.',
+            title: 'Ảnh thẻ 3x4 nền xanh',
+            prompt: "Crop the head and shoulders and create a clean 3x4 ID/passport photo while preserving the person's exact face and identity. Requirements: solid even blue background (#3A6EA5), professional business attire, frontal upright pose facing the camera, neutral-to-slight friendly expression, both ears and full face clearly visible, flat even lighting with no harsh shadows and no glare, sharp focus, accurate natural skin tone. Standard formal ID-photo composition, high resolution.",
             needsImage: true,
-            source: 'youmind (No.17 ID photo)',
+            inputImages: '1 ảnh chân dung rõ mặt, nhìn thẳng',
+            source: 'PicoTrex/Awesome-Nano-Banana-images Case 63 (Create an ID Photo, blue background)',
         },
         {
-            id: 'avatar-pixar',
+            id: 'avatar-chan-dung-nghe-thuat-bw',
             cat: 'avatar',
-            title: 'Chân dung phong cách Pixar 3D',
-            prompt: 'Từ ảnh đã tải lên, vẽ lại chân dung theo phong cách hoạt hình Pixar 3D dễ thương: giữ nét nhận diện khuôn mặt, ánh sáng mềm, màu sắc tươi, biểu cảm thân thiện.',
+            title: 'Chân dung nghệ thuật đen trắng',
+            prompt: "Transform this photo into a high-end black-and-white fine-art editorial portrait while keeping the person's exact facial identity and expression. Dramatic directional studio lighting with deep rich blacks and luminous highlights, soft gradient dark background, elegant fashion-campaign mood. Fine film grain for an analog, tactile feel, smooth tonal transitions, sharp detail in the eyes. Sophisticated, magazine-cover aesthetic. High resolution.",
             needsImage: true,
-            source: 'PicoTrex (No.110 Pixar)',
+            inputImages: '1 ảnh chân dung rõ mặt',
+            source: "JimmyLv Case 99 (B&W editorial portrait) + YouMind 'Luxury Editorial B&W Portrait'",
         },
-        // ── Flat-lay / bố cục (text→ảnh) ──
         {
-            id: 'layout-flatlay',
+            id: 'avatar-3d-chibi',
+            cat: 'avatar',
+            title: 'Avatar 3D chibi giữ khuôn mặt',
+            prompt: "Create a cute stylized 3D chibi character based on this photo, accurately preserving the subject's recognizable facial features, hairstyle, and outfit colors. Big head, small body proportions, soft rounded forms, glossy toy-like 3D render with clean studio lighting and soft shadows on a simple pastel background. Friendly charming expression. Keep the look clearly recognizable as the same person. High-quality 3D render, collectible-figure aesthetic.",
+            needsImage: true,
+            inputImages: '1 ảnh chân dung/nửa người rõ mặt + trang phục',
+            source: 'JimmyLv Case 75 (3D chibi preserving face) + PicoTrex Case 45/46 (identity-preserving figure)',
+        },
+        {
+            id: 'avatar-anime-giu-mat',
+            cat: 'avatar',
+            title: 'Avatar phong cách anime giữ danh tính',
+            prompt: "Convert this photo into a polished Japanese anime-style portrait while keeping the person's identity clearly recognizable — same face shape, hairstyle, hair color, and outfit. Clean cel-shaded anime illustration with expressive eyes, soft gradient shading, delicate line art, and a gentle bokeh background. Rich detail and realistic fabric texture rendered in anime style, warm flattering lighting. Keep proportions natural (not over-deformed). High-quality anime art, profile-avatar ready.",
+            needsImage: true,
+            inputImages: '1 ảnh chân dung rõ mặt + trang phục',
+            source: 'PicoTrex Case 11/57 (anime conversion) + JimmyLv Case 96 (anime figure preserving face/posture)',
+        },
+        // ── layout ──
+        {
+            id: 'layout-flatlay-knolling-thoitrang',
             cat: 'layout',
-            title: 'Flat-lay knolling sản phẩm chụp từ trên',
-            prompt: 'Ảnh flat-lay knolling chụp từ trên xuống, sắp xếp gọn gàng [danh sách sản phẩm/phụ kiện] theo lưới 90° đều nhau, bóng đổ studio mềm, bề mặt lì đồng nhất, đèn softbox phẳng từ trên, thẩm mỹ sắp xếp ngăn nắp, ảnh sản phẩm thương mại điện tử.',
+            title: 'Flat-lay knolling outfit nữ (chụp từ trên xuống)',
+            prompt: 'Một bức ảnh flat-lay knolling chụp thẳng từ trên xuống (top-down 90 độ), sắp xếp hoàn hảo một bộ outfit nữ trọn vẹn cho shop thời trang: 1 áo (sơ mi lụa kem hoặc áo thun cotton trắng) gấp gọn ở trung tâm, 1 chân váy/quần ống rộng, 1 túi xách da, 1 đôi giày, kính mát, dây chuyền mảnh, son môi, đồng hồ, vài cành hoa khô trang trí. Tất cả vật phẩm căn theo lưới 90 độ nghiêm ngặt, khoảng cách đều nhau, lề rộng thoáng. Nền giấy phẳng màu be sữa (#F3F0E9) chất liệu mịn như giấy mỹ thuật. Ánh sáng softbox phẳng từ trên cao, bóng đổ studio mềm mại, không chói, không phản sáng gắt. Bố cục cân đối, gọn gàng, thẩm mỹ sắp xếp tối giản kiểu tạp chí thời trang. Tỷ lệ khung hình 1:1, độ phân giải cao, màu sắc trung thực phục vụ thương mại điện tử. KHÔNG để vật thể nghiêng, chồng chéo, lộn xộn hay nhòe.',
             needsImage: false,
-            source: 'youmind (No.95 knolling)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.7K★) — README_vi-VN No. 97 'E-commerce Knolling Flat-Lay'",
         },
         {
-            id: 'layout-bento',
+            id: 'layout-bento-infographic-sanpham',
             cat: 'layout',
-            title: 'Infographic Bento sản phẩm cao cấp',
-            prompt: 'Đồ hoạ thông tin (infographic) bố cục lưới Bento kính lỏng (glassmorphism) cao cấp giới thiệu [tên sản phẩm] với các mô-đun: ảnh sản phẩm, tính năng nổi bật, thông số, giá. Phong cách hiện đại sạch sẽ, tông màu thương hiệu, chữ rõ ràng.',
+            title: 'Infographic Bento grid giới thiệu sản phẩm (kính lỏng)',
+            prompt: "Tạo một ảnh infographic giới thiệu sản phẩm thời trang dạng lưới Bento bất đối xứng 6 mô-đun, phong cách kính lỏng (liquid glass) cao cấp kiểu Apple. Tỷ lệ ngang 16:9. Thẻ chính chiếm 30% hiển thị ảnh chụp thật của sản phẩm (ví dụ chiếc đầm/áo) trên nền sạch + nhãn tên sản phẩm; các thẻ còn lại trong suốt 85-90% với đường viền mỏng như sợi tóc và đổ bóng nhẹ tạo chiều sâu nổi. Nội dung các mô-đun bằng tiếng Việt: (1) Tên & ảnh sản phẩm, (2) '4 lý do nên mua' kèm icon, (3) 'Chất liệu' (vải, định lượng, co giãn), (4) 'Bảng size' S/M/L/XL, (5) 'Cách phối đồ' 3 gợi ý, (6) 'Bảo quản' kèm icon. Bảng màu lấy từ màu chủ đạo của sản phẩm, độ bão hòa dịu 30-40%, không dùng màu đen tuyền. Nền phía sau thẻ làm mờ cao, hiệu ứng ánh sáng nhẹ trừu tượng. Font sans-serif hiện đại, chữ tiếng Việt rõ nét, dấu thanh chính xác. Đầu ra 1 ảnh siêu cao cấp.",
             needsImage: false,
-            source: 'youmind (No.2 Bento)',
-        },
-        // ── Poster / khuyến mãi (text→ảnh) ──
-        {
-            id: 'poster-sale',
-            cat: 'poster',
-            title: 'Poster khuyến mãi / SALE bắt mắt',
-            prompt: 'Poster quảng cáo khuyến mãi cho [shop/sản phẩm], tiêu đề lớn "[SALE 50%]", bố cục cân đối hiện đại, màu sắc nổi bật thu hút, có chỗ đặt ảnh sản phẩm và thông tin ưu đãi, chữ tiếng Việt rõ ràng dễ đọc, phong cách thương mại chuyên nghiệp.',
-            needsImage: false,
-            source: 'youmind (Poster/Flyer)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "YouMind-OpenLab/awesome-nano-banana-pro-prompts (12.7K★) — README_vi-VN No. 2 'Bento liquid glass infographic'",
         },
         {
-            id: 'poster-tet',
-            cat: 'poster',
-            title: 'Banner ưu đãi Tết / dịp lễ',
-            prompt: 'Banner ưu đãi dịp [Tết/lễ] cho shop thời trang, không khí lễ hội ấm áp, hoạ tiết truyền thống tinh tế, tiêu đề chúc mừng + ưu đãi, có chỗ đặt sản phẩm, tông màu đỏ-vàng sang trọng, chữ tiếng Việt rõ ràng.',
+            id: 'layout-bangsize-infographic',
+            cat: 'layout',
+            title: 'Bảng size / hướng dẫn chọn size dạng infographic',
+            prompt: "Tạo infographic 'Bảng Hướng Dẫn Chọn Size' cho shop thời trang nữ, tỷ lệ dọc 4:5, nền trắng kem sạch sẽ. Bố cục lưới gọn gàng kiểu bản vẽ kỹ thuật nhẹ nhàng: bên trái là hình minh họa body nữ line-art mảnh với các đường đo và mũi tên chỉ vị trí 'Vòng ngực', 'Vòng eo', 'Vòng mông', 'Chiều cao'. Bên phải là bảng size rõ ràng tiếng Việt với các hàng S / M / L / XL và cột số đo (cm) + cân nặng gợi ý. Phía trên tiêu đề serif 'CHỌN SIZE CHUẨN', phía dưới ghi chú nhỏ '* Sai số 1-2cm tùy dáng người' và icon dấu kiểm xanh 'Tư vấn miễn phí nếu phân vân'. Phối màu kem (#F3F0E9), terracotta (#D67052) cho tiêu đề và đường viền, độ bão hòa dịu, không màu đen tuyền. Font sans-serif sạch sẽ, các đường kẻ phân cách mảnh, icon tối giản. Chữ tiếng Việt dấu thanh chính xác, bố cục cân đối chuyên nghiệp.",
             needsImage: false,
-            source: 'youmind (No.5 New Year)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "PicoTrex/Awesome-Nano-Banana-images (23K★) Case 14 'Article Infographic' + README_vi-VN No.21 technical grid infographic",
+        },
+        // ── poster ──
+        {
+            id: 'poster-sale-50-thoitrang',
+            cat: 'poster',
+            title: 'Poster SALE 50% thời trang nữ (dọc)',
+            prompt: "Thiết kế poster khuyến mãi thời trang nữ, tỷ lệ dọc 4:5. Bố cục: nửa trái là người mẫu nữ mặc đầm/áo mùa mới đứng tạo dáng tự tin, ánh sáng studio mềm có độ tương phản nhẹ; nửa phải là khối chữ. Tiêu đề lớn in đậm tiếng Việt 'SALE CUỐI MÙA' màu trắng nổi trên khối màu pastel hồng đào, ngay dưới là con số khổng lồ 'GIẢM 50%' kiểu chữ sans-serif đậm. Bên dưới dòng phụ 'Toàn bộ đầm & áo - Số lượng có hạn'. Góc dưới có nút CTA bo tròn 'MUA NGAY' và dòng nhỏ 'Áp dụng đến hết Chủ Nhật'. Phối màu kem (#F3F0E9), hồng đào (#E8A4A0) và terracotta (#D67052) làm điểm nhấn, tránh màu neon. Bố cục lưới rõ ràng, khoảng trắng hợp lý, phân cấp thị giác mạnh, chữ tiếng Việt dấu thanh chính xác. Thẩm mỹ chiến dịch thời trang cao cấp, sạch sẽ, hiện đại.",
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "PicoTrex/Awesome-Nano-Banana-images (23K★) Example 25 'Golden Quote Card' + Example 98 'Movie Poster'",
         },
         {
-            id: 'poster-social',
+            id: 'poster-banner-tet-thoitrang',
             cat: 'poster',
-            title: 'Ảnh đăng mạng xã hội (square 1:1)',
-            prompt: 'Ảnh quảng cáo mạng xã hội tỉ lệ vuông cho [sản phẩm], bố cục thu hút trên feed, người mẫu hoặc sản phẩm nổi bật, màu sắc thương hiệu, khoảng trống cho caption, phong cách hiện đại sạch sẽ.',
+            title: 'Banner Tết bộ sưu tập áo dài / xuân (ngang)',
+            prompt: "Thiết kế banner Tết Nguyên Đán cho shop thời trang nữ, tỷ lệ ngang 16:9. Không khí Tết Việt ấm áp: nền đỏ đô và vàng kim sang trọng, hoa mai vàng và hoa đào hồng nở rải hai góc, lì xì đỏ, câu đối, đèn lồng mờ ở hậu cảnh. Bên trái là người mẫu nữ mặc áo dài/đầm xuân thanh lịch tạo dáng duyên dáng. Bên phải khối chữ: tiêu đề thư pháp cách điệu 'CHÀO XUÂN 2026' màu vàng kim, dòng phụ 'Bộ Sưu Tập Áo Dài & Đầm Xuân', và dải ưu đãi 'Ưu đãi đến 40% - Quà tặng kèm đơn từ 500K'. Góc dưới nút 'ĐẶT HÀNG NGAY'. Ánh sáng vàng ấm, bóng đổ mềm, chiều sâu điện ảnh. Phối màu đỏ-vàng truyền thống đậm chất Tết nhưng tinh tế cao cấp, tránh lòe loẹt. Chữ tiếng Việt rõ nét, dấu thanh chuẩn, bố cục cân đối, phân cấp thị giác rõ.",
             needsImage: false,
-            source: 'youmind (Social Media Post)',
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "PicoTrex/Awesome-Nano-Banana-images (23K★) Example 98 'Movie Poster' + README_vi-VN No.1 Tết motif",
+        },
+        {
+            id: 'poster-social-vuong-newdrop',
+            cat: 'poster',
+            title: "Ảnh vuông social 'Hàng mới về' (Instagram/Facebook)",
+            prompt: "Thiết kế ảnh đăng mạng xã hội tỷ lệ vuông 1:1 cho shop thời trang nữ, chủ đề 'New Arrivals'. Bố cục editorial kiểu tạp chí: ảnh sản phẩm áo/đầm mới chiếm 2/3 khung, đặt trên nền màu kem hoặc xanh bạc hà nhạt. Khối chữ tiếng Việt phía trên hoặc dưới: badge nhỏ bo tròn 'HÀNG MỚI VỀ', tiêu đề serif thanh lịch 'Bộ Sưu Tập Tháng 6', dòng phụ sans-serif 'Linen mát - Tông màu mùa hè', và mã/giá nhỏ ở góc. Một dấu chấm/đường kẻ mảnh làm điểm nhấn đồ họa. Ánh sáng studio dịu, bóng đổ mềm, màu sắc hài hòa pastel. Phối hợp 2 font: serif cho tiêu đề + sans-serif cho nội dung. Khoảng trắng rộng rãi, phân cấp thị giác rõ, thẩm mỹ thương hiệu thời trang tối giản hiện đại. Chữ tiếng Việt dấu thanh chính xác, sắc nét.",
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "PicoTrex/Awesome-Nano-Banana-images (23K★) Example 5 'Warm Academic Humanism' + Example 25 quote card",
+        },
+        {
+            id: 'poster-voucher-quatang',
+            cat: 'poster',
+            title: 'Voucher / phiếu quà tặng thời trang',
+            prompt: "Thiết kế voucher (phiếu giảm giá) thời trang nữ dạng thẻ ngang tỷ lệ 16:9, phong cách tối giản sang trọng. Bố cục thẻ chữ nhật bo góc với cạnh răng cưa (perforated edge) một bên như vé thật. Nửa trái: khối màu terracotta/hồng đào đậm in số tiền lớn màu trắng 'GIẢM 100K', dòng nhỏ 'Cho đơn từ 300K'. Nửa phải nền kem (#F3F0E9): logo/tên shop ở trên, dòng 'PHIẾU QUÀ TẶNG' chữ serif thanh lịch, ô mã code 'Mã: N2-WELCOME' trong khung viền mảnh, và dòng điều kiện nhỏ 'Hạn dùng đến 31/12/2026 - Mỗi khách 1 lần'. Góc có hoa văn mảnh hoặc icon túi xách trang trí. Phối màu kem + terracotta (#D67052) + vàng mù tạt nhấn nhẹ, đường viền mảnh tinh tế, đổ bóng nhẹ tạo chiều sâu thẻ. Chữ tiếng Việt rõ nét, dấu thanh chuẩn, bố cục cân đối kiểu thẻ thành viên cao cấp.",
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "PicoTrex/Awesome-Nano-Banana-images (23K★) Case 64 'A6 Folding Card' + Example 25 'Golden Quote Card'",
+        },
+        {
+            id: 'poster-flashsale-countdown',
+            cat: 'poster',
+            title: 'Poster Flash Sale đếm ngược khung giờ vàng (dọc)',
+            prompt: "Thiết kế poster Flash Sale 'Khung Giờ Vàng' cho shop thời trang nữ, tỷ lệ dọc 4:5, năng lượng mạnh và khẩn cấp nhưng vẫn cao cấp. Nền gradient hồng đào sang cam san hô ấm, vài tia sáng/đốm bokeh nhẹ. Trung tâm phía trên: badge tròn 'FLASH SALE' chữ trắng trên nền đỏ, tiêu đề khổng lồ in đậm 'GIỜ VÀNG 20H-22H'. Giữa khung: dãy đồng hồ đếm ngược dạng 4 ô vuông bo góc hiển thị '02 : 15 : 47 : 09' (Ngày:Giờ:Phút:Giây) màu trắng nổi bật. Dưới đó dòng 'Đồng giá 99K - 199K - 299K' và 'Freeship toàn quốc'. Vài món thời trang (áo, đầm, túi) sắp xếp nổi quanh khối chữ tạo chiều sâu. Góc dưới nút CTA bo tròn 'SĂN NGAY'. Phối màu hồng đào + cam san hô + trắng, điểm nhấn đỏ, đổ bóng mềm, phân cấp typography rất mạnh. Chữ tiếng Việt rõ nét, dấu thanh chuẩn, bố cục kịch tính cân đối.",
+            needsImage: false,
+            inputImages: 'Không cần ảnh — text sang ảnh',
+            source: "PicoTrex/Awesome-Nano-Banana-images (23K★) Example 98 'Movie Poster' + Example 81 'Wanted Poster'",
         },
     ];
-
-    // Ảnh mẫu minh hoạ (CDN youmind, public) cho từng câu lệnh → card có hình cho dễ hình dung.
-    // Gắn rời để mảng IMAGE gọn; ảnh lỗi/hotlink chặn → onerror ẩn (card vẫn hiện chữ).
-    const _T = 'https://cms-assets.youmind.com/media/';
-    const THUMBS = {
-        'prod-white': _T + '1781684782153_2vzpgr_HK7T3TTXUAACV9f.jpg',
-        'prod-podium': _T + '1781941376253_wd8jy8_HLL_X5yaIAA0lE1.jpg',
-        'prod-spa': _T + '1782028899182_v0b03t_HLP-DxuakAA2AOk.jpg',
-        'prod-splash': _T + '1781770017583_qhtxdv_HK-5AiQbsAAq01T.jpg',
-        'fashion-studio': _T + '1780990824528_abcl0b_HKI60mUXgAAur67.jpg',
-        'fashion-store': _T + '1780645927302_7piitf_HJ8DE5JWsAAI0Kc.jpg',
-        'fashion-home': _T + '1780990823300_5pbthd_HKQyhUGa0AAq5ag.jpg',
-        'fashion-riviera': _T + '1782200281348_evr0na_HLZxwFTWsAAL14k.jpg',
-        'onmodel-keepface': _T + '1781857322969_m2vm3f_HLF2BMpWwAAEVhO.jpg',
-        'onmodel-product': _T + '1780560150781_xh95nv_HJ3DGgRXcAA4p4s.jpg',
-        'onmodel-flatlay-to-model': _T + '1780645919757_0jpqt5_HJ8WQ9WbIAApkYy.jpg',
-        'scene-white': _T + '1781684782153_2vzpgr_HK7T3TTXUAACV9f.jpg',
-        'scene-beach': _T + '1782200281348_evr0na_HLZxwFTWsAAL14k.jpg',
-        'scene-street': _T + '1780645927302_7piitf_HJ8DE5JWsAAI0Kc.jpg',
-        'scene-restore': _T + '1782028907000_r80lq8_HLPN7xGaQAAMyqY.jpg',
-        'avatar-studio': _T + '1782200278004_thj6jq_HLbworvXEAE7zAJ.jpg',
-        'avatar-id': _T + '1782028906257_7ytl5t_HLPN7PgagAArlFL.jpg',
-        'avatar-pixar': _T + '1782200282374_tks798_HLbWq3raEAEYfVb.jpg',
-        'layout-flatlay': _T + '1781941373581_vejcq0_HK-5lMlXkAAV8zn.jpg',
-        'layout-bento':
-            _T + '1768962051381_l9uih4_537980579-6f29d32a-c786-40c4-bd5a-79c640737496.png',
-        'poster-sale': _T + '1763885539326_yao7in_G6WBYReawAAcp2x.jpg',
-        'poster-tet': _T + '1767455034932_ivuvu0_G9V-MszakAEAIBw.jpg',
-        'poster-social': _T + '1780645919757_0jpqt5_HJ8WQ9WbIAApkYy.jpg',
-    };
-    IMAGE.forEach((p) => {
-        if (THUMBS[p.id]) p.thumb = THUMBS[p.id];
-    });
 
     // ───────────────────────── Vai trò chat (system prompt) ─────────────────────────
     // Pattern (theo x1xhlol/system-prompts): (1) định nghĩa vai trò, (2) năng lực, (3) giọng
@@ -438,6 +673,8 @@
         .aip-prompt{font-size:.72rem;color:var(--web2-text-2,#475569);line-height:1.45;white-space:pre-wrap;
             background:var(--web2-bg,#f8fafc);border:1px solid var(--web2-border,#eef2f7);border-radius:8px;
             padding:7px 9px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+        .aip-inputs{font-size:.68rem;color:var(--web2-text-2,#b45309);background:#fffbeb;border:1px solid #fde68a;
+            border-radius:7px;padding:5px 8px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .aip-use{margin-top:1px;border:none;border-radius:8px;background:var(--web2-primary,#6366f1);color:#fff;
             font-weight:600;font-size:.76rem;padding:8px 10px;cursor:pointer;width:100%;transition:filter .12s}
         .aip-use:hover{filter:brightness(1.08)}
@@ -558,6 +795,7 @@
                 <div class="aip-card-body">
                     <h4>${_esc(p.title)}</h4>
                     <div class="aip-prompt" title="${_esc(p.prompt)}">${_esc(p.prompt)}</div>
+                    ${p.inputImages ? `<div class="aip-inputs" title="${_esc(p.inputImages)}">🖼 ${_esc(p.inputImages)}</div>` : ''}
                     <button type="button" class="aip-use">✨ Dùng mẫu này</button>
                 </div>
             </div>`;

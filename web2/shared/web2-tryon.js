@@ -84,12 +84,16 @@
         });
     }
 
-    function buildPrompt(extra) {
-        let p =
-            'Take the person from the FIRST image and dress them in the clothing item(s) shown in the following image(s). ' +
-            'Keep the person’s face, hairstyle, body shape, skin tone and pose unchanged. ' +
-            'Make each garment fit the body naturally and realistically, correct proportions, realistic fabric folds and lighting. ' +
-            'Replace the original outfit. Full-body, photorealistic, high quality professional fashion photo.';
+    // Prompt try-on cải tiến (id onmodel-tryon-pro) — khoá danh tính + trung thực món đồ +
+    // khớp ánh sáng/bóng đổ/màu da để GHÉP HÀI HOÀ NHẤT. Nguồn: PicoTrex + YouMind Nano Banana.
+    const TRYON_PROMPT =
+        "Take the person from the FIRST image as the fixed model. Dress them in the exact clothing item(s) shown in the following image(s), replacing their original outfit completely. ABSOLUTELY preserve the person's face, facial structure, skin tone, hairstyle, body shape, height proportions and pose from the first image - do not alter their identity in any way. For each garment, faithfully reproduce its true colour, fabric texture, knit/weave, pattern, print, logo, embroidery, buttons, seams, collar and length exactly as in the product image - never invent or simplify details. Make the clothing drape and fit the body naturally with realistic fabric folds, gravity, tension at shoulders and waist, and correct garment proportions. CRITICAL for a seamless composite: match the lighting direction, colour temperature and intensity of the original photo so the garment, skin and face share one consistent light; cast soft, physically-correct contact shadows where fabric meets the body; keep skin tone uniform across face, neck, hands and arms with no colour seam at the neckline or wrists; render hands, fingers, neck and collarbone undistorted and anatomically correct. Full-body framing, photorealistic, sharp focus, natural matte skin texture with visible pores (no plastic smoothing), professional fashion e-commerce photography, high resolution, 4:5 aspect ratio.";
+    // Prompt ghép mặt (id faceswap-onto-model): ẢNH 1 = mặt nguồn, ẢNH 2 = model đích.
+    const FACESWAP_PROMPT =
+        "You are given two images. IMAGE 1 is the FACE SOURCE: take this person's face, facial features, expression, skin tone and identity. IMAGE 2 is the TARGET MODEL: keep the model's hair, neck, body, pose, hands, outfit, background and the camera angle exactly as they are. Seamlessly place the face from IMAGE 1 onto the head of the person in IMAGE 2. Match the face to the model's head orientation and viewing angle, blend skin tone and lighting so the face inherits the exact same light direction, color temperature, soft shadows and highlights of IMAGE 2. Preserve the original face shape, eyes, nose, lips, eyebrows and natural facial proportions from IMAGE 1 with maximum accuracy — do not beautify or change the identity. The transition at the jawline, hairline and neck must be invisible. Keep every garment, fold, accessory and the entire scene of IMAGE 2 unchanged. Output one photorealistic, seamless full-resolution image with no visible compositing, no double edges and no blur.";
+
+    function buildPrompt(extra, mode) {
+        let p = mode === 'faceswap' ? FACESWAP_PROMPT : TRYON_PROMPT;
         const ex = String(extra || '').trim();
         if (ex) p += ' Scene/details: ' + ex;
         return p;
@@ -103,6 +107,10 @@
 .w2t{display:grid;grid-template-columns:minmax(240px,330px) 1fr;gap:14px;padding:14px;height:100%;box-sizing:border-box;overflow:auto}
 .w2t.compact{grid-template-columns:1fr;overflow:auto}
 .w2t-controls{display:flex;flex-direction:column;gap:12px;min-width:0}
+.w2t-modes{display:flex;gap:6px;background:#f1f5f9;padding:4px;border-radius:11px}
+.w2t-mode{flex:1;border:none;background:transparent;border-radius:8px;padding:8px 10px;font:inherit;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.w2t-mode:hover{color:#4f46e5}
+.w2t-mode.active{background:#fff;color:#4f46e5;box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .w2t-field{display:flex;flex-direction:column;gap:6px}
 .w2t-label{font-size:.78rem;font-weight:600;color:#334155}
 .w2t-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -179,15 +187,19 @@
         wrap.className = 'w2t' + (compact ? ' compact' : '');
         wrap.innerHTML = `
             <div class="w2t-controls">
+                <div class="w2t-modes">
+                    <button type="button" class="w2t-mode active" data-mode="tryon">👕 Ghép đồ</button>
+                    <button type="button" class="w2t-mode" data-mode="faceswap">🧑‍🤝‍🧑 Ghép mặt</button>
+                </div>
                 <div class="w2t-warn" hidden></div>
                 <div class="w2t-field">
-                    <span class="w2t-label">1) Ảnh người</span>
+                    <span class="w2t-label w2t-person-label">1) Ảnh người</span>
                     <div class="w2t-person"><span class="ph">Chưa chọn ảnh người</span></div>
                     <input type="file" class="w2t-file w2t-person-file" accept="image/*">
                     <button type="button" class="w2t-stock w2t-person-stock" hidden>📁 Kho ảnh free</button>
                 </div>
                 <div class="w2t-field">
-                    <span class="w2t-label">2) Ảnh quần áo (1–${MAX_GARMENTS} ảnh) để mặc lên người</span>
+                    <span class="w2t-label w2t-garment-label">2) Ảnh quần áo (1–${MAX_GARMENTS} ảnh) để mặc lên người</span>
                     <div class="w2t-garments"></div>
                     <input type="file" class="w2t-file w2t-garment-file" accept="image/*" multiple>
                     <button type="button" class="w2t-stock w2t-garment-stock" hidden>📁 Kho ảnh free</button>
@@ -215,6 +227,40 @@
         const gallery = $('.w2t-gallery');
         const warn = $('.w2t-warn');
         const goBtn = $('.w2t-go');
+
+        // Chế độ: 'tryon' (người + quần áo) | 'faceswap' (ảnh mặt + ảnh model). Face-swap chỉ 1 ảnh model.
+        let mode = 'tryon';
+        const curMax = () => (mode === 'faceswap' ? 1 : MAX_GARMENTS);
+        function applyMode() {
+            const isFace = mode === 'faceswap';
+            wrap.querySelectorAll('.w2t-mode').forEach((b) =>
+                b.classList.toggle('active', b.dataset.mode === mode)
+            );
+            $('.w2t-person-label').textContent = isFace
+                ? '1) Ảnh lấy MẶT (khuôn mặt nguồn)'
+                : '1) Ảnh người';
+            $('.w2t-garment-label').textContent = isFace
+                ? '2) Ảnh MODEL — ghép mặt vào (1 ảnh)'
+                : `2) Ảnh quần áo (1–${MAX_GARMENTS} ảnh) để mặc lên người`;
+            $('.w2t-go').innerHTML = isFace
+                ? '<span>🧑‍🤝‍🧑</span> Ghép mặt'
+                : '<span>👕</span> Ghép đồ';
+            $('.w2t-note').textContent = isFace
+                ? '🟢 Ảnh 1 = lấy MẶT · Ảnh 2 = MODEL để ghép mặt vào (giữ thân/đồ/nền của model). AI Nano Banana.'
+                : '🟢 Ghép 1 ảnh người + nhiều ảnh quần áo bằng AI (Nano Banana). Ảnh được nén trước khi gửi.';
+            $('.w2t-garment-file').multiple = !isFace;
+            if (isFace && garments.length > 1) {
+                garments.length = 1;
+                renderGarments();
+            }
+        }
+        wrap.querySelectorAll('.w2t-mode').forEach((b) =>
+            b.addEventListener('click', () => {
+                if (mode === b.dataset.mode) return;
+                mode = b.dataset.mode;
+                applyMode();
+            })
+        );
 
         function renderPerson() {
             personBox.innerHTML = person
@@ -250,8 +296,13 @@
         });
         $('.w2t-garment-file').addEventListener('change', async (e) => {
             for (const f of [...(e.target.files || [])]) {
-                if (garments.length >= MAX_GARMENTS) {
-                    toast('Tối đa ' + MAX_GARMENTS + ' ảnh quần áo', 'warning');
+                if (garments.length >= curMax()) {
+                    toast(
+                        mode === 'faceswap'
+                            ? 'Ghép mặt chỉ cần 1 ảnh model'
+                            : 'Tối đa ' + MAX_GARMENTS + ' ảnh quần áo',
+                        'warning'
+                    );
                     break;
                 }
                 try {
@@ -295,8 +346,13 @@
             );
             gs.addEventListener('click', () =>
                 pickStock((dataUrl) => {
-                    if (garments.length >= MAX_GARMENTS)
-                        return toast('Tối đa ' + MAX_GARMENTS + ' ảnh quần áo', 'warning');
+                    if (garments.length >= curMax())
+                        return toast(
+                            mode === 'faceswap'
+                                ? 'Ghép mặt chỉ cần 1 ảnh model'
+                                : 'Tối đa ' + MAX_GARMENTS + ' ảnh quần áo',
+                            'warning'
+                        );
                     garments.push(dataUrl);
                     renderGarments();
                 })
@@ -333,11 +389,19 @@
         }
 
         async function run() {
-            if (!person) return toast('Hãy chọn 1 ảnh người', 'warning');
-            if (!garments.length) return toast('Hãy chọn ít nhất 1 ảnh quần áo', 'warning');
+            const isFace = mode === 'faceswap';
+            if (!person)
+                return toast(isFace ? 'Hãy chọn ảnh lấy MẶT' : 'Hãy chọn 1 ảnh người', 'warning');
+            if (!garments.length)
+                return toast(
+                    isFace
+                        ? 'Hãy chọn ảnh MODEL để ghép mặt vào'
+                        : 'Hãy chọn ít nhất 1 ảnh quần áo',
+                    'warning'
+                );
             const card = document.createElement('div');
             card.className = 'w2t-card loading';
-            card.innerHTML = '<div class="w2t-spin"></div><span>Đang ghép đồ…</span>';
+            card.innerHTML = `<div class="w2t-spin"></div><span>${isFace ? 'Đang ghép mặt…' : 'Đang ghép đồ…'}</span>`;
             gallery.prepend(card);
             goBtn.disabled = true;
             try {
@@ -347,7 +411,7 @@
                     body: JSON.stringify({
                         provider: 'gemini',
                         model: 'gemini-2.5-flash-image',
-                        prompt: buildPrompt($('.w2t-prompt')?.value),
+                        prompt: buildPrompt($('.w2t-prompt')?.value, mode),
                         images: [person, ...garments],
                     }),
                     signal: AbortSignal.timeout(120000),

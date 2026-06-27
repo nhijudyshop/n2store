@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [web2/ai-hub + gemini-tryon] Thư viện prompt mới (49 Nano Banana) + Ghép mặt + sidecar Gemini cookie FREE
+
+User muốn dùng prompt try-on (ghép đồ/ghép mặt) MIỄN PHÍ bằng tài khoản gemini.google.com từ Web 2.0. iframe/embed Gemini = bất khả thi (`X-Frame-Options: DENY`, đã verify header). Giải pháp = **cầu cookie** (giống pattern Zalo + VieNeu-TTS đã có).
+
+**1) Sidecar `gemini-tryon/` (Hướng A — engine, NEW)**: clone pattern VieNeu-TTS (máy shop + cloudflared tunnel + heartbeat lên `web2-vieneu-registry` engine='gemini-tryon', cổng 8124). Dùng lib `HanaokaYuzu/Gemini-API` (`gemini_webapi` ⭐3.2k) gọi web app Gemini bằng cookie `__Secure-1PSID` → FREE + Nano Banana + nhận nhiều ảnh (try-on/face-swap). Files: `app.py` (FastAPI `/health` `/tryon` `/generate`), `serve.py`, `requirements.txt`, `run-mac.command`, `run_local.sh`, `README.md`. Cookie: auto browser-cookie3 (Chrome đã login) HOẶC ENV `GEMINI_1PSID`. ⚠ reverse-engineered → dùng acc Google PHỤ. py_compile OK. (Chưa wire nút chọn máy free vào Web2Tryon — bước sau.)
+
+**2) `web2/shared/web2-ai-presets.js` — DỰNG LẠI thư viện ảnh**: 49 prompt CHỌN LỌC từ repo Nano Banana thật (PicoTrex 23k★, YouMind 12.7k★, JimmyLv 8.8k★ — workflow mine + curate). 8 nhóm: 🛍️ sản phẩm (8) · 👗 người mẫu (8) · 🧥 thử đồ (7, có `onmodel-tryon-pro`) · **🧑‍🤝‍🧑 Ghép mặt (6) — NHÓM MỚI** (`faceswap-onto-model`: ảnh 1=mặt, ảnh 2=model) · 🖼️ đổi nền (7) · 👤 avatar (5) · 📐 flat-lay (3) · 🎉 poster (5). Thêm field + hiển thị `inputImages` trên card (báo cần ảnh nào, thứ tự). Prompt try-on/face-swap viết tiếng Anh (giữ danh tính tốt hơn).
+
+**3) `web2/shared/web2-tryon.js`**: (a) `buildPrompt()` dùng prompt try-on CẢI TIẾN (khoá danh tính + trung thực món đồ + khớp ánh sáng/bóng/màu da → ghép hài hoà nhất); (b) thêm **toggle chế độ Ghép đồ / Ghép mặt** — face-swap relabel (1) Ảnh lấy MẶT, (2) Ảnh MODEL (1 ảnh), dùng `FACESWAP_PROMPT`, images=[mặt, model].
+
+Bump `?v=20260627a` (ai-hub load presets + tryon). **Verify browser** (login web2 admin/admin!!): AiPresets 49 prompt, 9 chip gồm Ghép mặt → 6 card + dòng "🖼 2 ảnh: ảnh mặt + ảnh model"; toggle Ghép đồ↔Ghép mặt đổi nhãn chuẩn. Status: ✅ (sidecar chờ user chạy thử trên máy + cookie acc phụ)
+
 ### [web2/cham-cong] Chỉnh sửa chấm công → LƯU + HIỆN "thời gian chỉnh sửa" (ai + lúc nào)
 
 User: "chỉnh sửa chấm công sẽ lưu lại và hiện thời gian chỉnh sửa". Thêm **audit chỉnh sửa tay** theo NGÀY/NV: mỗi lần admin sửa chấm công 1 ngày (đổi giờ Vào/Ra, thêm/xoá lượt, nghỉ phép, ghi chú) → ghi ai + lúc nào, hiện ở popup ngày + ô lưới.
