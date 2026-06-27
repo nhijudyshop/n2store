@@ -4,5 +4,6 @@ __pycache__/
 cloudflared
 cloudflared.exe
 cookies.json
+accounts.json
 .env
 gemini_cookies/

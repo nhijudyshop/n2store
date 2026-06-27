@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [gemini-tryon + web2/ai-hub] ĐA ACCOUNT xoay tua + cài 1-click (bộ cài máy POS) + route free vào tab Ghép đồ
+
+Nối tiếp sidecar gemini-tryon. User: "cài nhiều account Google Gemini để xoay tua không bị giới hạn" + "cho vào cài đặt phần download để chạy 1 click".
+
+**1) `gemini-tryon/app.py` — POOL ĐA ACCOUNT (viết lại)**: mỗi account = 1 cặp cookie `__Secure-1PSID`/`PSIDTS` → 1 `GeminiClient`. Request xoay round-robin; account dính quota/limit → cooldown (`GEMINI_COOLDOWN_SEC` mặc định 3h) nhảy account kế; cookie hỏng → tắt account. Nguồn account: `accounts.json` → ENV `GEMINI_1PSID_1..20` → ENV đơn → browser-cookie3 (Chrome). **Trang cấu hình `GET /`** (tự chứa HTML) để dán cookie nhiều acc dễ dàng + `GET/POST/DELETE /accounts`. `/health` trả trạng thái từng account (ready/cooling/uses). **Đổi cổng 8124→8131** (8124 trùng OmniVoice). (Pattern xoay giống Pollinations token / Cloudflare account.)
+
+**2) Cài 1-click (bộ cài máy POS)**: `gemini-tryon/gemini-tryon-windows-setup.ps1` (clone vieneu-windows-setup: tải app.py/serve.py/requirements từ site → venv → pip → cloudflared → launcher ẩn + Startup auto-bật + mở localhost:8131 dán cookie). Thêm **option [4] Gemini** vào `web2/shared/web2-pos-installer.js` (`cai-may-pos.bat` menu + routine `:GEMINI` + `:DO_ALL` + uninstaller dọn `N2StoreGeminiTryon`).
+
+**3) `web2/shared/web2-tryon.js` — wire đường FREE**: section "Máy Gemini FREE" trong tab Ghép đồ (nút Tải bộ cài / Dò máy / Cấu hình account). `discoverGemini()` dò `localhost:8131/health` rồi registry `?engine=gemini-tryon`. `run()` route: có máy free → `POST <url>/tryon` (free), lỗi → fallback `callPaidNano` (Nano Banana `/api/web2-ai/image`). ai-hub load thêm `web2-pos-installer.js`; bump `web2-tryon.js?v=20260627b`.
+
+**Verify**: py_compile OK; node bat content có [4]+`:GEMINI`+URL ps1 đúng + uninstaller dọn Gemini; browser (login admin/admin!!) tab Ghép đồ render section máy free đủ 3 nút + status "⚪ chưa thấy máy → dùng Nano Banana", `Web2PosInstaller` loaded, **0 console error**. Status: ✅ (chờ user chạy bộ cài + dán cookie acc phụ trên máy shop)
+
 ### [web2/ai-hub + gemini-tryon] Thư viện prompt mới (49 Nano Banana) + Ghép mặt + sidecar Gemini cookie FREE
 
 User muốn dùng prompt try-on (ghép đồ/ghép mặt) MIỄN PHÍ bằng tài khoản gemini.google.com từ Web 2.0. iframe/embed Gemini = bất khả thi (`X-Frame-Options: DENY`, đã verify header). Giải pháp = **cầu cookie** (giống pattern Zalo + VieNeu-TTS đã có).

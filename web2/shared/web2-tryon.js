@@ -19,6 +19,32 @@
 
     const MAX_GARMENTS = 5;
     const MAX_DIM = 1280;
+    const GEMINI_LOCAL = 'http://localhost:8131'; // sidecar gemini-tryon chạy ngay máy này
+
+    // Dò máy Gemini FREE đang online: ưu tiên localhost (máy này), rồi registry (máy shop khác).
+    // Trả URL máy có account sẵn sàng, hoặc '' nếu không có (→ dùng Nano Banana trả phí).
+    async function discoverGemini() {
+        try {
+            const r = await fetch(GEMINI_LOCAL + '/health', { signal: AbortSignal.timeout(1500) });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.ok && d.readyCount > 0) return { url: GEMINI_LOCAL, ready: d.readyCount };
+            }
+        } catch (_) {}
+        try {
+            const base =
+                global.WEB2_CONFIG?.WORKER_URL ||
+                global.API_CONFIG?.WORKER_URL ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const r = await fetch(base + '/api/web2-vieneu-registry/list?engine=gemini-tryon', {
+                signal: AbortSignal.timeout(6000),
+            });
+            const d = await r.json();
+            const m = (d.servers || [])[0];
+            if (m && m.url) return { url: m.url.replace(/\/+$/, ''), ready: null };
+        } catch (_) {}
+        return null;
+    }
 
     function workerUrl() {
         return (
@@ -111,6 +137,17 @@
 .w2t-mode{flex:1;border:none;background:transparent;border-radius:8px;padding:8px 10px;font:inherit;font-size:.82rem;font-weight:600;color:#64748b;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
 .w2t-mode:hover{color:#4f46e5}
 .w2t-mode.active{background:#fff;color:#4f46e5;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.w2t-srv{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;background:#f8fafc;font-size:.78rem}
+.w2t-srv summary{cursor:pointer;font-weight:600;color:#334155;display:flex;align-items:center;gap:7px;list-style:none}
+.w2t-srv summary::-webkit-details-marker{display:none}
+.w2t-srv-dot{width:9px;height:9px;border-radius:50%;background:#cbd5e1;flex:0 0 auto}
+.w2t-srv-dot.on{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.18)}
+.w2t-srv-hint{margin:8px 0;color:#64748b;line-height:1.45;font-size:.74rem}
+.w2t-srv-actions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.w2t-srv-actions button,.w2t-srv-cfg{border:1px solid #c7d2fe;background:#eef2ff;color:#4f46e5;border-radius:8px;padding:5px 10px;font-size:.74rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.w2t-srv-actions button:hover,.w2t-srv-cfg:hover{background:#e0e7ff}
+.w2t-srv-status{font-size:.73rem;color:#64748b;line-height:1.4}
+.w2t-srv-status.on{color:#16a34a;font-weight:600}
 .w2t-field{display:flex;flex-direction:column;gap:6px}
 .w2t-label{font-size:.78rem;font-weight:600;color:#334155}
 .w2t-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -216,6 +253,16 @@
                 </div>
                 <button class="w2t-go"><span>👕</span> Ghép đồ</button>
                 <p class="w2t-note">🟢 Ghép 1 ảnh người + nhiều ảnh quần áo bằng AI (Nano Banana). Ảnh được nén trước khi gửi.</p>
+                <details class="w2t-srv">
+                    <summary><span class="w2t-srv-dot"></span> <span class="w2t-srv-sum">Máy Gemini FREE (xoay tua nhiều account)</span></summary>
+                    <p class="w2t-srv-hint">Cài 1-click lên máy shop → tạo ảnh <b>miễn phí</b> bằng tài khoản Google (cài nhiều acc phụ để xoay tua, không bị giới hạn lượt). Khi máy bật → tab này tự dùng máy free thay vì Nano Banana trả phí.</p>
+                    <div class="w2t-srv-actions">
+                        <button type="button" class="w2t-srv-install">⬇ Tải bộ cài (Windows)</button>
+                        <button type="button" class="w2t-srv-refresh">🔄 Dò máy</button>
+                        <a class="w2t-srv-cfg" href="http://localhost:8131/" target="_blank" rel="noopener">⚙️ Cấu hình account</a>
+                    </div>
+                    <div class="w2t-srv-status">Đang dò máy Gemini…</div>
+                </details>
             </div>
             <div class="w2t-gallery"></div>`;
         container.innerHTML = '';
@@ -261,6 +308,39 @@
                 applyMode();
             })
         );
+
+        // ── Máy Gemini FREE (sidecar gemini-tryon) — dò online + tải bộ cài + route try-on ──
+        let geminiUrl = ''; // '' = dùng Nano Banana trả phí; có URL = dùng máy free
+        const srvDot = $('.w2t-srv-dot');
+        const srvStatus = $('.w2t-srv-status');
+        async function refreshSrv() {
+            srvStatus.textContent = 'Đang dò máy Gemini…';
+            srvStatus.classList.remove('on');
+            srvDot.classList.remove('on');
+            const m = await discoverGemini();
+            geminiUrl = m ? m.url : '';
+            if (geminiUrl) {
+                srvDot.classList.add('on');
+                srvStatus.classList.add('on');
+                srvStatus.textContent =
+                    '🟢 Máy Gemini FREE đang bật' +
+                    (m.ready ? ` (${m.ready} account)` : '') +
+                    ' — tab này đang dùng MIỄN PHÍ.';
+            } else {
+                srvStatus.textContent =
+                    '⚪ Chưa thấy máy Gemini free → đang dùng Nano Banana (trả phí). Cài bộ trên để dùng free.';
+            }
+        }
+        $('.w2t-srv-install')?.addEventListener('click', () => {
+            if (global.Web2PosInstaller?.downloadInstaller) {
+                global.Web2PosInstaller.downloadInstaller();
+                toast('Đã tải bộ cài — bấm đúp chạy trên máy shop, chọn [4] Gemini', 'success');
+            } else {
+                toast('Chưa tải được module cài đặt', 'error');
+            }
+        });
+        $('.w2t-srv-refresh')?.addEventListener('click', refreshSrv);
+        refreshSrv();
 
         function renderPerson() {
             personBox.innerHTML = person
@@ -388,6 +468,41 @@
             );
         }
 
+        // Gọi máy Gemini FREE (sidecar gemini-tryon) — trả dataUrl ảnh.
+        async function callGeminiMachine(promptText, images) {
+            const r = await fetch(geminiUrl + '/tryon', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: promptText, images }),
+                signal: AbortSignal.timeout(180000),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || 'Máy Gemini lỗi');
+            return j.dataUrl;
+        }
+        // Gọi Nano Banana TRẢ PHÍ (backend /api/web2-ai/image) — fallback khi không có máy free.
+        async function callPaidNano(promptText, images) {
+            const r = await fetch(API() + '/image', {
+                method: 'POST',
+                headers: authHeaders(true),
+                body: JSON.stringify({
+                    provider: 'gemini',
+                    model: 'gemini-2.5-flash-image',
+                    prompt: promptText,
+                    images,
+                }),
+                signal: AbortSignal.timeout(120000),
+            });
+            if (r.status === 401) {
+                if (global.Web2Auth?.requireAuth)
+                    setTimeout(() => global.Web2Auth.requireAuth(), 1200);
+                throw new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
+            }
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || 'Ghép đồ thất bại');
+            return j.url || j.dataUrl;
+        }
+
         async function run() {
             const isFace = mode === 'faceswap';
             if (!person)
@@ -404,26 +519,25 @@
             card.innerHTML = `<div class="w2t-spin"></div><span>${isFace ? 'Đang ghép mặt…' : 'Đang ghép đồ…'}</span>`;
             gallery.prepend(card);
             goBtn.disabled = true;
+            const promptText = buildPrompt($('.w2t-prompt')?.value, mode);
+            const images = [person, ...garments];
             try {
-                const r = await fetch(API() + '/image', {
-                    method: 'POST',
-                    headers: authHeaders(true),
-                    body: JSON.stringify({
-                        provider: 'gemini',
-                        model: 'gemini-2.5-flash-image',
-                        prompt: buildPrompt($('.w2t-prompt')?.value, mode),
-                        images: [person, ...garments],
-                    }),
-                    signal: AbortSignal.timeout(120000),
-                });
-                if (r.status === 401) {
-                    if (global.Web2Auth?.requireAuth)
-                        setTimeout(() => global.Web2Auth.requireAuth(), 1200);
-                    throw new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
+                let src;
+                if (geminiUrl) {
+                    // Đường FREE: máy shop (sidecar gemini-tryon) — cookie acc Google, xoay tua.
+                    try {
+                        src = await callGeminiMachine(promptText, images);
+                    } catch (e) {
+                        toast(
+                            'Máy free lỗi (' + (e.message || e) + ') → chuyển Nano Banana trả phí',
+                            'warning'
+                        );
+                        refreshSrv(); // máy có thể đã tắt → dò lại
+                        src = await callPaidNano(promptText, images);
+                    }
+                } else {
+                    src = await callPaidNano(promptText, images);
                 }
-                const j = await r.json();
-                if (!j.ok) throw new Error(j.error || 'Ghép đồ thất bại');
-                const src = j.url || j.dataUrl;
                 renderResultCard(card, src);
                 if (opts.onResult) opts.onResult(src);
             } catch (e) {

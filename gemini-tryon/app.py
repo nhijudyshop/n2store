@@ -1,24 +1,35 @@
-# #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — sidecar Gemini cookie (free try-on).
+# #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — sidecar Gemini cookie (free try-on, ĐA ACCOUNT xoay tua).
 """
-gemini-tryon — sidecar chạy trên MÁY SHOP, dùng tài khoản Gemini FREE của shop để
-ghép đồ / tạo ảnh (Nano Banana) qua thư viện gemini_webapi (cookie __Secure-1PSID).
+gemini-tryon — sidecar chạy trên MÁY SHOP, dùng NHIỀU tài khoản Gemini FREE để ghép đồ /
+ghép mặt / tạo ảnh (Nano Banana) qua thư viện gemini_webapi (cookie __Secure-1PSID).
 
-Vì sao: gemini.google.com KHÔNG cho iframe (X-Frame-Options: DENY) và API Nano Banana
-chính thức thì TRẢ PHÍ. Đường này gọi ĐÚNG web app gemini.google.com bằng cookie phiên
-Google của shop → FREE, nhận NHIỀU ảnh input (ảnh người + ảnh quần áo) → ghép đồ giữ mặt.
+XOAY TUA ĐA ACCOUNT (chống giới hạn lượt/ngày): mỗi account = 1 cặp cookie. Mỗi request xoay
+sang account còn lượt; account nào dính giới hạn (quota/limit) → cooldown, nhảy account kế.
+(Giống pattern xoay token Pollinations / account Cloudflare / key Gemini API của dự án.)
+
+Vì sao cần: gemini.google.com KHÔNG cho iframe (X-Frame-Options: DENY); API Nano Banana chính
+thức thì TRẢ PHÍ. Đường này gọi ĐÚNG web app bằng cookie phiên Google của shop → FREE.
 
 ⚠ Reverse-engineered (vi phạm ToS Google) → DÙNG TÀI KHOẢN GOOGLE PHỤ, không phải acc chính.
 
-Cookie: ưu tiên ENV GEMINI_1PSID (+ GEMINI_1PSIDTS); nếu trống → tự đọc từ trình duyệt
-đang đăng nhập gemini.google.com qua browser-cookie3 (cần cài extra gemini_webapi[browser]).
+Nguồn account (gộp, ưu tiên trên xuống):
+  1. accounts.json (thư mục này) — [{label, psid, psidts}, ...] (thêm qua trang cấu hình /).
+  2. ENV GEMINI_1PSID_1..20 (+ GEMINI_1PSIDTS_1..20).
+  3. ENV GEMINI_1PSID đơn (+ GEMINI_1PSIDTS).
+  4. Nếu TRỐNG hết → browser-cookie3 (Chrome đang đăng nhập gemini.google.com) = 1 account.
 
 Endpoints:
-  GET  /health                       → {ok, ready, cookie_source}
-  POST /tryon   {prompt, images[]}   → {ok, dataUrl}   (ghép đồ: images = [người, áo1, áo2…])
-  POST /generate{prompt, image?}     → {ok, dataUrl}   (tạo/sửa ảnh 1 ảnh hoặc text→ảnh)
+  GET  /                              → trang cấu hình account (dán cookie nhiều account)
+  GET  /health                        → {ok, ready, accounts:[{label, ready, cooling, uses}]}
+  GET  /accounts                      → liệt kê account (KHÔNG trả cookie)
+  POST /accounts  {label, psid, psidts}  → thêm account (build client + lưu accounts.json)
+  DELETE /accounts/{label}            → xoá account
+  POST /tryon   {prompt, images[]}    → {ok, dataUrl, account}   (ghép đồ: images=[người, áo…])
+  POST /generate{prompt, image?}      → {ok, dataUrl, account}
 """
 import asyncio
 import base64
+import json
 import os
 import re
 import tempfile
@@ -28,90 +39,182 @@ from typing import List, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-# gemini_webapi import lười (để /health vẫn trả lời khi thiếu lib) — bind ở startup.
-_GeminiClient = None  # type: ignore
+_GeminiClient = None  # bind lười để /health vẫn trả lời khi thiếu lib
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ACCOUNTS_FILE = os.path.join(HERE, "accounts.json")
 
 MAX_IMAGES = 6
 MAX_PROMPT = 2000
 INIT_TIMEOUT = int(os.environ.get("GEMINI_INIT_TIMEOUT", "30"))
 GEN_TIMEOUT = int(os.environ.get("GEMINI_GEN_TIMEOUT", "150"))
-MODEL = (os.environ.get("GEMINI_MODEL") or "").strip()  # rỗng = model mặc định của tài khoản
-SECRET = (os.environ.get("GEMINI_TRYON_SECRET") or "").strip()  # rỗng = không bắt buộc
+MODEL = (os.environ.get("GEMINI_MODEL") or "").strip()
+SECRET = (os.environ.get("GEMINI_TRYON_SECRET") or "").strip()
+# Account dính giới hạn → nghỉ bao lâu trước khi thử lại (mặc định 3h; limit free reset theo ngày).
+COOLDOWN_SEC = int(os.environ.get("GEMINI_COOLDOWN_SEC", str(3 * 3600)))
 
-# 1 client toàn cục + lock (web Gemini xử lý tuần tự an toàn hơn, tránh rate/đụng hội thoại).
-_state = {"client": None, "ready": False, "cookie_source": "none", "error": ""}
+_QUOTA_RE = re.compile(
+    r"quota|rate.?limit|limit.?reach|exceed|too many|try again later|usage limit|temporarily|429",
+    re.I,
+)
+_AUTH_RE = re.compile(r"auth|cookie|1psid|login|unauthor|invalid.*credential|sniffer|expired", re.I)
+
+
+class Account:
+    """1 tài khoản Gemini = 1 cặp cookie + 1 GeminiClient riêng."""
+
+    def __init__(self, label: str, psid: Optional[str], psidts: Optional[str]):
+        self.label = label
+        self.psid = (psid or "").strip()
+        self.psidts = (psidts or "").strip()
+        self.client = None
+        self.ready = False
+        self.error = ""
+        self.cooldown_until = 0.0
+        self.uses = 0
+
+    def public(self) -> dict:
+        now = time.time()
+        return {
+            "label": self.label,
+            "ready": self.ready,
+            "cooling": self.cooldown_until > now,
+            "cooldownLeftSec": max(0, int(self.cooldown_until - now)),
+            "uses": self.uses,
+            "error": self.error or None,
+        }
+
+
+_state = {"accounts": [], "rr": 0, "cookie_source": "none"}
 _lock = asyncio.Lock()
 
 
-async def _build_client():
-    """Khởi tạo GeminiClient: ENV cookie trước, fallback browser-cookie3 (Chrome đã login)."""
+# ───────────────────────── nạp cấu hình account ─────────────────────────
+def _load_account_configs() -> List[dict]:
+    out, seen = [], set()
+
+    def add(label, psid, psidts):
+        psid = (psid or "").strip()
+        if not psid or psid in seen:
+            return
+        seen.add(psid)
+        out.append({"label": (label or f"acc{len(out) + 1}").strip(), "psid": psid, "psidts": (psidts or "").strip()})
+
+    # 1) accounts.json
+    try:
+        if os.path.exists(ACCOUNTS_FILE):
+            data = json.load(open(ACCOUNTS_FILE, encoding="utf-8"))
+            rows = data if isinstance(data, list) else (data.get("accounts") or [])
+            for a in rows:
+                add(a.get("label"), a.get("psid") or a.get("__Secure-1PSID"), a.get("psidts") or a.get("__Secure-1PSIDTS"))
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠️  Đọc accounts.json lỗi: {e}")
+    # 2) ENV GEMINI_1PSID_1..20
+    for i in range(1, 21):
+        add(f"env{i}", os.environ.get(f"GEMINI_1PSID_{i}"), os.environ.get(f"GEMINI_1PSIDTS_{i}"))
+    # 3) ENV đơn
+    add("env", os.environ.get("GEMINI_1PSID"), os.environ.get("GEMINI_1PSIDTS"))
+    return out
+
+
+def _persist_accounts():
+    """Lưu accounts.json (chỉ account có psid thật — không lưu account browser-cookie3)."""
+    rows = [
+        {"label": a.label, "psid": a.psid, "psidts": a.psidts}
+        for a in _state["accounts"]
+        if a.psid
+    ]
+    try:
+        json.dump(rows, open(ACCOUNTS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠️  Lưu accounts.json lỗi: {e}")
+
+
+async def _build_client(acc: Account):
+    """Khởi tạo GeminiClient cho 1 account (psid rỗng = browser-cookie3)."""
     global _GeminiClient
     if _GeminiClient is None:
         from gemini_webapi import GeminiClient  # type: ignore
 
         _GeminiClient = GeminiClient
-
-    psid = (os.environ.get("GEMINI_1PSID") or "").strip()
-    psidts = (os.environ.get("GEMINI_1PSIDTS") or "").strip()
-
-    if psid:
-        client = _GeminiClient(psid, psidts or None, proxy=None)
-        source = "env"
-    else:
-        # Tự đọc cookie từ trình duyệt local đang đăng nhập gemini.google.com.
-        client = _GeminiClient(proxy=None)
-        source = "browser"
-
+    client = _GeminiClient(acc.psid or None, acc.psidts or None, proxy=None) if acc.psid else _GeminiClient(proxy=None)
     await client.init(timeout=INIT_TIMEOUT, auto_close=False, auto_refresh=True, verbose=False)
-    _state["cookie_source"] = source
-    return client
+    acc.client = client
+    acc.ready = True
+    acc.error = ""
+
+
+async def _init_pool():
+    cfgs = _load_account_configs()
+    if cfgs:
+        _state["cookie_source"] = "config"
+        accounts = [Account(c["label"], c["psid"], c["psidts"]) for c in cfgs]
+    else:
+        # Không cấu hình account nào → thử browser-cookie3 (Chrome đã login) làm 1 account.
+        _state["cookie_source"] = "browser"
+        accounts = [Account("browser", None, None)]
+    _state["accounts"] = accounts
+    # build song song, account lỗi cookie không chặn account khác
+    await asyncio.gather(*[_safe_build(a) for a in accounts])
+    ok = sum(1 for a in accounts if a.ready)
+    print(f"✅ Pool Gemini: {ok}/{len(accounts)} account sẵn sàng (nguồn: {_state['cookie_source']})")
+
+
+async def _safe_build(acc: Account):
+    try:
+        await _build_client(acc)
+        print(f"   ✓ account '{acc.label}' OK")
+    except Exception as e:  # noqa: BLE001
+        acc.ready = False
+        acc.error = str(e)[:200]
+        print(f"   ✗ account '{acc.label}' lỗi: {acc.error}")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     try:
-        _state["client"] = await _build_client()
-        _state["ready"] = True
-        print(f"✅ Gemini client sẵn sàng (cookie: {_state['cookie_source']})")
-    except Exception as e:  # noqa: BLE001 — log rõ để shop biết sửa cookie
-        _state["error"] = str(e)
-        print(f"⚠️  Khởi tạo Gemini client lỗi: {e}\n    → kiểm tra cookie __Secure-1PSID / đăng nhập gemini.google.com.")
+        await _init_pool()
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠️  Khởi tạo pool lỗi: {e}")
     yield
-    c = _state.get("client")
-    if c is not None:
-        try:
-            await c.close()
-        except Exception:
-            pass
+    for a in _state["accounts"]:
+        if a.client is not None:
+            try:
+                await a.client.close()
+            except Exception:
+                pass
 
 
 app = FastAPI(title="gemini-tryon", lifespan=lifespan)
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # tunnel URL ngẫu nhiên + tool nội bộ; siết bằng GEMINI_TRYON_SECRET nếu cần
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
 
 class TryonReq(BaseModel):
     prompt: str = ""
-    images: List[str] = []  # base64 dataURL: [ảnh người, ảnh quần áo…]
+    images: List[str] = []
     secret: Optional[str] = None
 
 
 class GenReq(BaseModel):
     prompt: str = ""
-    image: Optional[str] = None  # base64 dataURL (tuỳ chọn) để sửa
+    image: Optional[str] = None
     secret: Optional[str] = None
 
 
-def _check_secret(req_secret: Optional[str], header_secret: Optional[str]) -> bool:
-    if not SECRET:
-        return True
-    return SECRET in (req_secret or "", header_secret or "")
+class AccountReq(BaseModel):
+    label: Optional[str] = None
+    psid: str = ""
+    psidts: Optional[str] = None
+    secret: Optional[str] = None
+
+
+def _check_secret(req_secret: Optional[str]) -> bool:
+    return (not SECRET) or (req_secret == SECRET)
 
 
 def _decode_dataurl(s: str) -> bytes:
@@ -120,16 +223,23 @@ def _decode_dataurl(s: str) -> bytes:
     return base64.b64decode(raw)
 
 
-async def _run_gemini(prompt: str, image_dataurls: List[str]) -> dict:
-    """Gọi Gemini web: ghi ảnh ra file tạm → generate_content(files=…) → lấy ảnh ra base64."""
-    if not _state["ready"] or _state["client"] is None:
-        return {"ok": False, "error": "Gemini chưa sẵn sàng: " + (_state.get("error") or "chưa init cookie")}
+def _ready_pool() -> List[Account]:
+    now = time.time()
+    ready = [a for a in _state["accounts"] if a.ready and a.cooldown_until <= now]
+    return ready or [a for a in _state["accounts"] if a.ready]  # hết account khoẻ → vẫn thử account cooldown
 
+
+async def _run_gemini(prompt: str, image_dataurls: List[str]) -> dict:
     prompt = (prompt or "").strip()[:MAX_PROMPT]
     if not prompt:
         return {"ok": False, "error": "Thiếu mô tả (prompt)"}
+    pool = _ready_pool()
+    if not pool:
+        errs = "; ".join(f"{a.label}: {a.error}" for a in _state["accounts"] if a.error) or "chưa init cookie"
+        return {"ok": False, "error": "Không account Gemini nào sẵn sàng (" + errs + ")"}
 
-    client = _state["client"]
+    gen_prompt = prompt if re.search(r"\bgenerate\b", prompt, re.I) else (prompt + "\n\nGenerate the resulting image.")
+
     with tempfile.TemporaryDirectory(prefix="gtryon_") as tmp:
         paths = []
         for i, d in enumerate(image_dataurls[:MAX_IMAGES]):
@@ -143,65 +253,147 @@ async def _run_gemini(prompt: str, image_dataurls: List[str]) -> dict:
             except Exception as e:  # noqa: BLE001
                 return {"ok": False, "error": f"Ảnh #{i} hỏng: {e}"}
 
-        # Nudge model tạo ảnh kết quả (gemini_webapi trả ảnh web nếu prompt không bảo "generate").
-        gen_prompt = prompt if re.search(r"\bgenerate\b", prompt, re.I) else (prompt + "\n\nGenerate the resulting image.")
+        # Xoay tua account: round-robin + cooldown khi dính giới hạn.
+        start = _state["rr"] % len(pool)
+        _state["rr"] = (_state["rr"] + 1) % max(1, len(pool))
+        order = [pool[(start + i) % len(pool)] for i in range(len(pool))]
+        last_err = ""
 
         async with _lock:
-            try:
-                kwargs = {"files": paths} if paths else {}
-                if MODEL:
-                    kwargs["model"] = MODEL
-                resp = await asyncio.wait_for(
-                    client.generate_content(gen_prompt, **kwargs), timeout=GEN_TIMEOUT
-                )
-            except asyncio.TimeoutError:
-                return {"ok": False, "error": "Gemini quá lâu (timeout) — thử lại."}
-            except Exception as e:  # noqa: BLE001
-                return {"ok": False, "error": f"Gemini lỗi: {e}"}
+            for acc in order:
+                try:
+                    kwargs = {"files": paths} if paths else {}
+                    if MODEL:
+                        kwargs["model"] = MODEL
+                    resp = await asyncio.wait_for(
+                        acc.client.generate_content(gen_prompt, **kwargs), timeout=GEN_TIMEOUT
+                    )
+                    images = getattr(resp, "images", None) or []
+                    if not images:
+                        txt = (getattr(resp, "text", "") or "").strip()[:200]
+                        # không có ảnh → có thể bị chặn nội dung HOẶC account hết lượt → thử account kế
+                        last_err = "Gemini không trả ảnh" + (f" ({txt})" if txt else "")
+                        if _QUOTA_RE.search(txt):
+                            acc.cooldown_until = time.time() + COOLDOWN_SEC
+                        continue
+                    out_path = os.path.join(tmp, "out.png")
+                    await images[0].save(path=tmp, filename="out.png", verbose=False)
+                    with open(out_path, "rb") as f:
+                        data = f.read()
+                    acc.uses += 1
+                    b64 = base64.b64encode(data).decode()
+                    return {"ok": True, "provider": "gemini-web", "account": acc.label, "dataUrl": f"data:image/png;base64,{b64}"}
+                except asyncio.TimeoutError:
+                    last_err = "Gemini quá lâu (timeout)"
+                    continue
+                except Exception as e:  # noqa: BLE001
+                    msg = str(e)
+                    last_err = msg[:200]
+                    if _QUOTA_RE.search(msg):
+                        acc.cooldown_until = time.time() + COOLDOWN_SEC  # hết lượt → nghỉ, nhảy account kế
+                    elif _AUTH_RE.search(msg):
+                        acc.ready = False
+                        acc.error = msg[:200]  # cookie hỏng → tắt account
+                    continue
 
-            images = getattr(resp, "images", None) or []
-            if not images:
-                txt = (getattr(resp, "text", "") or "").strip()[:300]
-                return {
-                    "ok": False,
-                    "error": "Gemini không trả ảnh (có thể bị chặn nội dung / hết lượt free trong ngày)."
-                    + (f" Phản hồi: {txt}" if txt else ""),
-                }
-            try:
-                out_path = os.path.join(tmp, "out.png")
-                await images[0].save(path=tmp, filename="out.png", verbose=False)
-                with open(out_path, "rb") as f:
-                    data = f.read()
-            except Exception as e:  # noqa: BLE001
-                return {"ok": False, "error": f"Lưu ảnh kết quả lỗi: {e}"}
-
-    b64 = base64.b64encode(data).decode()
-    return {"ok": True, "provider": "gemini-web", "dataUrl": f"data:image/png;base64,{b64}"}
+    return {"ok": False, "error": "Tất cả account lỗi/hết lượt. " + last_err}
 
 
+# ───────────────────────── endpoints ─────────────────────────
 @app.get("/health")
 async def health():
+    accts = [a.public() for a in _state["accounts"]]
     return {
         "ok": True,
-        "ready": _state["ready"],
-        "cookie_source": _state["cookie_source"],
+        "ready": any(a["ready"] for a in accts),
         "engine": "gemini-tryon",
-        "error": _state.get("error") or None,
+        "cookie_source": _state["cookie_source"],
+        "accounts": accts,
+        "readyCount": sum(1 for a in accts if a["ready"]),
     }
+
+
+@app.get("/accounts")
+async def list_accounts():
+    return {"ok": True, "accounts": [a.public() for a in _state["accounts"]]}
+
+
+@app.post("/accounts")
+async def add_account(req: AccountReq):
+    if not _check_secret(req.secret):
+        return {"ok": False, "error": "Sai secret"}
+    psid = (req.psid or "").strip()
+    if not psid:
+        return {"ok": False, "error": "Thiếu cookie __Secure-1PSID"}
+    if any(a.psid == psid for a in _state["accounts"]):
+        return {"ok": False, "error": "Account (cookie) này đã có"}
+    label = (req.label or f"acc{len(_state['accounts']) + 1}").strip()
+    acc = Account(label, psid, req.psidts)
+    await _safe_build(acc)
+    _state["accounts"].append(acc)
+    if _state["cookie_source"] == "browser":
+        # bỏ account browser placeholder khi đã có cookie thật
+        _state["accounts"] = [a for a in _state["accounts"] if a.psid]
+        _state["cookie_source"] = "config"
+    _persist_accounts()
+    return {"ok": acc.ready, "account": acc.public(), "error": acc.error or None}
+
+
+@app.delete("/accounts/{label}")
+async def del_account(label: str):
+    before = len(_state["accounts"])
+    _state["accounts"] = [a for a in _state["accounts"] if a.label != label]
+    _persist_accounts()
+    return {"ok": True, "removed": before - len(_state["accounts"])}
 
 
 @app.post("/tryon")
 async def tryon(req: TryonReq):
-    if not _check_secret(req.secret, None):
+    if not _check_secret(req.secret):
         return {"ok": False, "error": "Sai secret"}
     if not req.images:
-        return {"ok": False, "error": "Thiếu ảnh (cần ít nhất ảnh người)"}
+        return {"ok": False, "error": "Thiếu ảnh (cần ít nhất ảnh người/mặt)"}
     return await _run_gemini(req.prompt, req.images)
 
 
 @app.post("/generate")
 async def generate(req: GenReq):
-    if not _check_secret(req.secret, None):
+    if not _check_secret(req.secret):
         return {"ok": False, "error": "Sai secret"}
-    imgs = [req.image] if req.image else []
-    return await _run_gemini(req.prompt, imgs)
+    return await _run_gemini(req.prompt, [req.image] if req.image else [])
+
+
+@app.get("/", response_class=HTMLResponse)
+async def config_page():
+    return _CONFIG_HTML
+
+
+# Trang cấu hình tối giản (tự chứa) — dán cookie nhiều account Google để xoay tua.
+_CONFIG_HTML = """<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>gemini-tryon — Cấu hình account</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:720px;margin:0 auto;padding:20px;background:#f8fafc;color:#0f172a}
+h1{font-size:1.3rem}.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin:12px 0}
+label{display:block;font-size:.82rem;font-weight:600;margin:8px 0 4px}
+input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+button{background:#4f46e5;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;margin-top:10px}
+button.del{background:#fff;color:#dc2626;border:1px solid #fecaca;padding:4px 10px;font-size:.8rem;margin:0}
+table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{text-align:left;padding:6px 4px;border-bottom:1px solid #f1f5f9}
+.ok{color:#16a34a}.bad{color:#dc2626}.cool{color:#d97706}
+small{color:#64748b;line-height:1.5}.warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:.8rem;color:#92400e}
+</style></head><body>
+<h1>👕 gemini-tryon — Cấu hình account Gemini (xoay tua)</h1>
+<div class="warn">⚠️ Dùng <b>tài khoản Google PHỤ</b>. Cài nhiều account để xoay tua, không bị giới hạn lượt/ngày. Cookie chỉ lưu trên máy này (accounts.json).</div>
+<div class="card"><h3>Account đang có</h3><table id="tbl"><thead><tr><th>Nhãn</th><th>Trạng thái</th><th>Đã dùng</th><th></th></tr></thead><tbody id="rows"><tr><td colspan=4>Đang tải…</td></tr></tbody></table></div>
+<div class="card"><h3>➕ Thêm account</h3>
+<small>Cách lấy cookie: mở <b>gemini.google.com</b> (đã đăng nhập acc phụ) → F12 → tab <b>Application</b> → Cookies → gemini.google.com → copy giá trị <b>__Secure-1PSID</b> và <b>__Secure-1PSIDTS</b>.</small>
+<label>Nhãn (tự đặt, vd "acc-shop-2")</label><input id="label" placeholder="acc2">
+<label>__Secure-1PSID *</label><input id="psid" placeholder="dán cookie __Secure-1PSID">
+<label>__Secure-1PSIDTS (có thể trống)</label><input id="psidts" placeholder="dán cookie __Secure-1PSIDTS">
+<button onclick="add()">Thêm account</button> <span id="msg"></span></div>
+<script>
+async function load(){let r=await fetch('/accounts');let d=await r.json();let h='';(d.accounts||[]).forEach(a=>{let st=a.ready?'<span class=ok>● sẵn sàng</span>':(a.cooling?'<span class=cool>● nghỉ '+a.cooldownLeftSec+'s</span>':'<span class=bad>● lỗi'+(a.error?': '+a.error:'')+'</span>');h+='<tr><td>'+a.label+'</td><td>'+st+'</td><td>'+a.uses+'</td><td><button class=del onclick="del(\\''+a.label+'\\')">Xoá</button></td></tr>';});document.getElementById('rows').innerHTML=h||'<tr><td colspan=4>Chưa có account</td></tr>';}
+async function add(){let psid=document.getElementById('psid').value.trim();if(!psid){msg.textContent='Thiếu __Secure-1PSID';return;}msg.textContent='Đang thêm…';let r=await fetch('/accounts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({label:document.getElementById('label').value,psid:psid,psidts:document.getElementById('psidts').value})});let d=await r.json();msg.textContent=d.ok?'✓ Đã thêm':'✗ '+(d.error||'lỗi');if(d.ok){psid.value='';document.getElementById('psid').value='';document.getElementById('psidts').value='';document.getElementById('label').value='';}load();}
+async function del(l){if(!confirm('Xoá account '+l+'?'))return;await fetch('/accounts/'+encodeURIComponent(l),{method:'DELETE'});load();}
+load();setInterval(load,5000);
+</script></body></html>"""

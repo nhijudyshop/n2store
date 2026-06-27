@@ -4,13 +4,14 @@ Chạy sidecar gemini-tryon + mở tunnel HTTPS + tự BÁO DANH lên registry (
 Web 2.0 (tab Ghép đồ) sẽ TỰ DÒ máy này online → gọi thẳng → ghép đồ FREE bằng tài khoản
 Gemini của shop. Cross-platform (Mac/Windows/Linux).
 
-  python serve.py                         # cổng 8124 + tunnel + heartbeat
+  python serve.py                         # cổng 8131 + tunnel + heartbeat
   NO_TUNNEL=1 python serve.py             # chỉ dùng trên CHÍNH máy này
   GEMINI_NAME="Máy quầy" python serve.py  # đặt tên máy hiện trên trang
 
-Cookie (chọn 1):
-  • Đăng nhập gemini.google.com trên Chrome máy này → KHÔNG cần gì thêm (browser-cookie3 tự đọc).
-  • Hoặc set ENV GEMINI_1PSID (+ GEMINI_1PSIDTS) = cookie __Secure-1PSID lấy từ DevTools.
+Account Gemini (ĐA ACCOUNT xoay tua — chống giới hạn lượt/ngày):
+  • Mở http://localhost:8131/ → trang cấu hình → dán cookie __Secure-1PSID của NHIỀU acc phụ.
+  • Hoặc set ENV GEMINI_1PSID_1/GEMINI_1PSIDTS_1 … _2 … (mỗi cặp = 1 account).
+  • Hoặc chỉ đăng nhập gemini.google.com trên Chrome máy này (browser-cookie3 tự đọc = 1 account).
 """
 import json
 import os
@@ -23,7 +24,7 @@ import threading
 import time
 import urllib.request
 
-PORT = int(os.environ.get("PORT", "8124"))
+PORT = int(os.environ.get("PORT", "8131"))
 ENGINE = "gemini-tryon"
 _HOST = socket.gethostname().split(".")[0] or "May-shop"
 NAME = os.environ.get("GEMINI_NAME") or f"{_HOST} (Gemini)"
@@ -96,6 +97,7 @@ def _heartbeat(url):
 
 def main():
     print(f"▶ Khởi động sidecar Gemini try-on (cổng {PORT})… đọc cookie + dò model, chờ chút.")
+    print(f"   ⚙️  Cấu hình account (dán cookie nhiều acc để xoay tua): http://localhost:{PORT}/")
     srv = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", str(PORT)],
         cwd=HERE,
