@@ -6,6 +6,8 @@
 
 User hỏi: thêm cookie ở máy shop (IP nhà) → máy shop giữ cookie + tunnel → máy khác bật là dùng được luôn? → **ĐÚNG, đã là kiến trúc sẵn có**: máy shop giữ `accounts.json` (cookie KHÔNG rời máy) + cloudflared tunnel + đăng ký `web2-vieneu-registry`. Máy khác: `Web2Tryon.discoverGemini()` dò localhost (không có) → hỏi registry → route try-on tới `<tunnel-máy-shop>/tryon` → máy shop xử lý bằng cookie của nó. **Cải tiến** `web2-tryon.js`: nhánh registry giờ **health-check từng máy qua tunnel + chọn máy có `readyCount>0`** (máy khác không route vào máy shop cookie hết hạn); fallback máy đầu nếu không xác nhận được. Bump `web2-tryon.js?v=20260627c`. (Registry chỉ lưu name/url/engine — KHÔNG lưu cookie; CORS sidecar `*` + tunnel https nên fetch cross-origin OK.)
 
+**Bổ sung (v=20260627d)** — user hỏi "thêm account có phải chạy bat trên máy khác → trùng máy shop?": làm rõ CHỈ cài sidecar (bat option 4) trên **1 máy shop**; thêm account = dán cookie vào trang cấu hình của máy shop (không cài máy khác). Nút **"⚙️ Cấu hình account"** giờ trỏ động tới `<geminiUrl>/` (máy shop qua tunnel nếu ở máy khác, localhost nếu ở máy shop) → admin **thêm cookie từ BẤT KỲ máy nào** không cần ngồi máy shop. Cookie value không lộ qua API (`/accounts` chỉ trả label/status).
+
 ### [web2/live-control] Fix: hàng biến thể (NCC/Giỏ/KH mới/Còn) bị CẮT khi nhiều SP + nhãn GIỎ HÀNG→GIỎ
 
 User báo board hiện 9 SP nhưng KHÔNG thấy hàng số NCC·GIỎ·KH MỚI·CÒN (chỉ thấy header). Debug live (browser-test localhost, eval computed style): hàng biến thể **CÓ trong DOM** (`vrows:9, vnums:27`) nhưng `.lc-group` cao 63px + `overflow:hidden` → bị **flexbox co lại** cắt mất.

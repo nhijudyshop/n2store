@@ -330,13 +330,17 @@
             srvDot.classList.remove('on');
             const m = await discoverGemini();
             geminiUrl = m ? m.url : '';
+            // Nút "Cấu hình account" trỏ thẳng máy shop đang dùng (tunnel) → THÊM COOKIE TỪ BẤT KỲ MÁY
+            // NÀO, không cần ngồi ở máy shop. Chưa thấy máy → fallback localhost (dùng trên chính máy shop).
+            const cfg = $('.w2t-srv-cfg');
+            if (cfg) cfg.href = (geminiUrl || GEMINI_LOCAL) + '/';
             if (geminiUrl) {
                 srvDot.classList.add('on');
                 srvStatus.classList.add('on');
                 srvStatus.textContent =
                     '🟢 Máy Gemini FREE đang bật' +
                     (m.ready ? ` (${m.ready} account)` : '') +
-                    ' — tab này đang dùng MIỄN PHÍ.';
+                    ' — tab này đang dùng MIỄN PHÍ. Bấm "⚙️ Cấu hình account" để thêm cookie.';
             } else {
                 srvStatus.textContent =
                     '⚪ Chưa thấy máy Gemini free → đang dùng Nano Banana (trả phí). Cài bộ trên để dùng free.';
