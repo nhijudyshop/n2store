@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `85ee400` — feat(web2/live-control+live-tv): địa danh pre-order — KH MỚI→KH vượt NCC được + báo hiệu
-**Last updated**: 2026-06-27 18:54:21 +07
-**Latest session**: [`RESUME:20260627-185421-85ee400`](../20260627-185421-85ee400.md)
-**Summary**: feat(web2/live-control+live-tv): địa danh pre-order — KH MỚI→KH vượt NCC được + báo hiệu
+**Latest commit**: `c9f316d` — auto: session update
+**Last updated**: 2026-06-27 19:08:59 +07
+**Latest session**: [`RESUME:20260627-190859-c9f316d`](../20260627-190859-c9f316d.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`gemini-tryon/`](./gemini-tryon.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -35,7 +36,7 @@
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 16:35
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 19:09
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
@@ -60,7 +61,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-27 18:49
+- [`render.com/`](./render.com.md) — updated 2026-06-27 19:09
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -82,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 18:54
+- [`web2/`](./web2.md) — updated 2026-06-27 19:09
