@@ -1470,6 +1470,7 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
         let created = 0,
             updated = 0;
         const results = [];
+        const touchedParents = new Set(); // Migration 070: recompute tồn cha sau COMMIT
         for (const it of items) {
             const name = String(it.name || '').trim();
             const variant = it.variant ? String(it.variant).trim() : null;
@@ -1485,7 +1486,9 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
             // lưu nháp lại). NULL-supplier SP cũ được NCC đầu tiên "claim" (tránh
             // tạo trùng). Chỉ ràng buộc khi item CÓ supplier — item không NCC giữ
             // hành vi cũ (match theo tên+biến thể).
-            const conds = ['LOWER(name) = LOWER($1)'];
+            // is_parent=false: item con CHỈ match dòng con/standalone, KHÔNG match
+            // dòng CHA (cha variant=NULL sẽ "ăn" nhầm item con nếu không loại trừ).
+            const conds = ['LOWER(name) = LOWER($1)', 'is_parent = false'];
             const findParams = [name];
             const orderBy = [];
             if (variant) {
@@ -1523,18 +1526,46 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                         ? String(it.originCurrency).toUpperCase().slice(0, 8)
                         : null;
                 const originRate = originCur ? Number(it.originRate) || null : null;
+                // Migration 070: item con của 1 SP nhiều biến thể → có parentCode.
+                // Đảm bảo dòng CHA tồn tại (is_parent) trước khi tạo con; tồn/pending
+                // cha do _recomputeParent tính sau COMMIT.
+                const parentCode = it.parentCode ? String(it.parentCode).trim() : null;
+                if (parentCode) {
+                    await client.query(
+                        `INSERT INTO web2_products
+                            (code, name, price, image_url, stock, note, tags, is_active,
+                             original_price, barcode, category, variant,
+                             status, pending_qty, supplier, region, is_parent,
+                             created_by, created_at, updated_at)
+                         VALUES ($1, $2, 0, $3, 0, NULL, '[]'::jsonb, TRUE,
+                                 0, NULL, $4, NULL,
+                                 'CHO_MUA', 0, $5, $6, TRUE,
+                                 'so-order', $7, $7)
+                         ON CONFLICT (code) DO NOTHING`,
+                        [
+                            parentCode,
+                            (it.parentName ? String(it.parentName).trim() : '') || name,
+                            it.imageUrl || null,
+                            it.category ? String(it.category).trim() : null,
+                            supplier,
+                            it.region ? String(it.region).trim() : null,
+                            now,
+                        ]
+                    );
+                    touchedParents.add(parentCode);
+                }
                 try {
                     const r = await client.query(
                         `INSERT INTO web2_products
                             (code, name, price, image_url, stock, note, tags, is_active,
                              original_price, barcode, category, variant,
                              status, pending_qty, supplier, region,
-                             origin_currency, origin_rate,
+                             origin_currency, origin_rate, parent_code,
                              created_by, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, 0, $5, '[]'::jsonb, TRUE,
-                                 $6, NULL, NULL, $7,
+                                 $6, NULL, $14, $7,
                                  'CHO_MUA', $8, $9, $13,
-                                 $11, $12,
+                                 $11, $12, $15,
                                  'so-order', $10, $10)
                          RETURNING *`,
                         [
@@ -1551,6 +1582,8 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                             originCur,
                             originRate,
                             it.region ? String(it.region).trim() : null,
+                            it.category ? String(it.category).trim() : null,
+                            parentCode,
                         ]
                     );
                     const row = r.rows[0];
@@ -1614,6 +1647,7 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                 );
                 const updated_row = r2.rows[0];
                 updated++;
+                if (updated_row.parent_code) touchedParents.add(updated_row.parent_code);
                 results.push({
                     code: updated_row.code,
                     name: updated_row.name,
@@ -1625,6 +1659,8 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
             }
         }
         await client.query('COMMIT');
+        // Migration 070: đồng bộ tồn/pending CHA = TỔNG con (sau COMMIT → đọc con đã ghi).
+        for (const pc of touchedParents) await _recomputeParent(pool, pc);
         if (created || updated)
             _notify(
                 'upsert-pending',
