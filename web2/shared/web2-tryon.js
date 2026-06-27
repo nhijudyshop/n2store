@@ -371,7 +371,7 @@
                     ' — tab này đang dùng MIỄN PHÍ. Bấm "⚙️ Cấu hình account" để thêm cookie.';
             } else {
                 srvStatus.textContent =
-                    '⚪ Chưa thấy máy Gemini free → đang dùng Nano Banana (trả phí). Cài bộ trên để dùng free.';
+                    '⚪ Chưa thấy máy Gemini free online — bật sidecar trên máy shop (bộ cài trên) rồi 🔄 Dò máy. Chế độ CHỈ-FREE: không tự dùng Nano Banana trả phí.';
             }
         }
         $('.w2t-srv-install')?.addEventListener('click', () => {
@@ -611,36 +611,35 @@
                 if (pctEl) pctEl.textContent = p + '%';
             });
             try {
-                let src;
-                if (geminiUrl) {
-                    // Đường FREE: máy shop (sidecar gemini-tryon) — cookie acc Google, xoay tua.
-                    try {
-                        src = await callGeminiMachine(promptText, images);
-                    } catch (e) {
-                        toast(
-                            'Máy free lỗi (' + (e.message || e) + ') → chuyển Nano Banana trả phí',
-                            'warning'
-                        );
-                        refreshSrv(); // máy có thể đã tắt → dò lại
-                        src = await callPaidNano(promptText, images);
-                    }
-                } else {
-                    src = await callPaidNano(promptText, images);
+                // CHẾ ĐỘ CHỈ-FREE (user chọn): chỉ dùng máy Gemini free, KHÔNG tự rớt về Nano Banana
+                // trả phí → không bao giờ tốn tiền bất ngờ. Free hết lượt/lỗi → báo rõ, chờ reset/thêm acc.
+                if (!geminiUrl) {
+                    throw new Error(
+                        'Chưa có máy Gemini free online — bật sidecar trên máy shop rồi bấm 🔄 Dò máy.'
+                    );
                 }
+                const src = await callGeminiMachine(promptText, images);
                 prog.done();
                 renderResultCard(card, src);
                 if (opts.onResult) opts.onResult(src);
             } catch (e) {
                 prog.stop();
-                const msg =
+                refreshSrv(); // dò lại (máy có thể tắt/đổi tunnel/hết lượt)
+                let msg =
                     e.name === 'TimeoutError' || e.name === 'AbortError'
                         ? 'Quá lâu — thử lại nhé.'
                         : e.message || String(e);
+                // Free hết lượt ảnh/ngày → thông điệp thân thiện thay vì lỗi kỹ thuật.
+                if (/hết lượt|limit reset|create more images|quota|usage/i.test(msg)) {
+                    msg =
+                        '🍌 Hết lượt tạo ảnh free hôm nay (mọi account Gemini đã đạt giới hạn ngày). ' +
+                        'Chờ Google reset (theo ngày) hoặc thêm account khác ở "⚙️ Cấu hình account".';
+                }
                 card.classList.remove('loading');
-                card.innerHTML = `<div style="padding:14px;text-align:center;color:#dc2626;font-size:.76rem">⚠️ ${esc(
+                card.innerHTML = `<div style="padding:14px;text-align:center;color:#dc2626;font-size:.76rem;line-height:1.5">⚠️ ${esc(
                     msg
                 )}</div>`;
-                toast('Lỗi ghép đồ: ' + msg, 'error');
+                toast(msg, 'error');
             } finally {
                 goBtn.disabled = false;
             }
