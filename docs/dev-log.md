@@ -2,6 +2,20 @@
 
 ## 2026-06-27
 
+### [web2/live-control + live-tv] Điều khiển màn TV: phân trang + lật trang từ xa + mini-preview + cảnh báo màu
+
+Feature theo yêu cầu user (điều khiển trang TV từ live-control cho người live xem):
+
+**State per-campaign** (DB `web2_live_tv_control` + SSE `web2:live-tv-control`): `{rows, cols, page}`. Default **1×4** (4 SP/trang).
+
+- **Backend** (`web2-campaign-products.js`): bảng `web2_live_tv_control` + `GET/PATCH /control?campaignId` (clamp rows 1..6, cols 1..10; upsert ON CONFLICT) + `_notifyTvControl` broadcast `web2:live-tv-control`. (Gộp vào route campaign-products vì cùng domain + notifier sẵn — không cần wire server.js.)
+- **Client** (`web2-campaign.js`): `getTvControl` / `setTvControl`.
+- **Shared 1 nguồn** (`web2/shared/web2-live-tv-display.js` MỚI = `Web2LiveTvDisplay`): `cardState` (ncc/sold/con/newCust + soldOut/low/hot), `orderForDisplay` (hết hàng dồn xuống cuối, ghim giữ đầu), `paginate`. Dùng CHUNG cho live-tv + mini-preview → KHÔNG drift.
+- **live-tv**: phân trang `rows×cols` (mỗi trang lấp đúng 1 màn, không cuộn) + "Trang X/Y" + hiệu ứng slide khi đổi trang + subscribe `web2:live-tv-control` (lật trang realtime). **#5** viền cảnh báo: sắp hết (CÒN ≤ 5 vàng) · hot (KH mới ≥ 3 hồng) · hết hàng (mờ). **#6** SP hết hàng (CÒN ≤ 0) tự dồn cuối + làm mờ.
+- **live-control**: khu "📺 Điều khiển màn TV" — ô **Hàng × Cột** (+ preset 1×4/2×3/2×4/3×4) + nút ⏮◀▶⏭ "Trang X/Y" + **mini-TV preview** (trang đang chiếu, card thu nhỏ NCC/GIỎ/CÒN, cùng cảnh báo màu) + **bàn phím ←/→/Home/End/Space**. Optimistic + SSE sync đa tab.
+
+**Verify**: SQL test (DDL idempotent + upsert merge 1 dòng) ✅; `node --check` 4 file ✅; brace balance CSS ✅. Browser verify full-flow chờ deploy Render (localhost hit prod backend). Status: ✅ code xong, đang deploy.
+
 ### [gemini-tryon] Máy khác (nơi khác) dùng chung máy shop qua tunnel + registry — chọn máy KHỎE
 
 User hỏi: thêm cookie ở máy shop (IP nhà) → máy shop giữ cookie + tunnel → máy khác bật là dùng được luôn? → **ĐÚNG, đã là kiến trúc sẵn có**: máy shop giữ `accounts.json` (cookie KHÔNG rời máy) + cloudflared tunnel + đăng ký `web2-vieneu-registry`. Máy khác: `Web2Tryon.discoverGemini()` dò localhost (không có) → hỏi registry → route try-on tới `<tunnel-máy-shop>/tryon` → máy shop xử lý bằng cookie của nó. **Cải tiến** `web2-tryon.js`: nhánh registry giờ **health-check từng máy qua tunnel + chọn máy có `readyCount>0`** (máy khác không route vào máy shop cookie hết hạn); fallback máy đầu nếu không xác nhận được. Bump `web2-tryon.js?v=20260627c`. (Registry chỉ lưu name/url/engine — KHÔNG lưu cookie; CORS sidecar `*` + tunnel https nên fetch cross-origin OK.)
