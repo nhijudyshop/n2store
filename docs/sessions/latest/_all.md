@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4258fb0` — feat(gemini-tryon): nút 'Mở cấu hình account (máy shop)' — tự dò + mở URL tunnel từ máy bất kỳ
-**Last updated**: 2026-06-27 15:11:14 +07
-**Latest session**: [`RESUME:20260627-151114-4258fb0`](../20260627-151114-4258fb0.md)
-**Summary**: feat(gemini-tryon): nút 'Mở cấu hình account (máy shop)' — tự dò + mở URL tunnel từ máy bất kỳ
+**Latest commit**: `a27494e` — feat(web2/ai-hub): hiệu ứng 'AI đang tạo' cao cấp — gradient + shimmer + ring cầu vồng + sparkle (Ghép đồ + Tạo ảnh)
+**Last updated**: 2026-06-27 15:29:33 +07
+**Latest session**: [`RESUME:20260627-152933-a27494e`](../20260627-152933-a27494e.md)
+**Summary**: feat(web2/ai-hub): hiệu ứng 'AI đang tạo' cao cấp — gradient + shimmer + ring cầu vồng + sparkle (Ghé...
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 15:08
+- [`docs/`](./docs.md) — updated 2026-06-27 15:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -81,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 15:11
+- [`web2/`](./web2.md) — updated 2026-06-27 15:29
