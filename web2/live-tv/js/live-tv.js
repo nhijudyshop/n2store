@@ -74,7 +74,7 @@
             '<small>NCC</small></span>' +
             '<span class="ltv-num ltv-num-ban">' +
             ban +
-            '<small>GIỎ HÀNG</small></span>' +
+            '<small>GIỎ</small></span>' +
             '<span class="ltv-num ltv-num-con' +
             (con <= 0 ? ' is-zero' : '') +
             '">' +

@@ -170,6 +170,11 @@
     border: 1px solid #e6e9f0;
     border-radius: 12px;
     overflow: hidden;
+    /* flex-shrink:0 — board là flex column + max-height + overflow auto. KHÔNG cho
+       card co lại khi nhiều SP (auto-add): nếu co, overflow:hidden cắt mất hàng biến
+       thể (NCC/Giỏ/KH mới/Còn) → chỉ thấy header. Phải để board scroll, card giữ
+       nguyên cao. (Bug lộ ra khi auto-add đẩy số SP > vừa khung 2026-06-27.) */
+    flex-shrink: 0;
 }
 .lc-group.is-pinned {
     border-color: var(--web2-primary, #0068ff);
@@ -420,6 +425,8 @@
     padding: 8px 10px;
     border: 1px solid #e6e9f0;
     border-radius: 10px;
+    /* cùng lý do .lc-group: KHÔNG co khi nhiều SP chờ hàng → picker scroll. */
+    flex-shrink: 0;
 }
 .lc-pitem.is-added {
     opacity: 0.5;

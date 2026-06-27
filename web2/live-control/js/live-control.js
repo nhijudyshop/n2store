@@ -170,7 +170,7 @@
             '</span>' +
             '<span class="lc-vnum lc-vban" title="SL trong giỏ khách">' +
             ban +
-            '<small>GIỎ HÀNG</small></span>' +
+            '<small>GIỎ</small></span>' +
             '<span class="lc-vnum lc-vkhm" title="Khách mới (chưa có SĐT & địa chỉ) đang có SP này trong giỏ">' +
             khm +
             '<small>KH MỚI</small></span>' +
