@@ -22,7 +22,8 @@
         var ncc = 0,
             sold = 0,
             con = 0,
-            newCust = 0;
+            newCust = 0,
+            allCust = 0;
         var vs = (g && g.variants) || [];
         for (var i = 0; i < vs.length; i++) {
             var v = vs[i];
@@ -32,6 +33,7 @@
             sold += s;
             con += Math.max(0, n - s);
             newCust += Number(v.newCust) || 0;
+            allCust += Number(v.allCust) || 0;
         }
         // Fallback khi group có sẵn tổng (totalNewCust từ Web2VariantGroup).
         if (!vs.length && g) {
@@ -39,6 +41,7 @@
             sold = Number(g.totalSold) || 0;
             con = Math.max(0, ncc - sold);
             newCust = Number(g.totalNewCust) || 0;
+            allCust = Number(g.totalAllCust) || 0;
         }
         var soldOut = ncc > 0 && con <= 0;
         return {
@@ -46,6 +49,7 @@
             sold: sold,
             con: con,
             newCust: newCust,
+            allCust: allCust,
             soldOut: soldOut,
             low: !soldOut && con > 0 && con <= LOW_THRESHOLD,
             hot: newCust >= HOT_THRESHOLD,
@@ -84,11 +88,47 @@
         };
     }
 
+    function normRegion(s) {
+        return String(s == null ? '' : s)
+            .trim()
+            .toUpperCase();
+    }
+
+    // Mô hình KH / CÒN cho 1 BIẾN THỂ theo địa danh đang chọn (NGUỒN DUY NHẤT, dùng
+    // CHUNG live-control board + màn TV để không lệch).
+    //   • SP ĐÚNG địa danh chọn (pre-order) → cột "KH" = TẤT CẢ khách (allCust),
+    //     được VƯỢT NCC; vuot = max(0, GIỎ + KH − NCC).
+    //   • SP khác → cột "KH MỚI" = khách mới (newCust), không vượt.
+    //   • CÒN = max(0, NCC − GIỎ − [KH | KH MỚI]).  (công thức user 2026-06-27)
+    function khConModel(v, selectedRegion) {
+        var ncc = Number(v && v.pendingQty) || 0;
+        var gio = Number(v && v.sold) || 0;
+        var newCust = Number(v && v.newCust) || 0;
+        var allCust = Number(v && v.allCust) || 0;
+        var isKhMode = !!(
+            selectedRegion && normRegion(v && v.region) === normRegion(selectedRegion)
+        );
+        var khCount = isKhMode ? allCust : newCust;
+        var con = Math.max(0, ncc - gio - khCount);
+        var vuot = isKhMode ? Math.max(0, gio + khCount - ncc) : 0;
+        return {
+            isKhMode: isKhMode,
+            khLabel: isKhMode ? 'KH' : 'KH MỚI',
+            khCount: khCount,
+            con: con,
+            vuot: vuot, // >0 = đã vượt ngưỡng NCC (chỉ chế độ KH)
+            ncc: ncc,
+            gio: gio,
+        };
+    }
+
     global.Web2LiveTvDisplay = {
         LOW_THRESHOLD: LOW_THRESHOLD,
         HOT_THRESHOLD: HOT_THRESHOLD,
         cardState: cardState,
         orderForDisplay: orderForDisplay,
         paginate: paginate,
+        normRegion: normRegion,
+        khConModel: khConModel,
     };
 })(typeof window !== 'undefined' ? window : this);

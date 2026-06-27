@@ -8,7 +8,8 @@
         campaignName: '',
         codes: new Set(),
         groups: [],
-        control: { rows: 1, cols: 4, page: 0 }, // layout + trang đang chiếu (do live-control điều khiển)
+        // layout + trang + địa danh (do live-control điều khiển) — region đổi cột KH → CÒN
+        control: { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' },
         _prevPage: 0, // để biết hướng slide khi đổi trang
     };
     var reloadTimer = null;
@@ -65,9 +66,12 @@
     // CÒN (= max(0, NCC − GIỎ HÀNG) — số còn bán được). Hết khi CÒN ≤ 0.
     function variantRowHtml(v) {
         var label = v.variant && v.variant.trim() ? v.variant : '(mặc định)';
-        var ncc = Number(v.pendingQty) || 0;
-        var ban = Number(v.sold) || 0;
-        var con = Math.max(0, ncc - ban);
+        // CÒN dùng chung công thức với board: max(0, NCC − GIỎ − [KH | KH MỚI]) theo
+        // địa danh đang chọn → màn TV khớp số CÒN với trang điều khiển.
+        var m = window.Web2LiveTvDisplay.khConModel(v, state.control.region);
+        var ncc = m.ncc;
+        var ban = m.gio;
+        var con = m.con;
         var soldOut = con <= 0;
         return (
             '<div class="ltv-vrow' +
@@ -216,7 +220,13 @@
         if (state.campaignId == null) return;
         try {
             var c = await window.Web2Campaign.getTvControl(state.campaignId);
-            if (c) state.control = { rows: c.rows || 1, cols: c.cols || 4, page: c.page || 0 };
+            if (c)
+                state.control = {
+                    rows: c.rows || 1,
+                    cols: c.cols || 4,
+                    page: c.page || 0,
+                    region: c.region || 'HƯƠNG CHÂU',
+                };
             if (state.groups.length) render();
         } catch (e) {
             /* default 1×4 — không chặn hiển thị */
@@ -231,6 +241,7 @@
             rows: Number(d.rows) || state.control.rows,
             cols: Number(d.cols) || state.control.cols,
             page: d.page != null ? Math.max(0, Number(d.page) || 0) : state.control.page,
+            region: d.region != null ? d.region : state.control.region,
         };
         render();
     }

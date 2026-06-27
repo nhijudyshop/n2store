@@ -918,3 +918,42 @@ span.lc-mini-noimg {
     color: #94a3b8;
     letter-spacing: 0.04em;
 }
+
+/* ── Địa danh selector (KH pre-order) + báo hiệu VƯỢT ───────────────── */
+.lc-tvctl-region {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+.lc-region-select {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #7c3aed;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 7px;
+    padding: 4px 7px;
+    cursor: pointer;
+}
+.lc-region-select:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+/* KH vượt ngưỡng NCC: số đỏ + badge "VƯỢT +N" */
+.lc-vnum.lc-vkhm.over {
+    color: #dc2626;
+}
+.lc-vnum.lc-vkhm.over small.lc-over-badge {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 5px;
+    padding: 0 4px;
+    margin-top: 1px;
+    white-space: nowrap;
+}

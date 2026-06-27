@@ -14,7 +14,8 @@
         pickerRegion: '', // lọc picker theo ĐỊA DANH ('' = tất cả)
         showRegion: true, // ẩn/hiện chip+badge địa danh (localStorage lc_show_region)
         editing: false, // đang gõ input pending → hoãn re-render board
-        tvControl: { rows: 1, cols: 4, page: 0 }, // điều khiển màn TV (layout + trang)
+        // điều khiển màn TV (layout + trang) + địa danh pre-order (KH vượt được)
+        tvControl: { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' },
     };
     var boardTimer = null;
     var searchTimer = null;
@@ -151,11 +152,22 @@
     // địa chỉ đang có SP trong giỏ = v.newCust) + CÒN (= max(0, NCC−GIỎ HÀNG)).
     // GIỎ HÀNG/KH MỚI/CÒN read-only (tự tính).
     function vrowHtml(v) {
-        var ncc = Number(v.pendingQty) || 0;
-        var ban = Number(v.sold) || 0;
-        var khm = Number(v.newCust) || 0;
-        var con = Math.max(0, ncc - ban);
+        // Mô hình KH/CÒN theo địa danh đang chọn (shared, khớp màn TV).
+        var m = window.Web2LiveTvDisplay.khConModel(v, state.tvControl.region);
+        var ncc = m.ncc;
+        var ban = m.gio;
+        var con = m.con;
         var conCls = con <= 0 ? ' zero' : '';
+        var khMode = m.isKhMode ? 'all' : 'new'; // popup: KH=tất cả giỏ, KH MỚI=lọc mới
+        var over = m.vuot > 0;
+        var khLabelHtml = over
+            ? '<small class="lc-over-badge">VƯỢT +' + m.vuot + '</small>'
+            : '<small>' + (m.isKhMode ? 'KH' : 'KH MỚI') + '</small>';
+        var khTitle = m.isKhMode
+            ? 'Số khách đặt SP này (' +
+              esc(state.tvControl.region || '') +
+              ') — vượt NCC được, bấm xem'
+            : 'Khách mới (chưa SĐT & địa chỉ) — bấm xem';
         return (
             '<div class="lc-vrow">' +
             '<span class="lc-vname">' +
@@ -180,15 +192,23 @@
             ban +
             '<small>GIỎ</small></span>' +
             '<span class="lc-vnum lc-vkhm' +
-            (khm > 0 ? ' lc-clickable' : '') +
+            (over ? ' over' : '') +
+            (m.khCount > 0 ? ' lc-clickable' : '') +
             '" data-cart="' +
             esc(v.code) +
-            '" data-cart-mode="new" title="Khách mới (chưa SĐT & địa chỉ) — bấm xem">' +
-            khm +
-            '<small>KH MỚI</small></span>' +
+            '" data-cart-mode="' +
+            khMode +
+            '" title="' +
+            khTitle +
+            '">' +
+            m.khCount +
+            khLabelHtml +
+            '</span>' +
             '<span class="lc-vnum lc-vcon' +
             conCls +
-            '" title="Còn lại = NCC − Giỏ hàng (≥ 0)">' +
+            '" title="Còn = NCC − Giỏ − ' +
+            (m.isKhMode ? 'KH' : 'KH mới') +
+            ' (≥ 0)">' +
             con +
             '<small>CÒN</small></span>' +
             '</div>'
@@ -378,22 +398,71 @@
             b.disabled =
                 op === 'first' || op === 'prev' ? pg.page <= 0 : pg.page >= pg.totalPages - 1;
         });
+        // Selector địa danh (KH pre-order) — options = địa danh trong board + hiện tại.
+        var rsel = $('lcRegion');
+        if (rsel) {
+            rsel.innerHTML = regionOptions()
+                .map(function (rr) {
+                    return (
+                        '<option value="' +
+                        esc(rr) +
+                        '"' +
+                        (normRegion(rr) === normRegion(tc.region) ? ' selected' : '') +
+                        '>' +
+                        esc(rr) +
+                        '</option>'
+                    );
+                })
+                .join('');
+        }
+    }
+    // Địa danh có thể chọn = địa danh trong board + hiện tại + 2 mặc định phổ biến.
+    function regionOptions() {
+        var seen = {};
+        var out = [];
+        function add(r) {
+            r = String(r || '').trim();
+            if (!r) return;
+            var k = normRegion(r);
+            if (!seen[k]) {
+                seen[k] = 1;
+                out.push(r);
+            }
+        }
+        add(state.tvControl.region);
+        (state.board || []).forEach(function (g) {
+            add(g.region);
+            (g.variants || []).forEach(function (v) {
+                add(v.region);
+            });
+        });
+        add('HƯƠNG CHÂU');
+        add('HÀ NỘI');
+        return out;
     }
     async function loadTvControl() {
         if (!state.campaignId) return;
         try {
             var c = await window.Web2Campaign.getTvControl(state.campaignId);
-            if (c) state.tvControl = { rows: c.rows || 1, cols: c.cols || 4, page: c.page || 0 };
+            if (c)
+                state.tvControl = {
+                    rows: c.rows || 1,
+                    cols: c.cols || 4,
+                    page: c.page || 0,
+                    region: c.region || 'HƯƠNG CHÂU',
+                };
         } catch (e) {
-            /* default 1×4 */
+            /* default 1×4 + Hương Châu */
         }
         renderTvCtl();
+        if (state.board.length) renderBoard(); // địa danh đổi cột KH ở board
     }
-    // Ghi layout/trang → backend + SSE (TV + tab khác cập nhật). Optimistic UI.
+    // Ghi layout/trang/địa danh → backend + SSE (TV + tab khác cập nhật). Optimistic UI.
     async function saveTvControl(patch) {
         if (!state.campaignId) return;
         state.tvControl = Object.assign({}, state.tvControl, patch);
         renderTvCtl();
+        if (patch && 'region' in patch && state.board.length) renderBoard();
         try {
             await window.Web2Campaign.setTvControl(state.campaignId, patch);
         } catch (e) {
@@ -404,6 +473,11 @@
         rows = Math.max(1, Math.min(6, Math.floor(Number(rows) || 1)));
         cols = Math.max(1, Math.min(10, Math.floor(Number(cols) || 1)));
         saveTvControl({ rows: rows, cols: cols, page: 0 });
+    }
+    function setTvRegion(region) {
+        region = String(region || '').trim();
+        if (!region || region === state.tvControl.region) return;
+        saveTvControl({ region: region });
     }
     function goTvPage(op) {
         var pg = tvPaginate();
@@ -418,12 +492,15 @@
     function applyTvControlSse(d) {
         if (!d) return;
         if (d.campaignId != null && Number(d.campaignId) !== Number(state.campaignId)) return;
+        var oldRegion = state.tvControl.region;
         state.tvControl = {
             rows: Number(d.rows) || state.tvControl.rows,
             cols: Number(d.cols) || state.tvControl.cols,
             page: d.page != null ? Math.max(0, Number(d.page) || 0) : state.tvControl.page,
+            region: d.region != null ? d.region : state.tvControl.region,
         };
         renderTvCtl();
+        if (state.tvControl.region !== oldRegion && state.board.length) renderBoard();
     }
 
     // ── Popup chi tiết GIỎ / KH MỚI (bấm số ở board) ──
@@ -857,6 +934,11 @@
             tvNav.addEventListener('click', function (e) {
                 var b = e.target.closest('.lc-navbtn');
                 if (b && !b.disabled) goTvPage(b.dataset.pg);
+            });
+        var rsel = $('lcRegion');
+        if (rsel)
+            rsel.addEventListener('change', function () {
+                setTvRegion(this.value);
             });
         // Bàn phím: ←/→ lật trang, Home/End đầu/cuối, Space trang sau (bỏ khi đang gõ).
         document.addEventListener('keydown', function (e) {

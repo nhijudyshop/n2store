@@ -101,6 +101,12 @@ async function ensureTables(pool) {
             updated_at   BIGINT
         );
     `);
+    // 2026-06-27: ĐỊA DANH "pre-order" — SP đúng địa danh này dùng cột KH (tất cả
+    // khách, vượt NCC được + báo hiệu). Default 'HƯƠNG CHÂU'.
+    await pool.query(
+        `ALTER TABLE web2_live_tv_control
+            ADD COLUMN IF NOT EXISTS region TEXT NOT NULL DEFAULT 'HƯƠNG CHÂU'`
+    );
     _ensuredPools.add(pool);
 }
 
@@ -131,10 +137,11 @@ function mapItem(row) {
         variant: row.variant || null,
         price: Number(row.price || 0),
         // sold (GIỎ HÀNG = SL trong giỏ KH draft) + newCust (KH MỚI = số khách
-        // CHƯA có SĐT & địa chỉ đang có SP này trong giỏ) gắn sau ở GET /
-        // (aggregate native_orders draft). Default 0 cho path khác.
+        // CHƯA có SĐT & địa chỉ) + allCust (KH = TẤT CẢ khách đang có SP trong giỏ)
+        // gắn sau ở GET / (aggregate native_orders draft). Default 0 cho path khác.
         sold: 0,
         newCust: 0,
+        allCust: 0,
         isActive: row.is_active == null ? true : !!row.is_active,
         // membership (campaign-product)
         sort: Number(row.sort) || 0,
@@ -273,7 +280,8 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
                         COUNT(DISTINCT COALESCE(NULLIF(n.fb_user_id, ''), n.id::text))
                           FILTER (WHERE COALESCE(n.phone, '') = ''
-                                    AND COALESCE(n.address, '') = '') AS new_cust
+                                    AND COALESCE(n.address, '') = '') AS new_cust,
+                        COUNT(DISTINCT COALESCE(NULLIF(n.fb_user_id, ''), n.id::text)) AS all_cust
                  FROM native_orders n, jsonb_array_elements(n.products) prod
                  WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
                    AND n.status = 'draft'
@@ -286,6 +294,7 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                     soldMap.set(row.code, {
                         sold: Number(row.sold) || 0,
                         newCust: Number(row.new_cust) || 0,
+                        allCust: Number(row.all_cust) || 0,
                     });
             }
             for (const it of items) {
@@ -293,6 +302,7 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                 if (m) {
                     it.sold = m.sold;
                     it.newCust = m.newCust;
+                    it.allCust = m.allCust;
                 }
             }
         }
@@ -503,14 +513,24 @@ router.patch('/pending', requireWeb2AuthSoft, async (req, res) => {
 // -----------------------------------------------------
 // ĐIỀU KHIỂN MÀN TV (live-control ⇄ live-tv) — layout + trang đang chiếu.
 // -----------------------------------------------------
-const TV_DEFAULT = { rows: 1, cols: 4, page: 0 };
+const TV_DEFAULT = { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' };
 function clampInt(v, min, max, dflt) {
     const n = Math.floor(Number(v));
     if (!Number.isFinite(n)) return dflt;
     return Math.max(min, Math.min(max, n));
 }
+function readControl(row) {
+    return row
+        ? {
+              rows: Number(row.rows) || TV_DEFAULT.rows,
+              cols: Number(row.cols) || TV_DEFAULT.cols,
+              page: Math.max(0, Number(row.page) || 0),
+              region: row.region || TV_DEFAULT.region,
+          }
+        : { ...TV_DEFAULT };
+}
 
-// GET /control?campaignId=X → { success, control:{rows,cols,page} } (default nếu chưa có).
+// GET /control?campaignId=X → { success, control:{rows,cols,page,region} } (default nếu chưa có).
 router.get('/control', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
@@ -521,25 +541,18 @@ router.get('/control', requireWeb2AuthSoft, async (req, res) => {
     try {
         await ensureTables(pool);
         const r = await pool.query(
-            `SELECT rows, cols, page FROM web2_live_tv_control WHERE campaign_id = $1`,
+            `SELECT rows, cols, page, region FROM web2_live_tv_control WHERE campaign_id = $1`,
             [campaignId]
         );
-        const control = r.rows.length
-            ? {
-                  rows: Number(r.rows[0].rows) || TV_DEFAULT.rows,
-                  cols: Number(r.rows[0].cols) || TV_DEFAULT.cols,
-                  page: Math.max(0, Number(r.rows[0].page) || 0),
-              }
-            : { ...TV_DEFAULT };
-        res.json({ success: true, control });
+        res.json({ success: true, control: readControl(r.rows[0]) });
     } catch (e) {
         console.error('[WEB2-CAMPAIGN-PRODUCTS] control get error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
-// PATCH /control?campaignId=X {rows?,cols?,page?} — upsert phần được gửi, broadcast
-// web2:live-tv-control. rows 1..6, cols 1..10, page ≥ 0 (clamp số sản phẩm ở client).
+// PATCH /control?campaignId=X {rows?,cols?,page?,region?} — upsert phần được gửi,
+// broadcast web2:live-tv-control. rows 1..6, cols 1..10, page ≥ 0, region = địa danh.
 router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
@@ -552,28 +565,26 @@ router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
         await ensureTables(pool);
         // Đọc hiện tại (hoặc default) rồi merge field được gửi → upsert tuyệt đối.
         const cur = await pool.query(
-            `SELECT rows, cols, page FROM web2_live_tv_control WHERE campaign_id = $1`,
+            `SELECT rows, cols, page, region FROM web2_live_tv_control WHERE campaign_id = $1`,
             [campaignId]
         );
-        const base = cur.rows.length
-            ? {
-                  rows: Number(cur.rows[0].rows) || TV_DEFAULT.rows,
-                  cols: Number(cur.rows[0].cols) || TV_DEFAULT.cols,
-                  page: Math.max(0, Number(cur.rows[0].page) || 0),
-              }
-            : { ...TV_DEFAULT };
+        const base = readControl(cur.rows[0]);
         const next = {
             rows: b.rows != null ? clampInt(b.rows, 1, 6, base.rows) : base.rows,
             cols: b.cols != null ? clampInt(b.cols, 1, 10, base.cols) : base.cols,
             page: b.page != null ? Math.max(0, clampInt(b.page, 0, 9999, base.page)) : base.page,
+            region:
+                b.region != null
+                    ? String(b.region).trim().slice(0, 80) || base.region
+                    : base.region,
         };
         await pool.query(
-            `INSERT INTO web2_live_tv_control (campaign_id, rows, cols, page, updated_at)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO web2_live_tv_control (campaign_id, rows, cols, page, region, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (campaign_id)
-               DO UPDATE SET rows = EXCLUDED.rows, cols = EXCLUDED.cols,
-                             page = EXCLUDED.page, updated_at = EXCLUDED.updated_at`,
-            [campaignId, next.rows, next.cols, next.page, Date.now()]
+               DO UPDATE SET rows = EXCLUDED.rows, cols = EXCLUDED.cols, page = EXCLUDED.page,
+                             region = EXCLUDED.region, updated_at = EXCLUDED.updated_at`,
+            [campaignId, next.rows, next.cols, next.page, next.region, Date.now()]
         );
         _notifyTvControl({ campaignId, ...next });
         res.json({ success: true, control: next });
