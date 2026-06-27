@@ -1,5 +1,16 @@
 # Dev Log
 
+## 2026-06-27
+
+### [docs/web2] KB-doc "Dịch vụ & Hạ tầng" cho NotebookLM + Claude-read-first
+
+User muốn "tích hợp NotebookLM vào Web 2.0" để ghi cái đáng chú ý rồi "kêu Claude đọc trước khi code". **Ràng buộc thật:** NotebookLM KHÔNG có API công khai → Claude KHÔNG đọc trực tiếp được (không connector/MCP). Giải pháp 1-nguồn-2-nơi-đọc: viết KB markdown trong repo → (a) Claude đọc được, (b) user upload lên NotebookLM hỏi-đáp.
+
+- Tạo [`docs/web2/KB-SYSTEM-SERVICES.md`](web2/KB-SYSTEM-SERVICES.md) (workflow 5 agent: 4 đọc song song dashboard UI + data JSON + hạ tầng backend + realtime/bên-thứ-3 → 1 synth gộp). Nội dung: trang `web2/system?tab=services` (DB live + chi phí HARDCODE trong `SERVICES_INVENTORY` + modal chi tiết), topology backend (web2-api srv-d8n53… vs n2store-fallback srv-d4e5…, 2 DB pool web2Db/chatDb, worker chatomni-proxy routing, cron), 2 hub SSE + topics, 70 bên thứ 3, shared modules, §7 **gotchas dễ nhầm**.
+- Thêm pointer KB vào CLAUDE.md (Index quick-lookup) — đọc trước khi code `web2/system`/`services-overview.js`/hạ tầng. Pattern đi tới: ghi "cái đáng chú ý" mới → tạo `docs/web2/KB-*.md` cùng kiểu.
+
+Status: ✅
+
 ## 2026-06-26
 
 ### [web2 flow R3] Audit vòng 3 (PBH tách + khoá kỳ lương + cashbook) → fix 3 bug + verify đối kháng 5 false-positive
