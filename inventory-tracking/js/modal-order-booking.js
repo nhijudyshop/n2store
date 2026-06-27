@@ -294,11 +294,12 @@ function parseProductLine(line) {
         const rest = trimmed.substring(maMatch[0].length);
 
         // Find SL pattern: [number]X[number] or [number]*[number]
-        const slMatch = rest.match(/(\d+)\s*[xX*]\s*(\d+)/);
+        // Giá cho phép thập phân kiểu VN ("54,5" / "54.5"); SL giữ số nguyên.
+        const slMatch = rest.match(/(\d+)\s*[xX*]\s*(\d+(?:[.,]\d+)?)/);
 
         if (slMatch) {
             const soLuong = parseInt(slMatch[1], 10);
-            const giaDonVi = parseInt(slMatch[2], 10);
+            const giaDonVi = parseFloat(slMatch[2].replace(',', '.'));
 
             // Everything between MA xxx and SLxGia is color/description
             const colorPart = rest.substring(0, rest.indexOf(slMatch[0])).trim();

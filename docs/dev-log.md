@@ -2,6 +2,20 @@
 
 ## 2026-06-27
 
+### [inventory-tracking] Cho nhập GIÁ thập phân (ô Sản phẩm) + KG thập phân (ô Kiện Hàng) — dấu phẩy kiểu VN
+
+User (modal "Thêm Đợt Hàng Mới" trang `inventory-tracking`): cho nhập số thập phân, dấu phẩy kiểu VN (vd `54,5`). Chốt: áp dụng **cả 2 ô**; ô Sản phẩm chỉ **giá** thập phân (SL giữ số nguyên).
+
+**Files**:
+
+- `inventory-tracking/js/text-parser.js` — regex giá `(\d+)` → `(\d+(?:[.,]\d+)?)` ở `PRODUCT_REGEX` + `PRODUCT_NO_COLOR_REGEX`; thêm helper `parseVnDecimal` (replace `,`→`.` rồi `parseFloat`). SL vẫn `parseInt`.
+- `inventory-tracking/js/modal-shipment.js` — `parsePackagesInput`: bỏ comma-as-separator, **dấu cách = phân tách kiện**, dấu phẩy = thập phân (`part.replace(',','.')`). Cập nhật label/placeholder/hint ô Kiện Hàng. (Tương thích ngược: `"10, 20, 50, 88"` vẫn ra 4 kiện vì `"10,"`→`"10."`=10.)
+- `inventory-tracking/js/modal-order-booking.js` — `parseProductLine`: giá cũng nhận thập phân (cùng format `[SL]X[giá]`, giữ đồng nhất).
+
+**Chi tiết**: comma = dấu thập phân (VN), dot cũng chấp nhận. Hiển thị an toàn: `formatNumber` dùng `toLocaleString('vi-VN')` (54.5 → "54,5"); ô sửa đơn giá đã có `step=0.01`; `getProductAmount`/table-renderer dùng `parseFloat(giaDonVi)`. Module Web 1.0 (chatDb), không đụng web2.
+
+**Verify**: node test 3 parser — giá nguyên/thập phân (`,` và `.`) OK, SL nguyên, KG thập phân OK, input cũ "10, 20, 50, 88"→4 kiện OK. Status: ✅
+
 ### [gemini-tryon + web2/ai-hub] ĐA ACCOUNT xoay tua + cài 1-click (bộ cài máy POS) + route free vào tab Ghép đồ
 
 Nối tiếp sidecar gemini-tryon. User: "cài nhiều account Google Gemini để xoay tua không bị giới hạn" + "cho vào cài đặt phần download để chạy 1 click".

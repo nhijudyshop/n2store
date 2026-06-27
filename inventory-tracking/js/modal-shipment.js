@@ -178,9 +178,9 @@ function renderShipmentForm(shipment) {
                 </h4>
                 <div class="section-body">
                     <div class="form-group">
-                        <label>Nhập số kg các kiện (cách nhau bởi dấu cách hoặc dấu phẩy)</label>
-                        <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10, 20, 50, 88">
-                        <div class="packages-hint">Ví dụ: "10 20 50 88" = 4 kiện (10kg, 20kg, 50kg, 88kg)</div>
+                        <label>Nhập số kg các kiện (cách nhau bởi DẤU CÁCH — dùng dấu phẩy cho số lẻ, vd 10,5)</label>
+                        <input type="text" id="packagesInput" class="form-input" value="${packagesString}" placeholder="VD: 10 20 50 88 hoặc 10,5 20,3 50">
+                        <div class="packages-hint">Ví dụ: "10,5 20 50,8" = 3 kiện (10.5kg, 20kg, 50.8kg)</div>
                     </div>
                     <div class="packages-total">Tổng: <span id="totalPackages">0</span> kiện, <span id="totalKg">0</span> kg</div>
                 </div>
@@ -468,18 +468,21 @@ function addCostRow() {
 
 /**
  * Parse packages from input string
- * Accepts: "10 20 50 88" or "10, 20, 50, 88" or "10,20,50,88"
+ * Phân tách CÁC KIỆN bằng DẤU CÁCH. Dấu phẩy là dấu thập phân kiểu VN.
+ * Accepts: "10 20 50 88" or "10,5 20,3 50" (10.5kg, 20.3kg, 50kg)
  */
 function parsePackagesInput(inputString) {
     if (!inputString || !inputString.trim()) return [];
 
-    // Replace commas with spaces, then split by whitespace
-    const normalized = inputString.replace(/,/g, ' ').trim();
-    const parts = normalized.split(/\s+/).filter((p) => p.length > 0);
+    // Separator = whitespace only. Comma = decimal point (VN style): "10,5" -> 10.5
+    const parts = inputString
+        .trim()
+        .split(/\s+/)
+        .filter((p) => p.length > 0);
 
     const packages = [];
     parts.forEach((part, index) => {
-        const kg = parseFloat(part);
+        const kg = parseFloat(part.replace(',', '.'));
         if (!isNaN(kg) && kg > 0) {
             packages.push({
                 stt: index + 1,
