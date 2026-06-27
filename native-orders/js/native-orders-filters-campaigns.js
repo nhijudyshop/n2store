@@ -184,12 +184,23 @@
         }
         if (id) {
             try {
-                const posts = await window.Web2Campaign.listPosts();
-                NO.STATE.parentPostIds = (posts || [])
+                // Nguồn-sự-thật = web2_live_post_assign (độc lập comment) → live CŨ
+                // đã hết comment vẫn lọc ĐỦ đơn. Trước dùng listPosts() (comment-driven
+                // /posts) → bài cũ mất khỏi tập → lọc đơn theo chiến dịch cha bị thiếu.
+                const assigns = await window.Web2Campaign.listAssignments();
+                NO.STATE.parentPostIds = (assigns || [])
                     .filter((p) => String(p.campaign_id) === String(id))
                     .map((p) => String(p.post_id));
             } catch (e) {
-                console.warn('[native-orders] parent posts fail:', e.message);
+                // Fallback deploy gap (backend chưa có /assignments): comment-driven như cũ.
+                try {
+                    const posts = await window.Web2Campaign.listPosts();
+                    NO.STATE.parentPostIds = (posts || [])
+                        .filter((p) => String(p.campaign_id) === String(id))
+                        .map((p) => String(p.post_id));
+                } catch (e2) {
+                    console.warn('[native-orders] parent posts fail:', e2.message);
+                }
             }
         }
         NO.renderParentCampaigns();
@@ -214,7 +225,35 @@
 
     NO.loadPagePosts = async function loadPagePosts() {
         try {
-            NO.STATE.pagePosts = (await window.Web2Campaign.listPagePosts()) || [];
+            // Hai nguồn: (1) page-posts = bài live gần đây (poller — có thể trả 0 trên
+            // web2-api sau split); (2) assignments = bảng-sự-thật gán bài↔chiến dịch
+            // (độc lập comment). Trạng-thái-gán LẤY TỪ (2), và bổ sung bài ĐÃ GOM mà
+            // (1) không trả để vẫn quản lý được (gỡ/đổi) — fix picker rỗng + live cũ.
+            const [pagePosts, assigns] = await Promise.all([
+                window.Web2Campaign.listPagePosts().catch(() => []),
+                window.Web2Campaign.listAssignments().catch(() => []),
+            ]);
+            const aMap = {};
+            for (const a of assigns || []) aMap[String(a.post_id)] = a;
+            const list = (pagePosts || []).map((p) => ({
+                ...p,
+                campaign_id: aMap[String(p.postId)]?.campaign_id ?? p.campaign_id ?? null,
+            }));
+            const have = new Set(list.map((p) => String(p.postId)));
+            for (const a of assigns || []) {
+                const pid = String(a.post_id);
+                if (have.has(pid)) continue;
+                list.push({
+                    postId: pid,
+                    pageId: a.page_id || '',
+                    title: a.post_title || '(bài đã gom)',
+                    pageName: '',
+                    date: '',
+                    campaign_id: a.campaign_id,
+                });
+                have.add(pid);
+            }
+            NO.STATE.pagePosts = list;
             NO.renderPagePosts();
         } catch (e) {
             console.warn('[native-orders] page-posts fail:', e.message);

@@ -2,6 +2,16 @@
 
 ## 2026-06-27
 
+### [native-orders] Picker + lọc chiến dịch cha: dùng listAssignments() (đồng nhất live-chat)
+
+Nối tiếp fix live-chat: native-orders cũng có 2 chỗ comment-driven gây sai với live cũ / web2-api.
+
+- **`selectParentCampaign()`** (lọc đơn theo chiến dịch cha): resolve `parentPostIds` từ `listPosts()` (`/posts` driven `web2_live_comments`) → bài cũ hết comment bị mất khỏi tập → `fbPostIds` thiếu → **lọc đơn theo nhóm bị sót đơn**. Đổi sang `listAssignments()` (bảng `web2_live_post_assign`, độc lập comment) + fallback `listPosts()` deploy gap.
+- **`loadPagePosts()`/`renderPagePosts()`** (picker gán bài): post-list từ `listPagePosts()` (`/page-posts`, poller trả **0 bài trên web2-api** → picker rỗng). Giờ merge: trạng-thái-gán lấy từ `listAssignments()`, và **bổ sung bài ĐÃ GOM** mà page-posts không trả (live cũ / poller 0) để vẫn gỡ/đổi được.
+- Cache-bust `native-orders-filters-campaigns.js?v=20260627camp`.
+
+Status: ✅ code + syntax OK, chờ web2-api deploy `/assignments`.
+
 ### [live-chat] Fix picker "Chiến dịch cha": live CŨ hiện "chưa gom" dù đã gom
 
 User: "sao hình 2 tôi không gán được chiến dịch cha?" (live-chat). Live 27/06 gán OK, live 26/06 chọn xong nhảy về "— chưa gom —".
