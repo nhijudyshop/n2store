@@ -62,11 +62,15 @@ INIT_TIMEOUT = int(os.environ.get("GEMINI_INIT_TIMEOUT", "30"))
 GEN_TIMEOUT = int(os.environ.get("GEMINI_GEN_TIMEOUT", "150"))
 MODEL = (os.environ.get("GEMINI_MODEL") or "").strip()
 SECRET = (os.environ.get("GEMINI_TRYON_SECRET") or "").strip()
-# Account dính giới hạn → nghỉ bao lâu trước khi thử lại (mặc định 3h; limit free reset theo ngày).
-COOLDOWN_SEC = int(os.environ.get("GEMINI_COOLDOWN_SEC", str(3 * 3600)))
+# Account hết lượt ảnh free/ngày → nghỉ tới khi reset. Gemini free reset theo NGÀY → mặc định 8h
+# (đủ để qua mốc reset; tránh thử lại 37s/lần khi cả pool hết lượt). Override GEMINI_COOLDOWN_SEC.
+COOLDOWN_SEC = int(os.environ.get("GEMINI_COOLDOWN_SEC", str(8 * 3600)))
 
+# Bắt cả thông điệp giới hạn ngày của Gemini web: "create more images as soon as your limit resets",
+# "Check your usage in Settings" → để account hết lượt vào cooldown, KHÔNG thử lại tốn thời gian.
 _QUOTA_RE = re.compile(
-    r"quota|rate.?limit|limit.?reach|exceed|too many|try again later|usage limit|temporarily|429",
+    r"quota|rate.?limit|limit.?reach|limit reset|create more images|check your usage|exceed|"
+    r"too many|try again later|usage limit|temporarily|429",
     re.I,
 )
 _AUTH_RE = re.compile(r"auth|cookie|1psid|login|unauthor|invalid.*credential|sniffer|expired", re.I)

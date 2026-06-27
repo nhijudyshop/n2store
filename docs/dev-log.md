@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [gemini-tryon] Test thật try-on (1.jpg+2.jpg) → free hết lượt, fallback paid + fix cooldown "limit resets"
+
+Browser-test như user thật: upload 1.jpg (người) + 2.jpg (quần áo) → bấm Ghép đồ → đọc network/console. KẾT QUẢ: pipeline ĐÚNG, 0 console error, ảnh 896×1152 render. NHƯNG: network cho thấy `/tryon` máy shop 37s + `web2-ai/image` (paid) 13.7s; `uses=0` cả 5 account → **ảnh thực tế do NANO BANANA TRẢ PHÍ tạo** (free fail → fallback). Lỗi free: "Tất cả account lỗi/hết lượt — I can create more images as soon as your limit resets" = **5 account Gemini đều HẾT LƯỢT ảnh free/ngày**. Fix `app.py`: `_QUOTA_RE` thêm "limit reset|create more images|check your usage" → account hết lượt vào cooldown (không thử lại 37s/lần); `COOLDOWN_SEC` 3h→8h (free reset theo ngày). ⚠ Máy shop phải reinstall để nhận fix. Bài học: free Gemini image quota/ngày RẤT ÍT — 5 acc vẫn hết nhanh, hay rớt về paid.
+
 ### [web2/ai-hub + gemini-tryon] % tiến trình hiệu ứng + retry tunnel (fix "lâu lâu lỗi") + fix icon
 
 User: thêm % tiến trình + chỉnh tốc độ; báo "lâu lâu bị lỗi" (log: ERR_NETWORK_CHANGED/502 trên tunnel `/tryon`, icon `wand-sparkles` not found spam console).
