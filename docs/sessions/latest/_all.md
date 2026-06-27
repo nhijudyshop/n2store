@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fd83d24` — fix(web2/overview): sửa 404 toàn bộ link card/tĩnh (thiếu resolveOur) + login → native-orders
-**Last updated**: 2026-06-27 09:14:20 +07
-**Latest session**: [`RESUME:20260627-091420-fd83d24`](../20260627-091420-fd83d24.md)
-**Summary**: fix(web2/overview): sửa 404 toàn bộ link card/tĩnh (thiếu resolveOur) + login → native-orders
+**Latest commit**: `1a667cc` — docs(web2 flow R4): verify báo cáo kho (29 assertions) + revenue + công thức lương — 0 bug code
+**Last updated**: 2026-06-27 09:28:38 +07
+**Latest session**: [`RESUME:20260627-092838-1a667cc`](../20260627-092838-1a667cc.md)
+**Summary**: web2 flow R4 verification: báo cáo kho ĐÚNG (29 assertions) + revenue + công thức lương khớp — 0 bug code
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 09:14
+- [`docs/`](./docs.md) — updated 2026-06-27 09:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
