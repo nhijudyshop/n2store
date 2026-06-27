@@ -206,9 +206,9 @@
             '</span>' +
             '<span class="lc-vnum lc-vcon' +
             conCls +
-            '" title="Còn = NCC − Giỏ − ' +
-            (m.isKhMode ? 'KH' : 'KH mới') +
-            ' (≥ 0)">' +
+            '" title="' +
+            (m.isKhMode ? 'Còn = NCC − KH (≥ 0)' : 'Còn = NCC − Giỏ − KH mới (≥ 0)') +
+            '">' +
             con +
             '<small>CÒN</small></span>' +
             '</div>'

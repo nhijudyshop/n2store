@@ -268,11 +268,11 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
             [campaignId]
         );
         const items = r.rows.map(mapItem);
-        // GIỎ HÀNG (sold = SL trong giỏ KH = held ở native_orders DRAFT) + KH MỚI
-        // (new_cust = số KHÁCH chưa có SĐT & địa chỉ — cả 2 trống — đang có SP này
-        // trong giỏ; distinct theo fb_user_id, fallback id đơn) per mã SP. Dùng cho
-        // board live-control (NCC/Giỏ hàng/KH mới/Còn). Cùng pool web2Db
-        // (native_orders ⊂ web2Db). Còn = max(0, NCC − Giỏ hàng) tính ở client.
+        // GIỎ HÀNG (sold = SL trong giỏ KH draft) + KH MỚI (new_cust = khách chưa
+        // SĐT & địa chỉ) + KH (all_cust = TẤT CẢ khách distinct) per mã SP. Dùng cho
+        // board live-control + màn TV. Cùng pool web2Db (native_orders ⊂ web2Db).
+        // CÒN/VƯỢT tính ở CLIENT qua Web2LiveTvDisplay.khConModel theo địa danh:
+        //   ready-stock: CÒN = max(0, NCC − GIỎ); pre-order: CÒN = max(0, NCC − KH).
         const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
         if (codes.length) {
             const hr = await pool.query(

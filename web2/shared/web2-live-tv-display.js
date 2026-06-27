@@ -95,28 +95,29 @@
     }
 
     // Mô hình KH / CÒN cho 1 BIẾN THỂ theo địa danh đang chọn (NGUỒN DUY NHẤT, dùng
-    // CHUNG live-control board + màn TV để không lệch).
-    //   • SP ĐÚNG địa danh chọn (pre-order) → cột "KH" = TẤT CẢ khách (allCust),
-    //     được VƯỢT NCC; vuot = max(0, GIỎ + KH − NCC).
-    //   • SP khác → cột "KH MỚI" = khách mới (newCust), không vượt.
-    //   • CÒN = max(0, NCC − GIỎ − [KH | KH MỚI]).  (công thức user 2026-06-27)
+    // CHUNG live-control board + màn TV để không lệch). Công thức (user 2026-06-27):
+    //   GIỎ = SL trong giỏ của khách ĐÃ CHỐT (có SĐT/địa chỉ); KH MỚI = khách CHƯA
+    //   chốt; KH = TẤT CẢ khách (allCust). GIỎ và KH MỚI rời nhau (không trùng).
+    //   • READY-STOCK (địa danh khác): NCC = GIỎ + KH MỚI → CÒN = max(0, NCC − GIỎ − KH MỚI).
+    //   • PRE-ORDER (địa danh chọn): cột "KH" = allCust; CÒN = max(0, NCC − KH);
+    //     VƯỢT khi KH > NCC, vuot = KH − NCC ("KH vượt ngưỡng").
     function khConModel(v, selectedRegion) {
         var ncc = Number(v && v.pendingQty) || 0;
-        var gio = Number(v && v.sold) || 0;
+        var gio = Number(v && v.sold) || 0; // SL khách ĐÃ chốt (BE filter có SĐT/địa chỉ)
         var newCust = Number(v && v.newCust) || 0;
         var allCust = Number(v && v.allCust) || 0;
         var isKhMode = !!(
             selectedRegion && normRegion(v && v.region) === normRegion(selectedRegion)
         );
         var khCount = isKhMode ? allCust : newCust;
-        var con = Math.max(0, ncc - gio - khCount);
-        var vuot = isKhMode ? Math.max(0, gio + khCount - ncc) : 0;
+        var con = isKhMode ? Math.max(0, ncc - allCust) : Math.max(0, ncc - gio - newCust);
+        var vuot = isKhMode ? Math.max(0, allCust - ncc) : 0;
         return {
             isKhMode: isKhMode,
             khLabel: isKhMode ? 'KH' : 'KH MỚI',
             khCount: khCount,
             con: con,
-            vuot: vuot, // >0 = đã vượt ngưỡng NCC (chỉ chế độ KH)
+            vuot: vuot, // >0 = KH đã vượt ngưỡng NCC (chỉ chế độ KH)
             ncc: ncc,
             gio: gio,
         };
