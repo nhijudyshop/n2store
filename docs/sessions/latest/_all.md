@@ -3,16 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4dd59e2` — feat(gemini-tryon): thêm debug — launcher ghi log + health-check trong bat, endpoint /debug + tab chẩn đoán
-**Last updated**: 2026-06-27 12:42:38 +07
-**Latest session**: [`RESUME:20260627-124238-4dd59e2`](../20260627-124238-4dd59e2.md)
-**Summary**: feat(gemini-tryon): thêm debug — launcher ghi log + health-check trong bat, endpoint /debug + tab chẩn đoán
+**Latest commit**: `fb59af0` — fix(gemini-tryon): bắt trọn log uvicorn (PIPE pump) + đọc/hiện log UTF-8 (hết mojibake)
+**Last updated**: 2026-06-27 13:25:51 +07
+**Latest session**: [`RESUME:20260627-132551-fb59af0`](../20260627-132551-fb59af0.md)
+**Summary**: fix(gemini-tryon): bắt trọn log uvicorn (PIPE pump) + đọc/hiện log UTF-8 (hết mojibake)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`gemini-tryon/`](./gemini-tryon.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`gemini-tryon/`](./gemini-tryon.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 7 file(s)
 
 ## All folder snapshots
 
@@ -29,14 +30,14 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 12:42
+- [`docs/`](./docs.md) — updated 2026-06-27 13:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 12:42
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 13:25
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
@@ -61,7 +62,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-27 10:57
+- [`render.com/`](./render.com.md) — updated 2026-06-27 13:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -83,4 +84,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 12:42
+- [`web2/`](./web2.md) — updated 2026-06-27 13:25
