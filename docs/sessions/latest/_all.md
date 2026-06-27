@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a667cc` — docs(web2 flow R4): verify báo cáo kho (29 assertions) + revenue + công thức lương — 0 bug code
-**Last updated**: 2026-06-27 09:28:38 +07
-**Latest session**: [`RESUME:20260627-092838-1a667cc`](../20260627-092838-1a667cc.md)
-**Summary**: web2 flow R4 verification: báo cáo kho ĐÚNG (29 assertions) + revenue + công thức lương khớp — 0 bug code
+**Latest commit**: `41294a1` — fix(web2 sepay R4 MEDIUM): CHECK constraint thiếu pending_no_order → gate marker fail → retry storm
+**Last updated**: 2026-06-27 09:49:45 +07
+**Latest session**: [`RESUME:20260627-094945-41294a1`](../20260627-094945-41294a1.md)
+**Summary**: Test SePay webhook → ví Web 2.0 (nhánh web2 thuần, không đụng web1): 22 assertions + FIX bug CHECK constraint thiếu pending_no_order (gate marker fail → retry storm)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 09:28
+- [`docs/`](./docs.md) — updated 2026-06-27 09:49
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -58,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-27 08:15
+- [`render.com/`](./render.com.md) — updated 2026-06-27 09:49
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
