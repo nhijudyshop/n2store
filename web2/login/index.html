@@ -261,12 +261,22 @@
 
         <script>
             (function () {
-                // If already logged in, redirect to next page or root.
+                // Landing sau đăng nhập theo role: admin → Cấu hình & Hệ thống (tab
+                // Services); nhân viên → trang giới thiệu. web2/system KHÔNG có
+                // server-gate riêng nên KHÔNG để nhân viên đáp thẳng vào đó.
+                function landingFor(user) {
+                    const role = String(user?.role || '').toLowerCase();
+                    return role === 'admin'
+                        ? '../system/index.html?tab=services'
+                        : '../overview/index.html';
+                }
+
+                // If already logged in, redirect to next page or role landing.
                 const stored = window.Web2Auth.getStored();
                 if (stored?.token) {
                     const params = new URLSearchParams(location.search);
                     const next = params.get('next');
-                    location.replace(next || '../overview/index.html');
+                    location.replace(next || landingFor(stored.user));
                     return;
                 }
 
@@ -315,7 +325,7 @@
                         });
                         const params = new URLSearchParams(location.search);
                         const next = params.get('next');
-                        location.replace(next || '../overview/index.html');
+                        location.replace(next || landingFor(data.user));
                     } catch (err) {
                         showError(err.message || 'Đăng nhập thất bại');
                         submitBtn.disabled = false;

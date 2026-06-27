@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [web2/login] Login redirect theo ROLE: admin → system?tab=services, nhân viên → overview
+
+User: "đăng nhập vào thì vào trang web2/system?tab=services". ⚠ `web2/system` là **admin-only NHƯNG KHÔNG có server/page gate** (chỉ ẩn qua menu sidebar — KB-SYSTEM-SERVICES.md §1) → redirect mọi user vào đó = nhân viên cũng thấy trang cấu hình/chi phí/hạ tầng. Giải pháp: helper `landingFor(user)` trong [`web2/login/index.html`](../web2/login/index.html) — `role==='admin'` → `../system/index.html?tab=services`, còn lại → `../overview/index.html` (trang giới thiệu). Dùng ở CẢ 2 nhánh (đã-login + vừa-login); `?next=` vẫn ưu tiên. Verify browser: tài khoản admin nav login → redirect đúng `system?tab=services`. Status: ✅
+
 ### [web2/overview] Login → overview + overview thành TRANG GIỚI THIỆU Framer-style (showcase toàn bộ Web 2.0)
 
 User hỏi web2/index.html có phải data cũ → xác minh git: KHÔNG (launcher sống). Chọn **(B)**: login mặc định nhảy `web2/overview` thay vì `web2/index.html`, và **biến overview thành trang giới thiệu toàn bộ Web 2.0** phong cách framer.com (sáng + bold + gradient xanh Zalo `#0068ff`→tím). Soi git 82 commit overview → xác nhận note "phải cập nhật overview #conventions/#auditPages" trong CLAUDE.md đã **stale/aspirational** (doc canonical đã di cư sang `web2/system` + `docs/web2/*.md`; audit R2/R3 không đụng overview). User đồng ý.
