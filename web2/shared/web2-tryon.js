@@ -40,8 +40,19 @@
                 signal: AbortSignal.timeout(6000),
             });
             const d = await r.json();
-            const m = (d.servers || [])[0];
-            if (m && m.url) return { url: m.url.replace(/\/+$/, ''), ready: null };
+            const servers = (d.servers || []).filter((s) => s && s.url);
+            // Ưu tiên máy shop ĐANG KHỎE (có account sẵn sàng) → máy khác không route vào máy
+            // shop cookie hết hạn. Health-check qua tunnel; ok thì dùng ngay.
+            for (const s of servers) {
+                const url = s.url.replace(/\/+$/, '');
+                try {
+                    const hr = await fetch(url + '/health', { signal: AbortSignal.timeout(4000) });
+                    const hd = await hr.json();
+                    if (hd.ok && hd.readyCount > 0) return { url, ready: hd.readyCount };
+                } catch (_) {}
+            }
+            // Không máy nào confirm khỏe → vẫn thử máy đầu (có thể cookie vừa hết, sidecar trả lỗi rõ).
+            if (servers[0]) return { url: servers[0].url.replace(/\/+$/, ''), ready: null };
         } catch (_) {}
         return null;
     }
