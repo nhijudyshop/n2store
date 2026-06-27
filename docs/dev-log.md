@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [web2/login + web2/overview] Login → Đơn Web (native-orders) + 🐞 FIX bug đường dẫn overview (404 toàn bộ link)
+
+User: "đăng nhập thì vào native-orders". Đổi login redirect: mọi user → `../../native-orders/index.html` (login ở `/web2/login/` depth 2, native-orders ở ROOT → cần `../../`; bỏ role-based admin→system của lần trước). `landingFor()` giờ trả native-orders cho tất cả.
+
+🐞 **FIX bug nghiêm trọng vừa ship ở commit ce9f30b26**: overview.js + index.html copy href từ sidebar (`../web2/X`, `../native-orders`) mà KHÔNG qua `resolveOur` → từ `/web2/overview/` (depth 2) ra `/web2/web2/X` và `/web2/native-orders` = **404 TOÀN BỘ card + link tĩnh** (xác nhận curl: cả 2 đều 404). Fix:
+
+- `overview.js`: thêm `resolveHref()` (logic khớp `web2-sidebar.resolveOur` — strip `../`, prepend `../../` khi page depth 2) áp cho mọi card href.
+- `index.html`: link tĩnh (Hệ thống/Lịch sử thao tác/Thông báo/CTA) đổi `../web2/X` → `../X`.
+- Verify resolved: Đơn Web→`/native-orders/`, Bán hàng→`/web2/fastsaleorder-invoice/`, footer→`/web2/system/` (đều 200). Bump overview.js?v=fr4.
+
+⚠ Test env: nav native-orders bị bounce `/web2/login` dù token client còn ~7 ngày — do **401-fetch-guard** (API server từ chối token restore → guard xoá token + bounce, ĐÚNG thiết kế, KHÔNG loop). Là giới hạn token môi trường test, không phải lỗi redirect. Status: ✅ (code verify; happy-path native-orders cần session prod thật)
+
 ### [web2/login] Login redirect theo ROLE: admin → system?tab=services, nhân viên → overview
 
 User: "đăng nhập vào thì vào trang web2/system?tab=services". ⚠ `web2/system` là **admin-only NHƯNG KHÔNG có server/page gate** (chỉ ẩn qua menu sidebar — KB-SYSTEM-SERVICES.md §1) → redirect mọi user vào đó = nhân viên cũng thấy trang cấu hình/chi phí/hạ tầng. Giải pháp: helper `landingFor(user)` trong [`web2/login/index.html`](../web2/login/index.html) — `role==='admin'` → `../system/index.html?tab=services`, còn lại → `../overview/index.html` (trang giới thiệu). Dùng ở CẢ 2 nhánh (đã-login + vừa-login); `?next=` vẫn ưu tiên. Verify browser: tài khoản admin nav login → redirect đúng `system?tab=services`. Status: ✅

@@ -206,6 +206,17 @@
         return d.innerHTML;
     }
 
+    // Catalog href dùng convention sidebar (`our`, giả định caller depth 1 từ root).
+    // Overview ở /web2/overview/ = depth 2 → cần `../../` + path-gốc, nếu không sẽ
+    // ra /web2/web2/X (404) hoặc /web2/native-orders (404). Logic khớp web2-sidebar.resolveOur.
+    function resolveHref(rawHref) {
+        if (!rawHref || rawHref === '#') return rawHref;
+        var projectRel = rawHref.replace(/^(\.\.\/)+/, '');
+        var pn = window.location.pathname || '';
+        if (/\/web2\/[^/]+\/[^/]*$/.test(pn)) return '../../' + projectRel;
+        return '../' + projectRel;
+    }
+
     function visibleGroups() {
         var admin = isAdmin();
         return CATALOG.filter(function (grp) {
@@ -328,7 +339,7 @@
                             ';transition-delay:' +
                             delay +
                             'ms" href="' +
-                            esc(it.h) +
+                            esc(resolveHref(it.h)) +
                             '">' +
                             '<span class="ov-card-ic"><i data-lucide="' +
                             esc(it.i || 'circle') +

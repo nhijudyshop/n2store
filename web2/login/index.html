@@ -261,14 +261,11 @@
 
         <script>
             (function () {
-                // Landing sau đăng nhập theo role: admin → Cấu hình & Hệ thống (tab
-                // Services); nhân viên → trang giới thiệu. web2/system KHÔNG có
-                // server-gate riêng nên KHÔNG để nhân viên đáp thẳng vào đó.
-                function landingFor(user) {
-                    const role = String(user?.role || '').toLowerCase();
-                    return role === 'admin'
-                        ? '../system/index.html?tab=services'
-                        : '../overview/index.html';
+                // Landing sau đăng nhập = Đơn Web (native-orders) cho MỌI user.
+                // native-orders ở ROOT site; login ở /web2/login/ (depth 2) → cần '../../'
+                // (nếu chỉ '../native-orders' sẽ ra /web2/native-orders = 404).
+                function landingFor() {
+                    return '../../native-orders/index.html';
                 }
 
                 // If already logged in, redirect to next page or role landing.
