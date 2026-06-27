@@ -41,10 +41,9 @@
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
-        <!-- Firebase SDKs (storage-compat đã gỡ — không script nào trên trang này dùng firebase.storage) -->
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+        <!-- Firebase SDKs ĐÃ CHUYỂN xuống cuối body (trước firebase-config.js) để KHÔNG
+             render-block <head> → first paint nhanh hơn. Firestore vẫn dùng cho Pancake
+             token manager (config.js + pancake-page-access-tokens.js). -->
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -787,6 +786,10 @@
             // SePay banner). Phase 2 sẽ thay bằng Web 2.0 auth guard.
             window.__SKIP_LEGACY_NAV_AUTH = true;
         </script>
+        <!-- Firebase SDKs (chuyển từ <head> xuống — KHÔNG render-block; phải đứng TRƯỚC firebase-config.js) -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
         <script src="../shared/js/firebase-config.js?v=20260625a"></script>
         <script src="../shared/js/shared-cache-manager.js?v=20260625a"></script>
         <script src="../shared/js/notification-system.js?v=20260625a"></script>
@@ -843,7 +846,7 @@
         <script src="js/live/live-init-wiring.js?v=20260625a"></script>
         <script src="js/live/live-init-lifecycle.js?v=20260625a"></script>
         <script src="js/live/live-init.js?v=20260625a"></script>
-        <script src="js/live/live-campaign-manager.js?v=20260625a"></script>
+        <script src="js/live/live-campaign-manager.js?v=20260627ai"></script>
         <script src="js/live/live-order-history.js?v=20260625a"></script>
         <!-- Enrich SĐT/địa chỉ từ kho KH warehouse Web 2.0 theo fb_id -->
         <script src="js/live/live-kho-enricher.js?v=20260626tok"></script>

@@ -108,9 +108,17 @@
     }
     function msgTs(m) {
         const t = m && (m.inserted_at || m.created_time || m.timestamp);
-        if (!t) return 0;
-        const d = parseTs(t);
-        return d && !isNaN(d.getTime()) ? d.getTime() : 0;
+        if (t) {
+            const d = parseTs(t);
+            if (d && !isNaN(d.getTime())) return d.getTime();
+        }
+        // Hardening (#2 LOW): thiếu/parse-fail timestamp → KHÔNG về 0 (tin sẽ NHẢY lên
+        // đầu list — đúng triệu chứng "giật tin lên trên"). Tin tạm optimistic/extension
+        // có id nhúng epoch ms (ext_<ms> / temp_<ms> / pk_<ms>) → lấy ms đó (deterministic,
+        // KHÔNG dùng Date.now() vì sort comparator gọi nhiều lần → bất ổn). Cuối cùng mới 0.
+        const id = m && m.id != null ? String(m.id) : '';
+        const mm = id.match(/\d{13}/);
+        return mm ? Number(mm[0]) : 0;
     }
 
     // ---- Render 1 attachment (media) ----

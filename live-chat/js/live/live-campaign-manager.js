@@ -153,6 +153,7 @@
                 }
                 <div class="lcm-form">
                     <input id="lcm-newname" placeholder="Tên chiến dịch (vd: Live tháng 6)" />
+                    <button class="lcm-btn" data-act="ai-name" title="AI gợi ý tên chiến dịch">✨ AI</button>
                     <button class="lcm-btn lcm-btn-p" data-act="add">+ Tạo</button>
                 </div>
             </div>
@@ -224,6 +225,64 @@
                     if (!name) return;
                     await global.Web2Campaign.create(name);
                     _render();
+                } else if (act === 'ai-name') {
+                    // AI gợi ý tên chiến dịch (free) — gọi /api/web2-ai/complete, điền vào ô tên.
+                    const input = document.getElementById('lcm-newname');
+                    const orig = btn.textContent;
+                    btn.disabled = true;
+                    btn.textContent = '⏳';
+                    try {
+                        const base =
+                            global.API_CONFIG?.WORKER_URL ||
+                            'https://chatomni-proxy.nhijudyshop.workers.dev';
+                        const today = new Intl.DateTimeFormat('vi-VN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            timeZone: 'Asia/Ho_Chi_Minh',
+                        }).format(new Date());
+                        const recent = _camps
+                            .slice(0, 6)
+                            .map((c) => c.name)
+                            .filter(Boolean);
+                        const sys =
+                            'Bạn đặt tên chiến dịch livestream bán hàng cho shop thời trang nữ. ' +
+                            'Trả về DUY NHẤT 1 tên ngắn (≤6 từ), có sức hút, tiếng Việt, ' +
+                            'KHÔNG giải thích, KHÔNG dấu ngoặc kép.';
+                        const usr =
+                            `Hôm nay ${today}. Đặt 1 tên chiến dịch livestream mới.` +
+                            (recent.length
+                                ? ` Tên đã dùng (tránh trùng): ${recent.join('; ')}.`
+                                : '');
+                        const r = await fetch(base + '/api/web2-ai/complete', {
+                            method: 'POST',
+                            headers: _w2AuthHeaders({ 'content-type': 'application/json' }),
+                            body: JSON.stringify({
+                                messages: [{ role: 'user', content: usr }],
+                                system: sys,
+                                temperature: 0.9,
+                                maxTokens: 40,
+                            }),
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        const name = String(d && d.text ? d.text : '')
+                            .trim()
+                            .replace(/^["'“”\s]+|["'“”\s]+$/g, '')
+                            .split('\n')[0]
+                            .slice(0, 60);
+                        if (!r.ok || !name) throw new Error(d?.error || 'AI không phản hồi');
+                        if (input) {
+                            input.value = name;
+                            input.focus();
+                        }
+                    } catch (err) {
+                        (global.notificationManager?.show
+                            ? global.notificationManager.show.bind(global.notificationManager)
+                            : (m) => console.warn(m))('AI gợi ý tên lỗi: ' + err.message, 'error');
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = orig;
+                    }
                 } else if (act === 'del') {
                     const cid = btn.closest('[data-cid]')?.dataset.cid;
                     if (
