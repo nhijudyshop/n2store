@@ -1,0 +1,3223 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>[LƯU TRỮ] Tài liệu Web 2.0 cũ (overview) - n2store</title>
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260625anim" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./legacy-overview.css?v=legacy" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main overview-main">
+                <header class="ov-hero">
+                    <div class="ov-hero-content">
+                        <span class="ov-badge">WEB 2.0</span>
+                        <h1>Tổng quan hệ thống Web 2.0</h1>
+                        <p class="ov-subtitle">
+                            Tài liệu sống mô tả 13 trang Web 2.0 đang hoạt động — chức năng, các nút
+                            chính, cơ sở dữ liệu, API endpoint, luồng dữ liệu giữa các trang và gợi
+                            ý phát triển. Cập nhật theo từng commit.
+                        </p>
+                        <div class="ov-hero-stats">
+                            <div class="ov-stat ov-stat-primary">
+                                <strong>13</strong>
+                                <span>trang có badge</span>
+                            </div>
+                            <div class="ov-stat ov-stat-success">
+                                <strong>9</strong>
+                                <span>bảng `web2_*` riêng</span>
+                            </div>
+                            <div class="ov-stat ov-stat-info">
+                                <strong>10+</strong>
+                                <span>SSE realtime topic</span>
+                            </div>
+                            <div class="ov-stat ov-stat-warning">
+                                <strong>3</strong>
+                                <span>pipeline chính</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Hệ thống đăng nhập (web2/login) + quản lý user (web2/users):
+                     phân quyền + xác minh danh tính người thực hiện + lịch sử hành động. -->
+                <section
+                    id="ovAuthCard"
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        flex-wrap: wrap;
+                        background: #fff;
+                        border: 1px solid #e2e8f0;
+                        border-left: 5px solid #0068ff;
+                        border-radius: 14px;
+                        padding: 16px 20px;
+                        margin: 0 0 20px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    "
+                >
+                    <div style="font-size: 30px; line-height: 1">🔐</div>
+                    <div style="flex: 1; min-width: 240px">
+                        <div
+                            id="ovAuthStatus"
+                            style="font-size: 15px; font-weight: 700; color: #1e293b"
+                        >
+                            Đang kiểm tra đăng nhập…
+                        </div>
+                        <div
+                            style="
+                                font-size: 12.5px;
+                                color: #64748b;
+                                margin-top: 4px;
+                                line-height: 1.55;
+                            "
+                        >
+                            Đăng nhập để <b>phân quyền</b>, <b>gắn danh tính</b> người thực hiện
+                            hành động (in bill, sửa đơn, …) và lưu <b>lịch sử hành động</b>.
+                        </div>
+                    </div>
+                    <div id="ovAuthActions" style="display: flex; gap: 8px; flex-wrap: wrap"></div>
+                </section>
+
+                <!-- ===== KẾT QUẢ KIỂM THỬ LIÊN KẾT DỮ LIỆU (cross-page linkage test) ===== -->
+                <section
+                    id="ovTestReport"
+                    style="
+                        background: #fff;
+                        border: 1px solid #e2e8f0;
+                        border-left: 5px solid #16a34a;
+                        border-radius: 14px;
+                        padding: 18px 22px;
+                        margin: 0 0 22px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    "
+                >
+                    <div
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            flex-wrap: wrap;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        <span style="font-size: 24px; line-height: 1">🧪</span>
+                        <h2 style="margin: 0; font-size: 18px; color: #14532d">
+                            Kết quả kiểm thử liên kết dữ liệu giữa các trang
+                        </h2>
+                        <span
+                            style="
+                                background: #dcfce7;
+                                color: #166534;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >2026-06-09 · 3 pipeline · 1 bug đã sửa</span
+                        >
+                    </div>
+                    <p style="margin: 0 0 14px; font-size: 13px; color: #475569; line-height: 1.6">
+                        Test end-to-end qua đúng API mà các trang gọi (web2Db live). Seed dữ liệu ảo
+                        ở mắt xích đầu → xác minh data chảy đúng sang các trang sau.
+                        <strong>Dữ liệu test được GIỮ LẠI</strong> (không xóa) để kiểm tra trực
+                        quan.
+                    </p>
+
+                    <!-- BUG đã tìm + sửa -->
+                    <div
+                        style="
+                            background: #fef2f2;
+                            border: 1px solid #fecaca;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 14px;
+                        "
+                    >
+                        <div style="font-weight: 700; color: #991b1b; font-size: 13.5px">
+                            🔴 BUG (HIGH) đã tìm &amp; sửa — Trả hàng NCC làm hỏng tồn kho
+                        </div>
+                        <div
+                            style="
+                                font-size: 12.5px;
+                                color: #7f1d1d;
+                                margin-top: 5px;
+                                line-height: 1.6;
+                            "
+                        >
+                            <code>purchase-refund.js · saveRefundData</code> dùng
+                            <code>updated_at = NOW()</code> (timestamptz) trong khi
+                            <code>web2_records.updated_at</code> là <code>BIGINT</code> → mọi state
+                            transition (approve / cancel-approve / refunded / reject) lỗi
+                            <em>SAU KHI</em> <code>deductStock</code> đã trừ kho → tồn kho sai +
+                            Cloudflare Worker retry trừ kho nhiều lần (test: trả 3 → stock 10 → −2).
+                            Refund kẹt ở <code>draft</code>, không idempotent. <br /><strong
+                                >Fix:</strong
+                            >
+                            đổi sang <code>Date.now()</code> (epoch millis). Commit
+                            <code>b805f263d</code>. Đã verify sau deploy: approve trừ đúng (8→5),
+                            re-approve idempotent (không trừ lại), record
+                            <code>approved + stock_deducted=true</code>.
+                        </div>
+                    </div>
+
+                    <!-- 3 pipelines -->
+                    <div
+                        style="
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                            gap: 12px;
+                            margin-bottom: 12px;
+                        "
+                    >
+                        <div style="background: #eff6ff; border-radius: 10px; padding: 12px 14px">
+                            <div style="font-weight: 700; color: #1e40af; font-size: 13px">
+                                ✅ 01 · Bán hàng (Sell)
+                            </div>
+                            <div
+                                style="
+                                    font-size: 12px;
+                                    color: #1e3a5f;
+                                    margin-top: 5px;
+                                    line-height: 1.65;
+                                "
+                            >
+                                native-orders <code>NJ-20260609-0001</code> (KH
+                                <code>0123456788</code>, 2× SP) → confirm → PBH (trừ stock 10→8) →
+                                reconcile nhận đơn (state=done, chờ đóng gói). Data KH + line chảy
+                                xuyên 3 trang.
+                            </div>
+                        </div>
+                        <div style="background: #faf5ff; border-radius: 10px; padding: 12px 14px">
+                            <div style="font-weight: 700; color: #6b21a8; font-size: 13px">
+                                ✅ 02 · Mua hàng (Buy)
+                            </div>
+                            <div
+                                style="
+                                    font-size: 12px;
+                                    color: #4c1d6b;
+                                    margin-top: 5px;
+                                    line-height: 1.65;
+                                "
+                            >
+                                so-order Lưu Nháp (<code>upsert-pending</code>) → web2-products SP
+                                <code>KHOTESTLINK28</code> (CHO_MUA, pending=10) → nhận hàng
+                                (<code>confirm-purchase-partial</code>, stock=10, DANG_BAN) →
+                                purchase-refund trả 3 (stock→5). Audit history ghi đầy đủ.
+                            </div>
+                        </div>
+                        <div style="background: #ecfdf5; border-radius: 10px; padding: 12px 14px">
+                            <div style="font-weight: 700; color: #065f46; font-size: 13px">
+                                ✅ 03 · Tiền (Money) — read-only
+                            </div>
+                            <div
+                                style="
+                                    font-size: 12px;
+                                    color: #064e3b;
+                                    margin-top: 5px;
+                                    line-height: 1.65;
+                                "
+                            >
+                                SePay → web2_balance_history: 59 GD, 20 auto-approved, 41.63M thu →
+                                ví KH thật được tạo (vd <code>0968080832</code> = 4.24M). 59
+                                wallet-deposits feed Ví NCC. Không mutate data tiền thật.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audit toàn bộ 34 trang menu -->
+                    <div
+                        style="
+                            background: #f8fafc;
+                            border: 1px solid #e2e8f0;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                        "
+                    >
+                        <div style="font-weight: 700; color: #0f172a; font-size: 13.5px">
+                            🔎 Audit chi tiết 34 trang menu (Playwright, login khôi phục) —
+                            <span style="color: #16a34a">30/34 sạch hoàn toàn</span>
+                        </div>
+                        <div
+                            style="
+                                font-size: 12.5px;
+                                color: #334155;
+                                margin-top: 6px;
+                                line-height: 1.7;
+                            "
+                        >
+                            Quét từng trang: bắt uncaught JS error, console.error, API 4xx/5xx,
+                            login bounce, số dòng render. <strong>0 page-error</strong> trên cả 34
+                            trang.
+                            <strong
+                                >4 trang có cảnh báo — đều do môi trường/3rd-party, KHÔNG phải bug
+                                code:</strong
+                            >
+                            <ul style="margin: 6px 0 0; padding-left: 18px">
+                                <li>
+                                    <strong>Live Chat</strong> + <strong>Pancake (Token)</strong>:
+                                    <code>Cannot activate expired account</code> / 403 — token
+                                    Pancake hết hạn (cần refresh token, ops).
+                                </li>
+                                <li>
+                                    <strong>Máy in</strong>: <code>ERR_CONNECTION_REFUSED</code> —
+                                    agent in cục bộ không chạy trong môi trường test headless (bình
+                                    thường).
+                                </li>
+                                <li>
+                                    <strong>Kho Khách Hàng</strong>: N+1
+                                    <code>404 /api/web2/wallets/by-phone/&lt;phone&gt;</code> cho KH
+                                    chưa có ví — <em>đúng thiết kế</em> (<code
+                                        >web2-wallet-balance.js</code
+                                    >
+                                    coi 404 = số dư 0, pill ẩn), chỉ là console-noise + smell N+1
+                                    (50 KH → 50 request). Page render đủ 50 dòng OK.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Buy pipeline seed (so-order → Công nợ/Ví NCC) -->
+                    <div style="font-size: 12.5px; color: #334155; line-height: 1.7">
+                        <strong>Seed dữ liệu Mua hàng (để các trang có data thật xem được):</strong>
+                        tạo 6 SP thật (HÀ NỘI + HƯƠNG CHÂU, có tồn) → seed Firestore
+                        <code>web2_so_order/main</code> (2 tab, 2 shipment, 6 dòng) →
+                        <strong>so-order hiện 6 dòng</strong>, <strong>Công nợ NCC</strong> tự tính
+                        4 dòng NCC, <strong>Ví NCC</strong> tự hiện NCC realtime (SSE, không cần bấm
+                        Đồng bộ). ⚠ <strong>Model 2026-06-16:</strong> công nợ + ví NCC chỉ phát
+                        sinh khi đơn ở trạng thái <em>Đã Nhận / Nhận 1 phần</em> (bấm nút Nhận hàng)
+                        — đơn <em>Nháp</em> KHÔNG tính tiền. Seed muốn thấy số phải set trạng thái
+                        nhận. <br /><strong>Đơn Web (native-orders):</strong> đơn test ở tab
+                        <em>Đơn Inbox</em> (<code>channel=web2_inbox</code>), KHÔNG phải tab mặc
+                        định Livestream → mở đúng tab mới thấy. <br /><strong
+                            >Dữ liệu test GIỮ LẠI</strong
+                        >
+                        toàn bộ (không xóa) để kiểm tra trực quan.
+                    </div>
+                </section>
+
+                <!-- ===== AUDIT TOÀN DIỆN 34 TRANG (2026-06-10) ===== -->
+                <section
+                    id="auditPages"
+                    style="
+                        background: #fff;
+                        border: 1px solid #e2e8f0;
+                        border-left: 5px solid #16a34a;
+                        border-radius: 14px;
+                        padding: 18px 22px;
+                        margin: 0 0 22px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                    "
+                >
+                    <div
+                        style="
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            flex-wrap: wrap;
+                            margin-bottom: 6px;
+                        "
+                    >
+                        <span style="font-size: 24px; line-height: 1">🩺</span>
+                        <h2 style="margin: 0; font-size: 18px; color: #14532d">
+                            Audit toàn diện 35 trang menu — bug / race condition / cải thiện
+                        </h2>
+                        <span
+                            style="
+                                background: #dcfce7;
+                                color: #166534;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >Vòng 1: 2026-06-10 ✅ fix phần lớn</span
+                        >
+                        <span
+                            style="
+                                background: #dcfce7;
+                                color: #166534;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >Vòng 2: 2026-06-11 ✅ đợt A-D ĐÃ FIX (còn H11 + đợt E)</span
+                        >
+                        <span
+                            style="
+                                background: #fef3c7;
+                                color: #92400e;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >Vòng 3: ✅ F+G+H+I+E + MEDIUM-sweep + 🔒 ENFORCE ĐÃ BẬT (13/06)</span
+                        >
+                    </div>
+                    <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
+                        <strong>Vòng 1 (2026-06-10):</strong> audit 9 agent + FIX Wave 1+2.
+                        <strong>Vòng 2 (2026-06-11):</strong> 25 bug C1-C7/S1-S7/H1-H16 →
+                        <strong style="color: #166534">ĐÃ FIX đợt A-D cùng ngày ✅</strong>.
+                        <strong>Vòng 3 (2026-06-12):</strong> 54 agent (10 audit nhóm + sweep tách
+                        Web1⊥Web2 + 2 adversarial verifier/finding) —
+                        <strong style="color: #166534"
+                            >verify lại TOÀN BỘ fix A-D bằng code thật: không regression</strong
+                        >
+                        (trừ 1: kpi-assignments thiếu token sau gate H9), nhưng phát hiện cụm bug
+                        MỚI
+                        <strong style="color: #b91c1c">1 CRITICAL + ~21 HIGH (3C1, 3H1-3H21)</strong
+                        >, tập trung 3 họ: route gộp/tách/sync bỏ quên atomic (merge PBH mất tiền
+                        ví, huỷ đơn web không restock), auth thiếu hẳn ở route tiền ngoài wallets
+                        (balance-history, monitoring revert), hệ quả phụ rework PUSH-only live-chat
+                        (auto-snap chết).
+                        <strong style="color: #166534"
+                            >✅ Đợt F (tiền/kho — 11 bug: 3C1, 3H1-3H5, 3H10-3H13, 3H16) ĐÃ FIX cùng
+                            ngày, commit 904bc62d5</strong
+                        >. Còn mở: đợt G (auth + enforce-prep), H (live-chat), I (tách Web1), E (ví
+                        NCC). Danh sách canonical + lộ trình ở
+                        <a
+                            href="https://github.com/nhijudyshop/n2store/blob/main/docs/web2/WEB2-PAGES-ANALYSIS.md"
+                            target="_blank"
+                            style="font-weight: 700"
+                            >docs/web2/WEB2-PAGES-ANALYSIS.md</a
+                        >
+                        (mục 1 + mục 6). ⏳ Fix backend cần deploy Render (auto theo push). ⚠ Auth
+                        auth Web 2.0 nay
+                        <strong>BẮT BUỘC — <code>WEB2_AUTH_ENFORCE=1</code> ĐÃ BẬT 13/06</strong>
+                        (deploy 07f4a0e02; ENFORCE-PREP 248532b73 wire ~30 client file + verify prod
+                        401/200/8 trang 0-lỗi) (web2-api.js + bell + raw fetch chưa gửi token;
+                        generic chưa wire soft).
+                    </p>
+
+                    <!-- Vòng 3: bug mới CHƯA FIX -->
+                    <div
+                        style="
+                            background: #fef2f2;
+                            border: 1px solid #fecaca;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #7f1d1d;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🔴 Vòng 3 (2026-06-12) — bug MỚI (mỗi bug đã qua 2 verifier độc lập hoặc
+                            spot-check tay; chi tiết mục 1 file MD). ✅ = đã fix đợt F (commit
+                            904bc62d5)
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                <strong
+                                    >✅ Tiền/kho (3C1, 3H1-3H5, 3H10-3H13, 3H16) — ĐÃ FIX đợt
+                                    F:</strong
+                                >
+                                <code>/merge</code> PBH MẤT TIỀN VÍ đã trừ + xoá công nợ nguồn
+                                (INSERT thiếu cột tiền, DELETE raw — deterministic); huỷ đơn web
+                                KHÔNG hoàn tồn kho PBH (mọi đường restock sau skip vì state đã
+                                cancel); PATCH đơn web bypass hoàn ví + hồi sinh PBH;
+                                <code>/merge-to-pbh</code> không trừ kho + thiếu productCode; Thu về
+                                "không nhận hàng" double hoàn ví khi PBH bị cancel sau; generic
+                                PATCH ghi đè <code>status/stock_deducted</code> → re-approve double
+                                trừ kho; manual-deposit dual-base retry nạp ×2; reassign song song
+                                double-debit; <code>adjust-pending</code> lost update.
+                            </li>
+                            <li>
+                                <strong
+                                    >✅ Auth (3H14, 3H17, 3H18, 3H19 + 1D) — ĐÃ FIX đợt G (commit
+                                    11b6d0717):</strong
+                                >
+                                mutation tiền balance-history/customers + monitoring
+                                <code>/audit/:id/revert</code> (đảo tiền ví) KHÔNG có middleware nào
+                                kể cả soft; payment-signals approve trên signal dismissed vẫn cộng
+                                ví; cutout/dashboard-kpi/audit-log/notifications-read hở.
+                            </li>
+                            <li>
+                                <strong
+                                    >✅ Live-chat hậu PUSH-only (3H6-3H9 + H11) — ĐÃ FIX đợt H
+                                    (commits 276a64355 + cf11709bb, 2026-06-12):</strong
+                                >
+                                ✅ 3H6 auto-snap sống lại (prependComments emit
+                                <code>live:newComment</code> per-comment, verify 5 emit live thật);
+                                ✅ 3H7 lọc người-ẩn mọi path render (<code>_filteredAll()</code>);
+                                ✅ H11 + bug MẤT TIN NHẮN multi-campaign — cursor delta đổi sang
+                                <code>sinceUpdated</code> (updated_at server) + merge-by-id (UPDATE
+                                patch DOM row); ✅ BONUS drag-drop tạo đơn 500:
+                                <code>crm_team_id</code> INT4 tràn FB Page Id 15 chữ số → ALTER
+                                BIGINT (native_orders + fast_sale_orders); ✅ 3H8 relay mutation
+                                routes + GET /api/events* gate <code>x-relay-secret</code> + "Lưu
+                                vào Live" route mới <code>/api/web2-live-comments/saved</code> (bảng
+                                web2_live_saved) + fix host chết n2store-live-chat → service relay
+                                cũ (14/06 gộp relay+FB → <code>web2-realtime</code>); ✅ 3H9
+                                offlineBatchAll group per-campaign/video + lọc người-ẩn; ✅
+                                LC-pollnow-auth: 16 route live-comments/snapshots gate soft + cap
+                                fan-out 10 posts / payload 2000 comments.
+                            </li>
+                            <li>
+                                <strong>⬜ Khác:</strong> ✅ 3H15 Stored XSS modal Lịch sử SP (fix
+                                cf11709bb); ✅ 3H20 + cluster GMT+7 đã fix (6020700af —
+                                pbh-reports/revenue_7d/audit-log/supplier-debt/4 client fmt pin
+                                Asia/Ho_Chi_Minh). ✅ 3H19 (regression kpi-assignments 401) + 3H21
+                                phần server/client trung tâm đã fix đợt G — còn wire token raw fetch
+                                native/so-order rồi mới bật <code>WEB2_AUTH_ENFORCE=1</code>.
+                            </li>
+                            <li>
+                                <strong
+                                    >✅ MEDIUM-sweep + env (12/06 tối — commits
+                                    723d23fc8/a90ddc488/d9c3ba96b):</strong
+                                >
+                                bật <code>WEB2_REQUIRE_DB=1</code> trên Render (fail-fast live);
+                                reconcile pack/ship/deliver/cancel-pack transaction + whitelist (hết
+                                kéo lùi shipped→packed); KHAI TỬ flow refunds cũ — nút "Trả hàng"
+                                PBH → Thu về prefill, <code>/from-pbh</code> 410; ~21 MEDIUM/LOW:
+                                admin-cuối TOCTOU, /refunded tx, dedicated-entity
+                                PATCH/DELETE/_ready, variants WeakSet, upsert-pending variant
+                                exact-match, DELETE products atomic, deductStock rowCount, Bomb
+                                filter, phones84 overlay, trừ reassign_out khỏi "Đã thu",
+                                S5-residual strip, /sse cap 50 keys, dashboard debounce, monitor
+                                pause tab ẩn, card doanh thu N ngày, hint mật khẩu 8…
+                            </li>
+                            <li>
+                                <strong
+                                    >🔒 ENFORCE ĐÃ BẬT (13/06 — ENFORCE-PREP 248532b73, deploy
+                                    07f4a0e02):</strong
+                                >
+                                <code>WEB2_AUTH_ENFORCE=1</code> live — route gated trả 401 nếu
+                                thiếu/sai <code>x-web2-token</code>. Wire token ~30 client file
+                                (helper <code>Web2Auth.authHeaders()</code> + fallback inline
+                                localStorage <code>web2_auth</code> cho cả file Web 1.0 cùng
+                                origin). Verify prod: gated no-token→401 / with-token→200 /
+                                ungated→200; pancake-accounts strip token khi unauth; 8 trang money
+                                load <strong>0 × 401</strong>.
+                                <span style="color: #b45309"
+                                    >⚠ Máy chưa từng login <code>web2/login</code> sẽ 401 thao tác
+                                    ghi (token 30 ngày, chung origin) — kể cả đọc token Pancake ở
+                                    trang Web 1.0. Rollback: env =0 + redeploy.</span
+                                >
+                            </li>
+                            <li>
+                                <strong
+                                    >✅ MEDIUM-cleanup đợt 2 (13/06 — commits
+                                    21da4b762/d57969738):</strong
+                                >
+                                <strong>TM</strong> kpi default-open (no-token+enforce→401) +
+                                reclassify gate admin + forecast/actual dead gate soft + audit-log
+                                bảng thiếu → warning thay vì im lặng; <strong>TC</strong> merge KH
+                                giữ phone phụ + union alt_phones/alt_addresses/fb_psids + cảnh báo
+                                ví orphan + UNIQUE index manual-deposit (hết race nạp trùng);
+                                <strong>SP</strong> variants double-render → reload chỉ qua SSE
+                                debounce 600ms; <strong>HT</strong> bridge refocus dùng lastEventAt
+                                (+ <code>?v=</code> đồng nhất 28 trang) ·
+                                <strong>page-shell.js đã XOÁ</strong> (dead, page-builder thay) +
+                                docs khớp; <strong>LC</strong> campaign cap 1500+warn, enricher Set
+                                reset khi đổi campaign, SSE delta không nhiễm campaign view;
+                                <strong>BC</strong> printer .bat 404 GH Pages.
+                            </li>
+                            <li>
+                                <strong>✅ Đợt LOW (13/06 — commit d5b84c1fd):</strong>
+                                wallet emit ví chuyển sang post-commit hook
+                                (<code>withTransaction._afterCommit</code>) thay
+                                <code>process.nextTick</code> → hết stale-read race (SSE bắn trước
+                                COMMIT, client đọc số dư cũ); <strong>3W6</strong> sidebar
+                                <code>_isAdmin()</code> ưu tiên role Web2Auth (hết trộn auth Web
+                                1.0, <code>?v=20260613c</code> 37 trang);
+                                <strong>SSE bridge</strong> reload-on-reconnect (synthetic
+                                <code>resync</code> khi nối lại → hết "data cũ" sau deploy backend).
+                            </li>
+                            <li>
+                                <strong
+                                    >✅ AUDIT FIX TOÀN BỘ (13/06 — 14/15 item, workflow điều tra 19
+                                    agent + adversarial review 48 agent):</strong
+                                >
+                                <strong>A1</strong> PBH double-submit (advisory lock theo source_id)
+                                · <strong>A2/C18/[11]/[12]</strong> ví NCC partial-return: trả đủ
+                                khi qty≥mua, returnedRowIds CỘNG DỒN delta (hết over-refund), modal
+                                max=SL còn lại · <strong>A3</strong> công nợ loại draft/cancelled ·
+                                <strong>A4</strong> hidden-commenters endpoint atomic
+                                hide/unhide/:fbId · <strong>C7</strong> token hash at-rest
+                                (zero-lockout, live-verified) · <strong>C9</strong> quick-refund
+                                ATOMIC 1 transaction (hết draft mồ côi) ·
+                                <strong>C11</strong> picker cộng dồn · <strong>C12</strong> sepay
+                                whole-word match · <strong>C14</strong> 8 route flag→WeakSet
+                                (cold-start) + cascade tham số hoá · <strong>C16</strong> bridge hết
+                                churn · <strong>C17</strong> manualSepayId wrap 11.5 ngày ·
+                                <strong>B5</strong> notifications cron 10'. Commits
+                                <code>ccf8b4a3b…e17ddbcab</code>. <strong>DEFER C8</strong> so-order
+                                Firestore→Postgres (kiến trúc multi-week, = F1).
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Vòng 3: sweep tách Web 1.0 / Web 2.0 -->
+                    <div
+                        style="
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #1e3a5f;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🔵 Sweep tách biệt Web 1.0 ⊥ Web 2.0 (vòng 3) — verdict: TỐT ~95%
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                ✅ <strong>Đạt:</strong> 100% route backend pool
+                                <code>web2Db || chatDb</code>; 0 chỗ ghi bảng nghiệp vụ Web 1.0; SSE
+                                đúng hub web2 (wiring matrix đủ); Firestore data prefix
+                                <code>web2_</code>; livestream-snapshots/images đã dời web2Db sạch
+                                (cb45ef604).
+                            </li>
+                            <li>
+                                ✅
+                                <strong
+                                    >2 vi phạm GHI thật ĐÃ FORK (3W1, 3W2 — fix 01cb771dd):</strong
+                                >
+                                <code>web2_quick_replies</code> (route mới /api/web2-quick-replies,
+                                auto-seed read-only từ Web 1.0) + Firestore
+                                <code>web2_message_templates</code> (one-time copy) — Web 2.0 hết
+                                ghi store Web 1.0.
+                            </li>
+                            <li>
+                                ✅
+                                <strong
+                                    >Đọc nhầm nguồn ĐÃ CHỐT 1 NGUỒN (3W3 + LC-web1-lookup — fix
+                                    01cb771dd):</strong
+                                >
+                                badge nợ live-chat →
+                                <code>/api/web2/wallets/batch-summary</code> (ví Web 2.0); popup KH
+                                → kho <code>web2_customers</code> (xoá 2 URL /api/v2/customers Web
+                                1.0).
+                            </li>
+                            <li>
+                                ✅
+                                <strong>Lệch convention ĐÃ DỌN (3W4, 3W5 — fix 01cb771dd):</strong>
+                                gỡ WS legacy khỏi 4 route server + 5 trang
+                                (pbh/rf/dlv/report-revenue/native-orders) → 1 kênh Web2SSE duy nhất
+                                (hết reload đôi); suppliers-cache bỏ onSnapshot → server
+                                <code>/api/web2-supplier-wallet/suppliers</code> + SSE. 🟢
+                                <strong>Cố ý hợp lệ:</strong> credential Pancake (<code
+                                    >pancake_accounts</code
+                                >
+                                chatDb) shared 2 layer có document. ✅
+                                <strong>Rủi ro hệ thống (3W7):</strong> boot guard cảnh báo to khi
+                                fallback chatDb + env <code>WEB2_REQUIRE_DB=1</code> fail-fast (env
+                                chưa bật — bật trên Render khi muốn). ⬜ còn 3W6 sidebar _isAdmin
+                                (UI gating nhẹ). 🆕 <strong>Đợt E cùng commit:</strong> ví NCC
+                                Firestore client-write → server ledger
+                                <code>/api/web2-supplier-wallet</code> (transaction + idempotent
+                                tx_id + SSE) — đóng ~9 bug cụm đợt E (chi tiết mục 1C file MD).
+                            </li>
+                        </ul>
+                    </div>
+
+                    <p
+                        style="
+                            margin: 0 0 12px;
+                            font-size: 12.5px;
+                            color: #334155;
+                            line-height: 1.7;
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            padding: 10px 14px;
+                        "
+                    >
+                        <strong>🆕 2026-06-11 — Live Chat PUSH-only (bỏ hoàn toàn polling):</strong>
+                        comment livestream giờ realtime thật qua relay Pancake WS 24/7 →
+                        <code>POST /ingest</code> → fetch per-message đúng post →
+                        <code>web2_live_comments</code> → SSE <code>web2:live-comments</code> →
+                        client prepend incremental. Vòng poll nền 5s/30s của
+                        <code>web2-livestream-poller.js</code> đã TẮT; SSE/WS transport cũ neuter
+                        NO-OP; <code>pancake-realtime.js</code> gỡ auto-refresh polling fallback.
+                        <strong>Capture lock failover:</strong> heartbeat gắn capture health — máy
+                        giữ lock không ra frame &gt;75s → tự nhả lock cho máy khác takeover
+                        (cooldown 3', standby poll vô hạn + SSE takeover tức thì). Chi tiết: mục
+                        live-chat trong WEB2-PAGES-ANALYSIS.md.
+                    </p>
+
+                    <!-- Vòng 2: bug mới — ĐÃ FIX đợt A-D -->
+                    <div
+                        style="
+                            background: #f0fdf4;
+                            border: 1px solid #bbf7d0;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #14532d;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            ✅ Vòng 2 (2026-06-11) — bug MỚI phát hiện sáng, FIX đợt A-D chiều cùng
+                            ngày (commits 22ba307df + feb3a0281 + 5e154518b; chi tiết mục 1 file MD)
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                <strong>Tiền/kho (C1-C7):</strong> <code>bulk-cancel</code> PBH
+                                không restock/hoàn ví + chặn recover
+                                (<code>fast-sale-orders.js:776</code>); DELETE Thu Về race trừ
+                                kho/rút ví ĐÔI (<code>web2-returns.js:837</code>); reassign SePay
+                                lặp vòng mất tiền im lặng + audit log không bao giờ ghi (thiếu
+                                require <code>web2MatchAudit</code>);
+                                <code>confirm-purchase-partial</code> FOR UPDATE ngoài transaction =
+                                vô hiệu; quick refund NCC thiếu <code>await SW.load()</code> → ví
+                                NCC không bao giờ ghi; merge/split đơn sinh mã COUNT+1 → 23505 sau
+                                merge đầu tiên.
+                            </li>
+                            <li>
+                                <strong>Bảo mật (S1-S7):</strong> web2-generic
+                                <code>delete-all</code>/<code>_vacuum</code> public (wipe được 78
+                                entity); payment-signals <code>/approve</code> (cộng ví) không auth;
+                                <code>GET /api/pancake-accounts</code> trả FULL JWT Pancake không
+                                auth; web2-pancake-refresh = proxy brute-force mật khẩu;
+                                <code>GET /sse</code> không auth broadcast số dư ví; stored XSS
+                                attribute-injection (escapeHtml không escape quote — lan 87 trang
+                                qua page-builder); XSS <code>javascript:</code> URL ở notification.
+                            </li>
+                            <li>
+                                <strong>Chức năng chết (H7, H8, H6):</strong> trang Phân quyền chết
+                                hoàn toàn (3 chỗ lệch shape API); báo cáo giao hàng cột Nhà vận
+                                chuyển luôn trống (<code>carrierName</code> vs
+                                <code>groupName</code>); SSE ví đứt 2 lớp (eventType
+                                <code>wallet_update</code> bridge không nghe + wildcard key mismatch
+                                + topic <code>wallet:all</code> không tồn tại).
+                            </li>
+                            <li>
+                                <strong>Trạng thái (mục 5 file MD):</strong> ✅ đợt A tiền/kho · ✅
+                                đợt B auth (SOFT-mode — bật <code>WEB2_AUTH_ENFORCE=1</code> sau khi
+                                wire <code>x-web2-token</code> vào client, checklist mục 0 file MD)
+                                · ✅ đợt C XSS + chức năng chết · ✅ đợt D SSE ví/realtime · ⬜ H11
+                                (live-chat delta miss comment UPDATE — session live-chat đang xử lý)
+                                · ⬜ đợt E kiến trúc ví NCC (server route + SSE).
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Top bugs -->
+                    <div
+                        style="
+                            background: #f0fdf4;
+                            border: 1px solid #bbf7d0;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #14532d;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            ✅ Top CRITICAL vòng 1 — ĐÃ FIX (commit 2026-06-10, verify lại bằng code
+                            thật 2026-06-11: 8/8 đứng vững)
+                        </div>
+                        <ol style="margin: 0; padding-left: 18px">
+                            <li>
+                                <strong>BẢO MẬT:</strong> <code>web2-users.js</code> không có auth
+                                middleware trên BẤT KỲ endpoint nào — anonymous tạo được admin /
+                                reset mật khẩu / leo thang quyền. SSE monitor
+                                <code>/stats /log /test</code> cũng không auth.
+                            </li>
+                            <li>
+                                <code>purchase-refund.js:261</code> —
+                                <code>/cancel-approve</code> gọi
+                                <code>saveRefundData(pool,…)</code> nhưng biến
+                                <code>pool</code> không tồn tại → crash SAU khi đã hoàn kho → record
+                                kẹt <code>approved</code>.
+                            </li>
+                            <li>
+                                <code>web2-products.js:1330</code> —
+                                <code>confirm-purchase-partial</code> trả
+                                <code>stock: m.quantity</code> (field không tồn tại) →
+                                <code>undefined</code> cho so-order.
+                            </li>
+                            <li>
+                                Ví KH: nút Export CSV gọi <code>fetchAggregate()</code> không tồn
+                                tại → ReferenceError, export hỏng hoàn toàn.
+                            </li>
+                            <li>
+                                Sinh mã đơn/PBH/DLV/TV bằng SELECT MAX+1 không atomic (4 route) →
+                                trùng mã khi burst; server còn fallback mã rác
+                                <code>KHO-&lt;rnd&gt;</code> (<code>web2-products.js:1112</code>).
+                            </li>
+                            <li>
+                                Ví NCC: 2 tab cùng ghi Firestore
+                                <code>web2_supplier_wallet/main</code> → merge không deep-merge
+                                array → <strong>mất giao dịch</strong>; <code>confirmPay</code> là
+                                money op nhưng fire-and-forget.
+                            </li>
+                        </ol>
+                    </div>
+
+                    <!-- Pattern lặp -->
+                    <div
+                        style="
+                            background: #fff7ed;
+                            border: 1px solid #fed7aa;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #7c2d12;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🟠 Pattern lỗi LẶP toàn hệ thống (fix 1 lần áp dụng nhiều nơi)
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                Selector rollback sai: render <code>data-number</code> nhưng tìm
+                                <code>data-pbh-number / data-rf-number / data-dlv-number</code> →
+                                rollback Web2Optimistic hỏng trên 3 trang Bán Hàng.
+                            </li>
+                            <li>
+                                Thiếu transaction quanh mutation nhiều bước (trừ kho + save record,
+                                cộng ví sau COMMIT ở Thu về, reassign SePay 3 bước) — crash giữa
+                                chừng = lệch kho/tiền.
+                            </li>
+                            <li>
+                                Thiếu <code>FOR UPDATE</code> ở check-then-update
+                                (<code>_changeState</code>, approve, applyWalletToUnpaidPbhs,
+                                <code>_appendHistory</code> JSONB) → double-approve / mất history.
+                            </li>
+                            <li>
+                                Nhiều handler chưa qua <code>Web2Optimistic.run</code>; SSE client
+                                thiếu debounce (reconcile, notifications); 2 luồng song song cùng 1
+                                nghiệp vụ (refunds.js vs web2-returns.js; adjustStock vs
+                                purchase-refund); <code>web2-generic.js</code> dùng
+                                <code>web2Db</code> trần (87 trang).
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div
+                        style="
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            padding: 10px 14px;
+                            font-size: 12.5px;
+                            color: #1e3a5f;
+                            line-height: 1.7;
+                        "
+                    >
+                        <strong>📌 Rule bảo trì (BẮT BUỘC):</strong> code/sửa phần QUAN TRỌNG của
+                        Web 2.0 (route mới, đổi luồng data, fix bug trong danh sách audit, thêm
+                        trang menu) → cập nhật <strong>cả trang này</strong> lẫn
+                        <strong><code>docs/web2/WEB2-PAGES-ANALYSIS.md</code></strong> (đổi ⬜ → ✅
+                        kèm commit sha). Lộ trình fix 5 đợt: xem mục 5 của file MD.
+                    </div>
+                </section>
+
+                <nav class="ov-toc" aria-label="Mục lục">
+                    <div class="ov-toc-title">Mục lục</div>
+                    <ol>
+                        <li><a href="#pipelines">Luồng dữ liệu chính</a></li>
+                        <li>
+                            <a href="#pages">Chi tiết 13 trang</a>
+                            <ol>
+                                <li><a href="#p-native-orders">Đơn web (native-orders)</a></li>
+                                <li>
+                                    <a href="#p-fastsaleorder">Phiếu Bán Hàng (PBH)</a>
+                                </li>
+                                <li><a href="#p-reconcile">Đối soát giao hàng</a></li>
+                                <li><a href="#p-so-order">Sổ Order mua NCC</a></li>
+                                <li><a href="#p-web2-pancake">WEB2 × Pancake</a></li>
+                                <li><a href="#p-purchase-refund">Trả hàng NCC</a></li>
+                                <li><a href="#p-supplier-debt">Công nợ NCC</a></li>
+                                <li><a href="#p-supplier-wallet">Ví NCC</a></li>
+                                <li><a href="#p-balance-history">Lịch sử số dư (SePay)</a></li>
+                                <li><a href="#p-products">Kho sản phẩm</a></li>
+                                <li><a href="#p-variants">Kho biến thể</a></li>
+                                <li><a href="#p-users">Users &amp; phân quyền</a></li>
+                            </ol>
+                        </li>
+                        <li><a href="#dataflow">Bản đồ data flow</a></li>
+                        <li><a href="#database">Cơ sở dữ liệu &amp; Router Web 2.0</a></li>
+                        <li>
+                            <a href="#realtime">📡 Realtime SSE (phủ sóng + recipe)</a>
+                        </li>
+                        <li>
+                            <a href="#conventions">📐 Quy ước Web 2.0 (đọc trước khi code)</a>
+                        </li>
+                        <li>
+                            <a href="#datastores">🗂️ Kho dữ liệu dùng chung (1 nguồn)</a>
+                        </li>
+                        <li><a href="#future">Gợi ý phát triển</a></li>
+                    </ol>
+                </nav>
+
+                <!-- ===== PIPELINES ===== -->
+                <section class="ov-section" id="pipelines">
+                    <h2 class="section-title">Luồng dữ liệu chính</h2>
+                    <p class="ov-lead">
+                        Web 2.0 được chia thành 3 pipeline song song, mỗi pipeline có entry point rõ
+                        ràng và output đẩy ngược về master data.
+                    </p>
+
+                    <div class="ov-pipeline-grid">
+                        <article class="ov-pipeline ov-pipeline-blue">
+                            <header>
+                                <span class="ov-pipeline-num">01</span>
+                                <h3>Bán hàng (Shop → Khách hàng)</h3>
+                            </header>
+                            <ol class="ov-pipeline-steps">
+                                <li>
+                                    <strong>FB Comment / Web</strong> — web2-pancake nhận comment
+                                    livestream
+                                </li>
+                                <li>
+                                    <strong>native-orders</strong> — auto-extract đơn từ comment
+                                </li>
+                                <li>
+                                    <strong>fast-sale-orders (PBH)</strong> — confirm tạo phiếu bán
+                                    hàng
+                                </li>
+                                <li>
+                                    <strong>reconcile</strong> — quét barcode, đóng gói, bàn giao
+                                    shipper
+                                </li>
+                                <li>
+                                    <strong>customer-wallet</strong> — refund cộng lại ví KH nếu có
+                                </li>
+                            </ol>
+                        </article>
+
+                        <article class="ov-pipeline ov-pipeline-purple">
+                            <header>
+                                <span class="ov-pipeline-num">02</span>
+                                <h3>Mua hàng (Shop ← NCC)</h3>
+                            </header>
+                            <ol class="ov-pipeline-steps">
+                                <li>
+                                    <strong>so-order</strong> — tạo đơn mua NCC theo tab quốc gia
+                                </li>
+                                <li>
+                                    <strong>web2-products (pending stock)</strong> — đẩy SL về
+                                    pending
+                                </li>
+                                <li><strong>confirm-purchase</strong> — hàng về cộng stock thực</li>
+                                <li>
+                                    <strong>purchase-refund</strong> — phiếu trả hàng giảm stock
+                                </li>
+                                <li>
+                                    <strong>supplier-debt / supplier-wallet</strong> — tính công nợ
+                                    NCC
+                                </li>
+                            </ol>
+                        </article>
+
+                        <article class="ov-pipeline ov-pipeline-green">
+                            <header>
+                                <span class="ov-pipeline-num">03</span>
+                                <h3>Tiền (SePay → Ví)</h3>
+                            </header>
+                            <ol class="ov-pipeline-steps">
+                                <li><strong>SePay webhook</strong> — bank ghi nhận thu/chi</li>
+                                <li>
+                                    <strong>web2_balance_history</strong> — log giao dịch (bảng Web
+                                    2.0 độc lập, dual-write)
+                                </li>
+                                <li>
+                                    <strong>match customer / NCC</strong> — auto hoặc thủ công
+                                    (link)
+                                </li>
+                                <li>
+                                    <strong>customer-wallet / supplier-wallet</strong> — credit vào
+                                    ví tương ứng
+                                </li>
+                                <li>
+                                    <strong>accountant</strong> — duyệt, gửi reminder, audit
+                                    adjustments
+                                </li>
+                            </ol>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- ===== PAGES ===== -->
+                <section class="ov-section" id="pages">
+                    <h2 class="section-title">Chi tiết 13 trang có badge WEB 2.0</h2>
+                    <p class="ov-lead">
+                        Mỗi trang gồm: <em>mục đích</em>, <em>tính năng nút bấm</em>,
+                        <em>API endpoint backend</em>, <em>bảng database</em>,
+                        <em>SSE topic realtime</em> và <em>liên kết dữ liệu</em> sang các trang
+                        khác.
+                    </p>
+
+                    <div class="ov-page-grid">
+                        <!-- ===== 1. NATIVE ORDERS ===== -->
+                        <article class="ov-page" id="p-native-orders">
+                            <header class="ov-page-head ov-page-head-blue">
+                                <span class="ov-page-num">01</span>
+                                <div>
+                                    <h3>Đơn web — Native Orders</h3>
+                                    <code>native-orders/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../../native-orders/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Entry point pipeline bán hàng. Đơn
+                                    tạo từ comment Facebook hoặc nguồn web shop, chuẩn bị xác nhận
+                                    thành PBH.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột chính</span>
+                                        STT · Mã đơn · Kênh FB · Tên · SĐT · Địa chỉ · Tổng tiền ·
+                                        SL · Trạng thái · Tin nhắn · Comment · Ghi chú · Nhân viên ·
+                                        Thời gian
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Sửa · Confirm tạo PBH · Cancel · Split-order (1 đơn → nhiều
+                                        PBH) · Merge · Merge-to-PBH · Bulk reset STT · Backfill
+                                        customer · Export Excel
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/native-orders</code>
+                                        — load · export · campaigns · by-user · from-comment · merge
+                                        · merge-to-pbh · reset-stt · :code/confirm · cancel ·
+                                        split-order · backfill-customer-links
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>native_orders</code> ·
+                                        <code>native_orders_migrations</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:native-orders</code>
+                                        (cross-publish <code>web2:fast-sale-orders</code>,
+                                        <code>web2:customer-wallet</code>)
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ web2-pancake (comment livestream) → fast-sale-orders (PBH)
+                                        → reconcile
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 2. PBH ===== -->
+                        <article class="ov-page" id="p-fastsaleorder">
+                            <header class="ov-page-head ov-page-head-purple">
+                                <span class="ov-page-num">02</span>
+                                <div>
+                                    <h3>Phiếu Bán Hàng (PBH)</h3>
+                                    <code>web2/fastsaleorder-invoice/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../fastsaleorder-invoice/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Quản lý hoá đơn bán (NJ-xxx) — xem,
+                                    in, hủy, sửa, gộp, refund, xuất Excel. Là output của pipeline
+                                    đơn web.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột chính</span>
+                                        STT · Số HĐ · Khách hàng · SĐT · Địa chỉ · Tổng tiền · Trạng
+                                        thái · Đơn nguồn · Ngày HĐ
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Filter status (Hoàn thành / Đã hủy) · Sửa PBH · Gộp PBH · In
+                                        PBH · Hoàn tiền (refund) · Tạo phiếu giao hàng · Bulk
+                                        confirm · Bulk cancel · Reset STT · Xem lịch sử PBH
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/fast-sale-orders</code>
+                                        — load · export · :number · :number/history ·
+                                        from-native-order · merge · cancel · confirm · print ·
+                                        bulk-confirm · bulk-cancel · reset-stt
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>fast_sale_orders</code> ·
+                                        <code>pbh_fulfillment_logs</code>
+                                        (audit)
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:fast-sale-orders</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ native-orders (from-native-order) → reconcile (đóng gói) ↔
+                                        customer-wallet (refund)
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 3. RECONCILE ===== -->
+                        <article class="ov-page" id="p-reconcile">
+                            <header class="ov-page-head ov-page-head-green">
+                                <span class="ov-page-num">03</span>
+                                <div>
+                                    <h3>Đối soát giao hàng</h3>
+                                    <code>web2/reconcile/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../reconcile/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Workflow đóng gói + giao hàng cho PBH
+                                    — quét barcode HD/SP, pick hàng, đóng gói, bàn giao shipper,
+                                    đánh dấu giao thành công / hoàn về.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Tabs trạng thái</span>
+                                        Đang xử lý · Chờ pick · Đang pick · Đã pick đủ · Đã đóng gói
+                                        · Đã giao shipper · Đã giao · Hoàn về
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Scan barcode (HD/SP auto-detect) · Manual pick · Reset pick
+                                        · Pack · Ship · Deliver · Return-failed · Xem logs
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/reconcile</code>
+                                        — list · :number · :number/logs · :number/scan · manual-pick
+                                        · reset-pick · pack · ship · deliver · return-failed
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>fast_sale_orders</code> (cột pick_state, packed_at,
+                                        shipped_at) · <code>pbh_fulfillment_logs</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:reconcile</code> + bridge
+                                        <code>web2:fast-sale-orders</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ fast-sale-orders (PBH đã done) → trừ stock web2-products
+                                        khi pick
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 4. SO ORDER ===== -->
+                        <article class="ov-page" id="p-so-order">
+                            <header class="ov-page-head ov-page-head-orange">
+                                <span class="ov-page-num">04</span>
+                                <div>
+                                    <h3>Sổ Order mua từ NCC</h3>
+                                    <code>so-order/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../../so-order/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Sổ Order shop dùng để mua hàng từ NCC
+                                    — quản lý đơn nhập theo tab quốc gia (HÀ NỘI / HƯƠNG CHÂU …), tỉ
+                                    giá ngoại tệ, đẩy hàng pending về kho.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Tab strip theo quốc gia (thêm/đổi tỉ giá) · Edit toàn bảng
+                                        (mode bật/tắt) · Double-click edit ô · Ẩn/Hiện cột · Tạo đơn
+                                        (modal variant picker) · Sync hàng pending sang
+                                        web2_products · Confirm hàng về
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột</span>
+                                        Sản phẩm · Biến thể · SL · Giá · Ghi chú · Trạng thái
+                                        (<strong>chỉ-đọc</strong>) · Ngày
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Model tiền (2026-06-16)</span>
+                                        Trạng thái KHÔNG sửa tay (bỏ ô trong modal + bỏ dbl-click);
+                                        <code>ordered</code>/"Đã Đặt" khai tử → đơn mới luôn
+                                        <strong>Nháp</strong>, chỉ nút
+                                        <strong>Nhận hàng</strong> đổi sang Đã Nhận / Nhận 1 phần.
+                                        <strong>Công nợ NCC phát sinh khi NHẬN HÀNG</strong> (không
+                                        phải khi đặt) = Σ(giá × SL_đã-nhận × tỉ giá) − giảm giá +
+                                        phí ship. Giảm giá &amp; ship lưu
+                                        <strong>per-đơn</strong>
+                                        (<code>shipment.orderAdjustments[invoiceGroupId]</code>);
+                                        footer ngày giao = tổng cả lô (readonly). Ảnh hóa đơn ở
+                                        header đơn (của cả đơn, không per-SP).
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Storage</span>
+                                        Postgres <code>web2_so_order</code> (1 doc JSONB +
+                                        <code>version</code> optimistic, qua
+                                        <code>/api/web2-so-order</code> — C8 done 2026-06-13) +
+                                        local-first IDB cache
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API kho</span>
+                                        <code>/api/web2-products</code>
+                                        upsert-pending · adjust-pending · confirm-purchase
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Mã SP (2026-06-07)</span>
+                                        SP Lưu Nháp sinh mã đúng format Kho SP qua
+                                        <code>Web2ProductCode</code> (vd <code>KHOAOTRANG</code>);
+                                        thiếu NCC → default prefix <code>KHO</code>, KHÔNG còn mã
+                                        rác <code>KHO-&lt;rnd&gt;</code> do server sinh.
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        → web2-products (pending → stock) → purchase-refund (trả
+                                        hàng) → supplier-debt &amp; supplier-wallet (công nợ)
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 5. WEB2 PANCAKE ===== -->
+                        <article class="ov-page" id="p-web2-pancake">
+                            <header class="ov-page-head ov-page-head-cyan">
+                                <span class="ov-page-num">05</span>
+                                <div>
+                                    <h3>WEB2 × Pancake</h3>
+                                    <code>web2-pancake/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../../web2-pancake/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Đối soát + bridge UI giữa WEB2
+                                    (CRM/Order) và Pancake (chat livestream). Chat đa kênh, mapping
+                                    conversation ↔ customer ↔ order, realtime stream comments +
+                                    messages.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Modules</span>
+                                        Pancake chat window · WEB2 comments stream · Token manager
+                                        (Firestore <code>pancake_tokens</code>, <code>tokens</code>)
+                                        · Customer data sync
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Switch page · Switch conversation · Gửi tin nhắn · Gửi ảnh ·
+                                        Start/Stop WEB2 realtime · Refresh tokens
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/odata/*</code> · <code>/api/pancake/*</code> ·
+                                        <code>/api/pancake-direct/*</code> ·
+                                        <code>/api/pancake-official/*</code> ·
+                                        <code>/api/realtime/web2/{start,status,stop}</code> ·
+                                        <code>/api/web2-saved</code> ·
+                                        <code>/api/facebook-send</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Storage</span>
+                                        Firestore <code>pancake_tokens</code>, <code>tokens</code> ·
+                                        Postgres <code>web2_saved_customers</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        → native-orders (from-comment tạo đơn) → fast-sale-orders
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 6. PURCHASE REFUND ===== -->
+                        <article class="ov-page" id="p-purchase-refund">
+                            <header class="ov-page-head ov-page-head-red">
+                                <span class="ov-page-num">06</span>
+                                <div>
+                                    <h3>Trả hàng NCC</h3>
+                                    <code>web2/purchase-refund/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../purchase-refund/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Phiếu trả hàng cho NCC + state
+                                    machine + tự trừ tồn kho khi NCC duyệt.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Status flow</span>
+                                        Nháp → Đã gửi NCC → NCC duyệt (đã trừ kho) → NCC đã hoàn
+                                        tiền · NCC từ chối · Hủy
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Tạo phiếu (modal nhập biến thể, SL, lý do) · Approve (trừ
+                                        stock) · Cancel-approve (rollback) · Refunded · Reject ·
+                                        Filter status · Search
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/purchase-refund</code>
+                                        — :code/approve · cancel-approve · refunded · reject + CRUD
+                                        qua <code>/api/web2/purchase-refund/*</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code
+                                            >web2_records WHERE entity_slug='purchase-refund'</code
+                                        >
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:purchase-refund</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Gom nhóm (2026-06-07)</span>
+                                        Section A + picker tách theo <strong>ĐƠN</strong> (NCC +
+                                        đợt/shipment Sổ Order), không gộp chung NCC. SP nhập đợt sau
+                                        → nhóm riêng. Header hiện nhãn "Đợt X · ngày". Key
+                                        chọn/SL/trả dùng
+                                        <code>aggId = supplier::shipmentId::code</code>.
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ so-order (hàng đã nhập cần trả) → giảm stock web2-products
+                                        → giảm công nợ supplier-debt
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 7. SUPPLIER DEBT ===== -->
+                        <article class="ov-page" id="p-supplier-debt">
+                            <header class="ov-page-head ov-page-head-pink">
+                                <span class="ov-page-num">07</span>
+                                <div>
+                                    <h3>Công nợ NCC</h3>
+                                    <code>web2/supplier-debt/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../supplier-debt/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Báo cáo công nợ NCC theo kỳ — nợ đầu
+                                    kỳ + phát sinh + thanh toán + nợ cuối kỳ.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột chính</span>
+                                        STT · Mã NCC · Nhà Cung Cấp · Nợ đầu kỳ · Phát sinh · Thanh
+                                        toán · Nợ cuối kỳ
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Date range filter · Search NCC · Radio (Tất cả / Còn nợ / Đã
+                                        trả) · Expand chi tiết giao dịch · Sortable columns ·
+                                        Drag-sort rows · Refresh
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nguồn data</span>
+                                        Tính trực tiếp từ <code>web2_so_order</code> (Postgres) +
+                                        <code>web2_records</code> (purchase-refund) +
+                                        <code>web2_supplier_ledger</code> (payments) — không có
+                                        write endpoint riêng
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Phát sinh (2026-06-16)</span>
+                                        Chỉ tính đơn so-order trạng thái
+                                        <strong>Đã Nhận / Nhận 1 phần</strong> (bỏ Nháp/Hủy); phần
+                                        phát sinh = Σ(giá × SL_đã-nhận × tỉ giá)
+                                        <strong>− giảm giá + phí ship</strong>
+                                        (gồm cả discount/ship per-đơn — khớp với Ví NCC).
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ so-order (phát sinh khi nhận hàng) · purchase-refund (giảm
+                                        phát sinh) · supplier-wallet (thanh toán) → nợ cuối kỳ
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 8. SUPPLIER WALLET ===== -->
+                        <article class="ov-page" id="p-supplier-wallet">
+                            <header class="ov-page-head ov-page-head-emerald">
+                                <span class="ov-page-num">08</span>
+                                <div>
+                                    <h3>Ví NCC</h3>
+                                    <code>web2/supplier-wallet/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../supplier-wallet/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Quản lý ví đặt cọc / công nợ NCC —
+                                    track tiền đã chuyển NCC, tiền hàng đã nhận, dư nợ, lịch sử
+                                    thanh toán.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Search NCC · Counter pills (tổng NCC, tổng công nợ) ·
+                                        <strong>Realtime SSE</strong> (bỏ nút Đồng bộ — tự load
+                                        <code>web2:so-order</code
+                                        >+<code>web2:supplier-wallet</code>) · Modal chi tiết NCC (3
+                                        tab: Mua hàng / Giao dịch ví / Trả hàng) · Bulk select trả
+                                        hàng
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Storage</span>
+                                        Server ledger Postgres <code>web2_supplier_ledger</code> +
+                                        <code>web2_supplier_meta</code> (qua
+                                        <code>/api/web2-supplier-wallet</code>) + cross-read
+                                        <code>web2_so_order</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Model tiền (2026-06-16)</span>
+                                        Tổng mua tính theo đơn <strong>đã nhận</strong> (received /
+                                        partial theo SL thực nhận), gồm cả
+                                        <strong>giảm giá + phí ship per-đơn</strong>. Đơn Nháp = 0.
+                                        Kho NCC realtime để mọi trang tham chiếu.
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/wallet-deposits/load</code>
+                                        (SePay-linked deposits filter NCC) → bảng
+                                        <code>web2_balance_history</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ so-order (mua hàng) · balance-history (nhận/chi tiền) ·
+                                        purchase-refund (trả hàng)
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 9. BALANCE HISTORY ===== -->
+                        <article class="ov-page" id="p-balance-history">
+                            <header class="ov-page-head ov-page-head-teal">
+                                <span class="ov-page-num">09</span>
+                                <div>
+                                    <h3>Lịch sử biến động số dư (SePay)</h3>
+                                    <code>web2/balance-history/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../balance-history/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Bảng SePay webhook log — toàn bộ giao
+                                    dịch ngân hàng nhận/chi, match với customer, link sang ví, QR
+                                    code, gửi reminder kế toán.
+                                    <em>Bảng riêng <code>web2_balance_history</code></em>
+                                    (dual-write từ webhook, không đụng web 1.0).
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Tabs</span>
+                                        Tất cả (toàn bộ webhook) · Lịch Sử (đã verified) · Kế toán
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Search SĐT/tên/nội dung · Date range · Approve/Reject ·
+                                        Manager review · Bulk approve · Resolve match · Adjust
+                                        transaction · QR code download · Send reminder "My KT" ·
+                                        Reprocess wallet · Auto-approve settings
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/v2/balance-history</code>
+                                        — pending · stats · verification-queue · approved-today ·
+                                        wallet/balance ·
+                                        :id/{approve,reject,link,unlink,reprocess-wallet,manager-review,adjust}
+                                        · bulk-approve · settings/auto-approve
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>web2_balance_history</code> ·
+                                        <code>balance_customer_info</code> ·
+                                        <code>wallet_transactions</code> ·
+                                        <code>wallet_adjustments</code> ·
+                                        <code>pending_customer_matches</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>wallet:all</code> (bridge
+                                        <code>web2:customer-wallet</code>)
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ⬅ SePay webhook → match customer/NCC → credit
+                                        <code>customer_wallets</code> hoặc supplier-wallet
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 10. PRODUCTS ===== -->
+                        <article class="ov-page" id="p-products">
+                            <header class="ov-page-head ov-page-head-amber">
+                                <span class="ov-page-num">10</span>
+                                <div>
+                                    <h3>Kho sản phẩm</h3>
+                                    <code>web2/products/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../products/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Master list sản phẩm Web 2.0 — mã SP,
+                                    ảnh, giá mua/bán, tồn kho, biến thể, trạng thái active.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột chính</span>
+                                        Ảnh · Mã SP · Tên sản phẩm · Biến thể · Giá mua · Giá bán ·
+                                        Tồn kho · Ghi chú · Trạng thái
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Thêm SP (modal full form) · Chip filters · Edit inline · Xóa
+                                        · Adjust stock thủ công · Adjust pending · Upsert pending
+                                        (sync so-order) · Confirm purchase · View history per SP ·
+                                        Usage stats · "ĐANG DÙNG" badge + popover
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/web2-products</code>
+                                        — list · pending · usage · :code · :code/history · POST ·
+                                        PATCH · DELETE · adjust-stock · adjust-pending ·
+                                        upsert-pending · confirm-purchase
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>web2_products</code> ·
+                                        <code>web2_product_history</code> (audit)
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:products</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        ↔ fast-sale-orders (trừ stock khi PBH done) · so-order
+                                        (pending/confirm) · purchase-refund (giảm stock) · reconcile
+                                        (pick)
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 11. VARIANTS ===== -->
+                        <article class="ov-page" id="p-variants">
+                            <header class="ov-page-head ov-page-head-indigo">
+                                <span class="ov-page-num">11</span>
+                                <div>
+                                    <h3>Kho biến thể</h3>
+                                    <code>web2/variants/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../variants/index.html">
+                                    Mở trang →
+                                </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Master list biến thể (size, màu…) —
+                                    viết tắt code, nhóm, thứ tự, trạng thái. Dùng để build dropdown
+                                    trong product modal + so-order modal.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột chính</span>
+                                        Biến thể · Nhóm · Viết tắt · Thứ tự · Trạng thái
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Thêm biến thể · Edit · Xóa · Search · Auto-suggest short
+                                        code · Backfill short codes (bulk migration)
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/web2-variants</code>
+                                        — list · suggest-short-code · :id · POST · PATCH · DELETE ·
+                                        backfill-short-codes
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>web2_variants</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:variants</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        Được tham chiếu trong web2-products (variant list),
+                                        native-orders (line variants), so-order (picker)
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- ===== 13. USERS ===== -->
+                        <article class="ov-page" id="p-users">
+                            <header class="ov-page-head ov-page-head-slate">
+                                <span class="ov-page-num">13</span>
+                                <div>
+                                    <h3>Users &amp; phân quyền</h3>
+                                    <code>web2/users/index.html</code>
+                                </div>
+                                <a class="ov-page-open" href="../users/index.html"> Mở trang → </a>
+                            </header>
+                            <div class="ov-page-body">
+                                <p>
+                                    <strong>Mục đích:</strong> Quản lý tài khoản người dùng Web 2.0
+                                    — đăng ký, vai trò, permissions theo page, password reset.
+                                </p>
+                                <div class="ov-meta">
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Cột chính</span>
+                                        Username · Họ tên · Email/SĐT · Vai trò · Trạng thái · Đăng
+                                        nhập gần nhất
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Nút &amp; action</span>
+                                        Tạo người dùng · Search · Toggle show inactive · Edit info ·
+                                        Set permissions per page · Set password · Delete ·
+                                        Login/Logout/Me endpoints
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">API</span>
+                                        <code>/api/web2-users</code>
+                                        — pages · role-defaults/:role · list · :id · me · POST ·
+                                        :id/password · login · logout · PATCH · permissions · DELETE
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Postgres</span>
+                                        <code>app_users</code> · <code>permission_templates</code> ·
+                                        <code>app_settings</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">SSE topic</span>
+                                        <code>web2:users</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Liên kết</span>
+                                        Auth guard cho TẤT CẢ trang Web 2.0 — JWT trong
+                                        cookie/localStorage, check <code>me</code> ở mỗi page load
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- ===== DATA FLOW ===== -->
+                <section class="ov-section" id="dataflow">
+                    <h2 class="section-title">Bản đồ data flow</h2>
+                    <p class="ov-lead">
+                        Mỗi node là 1 bảng database hoặc 1 trang Web 2.0. Mũi tên là API call hoặc
+                        SSE realtime event.
+                    </p>
+
+                    <div class="ov-flow">
+                        <div class="ov-flow-block ov-flow-money">
+                            <h3>SePay → Ví</h3>
+                            <pre>
+SePay webhook
+   ↓
+balance_history (legacy)
+   ↓ dual-write
+web2_balance_history    ← Trang: balance-history
+   ↓ match customer/NCC
+customer_wallets        ← Trang: customer-wallet
+web2_supplier_wallet      ← Trang: supplier-wallet (Firestore)</pre
+                            >
+                        </div>
+
+                        <div class="ov-flow-block ov-flow-sell">
+                            <h3>Bán hàng (Shop → KH)</h3>
+                            <pre>
+FB Comment / Web
+   ↓ (web2-pancake auto-extract)
+native_orders            ← Trang: native-orders
+   ↓ confirm
+fast_sale_orders         ← Trang: fastsaleorder-invoice (PBH)
+   ↓ pick → pack → ship → deliver
+pbh_fulfillment_logs     ← Trang: reconcile
+   ↓ trừ stock
+web2_products
+   ↕ refund (cộng lại ví KH)
+customer_wallets</pre
+                            >
+                        </div>
+
+                        <div class="ov-flow-block ov-flow-buy">
+                            <h3>Mua hàng (Shop ← NCC)</h3>
+                            <pre>
+web2_so_order (Firestore)  ← Trang: so-order
+   ↓ upsert-pending
+web2_products.pending
+   ↓ confirm-purchase
+web2_products.stock      ← Trang: products
+   ↓ phát hiện trả hàng
+web2_records (purchase-refund) ← Trang: purchase-refund
+   ↓ approve → giảm stock + giảm công nợ
+web2_supplier_wallet       ← Trang: supplier-wallet
+   ↓ tổng hợp kỳ
+supplier-debt            ← Trang: báo cáo công nợ</pre
+                            >
+                        </div>
+
+                        <div class="ov-flow-block ov-flow-master">
+                            <h3>Master data + Auth</h3>
+                            <pre>
+web2_variants           ← Trang: variants
+web2_products           ← Trang: products
+
+app_users               ← Trang: users (auth guard mọi trang)
+   ↓ JWT
+permission_templates    (role: admin/manager/staff)</pre
+                            >
+                        </div>
+                    </div>
+
+                    <div class="ov-sse-list">
+                        <h3>SSE realtime topics</h3>
+                        <div class="ov-sse-grid">
+                            <span class="ov-pill ov-pill-blue">web2:native-orders</span>
+                            <span class="ov-pill ov-pill-purple">web2:fast-sale-orders</span>
+                            <span class="ov-pill ov-pill-green">web2:reconcile</span>
+                            <span class="ov-pill ov-pill-amber">web2:products</span>
+                            <span class="ov-pill ov-pill-indigo">web2:variants</span>
+                            <span class="ov-pill ov-pill-red">web2:purchase-refund</span>
+                            <span class="ov-pill ov-pill-teal">wallet:all</span>
+                            <span class="ov-pill ov-pill-emerald">web2:customer-wallet</span>
+                            <span class="ov-pill ov-pill-slate">web2:users</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== DATABASE ===== -->
+                <section class="ov-section" id="database">
+                    <h2 class="section-title">Cơ sở dữ liệu &amp; Router Web 2.0</h2>
+                    <p class="ov-lead">
+                        Web 2.0 đã tách hoàn toàn khỏi Web 1.0: <strong>Postgres riêng</strong>
+                        <code>n2store-web2-db</code>, <strong>API namespace riêng</strong>
+                        <code>/api/web2/*</code>, và Firebase collection prefix <code>web2_</code>.
+                        <strong>✅ Cutover xong 2026-06-03</strong> — 26 route web2 + webhook +
+                        crons đọc/ghi web2Db; Web 1.0 (<code>n2store_chat</code>) KHÔNG bị đụng.
+                    </p>
+
+                    <!-- DB instances -->
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🟢 Postgres Web 2.0 — <code>n2store-web2-db</code></h3>
+                            <p class="ov-db-note">
+                                Render PG riêng (Singapore, <code>dpg-d8d7be…</code>, db
+                                <code>n2store_web2</code>) — pool <code>web2Db</code> ←
+                                <code>WEB2_DATABASE_URL</code>. Đích cuối của mọi bảng Web 2.0.
+                            </p>
+                            <ul>
+                                <li><code>web2_customers</code> — kho KH riêng (sync WEB2) ✅</li>
+                                <li>
+                                    <code>web2_records</code> · <code>web2_entities</code> — generic
+                                    store ✅
+                                </li>
+                                <li>
+                                    <em>✅ Đã ở web2Db (cutover xong):</em>
+                                    <code>web2_products</code> · <code>web2_variants</code> ·
+                                    <code>web2_balance_history</code> ·
+                                    <code>web2_customer_wallets</code> ·
+                                    <code>web2_wallet_transactions</code> ·
+                                    <code>web2_pending_matches</code> ·
+                                    <code>web2_payment_qr_codes</code> ·
+                                    <code>web2_match_audit</code> ·
+                                    <code>web2_notifications</code> · <code>web2_users</code> ·
+                                    <code>web2_kpi_*</code> · <code>native_orders</code> ·
+                                    <code>fast_sale_orders</code>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ov-db-card ov-db-info">
+                            <h3>⚪ Postgres Web 1.0 — <code>n2store-chat-db</code></h3>
+                            <p class="ov-db-note">
+                                Render PG (<code>dpg-d4kr80…</code>, db <code>n2store_chat</code>) —
+                                pool <code>chatDb</code> ← <code>DATABASE_URL</code>. Chứa data Web
+                                1.0; bảng <code>web2_*</code> tạm còn ở đây trong lúc migrate.
+                            </p>
+                            <ul>
+                                <li>
+                                    Web 1.0: <code>customers</code> ·
+                                    <code>customer_wallets</code> · <code>balance_history</code> ·
+                                    <code>app_users</code> …
+                                </li>
+                                <li>
+                                    Web 2.0 KHÔNG còn gọi: <code>/api/v2/customers</code> →
+                                    <code>/api/web2/customers</code> (kho riêng).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ov-db-card ov-db-success">
+                            <h3>🔥 Firestore — prefix <code>web2_</code></h3>
+                            <ul>
+                                <li>
+                                    <code>web2_so_order/main</code> — Sổ Order (local-first sync)
+                                </li>
+                                <li><code>web2_supplier_wallet/main</code> — Ví NCC</li>
+                                <li><code>web2_suppliers/main</code> — danh sách NCC</li>
+                                <li><code>web2_customer_wallet/main</code> — UI mirror ví KH</li>
+                            </ul>
+                            <p class="ov-db-note">
+                                <strong>Realtime:</strong> KHÔNG dùng Firestore listener — dùng SSE
+                                pub/sub trên Render, hub riêng Web 2.0
+                                (<code>/api/realtime/web2/sse</code>, topic
+                                <code>web2:&lt;entity&gt;</code>).
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Router / API namespace -->
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Router / API namespace Web 2.0
+                    </h3>
+                    <p class="ov-lead">
+                        Mọi route Web 2.0 dùng prefix <code>/api/web2/*</code> hoặc
+                        <code>/api/web2-*</code> (proxy qua Cloudflare Worker →
+                        <code>n2store-fallback.onrender.com</code>). Các route piggyback cũ
+                        <code>/api/v2/*</code> đã đổi sang <code>/api/web2/*</code> (alias cũ giữ
+                        tạm).
+                    </p>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>Tài chính / Ví / KH</h3>
+                            <ul>
+                                <li>
+                                    <code>/api/web2/balance-history</code> — GD SePay
+                                    (web2_balance_history)
+                                </li>
+                                <li>
+                                    <code>/api/web2/customers</code> — kho KH (search,
+                                    by-phone/orders)
+                                </li>
+                                <li>
+                                    <code>/api/web2/wallets</code> ·
+                                    <code>/api/web2/customer-wallet</code> — ví KH
+                                </li>
+                                <li>
+                                    <code>/api/web2/customer-web2</code> ·
+                                    <code>/api/web2/customer-orders</code>
+                                </li>
+                                <li><code>/api/wallet-deposits</code> — ví NCC (no-prefix web2)</li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>Bán hàng / Mua hàng / SP</h3>
+                            <ul>
+                                <li>
+                                    <code>/api/native-orders</code> ·
+                                    <code>/api/fast-sale-orders</code> — Đơn web / PBH
+                                </li>
+                                <li>
+                                    <code>/api/reconcile</code> · <code>/api/refunds</code> ·
+                                    <code>/api/delivery-invoices</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2-products</code> ·
+                                    <code>/api/web2-variants</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2/purchase-refund</code> ·
+                                    <code>/api/web2/supplier-debt</code>
+                                </li>
+                                <li><code>/api/pbh-reports</code> — báo cáo doanh thu/giao hàng</li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-success">
+                            <h3>Tính năng mới / Hệ thống</h3>
+                            <ul>
+                                <li>
+                                    <code>/api/web2/notifications</code> ·
+                                    <code>/api/web2/audit-log</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2/dashboard-kpi</code> ·
+                                    <code>/api/web2/kpi</code> ·
+                                    <code>/api/web2/cart</code>
+                                </li>
+                                <li>
+                                    <code>/api/web2-users</code> — user + phân quyền ·
+                                    <code>/api/realtime/web2/sse</code>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== CONVENTIONS (canonical ref cho code mới) ===== -->
+                <section class="ov-section" id="realtime">
+                    <h2 class="section-title">
+                        📡 Realtime SSE — phủ sóng tất cả trang &amp; cách dùng (ĐỌC KHI CODE TRANG
+                        MỚI)
+                    </h2>
+                    <p class="ov-lead">
+                        Web 2.0 dùng <strong>1 server SSE chung trên Render</strong>
+                        (<code>render.com/routes/realtime-sse-web2.js</code>, endpoint
+                        <code>/api/realtime/web2/sse</code>) cho mọi cập nhật UI realtime — KHÔNG
+                        Firestore listener, KHÔNG polling. Mỗi mutation backend gọi
+                        <code>_notify('web2:&lt;entity&gt;', …)</code> sau khi COMMIT; client
+                        <code>Web2SSE.subscribe('web2:&lt;entity&gt;', cb)</code> + debounce →
+                        reload. Debug live tại
+                        <a href="../system/index.html?tab=sse"
+                            >Cấu hình &amp; Hệ thống → Realtime (SSE)</a
+                        >. Chi tiết: <code>docs/web2/SSE-REALTIME.md</code>.
+                    </p>
+
+                    <h3 style="margin: 18px 0 8px">
+                        ✅ Bảng phủ sóng realtime — toàn bộ trang trên menu (audit 2026-06-04)
+                    </h3>
+                    <p style="font-size: 13px; color: #64748b; margin: 0 0 10px">
+                        <strong>Tất cả trang đều ĐÃ triển khai (REAL)</strong> — không trang nào là
+                        stub. Cột Realtime: <code>✅ SSE</code> = realtime qua SSE chuẩn;
+                        <code>🔸 legacy</code> = realtime qua Firestore/WebSocket cũ (nên migrate
+                        SSE); <code>⚪ N/A</code> = không cần realtime (báo cáo tính toán / cấu hình
+                        / export 1 lần / on-demand).
+                    </p>
+                    <div style="overflow-x: auto">
+                        <table
+                            style="
+                                width: 100%;
+                                border-collapse: collapse;
+                                font-size: 12.5px;
+                                background: #fff;
+                            "
+                        >
+                            <thead>
+                                <tr style="background: #f1f5f9; text-align: left">
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        Trang (menu)
+                                    </th>
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        Realtime
+                                    </th>
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        SSE topic
+                                    </th>
+                                    <th style="padding: 6px 9px; border: 1px solid #e2e8f0">
+                                        Nguồn dữ liệu (1 nguồn chuẩn)
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- prettier-ignore -->
+                                <tr><td style="padding:5px 9px;border:1px solid #e2e8f0">Dashboard KPI</td><td style="padding:5px 9px;border:1px solid #e2e8f0">✅ SSE</td><td style="padding:5px 9px;border:1px solid #e2e8f0"><code>web2:kpi-dashboard</code></td><td style="padding:5px 9px;border:1px solid #e2e8f0">/api/web2/dashboard-kpi</td></tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        KPI Nhân viên
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (tính toán)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/kpi/*
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Thông báo
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:notifications</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/notifications
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Lịch sử thao tác
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (log viewer)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/audit-log
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Studio tách nền
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (local tool)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        local + Bunny CDN
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Phân quyền
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (config)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-users
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Cấu hình &amp; Hệ thống (gộp dịch vụ + SSE monitor + các
+                                        trang)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ poll 60s + SSE admin feed
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        web2:_admin:sse-log
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/services-overview · /api/realtime/web2/sse
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Bán hàng (HĐ/PBH)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:fast-sale-orders</code>,
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/fast-sale-orders
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Đối soát đóng gói
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:reconcile</code>,
+                                        <code>web2:fast-sale-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/reconcile
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Trả hàng (PBH)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:refunds</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/refunds
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Phiếu giao hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:delivery</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/delivery-invoices
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Chiến dịch Live
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 WEB2 2-way
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        WEB2 OData SaleOnline_LiveCampaign
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Đơn Web
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/native-orders
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Sổ Order (NCC)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 Firestore
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_so_order/main
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        WEB2 × Pancake
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:cart</code>, <code>web2:products</code>,
+                                        <code>web2:native-orders</code>,
+                                        <code>web2:livestream-*</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/v2/cart + WEB2/Pancake
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Trả hàng NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:purchase-refund</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/purchase-refund
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Công nợ NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 Firestore (report)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_so_order + web2_supplier_wallet
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Ví NCC
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>wallet:all</code>, <code>web2:products</code>,
+                                        <code>web2:so-order</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        FS web2_supplier_wallet/main
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Số dư SePay
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:wallet:*</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/balance-history
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Khách hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ NONE (WEB2 2-way)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/partner/customer
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Ví Khách Hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:wallet:*</code>,
+                                        <code>web2:fast-sale-orders</code>,
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/wallets
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Kho SP Web 2.0
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:products</code>,
+                                        <code>web2:fast-sale-orders</code>,
+                                        <code>web2:native-orders</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-products
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Kho Biến Thể
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:variants</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-variants
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Thống kê doanh thu
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        🔸 WS pbh-realtime
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        pbh:created/confirmed/cancelled
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/pbh-reports
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Thống kê giao hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (report)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/pbh-reports/delivery
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Báo cáo kho
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        web2:so-order, web2:fast-sale-orders
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-warehouse-report
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Người dùng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:users</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2-users
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Pancake (Token)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ⚪ N/A (localStorage)
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        localStorage + Pancake API
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        Phương thức giao hàng
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        ✅ SSE <em>(thêm 6/4)</em>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        <code>web2:deliveryzone</code>
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/web2/deliveryzone
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 style="margin: 20px 0 8px">🛠️ Recipe SSE cho trang/feature MỚI (2 bước)</h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>① Server (route mutation)</h3>
+                            <ul>
+                                <li>
+                                    Sau khi DB COMMIT, TRƯỚC <code>res.json</code>, gọi:
+                                    <code
+                                        >req.app.locals.web2RealtimeSseNotify('web2:&lt;entity&gt;',
+                                        {action, code, ts: Date.now()}, 'update')</code
+                                    >
+                                    (dùng trực tiếp app.locals — không cần wire server.js).
+                                </li>
+                                <li>
+                                    HOẶC pattern <code>initializeNotifiers</code> +
+                                    <code>_notify()</code> (xem
+                                    <code>web2-generic.js</code>/<code>native-orders.js</code>).
+                                </li>
+                                <li>
+                                    Generic CRUD (<code>web2_records</code>) đã auto-notify
+                                    <code>web2:&lt;slug&gt;</code> — KHÔNG cần thêm gì.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>② Client (HTML + page JS)</h3>
+                            <ul>
+                                <li>
+                                    HTML: load <code>web2-sse-bridge.js</code> TRƯỚC script app
+                                    (trang page-builder đã có sẵn).
+                                </li>
+                                <li>
+                                    Page JS trong <code>init()</code>:
+                                    <code
+                                        >window.Web2SSE?.subscribe('web2:&lt;entity&gt;', () =&gt;
+                                        debounce(reload, 600))</code
+                                    >.
+                                </li>
+                                <li>
+                                    Verify ngay qua
+                                    <a href="../system/index.html?tab=sse">SSE Monitor</a> (tab
+                                    Realtime trong Cấu hình &amp; Hệ thống): mở Monitor + trang →
+                                    mutate → thấy log
+                                    <code>Notified N clients for key: web2:&lt;entity&gt;</code>.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 style="margin: 20px 0 8px">
+                        🔗 Liên kết trang theo domain (dùng CHUNG 1 nguồn — đừng copy state)
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card">
+                            <h3>📦 Đơn hàng</h3>
+                            <p style="font-size: 13px">
+                                Đơn Web (<code>/api/native-orders</code>) → PBH
+                                (<code>/api/fast-sale-orders</code>) → Đối soát
+                                (<code>/api/reconcile</code>) → Phiếu giao
+                                (<code>/api/delivery-invoices</code>) / Trả hàng
+                                (<code>/api/refunds</code>). Mọi trang đọc cùng PBH/đơn — KHÔNG giữ
+                                bản sao.
+                            </p>
+                        </div>
+                        <div class="ov-db-card">
+                            <h3>🏭 Nhà cung cấp</h3>
+                            <p style="font-size: 13px">
+                                Sổ Order + Ví NCC (Firestore <code>web2_so_order</code> +
+                                <code>web2_supplier_wallet</code>) là nguồn chuẩn cho: Công nợ NCC,
+                                Ví NCC, Trả hàng NCC. Tất cả tính từ 2 doc này.
+                            </p>
+                        </div>
+                        <div class="ov-db-card">
+                            <h3>👤 Khách hàng</h3>
+                            <p style="font-size: 13px">
+                                Khách hàng (<code>/api/partner/customer</code>) → Ví KH
+                                (<code>/api/web2/wallets</code>) → Số dư SePay
+                                (<code>/api/web2/balance-history</code>). Pill số dư ví dùng chung
+                                <code>web2-wallet-balance.js</code> khắp trang.
+                            </p>
+                        </div>
+                        <div class="ov-db-card">
+                            <h3>🛍️ Sản phẩm</h3>
+                            <p style="font-size: 13px">
+                                Kho SP (<code>/api/web2-products</code>) là nguồn chuẩn; Biến Thể +
+                                Nhóm SP bổ trợ. Dashboard / cart web2-pancake đều tham chiếu Kho SP
+                                — không tự lưu SP.
+                            </p>
+                        </div>
+                    </div>
+                    <p style="font-size: 13px; color: #64748b; margin-top: 12px">
+                        ⏭️ <strong>Còn nên migrate sang SSE</strong> (đang dùng legacy): Sổ Order +
+                        Công nợ NCC (Firestore listener), Thống kê doanh thu (WebSocket
+                        pbh-realtime), Chiến dịch Live (WEB2 2-way). Khách hàng nên thêm
+                        <code>web2:customers</code> khi backend partner emit.
+                    </p>
+                </section>
+
+                <section class="ov-section" id="conventions">
+                    <h2 class="section-title">📐 Quy ước Web 2.0 — ĐỌC TRƯỚC KHI CODE</h2>
+                    <p class="ov-lead">
+                        <strong>Bất kỳ code mới nào (trang web mới hoặc tính năng Web 2.0)</strong>
+                        phải theo các quy ước dưới đây để giữ Web 2.0 độc lập hoàn toàn với Web 1.0.
+                        Đây là nguồn tham chiếu chuẩn — cập nhật khi kiến trúc đổi.
+                    </p>
+
+                    <div class="ov-db-grid">
+                        <!-- DB & Pool -->
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🗄️ Database &amp; Pool</h3>
+                            <ul>
+                                <li>
+                                    <strong>2 Postgres tách biệt</strong>:
+                                    <code>n2store-web2-db</code> (Web 2.0, pool
+                                    <code>web2Db</code> ← env <code>WEB2_DATABASE_URL</code>) vs
+                                    <code>n2store-chat-db</code> (Web 1.0, pool
+                                    <code>chatDb</code> ← <code>DATABASE_URL</code>).
+                                </li>
+                                <li>
+                                    Route/service Web 2.0 LUÔN lấy pool:
+                                    <code
+                                        >const db = req.app.locals.web2Db ||
+                                        req.app.locals.chatDb;</code
+                                    >
+                                    (web2Db chính, chatDb fallback khi env unset/dev).
+                                </li>
+                                <li>
+                                    <strong>TUYỆT ĐỐI KHÔNG</strong> ghi (INSERT/UPDATE/DELETE) vào
+                                    bảng Web 1.0 từ code Web 2.0. Bảng dùng chung tên (vd
+                                    <code>customers</code>) → web2Db giữ bản copy riêng.
+                                </li>
+                                <li>
+                                    Firestore: collection Web 2.0 prefix
+                                    <code>web2_&lt;entity&gt;/main</code> (vd
+                                    <code>web2_so_order</code>, <code>web2_supplier_wallet</code>).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Naming -->
+                        <div class="ov-db-card ov-db-info">
+                            <h3>🏷️ Đặt tên</h3>
+                            <ul>
+                                <li>
+                                    <strong>Bảng Postgres</strong>: prefix
+                                    <code>web2_&lt;entity&gt;</code> (vd <code>web2_products</code>,
+                                    <code>web2_balance_history</code>).
+                                </li>
+                                <li>
+                                    <strong>Router/API</strong>:
+                                    <code>/api/web2/&lt;entity&gt;</code> (mount dưới
+                                    <code>/api/web2/*</code>) hoặc
+                                    <code>/api/web2-&lt;entity&gt;</code>. KHÔNG dùng
+                                    <code>/api/v2/*</code> (namespace cũ — Web 1.0/mixed).
+                                </li>
+                                <li>
+                                    <strong>Service file</strong>:
+                                    <code>web2-&lt;name&gt;.js</code>; hàm nhận
+                                    <code>db</code> (pool) làm tham số đầu, KHÔNG hardcode pool.
+                                </li>
+                                <li>
+                                    <strong>Hàm</strong>: camelCase, prefix domain rõ (vd
+                                    <code>insertWeb2BalanceHistory</code>,
+                                    <code>processWeb2Match</code>, <code>upsertWeb2Customer</code>).
+                                </li>
+                                <li>
+                                    <strong>Giá trị enum / string định danh</strong> (cột
+                                    <code>channel</code>, topic, key, filter type…): prefix
+                                    <code>web2_</code>
+                                    <em>KHI có nguy cơ nhầm</em> với trang / hàm / field khác / bên
+                                    thứ 3. Vd cột <code>channel</code> đơn web dùng
+                                    <code>web2_livestream</code> + <code>web2_inbox</code> vì
+                                    <code>'inbox'</code> trùng Pancake filterType + icon lucide
+                                    <code>inbox</code>, <code>'livestream'</code> trùng field
+                                    product-line <code>source</code>.
+                                    <strong>KHÔNG prefix tất cả</strong> — chỉ đổi cái thật sự dễ
+                                    nhầm (mai mốt đọc code thấy rủi ro nhầm thì đổi).
+                                </li>
+                                <li>
+                                    <strong>File mới</strong>: thêm marker
+                                    <code>| WEB2.0 module.</code> vào header
+                                    <code>#Note</code> (HTML/JS dòng 1).
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Realtime + Patterns -->
+                        <div class="ov-db-card ov-db-success">
+                            <h3>⚡ Realtime &amp; Patterns</h3>
+                            <ul>
+                                <li>
+                                    <strong>Realtime</strong>: KHÔNG Firestore listener. Dùng SSE
+                                    hub Web 2.0 <code>/api/realtime/web2/sse</code>, topic
+                                    <code>web2:&lt;entity&gt;</code>. Server gọi
+                                    <code>web2RealtimeSseRoutes.notifyClients(topic, data)</code>
+                                    sau commit; client
+                                    <code>Web2SSE.subscribe('web2:&lt;entity&gt;', cb)</code>.
+                                </li>
+                                <li>
+                                    <strong>⚡ REALTIME, KHÔNG POLLER (BẮT BUỘC)</strong>: Web 2.0
+                                    KHÔNG dùng poller nền (đã bỏ — comment livestream = WS push qua
+                                    relay). Cần realtime → <strong>SSE</strong>; cần
+                                    <em>liệt kê / fetch dữ liệu Pancake</em> (bài live đang/đã, hội
+                                    thoại, comment…) →
+                                    <strong>fetch TRỰC TIẾP Pancake từ browser</strong> qua worker
+                                    <code>/api/pancake/*</code> + JWT (vd
+                                    <code>pages/{id}/posts?start_time&amp;end_time</code> cho
+                                    đang/đã livestream — đúng nguồn Pancake "Quản lý bài viết").
+                                    KHÔNG tạo / đi vòng qua poller server (<code>setInterval</code>
+                                    hay helper trong <code>web2-livestream-poller.js</code>). Helper
+                                    poller còn lại chỉ on-demand (reconcile "…", poll-now thủ công)
+                                    — đừng thêm mới.
+                                </li>
+                                <li>
+                                    <strong>Mutation UI-first</strong>: dùng
+                                    <code>Web2Optimistic.run({...})</code> (UI sync ngay, backend
+                                    nền, rollback nếu lỗi). Ngoại lệ giữ await: thao tác tiền.
+                                </li>
+                                <li>
+                                    <strong>Modal</strong>: class <code>modal-content</code> +
+                                    <code>modal-body</code> (auto anti-lag). KHÔNG
+                                    <code>backdrop-filter: blur()</code>.
+                                </li>
+                                <li>
+                                    <strong>Sidebar/shell</strong>: dùng
+                                    <code>web2/shared/web2-sidebar.js</code> +
+                                    <code>web2-theme.css?v=20260625anim</code>. KHÔNG import code từ
+                                    Web 1.0 (orders-report, inbox…).
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Trích xuất SĐT từ nội dung CK SePay — 1 NGUỒN DUY NHẤT
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🔑 Nguồn duy nhất</h3>
+                            <ul>
+                                <li>
+                                    <strong
+                                        ><code>render.com/services/web2-content-extractor.js</code>
+                                        → <code>extractIdentifier(content)</code></strong
+                                    >
+                                    là nguồn DUY NHẤT trích xuất SĐT/QR từ nội dung chuyển khoản.
+                                </li>
+                                <li>
+                                    <strong>CẢ matcher LẪN badge</strong> dùng chung hàm này:
+                                    <br />• Matcher
+                                    (<code>web2-sepay-matching.processWeb2Match</code>) → tìm KH
+                                    cộng ví. <br />• Badge "Đuôi SĐT" trên trang
+                                    <em>Lịch sử biến động số dư</em>
+                                    (<code>web2-balance-history.web2ExtractionPreview</code>) → hiển
+                                    thị candidate.
+                                </li>
+                                <li>
+                                    ⚠ KHÔNG tạo extractor thứ 2. Nếu badge ≠ matcher ⇒ user thấy
+                                    đuôi SĐT nhưng bấm "+ Gán KH" lại không ra KH (bug 2026-06-04,
+                                    đã gộp).
+                                </li>
+                                <li>
+                                    <code>web2-content-parser.extractPhoneCandidates</code> CHỈ phục
+                                    vụ confidence-scoring + audit script — KHÔNG dùng cho
+                                    badge/matcher.
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ov-db-card ov-db-info">
+                            <h3>📏 Luật trích xuất</h3>
+                            <ul>
+                                <li>
+                                    <strong>Chỉ dãy số dài 5–10</strong> mới lấy làm
+                                    <em>đuôi SĐT candidate</em> để tìm KH.
+                                </li>
+                                <li>
+                                    <strong>Dãy &gt; 10 số = KHÔNG phải SĐT → bỏ qua hẳn</strong>
+                                    (KHÔNG cắt 10 số cuối). Vd <code>0111000157612</code> (13),
+                                    <code>14472716252</code> (11) = số tài khoản → skip.
+                                </li>
+                                <li>
+                                    Khớp KH theo <strong>ĐUÔI</strong> (<code>phone.endsWith</code>
+                                    — "từ sau ra trước"), KHÔNG khớp đầu dãy.
+                                </li>
+                                <li>
+                                    <strong>Dash-GD = đuôi SĐT khách tự gõ</strong>:
+                                    <code>...-GD-&lt;digits&gt;-...</code> (vd
+                                    <code>coc shop nhi judy-GD-387721</code> → <code>387721</code>)
+                                    → GIỮ + ưu tiên cao nhất. KHÔNG strip.
+                                </li>
+                                <li>
+                                    Chỉ strip <strong>noise thật</strong>: datetime
+                                    <code>DDMMYY-HH:MM:SS</code>,
+                                    <code>FT&lt;digits&gt;</code> (bank tx id),
+                                    <code>GD &lt;digits&gt;&lt;CHỮ&gt;</code> (bank ref có chữ, vd
+                                    <code>GD 6151IBT1kCV8PCIK</code>).
+                                </li>
+                                <li>
+                                    Phone đầy đủ <code>0xxxxxxxxx</code> → ưu tiên cao nhất. VCB
+                                    <code>MBVCB.x.x.&lt;phone&gt;.CT</code> → lấy phone trực tiếp.
+                                </li>
+                                <li>
+                                    Lọc blacklist (STK shop <code>75918</code>, SĐT test) +
+                                    <code>isObviousTestPhone()</code>.
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="ov-db-card ov-db-success">
+                            <h3>🎯 Matcher quyết định</h3>
+                            <ul>
+                                <li>
+                                    Mỗi candidate → search WEB2 Partner (endsWith đuôi) → gom unique
+                                    phone (dedup).
+                                </li>
+                                <li>
+                                    <strong>1 unique phone</strong> → auto credit ví (
+                                    <code>exact_phone</code>/<code>single_match</code>).
+                                </li>
+                                <li>
+                                    <strong>&gt;1 unique phone</strong> →
+                                    <code>pending_match</code> → modal "Chọn khách hàng cho giao
+                                    dịch" để user chọn đúng KH.
+                                </li>
+                                <li>
+                                    <strong>0 match</strong> → giữ "Chưa gán", badge hiện đuôi để
+                                    gán tay.
+                                </li>
+                                <li>
+                                    QR riêng: <code>qrCandidates</code> (format
+                                    <code>&lt;slug&gt;&lt;partner_id&gt;</code> + legacy
+                                    <code>N2+16</code>) → lookup
+                                    <code>web2_payment_qr_codes</code> trước phone path.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Làm giàu kho KH khi bật chat Pancake (TỰ ĐỘNG, mọi nơi)
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🧲 Tự động ở MỌI trang</h3>
+                            <ul>
+                                <li>
+                                    Mỗi khi bật chat Pancake với 1 KH ở
+                                    <strong>BẤT KỲ trang nào</strong> (native-orders,
+                                    balance-history, web2-pancake, pancake-settings…), hệ thống tự
+                                    lưu <code>fb_id</code> KH vào kho
+                                    <code>web2_customers</code> nếu chưa có.
+                                </li>
+                                <li>
+                                    Logic nằm trong shared client <strong>1 nơi duy nhất</strong>:
+                                    <code>web2/shared/web2-chat-client.js</code> →
+                                    <code>Web2Chat.enrichCustomer(fbId,{name,phone})</code>, hook
+                                    sẵn trong <code>fetchConversations</code>. Trang nào load
+                                    Web2Chat là tự có — KHÔNG cần code lại.
+                                </li>
+                                <li>
+                                    <strong>Mục đích</strong>: kho KH biết đủ
+                                    <em>id / fb / tên / SĐT</em> → resolve + mở chat lần sau nhanh
+                                    hơn, coverage cao hơn (đỡ phải hỏi WEB2).
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>⚙️ Cơ chế backend</h3>
+                            <ul>
+                                <li>
+                                    Endpoint <code>POST /api/web2/customers/enrich-fb</code> (body
+                                    <code>{fbId, name?, phone?, crmTeamId?}</code>) — idempotent,
+                                    fire-and-forget, dedup per-session ở client (không spam).
+                                </li>
+                                <li>
+                                    Thứ tự resolve: (1) <code>fb_id</code> đã có → bỏ qua; (2) có
+                                    phone → <code>getOrCreateWeb2Customer</code> +
+                                    <code>linkFbId</code>; (3) không phone → WEB2
+                                    <code>chatomni/info</code> theo fb_id → upsert + link.
+                                </li>
+                                <li>
+                                    KH FB chưa có trong WEB2 (prospect chưa mua) → bỏ qua, KHÔNG tạo
+                                    rác (kho key theo WEB2 Partner Id).
+                                </li>
+                                <li>
+                                    Đây cũng là nguồn nuôi cho nút
+                                    <strong>"💬 Mở chat"</strong> ở balance-history (resolve
+                                    <code>phone → pageId+psid</code> qua
+                                    <code>native_orders</code> + <code>web2_customers.fb_id</code>).
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 class="ov-subsection-title" style="margin-top: 28px">
+                        Server wiring &amp; Migration infra
+                    </h3>
+                    <div class="ov-db-grid">
+                        <div class="ov-db-card ov-db-primary">
+                            <h3>🔌 Wiring (server.js)</h3>
+                            <ul>
+                                <li>
+                                    Mount:
+                                    <code
+                                        >app.use('/api/web2/&lt;entity&gt;',
+                                        require('./routes/...'))</code
+                                    >.
+                                </li>
+                                <li>
+                                    SSE notifier:
+                                    <code
+                                        >&lt;module&gt;.initializeNotifiers(web2RealtimeSseRoutes.notifyClients)</code
+                                    >.
+                                </li>
+                                <li>
+                                    Webhook/cron Web 2.0 truyền
+                                    <code>web2Pool || chatDbPool</code> (KHÔNG
+                                    <code>chatDbPool</code> trần) cho bảng web2.
+                                </li>
+                                <li>
+                                    Schema bảng web2 mới: tạo trên web2Db (qua admin schema-mirror,
+                                    hoặc <code>ensureSchema</code> trỏ <code>web2Pool</code>).
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-info">
+                            <h3>🛠️ Migration infra (admin)</h3>
+                            <ul>
+                                <li>
+                                    <code>db/web2-schema-mirror.js</code> — introspect schema thật
+                                    (pg_attribute + format_type) → DDL tường minh (gồm sequence,
+                                    constraint, partial index, generated column).
+                                </li>
+                                <li>
+                                    <code>db/web2-data-copy.js</code> — copy data idempotent +
+                                    sequence sync + JSON.stringify cột jsonb.
+                                </li>
+                                <li>
+                                    Endpoint (gate <code>x-admin-secret</code>):
+                                    <code>POST /api/admin/schema-mirror-web2</code>,
+                                    <code>POST /api/admin/data-copy-web2</code>,
+                                    <code>.../bump-sequences</code>, <code>.../verify</code>.
+                                </li>
+                                <li>
+                                    Test schema/migration trên <strong>local DB</strong> trước
+                                    (CREATE → DDL → INSERT fake → verify → DROP).
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="ov-db-card ov-db-success">
+                            <h3>✅ Checklist trang/feature MỚI</h3>
+                            <ul>
+                                <li>
+                                    Pool <code>web2Db || chatDb</code> · bảng <code>web2_</code> ·
+                                    route <code>/api/web2/</code>.
+                                </li>
+                                <li>
+                                    Base-URL backend: đọc
+                                    <code>window.API_CONFIG.WORKER_URL</code> /
+                                    <code>window.WEB2_CONFIG</code> (nguồn duy nhất ở
+                                    <code>web2-auth.js</code>, load sớm nhất). KHÔNG hardcode
+                                    <code>chatomni-proxy…</code> / <code>web2-api-kv04…</code> làm
+                                    nguồn chính — chỉ literal fallback. Đổi URL → sửa
+                                    <code>web2-auth.js</code>.
+                                </li>
+                                <li>
+                                    KHÔNG ghi bảng Web 1.0. KHÔNG <code>/api/v2/*</code> non-web2,
+                                    <code>/api/sepay/*</code>.
+                                </li>
+                                <li>
+                                    Realtime qua SSE <code>web2:&lt;entity&gt;</code>. Mutation qua
+                                    <code>Web2Optimistic</code>.
+                                </li>
+                                <li>Firestore (nếu cần) prefix <code>web2_</code>.</li>
+                                <li>
+                                    Header <code>#Note … | WEB2.0 module.</code> · cập nhật
+                                    <code>docs/dev-log.md</code>.
+                                </li>
+                                <li>
+                                    WEB2/Pancake (master dùng chung) đọc qua
+                                    <code>/api/odata/*</code> — OK, KHÔNG phải Web 1.0.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== DATA STORES (kho dùng chung) ===== -->
+                <section class="ov-section" id="datastores">
+                    <h2 class="section-title">🗂️ Kho dữ liệu dùng chung — DÙNG CHUNG 1 NGUỒN</h2>
+                    <p class="ov-lead">
+                        Mỗi loại dữ liệu (KH, sản phẩm, PBH, ví…) có
+                        <strong>MỘT nguồn canonical</strong>. Trang/feature mới PHẢI đọc &amp; ghi
+                        qua đúng endpoint dưới đây — KHÔNG tự tạo kho riêng, KHÔNG query trực tiếp
+                        bảng từ frontend. Sửa KH (tên/SĐT/địa chỉ) chỉ qua 1 endpoint duy nhất → tự
+                        đồng bộ WEB2 (2 chiều).
+                    </p>
+
+                    <div class="ov-store-table">
+                        <table class="ov-table">
+                            <thead>
+                                <tr>
+                                    <th>Kho</th>
+                                    <th>Nguồn / Master</th>
+                                    <th>ĐỌC (endpoint)</th>
+                                    <th>SỬA / GHI (endpoint)</th>
+                                    <th>Bảng / Collection</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>👤 Khách hàng</strong></td>
+                                    <td>WEB2 Partner (master) · cache web2Db</td>
+                                    <td>
+                                        <code>GET /api/web2/customers/search?search=</code><br />
+                                        <code>GET /api/web2/customers/:phone</code><br />
+                                        <code>GET /api/web2/customers/by-phone/:phone/orders</code>
+                                    </td>
+                                    <td>
+                                        <code>PATCH /api/web2/customers/:id</code><br />
+                                        <em
+                                            >(id = WEB2 Partner Id; tên/SĐT/địa chỉ → đẩy WEB2 by
+                                            web2Id + update cache. ĐÂY LÀ NƠI DUY NHẤT SỬA KH)</em
+                                        >
+                                    </td>
+                                    <td><code>web2_customers</code> (web2Db)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>📦 Sản phẩm</strong></td>
+                                    <td>web2Db (master riêng Web 2.0)</td>
+                                    <td>
+                                        <code>GET /api/web2-products/list</code> ·
+                                        <code>/pending</code>
+                                    </td>
+                                    <td>
+                                        <code>POST/PATCH/DELETE /api/web2-products/*</code>
+                                    </td>
+                                    <td>
+                                        <code>web2_products</code> ·
+                                        <code>web2_product_history</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🎨 Biến thể</strong></td>
+                                    <td>web2Db</td>
+                                    <td><code>GET /api/web2-variants/list</code></td>
+                                    <td><code>POST/PATCH/DELETE /api/web2-variants/*</code></td>
+                                    <td><code>web2_variants</code></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🧾 Phiếu bán hàng (PBH)</strong></td>
+                                    <td>web2Db (sync từ WEB2 FastSaleOrder)</td>
+                                    <td>
+                                        <code>GET /api/fast-sale-orders/load</code><br />
+                                        Báo cáo:
+                                        <code>/api/pbh-reports/{revenue,delivery,summary}</code>
+                                    </td>
+                                    <td><code>PATCH /api/fast-sale-orders/:id</code></td>
+                                    <td>
+                                        <code>fast_sale_orders</code> ·
+                                        <code>fast_sale_order_history</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🛒 Đơn Web</strong></td>
+                                    <td>web2Db (source-of-truth, đẩy ngược PBH)</td>
+                                    <td><code>GET /api/native-orders/load</code></td>
+                                    <td>
+                                        <code>PATCH /api/native-orders/:code</code>
+                                        <em>(sửa KH info → tự sync WEB2)</em>
+                                    </td>
+                                    <td>
+                                        <code>native_orders</code> ·
+                                        <code>web2_order_customers</code> (web2Db)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>💰 Ví Khách Hàng</strong></td>
+                                    <td>web2Db (SePay auto-credit)</td>
+                                    <td>
+                                        <code>GET /api/web2/wallets/by-phone/:phone</code><br />
+                                        <code>GET /api/web2/customer-wallet</code>
+                                    </td>
+                                    <td>
+                                        <code>POST /api/web2/customer-wallet</code> (nạp/rút tay)
+                                    </td>
+                                    <td>
+                                        <code>web2_customer_wallets</code> ·
+                                        <code>web2_wallet_transactions</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🏦 Lịch sử số dư (SePay)</strong></td>
+                                    <td>web2Db (webhook SePay fan-out)</td>
+                                    <td>
+                                        <code>GET /api/web2/balance-history</code> ·
+                                        <code>/stats</code>
+                                    </td>
+                                    <td>
+                                        <code>PATCH /api/web2/balance-history/:id/link</code>
+                                        (gán KH)
+                                    </td>
+                                    <td>
+                                        <code>web2_balance_history</code> ·
+                                        <code>web2_pending_matches</code> ·
+                                        <code>web2_match_audit</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>🚚 Ví NCC / Sổ Order / NCC</strong></td>
+                                    <td>Firestore Web 2.0 (local-first sync)</td>
+                                    <td>Firestore doc · <code>/api/wallet-deposits/load</code></td>
+                                    <td>Firestore set/merge · <code>/api/wallet-deposits</code></td>
+                                    <td>
+                                        <code>web2_supplier_wallet/main</code> ·
+                                        <code>web2_so_order/main</code> ·
+                                        <code>web2_suppliers/main</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>📊 KPI / Thông báo / Audit / Cart</strong></td>
+                                    <td>web2Db</td>
+                                    <td>
+                                        <code
+                                            >/api/web2/{kpi,dashboard-kpi,notifications,audit-log,cart}</code
+                                        >
+                                    </td>
+                                    <td>cùng prefix (POST/PATCH)</td>
+                                    <td>
+                                        <code>web2_kpi_*</code> · <code>web2_notifications</code> ·
+                                        <code>web2_cart_history</code>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="ov-db-note" style="margin-top: 16px">
+                        <strong>Quy tắc DÙNG CHUNG (BẮT BUỘC code mới):</strong>
+                        ① KH → luôn dùng <code>/api/web2/customers/*</code> (đọc) +
+                        <code>PATCH /:id</code> (sửa, tự sync WEB2). KHÔNG gọi
+                        <code>/api/v2/customers</code> Web 1.0, KHÔNG query bảng
+                        <code>customers</code> trực tiếp. ② Sản phẩm/PBH/Đơn/Ví → dùng đúng endpoint
+                        bảng trên, KHÔNG tạo kho song song. ③ WEB2/Pancake là master ngoài — đọc qua
+                        <code>/api/odata/*</code>. ④ Cần kho mới → thêm 1 dòng vào bảng này trước
+                        khi code.
+                    </p>
+
+                    <p
+                        class="ov-db-note"
+                        style="
+                            margin-top: 12px;
+                            border-left: 4px solid #f59e0b;
+                            background: #fffbeb;
+                        "
+                    >
+                        <strong>⚠ web2Db có 2 bảng KH — KHÔNG nhầm:</strong>
+                        <br />
+                        <strong>(1) <code>web2_customers</code></strong> — CANONICAL. Nguồn WEB2
+                        Partner (id = WEB2 Partner Id), dùng cho
+                        <em>tìm/sửa/đồng bộ 2 chiều</em> qua <code>/api/web2/customers/*</code>. Đây
+                        là kho mọi trang nên đọc/ghi.
+                        <br />
+                        <strong>(2) <code>web2_order_customers</code> (web2Db)</strong> — kho KH
+                        <em>đơn hàng riêng của native-orders</em> (Đơn Web).
+                        <strong>Đổi tên từ <code>customers</code> ngày 2026-06-03</strong> để hết
+                        trùng tên với Web 1.0. Schema giàu: <code>phone</code> (UNIQUE) ·
+                        <code>name</code> · <code>address</code> · <code>email</code> ·
+                        <code>fb_id</code> · <code>global_id</code> · <code>pancake_*</code> ·
+                        <code>status</code> · <code>tier</code> · <code>aliases</code> ·
+                        <code>alt_phones</code>. <strong>KHÔNG có cột hệ POS cũ</strong> (độc lập
+                        hoàn toàn hoàn toàn — xem <code>db/web2-customers-schema.js</code>). Nguồn
+                        dữ liệu là <strong>Pancake/Facebook</strong> (webhook đơn), từ
+                        Pancake/Facebook. <code>native_orders.customer_id</code> ref bảng này. Code
+                        dùng service riêng
+                        <code>services/web2-order-customer-service.js</code> (KHÔNG dùng
+                        <code>customer-creation-service</code> / <code>customer-helpers</code> của
+                        Web 1.0). Consumer: native-orders, fast-sale-orders, pbh-reports,
+                        web2-customer-orders. (route đồng bộ KH với hệ POS cũ đã gỡ 2026-06 — Web
+                        2.0 không gọi hệ POS cũ, bảng không có cột liên quan.)
+                        <br />
+                        <strong>Vì sao 2 kho tách:</strong>
+                        <code>web2_customers</code> = nguồn WEB2 (search/sửa, id = WEB2 Partner Id);
+                        <code>web2_order_customers</code> = nguồn Pancake/FB (đơn hàng, id tự tăng,
+                        phone UNIQUE). Khác master + khác schema → giữ tách theo vai trò. Khi cần
+                        thông tin KH chuẩn để sửa/đồng bộ WEB2 → luôn dùng
+                        <code>web2_customers</code>.
+                    </p>
+                </section>
+
+                <!-- ===== FUTURE ===== -->
+                <section class="ov-section" id="future">
+                    <h2 class="section-title">Gợi ý phát triển</h2>
+                    <p class="ov-lead">
+                        Dựa trên hạ tầng hiện tại (SSE realtime + Postgres + Firestore + JWT auth),
+                        các tính năng dưới đây có thể phát triển nhanh, ROI cao.
+                    </p>
+
+                    <div class="ov-future-grid">
+                        <article class="ov-future-card ov-future-1">
+                            <span class="ov-future-num">01</span>
+                            <h3>Dashboard KPI tổng</h3>
+                            <p>
+                                Single page hiển thị: doanh thu ngày/tuần/tháng, tồn kho thấp, công
+                                nợ NCC, ví KH overdraft, PBH cần đóng gói. Aggregate sẵn từ SSE
+                                topic.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-2">
+                            <span class="ov-future-num">02</span>
+                            <h3>Báo cáo công nợ + ví hợp nhất</h3>
+                            <p>
+                                Kết hợp supplier-debt + supplier-wallet thành 1 view có aging
+                                buckets (0-30 / 31-60 / 61-90 / 90+ ngày).
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-3">
+                            <span class="ov-future-num">03</span>
+                            <h3>Bulk import Excel</h3>
+                            <p>
+                                Cho web2-products, web2-variants, partner-supplier, so-order. Dùng
+                                SheetJS + endpoint <code>/bulk-create</code> đã có.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-4">
+                            <span class="ov-future-num">04</span>
+                            <h3>Mobile-friendly view</h3>
+                            <p>
+                                Toàn bộ Web 2.0 hiện desktop-only. Ưu tiên optimize reconcile +
+                                native-orders cho mobile (shipper + nhân viên ngoài shop).
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-5">
+                            <span class="ov-future-num">05</span>
+                            <h3>Audit trail viewer</h3>
+                            <p>
+                                <code>pbh_fulfillment_logs</code>, <code>wallet_adjustments</code>,
+                                <code>web2_product_history</code> đã có data nhưng chưa có UI riêng.
+                                Trang "Lịch sử thao tác" lọc theo user/action/date.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-6">
+                            <span class="ov-future-num">06</span>
+                            <h3>Notification center</h3>
+                            <p>
+                                Thay thế toast lẻ tẻ bằng inbox: PBH cần xác nhận, đơn cancel, ví
+                                âm, hàng tồn kho thấp, NCC duyệt refund.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-7">
+                            <span class="ov-future-num">07</span>
+                            <h3>Customer 360 cho NCC</h3>
+                            <p>
+                                Mở rộng từ Customer 360° (đã có cho KH) sang NCC: tổng quan đơn mua
+                                + công nợ + ví + ratings + chat history.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-8">
+                            <span class="ov-future-num">08</span>
+                            <h3>Print / Export hàng loạt</h3>
+                            <p>
+                                Barcode SP, label NCC, summary PDF cho so-order theo tab quốc gia,
+                                kế toán report cho balance-history.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-9">
+                            <span class="ov-future-num">09</span>
+                            <h3>Smart match SePay → order</h3>
+                            <p>
+                                Hiện manual link transaction; auto-suggest dựa trên SĐT + amount +
+                                recent orders, giảm tải accountant.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-11">
+                            <span class="ov-future-num">11</span>
+                            <h3>Inventory forecasting</h3>
+                            <p>
+                                Dựa trên velocity bán + pending so-order → warning hết hàng /
+                                suggest re-order. Tận dụng web2_products stock history.
+                            </p>
+                        </article>
+
+                        <article class="ov-future-card ov-future-12">
+                            <span class="ov-future-num">12</span>
+                            <h3>Permission UI cho Users</h3>
+                            <p>
+                                Endpoint <code>PUT /:id/permissions</code> đã có nhưng UI checkbox
+                                còn primitive; cần matrix view với role templates.
+                            </p>
+                        </article>
+                    </div>
+                </section>
+
+                <footer class="ov-footer">
+                    <p>
+                        Cập nhật mỗi commit. Source code:
+                        <code>web2/overview/index.html</code> ·
+                        <code>web2/overview/overview.css</code>.
+                    </p>
+                </footer>
+            </main>
+        </div>
+
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar) {
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'overview' });
+                }
+                if (window.lucide) lucide.createIcons();
+                renderOvAuth();
+            });
+
+            // Card đăng nhập/danh tính trên overview — đọc Web2Auth (login system).
+            function renderOvAuth() {
+                const statusEl = document.getElementById('ovAuthStatus');
+                const actsEl = document.getElementById('ovAuthActions');
+                if (!statusEl || !actsEl) return;
+                const btn = (href, text, bg, color, border) =>
+                    `<a href="${href}" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:700;text-decoration:none;background:${bg};color:${color};border:1px solid ${border || bg};cursor:pointer;">${text}</a>`;
+                const usersLink = btn(
+                    '../users/index.html',
+                    '👥 Quản lý người dùng',
+                    '#fff',
+                    '#475569',
+                    '#cbd5e1'
+                );
+                let user = null;
+                try {
+                    user =
+                        window.Web2Auth && window.Web2Auth.getStored
+                            ? window.Web2Auth.getStored()?.user
+                            : null;
+                } catch (e) {}
+                if (user) {
+                    const name =
+                        user.displayName || user.username || user.email || user.name || 'User';
+                    const role = user.role ? ` · ${user.role}` : '';
+                    statusEl.innerHTML = `✅ Đang đăng nhập: <b style="color:#0068ff">${name}</b><span style="color:#64748b;font-weight:500">${role}</span>`;
+                    actsEl.innerHTML =
+                        usersLink +
+                        `<button id="ovAuthLogout" style="height:38px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:700;background:#fff;color:#dc2626;border:1px solid #fecaca;cursor:pointer;">Đăng xuất</button>`;
+                    const lo = document.getElementById('ovAuthLogout');
+                    if (lo)
+                        lo.addEventListener('click', () => {
+                            if (window.Web2Auth?.logout) window.Web2Auth.logout({ redirect: true });
+                        });
+                } else {
+                    statusEl.innerHTML =
+                        '⚠️ <b>Chưa đăng nhập</b> — hành động trên web chưa gắn được danh tính (bill ghi "ẩn danh").';
+                    let loginUrl = '../login/index.html';
+                    try {
+                        if (window.Web2Auth?.loginUrl) loginUrl = window.Web2Auth.loginUrl();
+                    } catch (e) {}
+                    const next = encodeURIComponent(location.pathname + location.search);
+                    actsEl.innerHTML =
+                        btn(
+                            `${loginUrl}?next=${next}`,
+                            '→ Đăng nhập',
+                            '#0068ff',
+                            '#fff',
+                            '#0068ff'
+                        ) + usersLink;
+                }
+            }
+        </script>
+    </body>
+</html>

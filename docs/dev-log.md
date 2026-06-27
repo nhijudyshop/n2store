@@ -2,6 +2,20 @@
 
 ## 2026-06-27
 
+### [web2/overview] Login → overview + overview thành TRANG GIỚI THIỆU Framer-style (showcase toàn bộ Web 2.0)
+
+User hỏi web2/index.html có phải data cũ → xác minh git: KHÔNG (launcher sống). Chọn **(B)**: login mặc định nhảy `web2/overview` thay vì `web2/index.html`, và **biến overview thành trang giới thiệu toàn bộ Web 2.0** phong cách framer.com (sáng + bold + gradient xanh Zalo `#0068ff`→tím). Soi git 82 commit overview → xác nhận note "phải cập nhật overview #conventions/#auditPages" trong CLAUDE.md đã **stale/aspirational** (doc canonical đã di cư sang `web2/system` + `docs/web2/*.md`; audit R2/R3 không đụng overview). User đồng ý.
+
+- **Login redirect**: [`web2/login/index.html`](../web2/login/index.html) 2 chỗ `../index.html` → `../overview/index.html`.
+- **Archive overview cũ** (3223 dòng docs) → [`web2/overview/legacy-overview.html`](../web2/overview/legacy-overview.html) + `legacy-overview.css` (self-contained, link cũ vẫn resolve). KHÔNG mất tài liệu.
+- **Trang mới** [`web2/overview/index.html`](../web2/overview/index.html) + `overview.css` + `overview.js` (tách module, self-contained, KHÔNG `.web2-theme`): hero kinetic typography (SplitText), aurora gradient drift, marquee, 4 pillars, **showcase 52 module/13 nhóm** (catalog CHÍNH XÁC từ `web2-sidebar.js` NAV — manifest 3-entry đã hỏng), filter chip + search, CTA, footer. Ẩn nhóm/module admin theo `Web2Auth role`.
+- **Motion stack** (CDN, chỉ trang này): GSAP 3.15 + ScrollTrigger + SplitText (free) + Lenis 1.3.25 smooth-scroll. Reveal dùng IntersectionObserver (degrade an toàn nếu CDN lỗi). Reuse research: [[reference_web2_design_system]] (#0068ff), `Web2Motion`/`Web2Lottie` đã có sẵn nhưng dùng GSAP cho framer-feel.
+- **Fix bug visual**: chữ gradient "toàn bộ" trong suốt sau SplitText (bọc char trong `<div>` → mất `background-clip:text`) → CSS cho mọi con `.ov-grad-text *` mang gradient.
+- **Tối ưu lag** (đo Playwright): aurora `filter:blur(60px)` chuyển từ parent → **từng span** (GPU layer cache, không re-blur mỗi frame), bỏ `will-change` thừa trên 52 card, bỏ parallax aurora scroll. Kết quả: **idle 60fps/max 22ms/0 longtask**; cuộn nhanh full trang ~56fps, jank frames **110→14**, 0 blocking; filter click **1ms**; card click điều hướng đúng.
+- **Dọn CLAUDE.md**: 4 reference stale (rule 9, `#conventions` canonical, webhook note, browser-test rationale) → trỏ sang `legacy-overview.html` + `web2/system` + `docs/web2/*.md`.
+
+Files: `web2/login/index.html`, `web2/overview/{index.html,overview.css,overview.js,legacy-overview.html,legacy-overview.css}`, `CLAUDE.md`. Status: ✅
+
 ### [docs/web2] KB-doc "Dịch vụ & Hạ tầng" cho NotebookLM + Claude-read-first
 
 User muốn "tích hợp NotebookLM vào Web 2.0" để ghi cái đáng chú ý rồi "kêu Claude đọc trước khi code". **Ràng buộc thật:** NotebookLM KHÔNG có API công khai → Claude KHÔNG đọc trực tiếp được (không connector/MCP). Giải pháp 1-nguồn-2-nơi-đọc: viết KB markdown trong repo → (a) Claude đọc được, (b) user upload lên NotebookLM hỏi-đáp.
