@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dea1909` — docs: flow audit R2 — 13/13 FIXED (8 HIGH/MEDIUM + 5 LOW + SAVEPOINT regression fix)
-**Last updated**: 2026-06-26 18:18:30 +07
-**Latest session**: [`RESUME:20260626-181830-dea1909`](../20260626-181830-dea1909.md)
-**Summary**: Hoàn tất 13/13 bug audit R2 web2 (8 HIGH/MEDIUM + 5 LOW): ví thu hộ over-mint/race, KPI revoke gộp, dashboard net revenue, delivery sync (SAVEPOINT), from-pbh dedupe, Sửa COD, split guard, processWithdraw 23505, pollDeposits lookback, matchSupplier ambiguity — verify 39 assertions integration test Postgres
+**Latest commit**: `fb697db` — auto: session update
+**Last updated**: 2026-06-27 08:07:02 +07
+**Latest session**: [`RESUME:20260627-080702-fb697db`](../20260627-080702-fb697db.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -60,7 +58,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-26 18:18
+- [`render.com/`](./render.com.md) — updated 2026-06-27 08:07
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-25 22:08
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
