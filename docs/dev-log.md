@@ -2,6 +2,20 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Fix scroll cả trang + đẩy panel "Điều khiển màn TV" xuống dưới
+
+User: (1) không scroll được, (2) chuyển panel điều khiển TV xuống dưới.
+
+**Root cause scroll**: `.main-content` = `height:100vh; overflow:hidden` → không cuộn; `.lc-root` không phải scroll container nên nội dung dài (board + panel TV) bị cắt. `.lc-board/.lc-picker` lại `overscroll-behavior:contain` → wheel bị "kẹt" trong pane.
+
+**Fix** (chỉ CSS, không đụng HTML):
+
+- `.lc-root` → `display:flex; flex-direction:column; flex:1; min-height:0; overflow-y:auto` = scroll container của trang; `.lc-root > * { flex-shrink:0 }` giữ chiều cao con (không co).
+- `.lc-tvctl { order:10 }` → đẩy XUỐNG DƯỚI (sau `.lc-cols`) mà không phải di chuyển 55 dòng HTML; margin-top thay margin-bottom.
+- `.lc-board/.lc-picker`: bỏ `overscroll-behavior:contain` (wheel hết pane lan ra cuộn cả trang), max-height 230→200.
+
+**Verify browser**: `rootCanScroll:true` (scrollH 1322 > clientH 900); panel TV `order:10`, `tvTop 958 > colsTop 137` (dưới board); screenshot cuộn xuống thấy panel "📺 Điều khiển màn TV" + mini-preview ở đáy. Cache-bust css `tv2`.
+
 ### [gemini-tryon] Test thật try-on (1.jpg+2.jpg) → free hết lượt, fallback paid + fix cooldown "limit resets"
 
 Browser-test như user thật: upload 1.jpg (người) + 2.jpg (quần áo) → bấm Ghép đồ → đọc network/console. KẾT QUẢ: pipeline ĐÚNG, 0 console error, ảnh 896×1152 render. NHƯNG: network cho thấy `/tryon` máy shop 37s + `web2-ai/image` (paid) 13.7s; `uses=0` cả 5 account → **ảnh thực tế do NANO BANANA TRẢ PHÍ tạo** (free fail → fallback). Lỗi free: "Tất cả account lỗi/hết lượt — I can create more images as soon as your limit resets" = **5 account Gemini đều HẾT LƯỢT ảnh free/ngày**. Fix `app.py`: `_QUOTA_RE` thêm "limit reset|create more images|check your usage" → account hết lượt vào cooldown (không thử lại 37s/lần); `COOLDOWN_SEC` 3h→8h (free reset theo ngày). ⚠ Máy shop phải reinstall để nhận fix. Bài học: free Gemini image quota/ngày RẤT ÍT — 5 acc vẫn hết nhanh, hay rớt về paid.

@@ -3,6 +3,17 @@
 .lc-root {
     padding: 14px 18px 48px;
     max-width: 1280px;
+    /* .main-content là height:100vh + overflow:hidden → lc-root phải tự cuộn (nếu
+       không, nội dung dài bị cắt, "không scroll được"). flex column để dùng order
+       đẩy panel điều khiển TV xuống dưới. */
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+.lc-root > * {
+    flex-shrink: 0; /* giữ chiều cao tự nhiên, để lc-root cuộn thay vì co con */
 }
 .lc-header {
     display: flex;
@@ -154,9 +165,10 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: calc(100vh - 230px);
+    max-height: calc(100vh - 200px);
     overflow-y: auto;
-    overscroll-behavior: contain;
+    /* KHÔNG overscroll-behavior:contain — để wheel khi cuộn hết pane lan ra lc-root
+       (cuộn cả trang xuống panel điều khiển TV ở dưới). */
 }
 .lc-empty {
     text-align: center;
@@ -501,7 +513,8 @@
 
 /* ── Điều khiển màn TV (layout + lật trang + mini-TV preview) ───────── */
 .lc-tvctl {
-    margin: 0 0 14px;
+    order: 10; /* đẩy XUỐNG DƯỚI cùng (sau .lc-cols) trong lc-root flex column */
+    margin: 16px 0 0;
     border: 1px solid #e6e9f0;
     border-radius: 14px;
     background: #fff;
