@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `034a950` — auto: session update
-**Last updated**: 2026-06-27 19:35:26 +07
-**Latest session**: [`RESUME:20260627-193526-034a950`](../20260627-193526-034a950.md)
-**Summary**: auto: session update
+**Latest commit**: `6f6dc5c` — feat(gemini-tryon): uu tien model Flash o cookie + xoay tua, fail thi fallback Nano Banana paid (+model fallback resilience)
+**Last updated**: 2026-06-27 19:41:44 +07
+**Latest session**: [`RESUME:20260627-194144-6f6dc5c`](../20260627-194144-6f6dc5c.md)
+**Summary**: feat(gemini-tryon): uu tien model Flash o cookie + xoay tua, fail thi fallback Nano Banana paid (+model fallback resi...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
+- [`gemini-tryon/`](./gemini-tryon.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -35,7 +35,7 @@
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 19:26
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 19:41
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 19:32
+- [`web2/`](./web2.md) — updated 2026-06-27 19:41
