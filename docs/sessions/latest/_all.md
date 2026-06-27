@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5d231ef` — fix(gemini-tryon): server lên ngay (init account chạy nền) — cookie hỏng không kẹt cổng 8131
-**Last updated**: 2026-06-27 12:05:50 +07
-**Latest session**: [`RESUME:20260627-120550-5d231ef`](../20260627-120550-5d231ef.md)
-**Summary**: fix(gemini-tryon): server lên ngay (init account chạy nền) — cookie hỏng không kẹt cổng 8131
+**Latest commit**: `2f7e2d9` — fix(gemini-tryon): heartbeat đăng ký registry — SSL certifi + User-Agent (worker chặn Python-urllib 403)
+**Last updated**: 2026-06-27 12:16:17 +07
+**Latest session**: [`RESUME:20260627-121617-2f7e2d9`](../20260627-121617-2f7e2d9.md)
+**Summary**: fix(gemini-tryon): heartbeat đăng ký registry — SSL certifi + User-Agent (worker chặn Python-urllib 403)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`gemini-tryon/`](./gemini-tryon.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,14 +28,14 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 12:05
+- [`docs/`](./docs.md) — updated 2026-06-27 12:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 12:04
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 12:16
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
