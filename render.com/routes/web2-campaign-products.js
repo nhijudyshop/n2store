@@ -53,6 +53,16 @@ function _notify(action, campaignId) {
         console.warn('[WEB2-CAMPAIGN-PRODUCTS] _notify failed:', e.message);
     }
 }
+// Broadcast trạng thái điều khiển màn TV (rows/cols/page) — topic riêng để live-tv
+// + tab live-control khác lật trang/đổi layout realtime. Cùng hub web2 (_notifyClients).
+function _notifyTvControl(control) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:live-tv-control', { ...control, ts: Date.now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-CAMPAIGN-PRODUCTS] _notifyTvControl failed:', e.message);
+    }
+}
 
 const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
@@ -79,6 +89,18 @@ async function ensureTables(pool) {
         `ALTER TABLE web2_campaign_products
             ADD COLUMN IF NOT EXISTS removed BOOLEAN NOT NULL DEFAULT false`
     );
+    // 2026-06-27: ĐIỀU KHIỂN MÀN TV per-campaign — layout (rows×cols) + trang đang
+    // chiếu. live-control ghi (PATCH /control) → SSE web2:live-tv-control → live-tv
+    // lật trang/đổi layout realtime cho viewer xem. 1 dòng / chiến dịch.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS web2_live_tv_control (
+            campaign_id  BIGINT PRIMARY KEY,
+            rows         INTEGER NOT NULL DEFAULT 1,
+            cols         INTEGER NOT NULL DEFAULT 4,
+            page         INTEGER NOT NULL DEFAULT 0,
+            updated_at   BIGINT
+        );
+    `);
     _ensuredPools.add(pool);
 }
 
@@ -474,6 +496,89 @@ router.patch('/pending', requireWeb2AuthSoft, async (req, res) => {
         });
     } catch (e) {
         console.error('[WEB2-CAMPAIGN-PRODUCTS] set pending error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// ĐIỀU KHIỂN MÀN TV (live-control ⇄ live-tv) — layout + trang đang chiếu.
+// -----------------------------------------------------
+const TV_DEFAULT = { rows: 1, cols: 4, page: 0 };
+function clampInt(v, min, max, dflt) {
+    const n = Math.floor(Number(v));
+    if (!Number.isFinite(n)) return dflt;
+    return Math.max(min, Math.min(max, n));
+}
+
+// GET /control?campaignId=X → { success, control:{rows,cols,page} } (default nếu chưa có).
+router.get('/control', requireWeb2AuthSoft, async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const campaignId = Number(req.query.campaignId);
+    if (!Number.isFinite(campaignId)) {
+        return res.status(400).json({ success: false, error: 'campaignId required' });
+    }
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT rows, cols, page FROM web2_live_tv_control WHERE campaign_id = $1`,
+            [campaignId]
+        );
+        const control = r.rows.length
+            ? {
+                  rows: Number(r.rows[0].rows) || TV_DEFAULT.rows,
+                  cols: Number(r.rows[0].cols) || TV_DEFAULT.cols,
+                  page: Math.max(0, Number(r.rows[0].page) || 0),
+              }
+            : { ...TV_DEFAULT };
+        res.json({ success: true, control });
+    } catch (e) {
+        console.error('[WEB2-CAMPAIGN-PRODUCTS] control get error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// PATCH /control?campaignId=X {rows?,cols?,page?} — upsert phần được gửi, broadcast
+// web2:live-tv-control. rows 1..6, cols 1..10, page ≥ 0 (clamp số sản phẩm ở client).
+router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const campaignId = Number(req.query.campaignId ?? req.body?.campaignId);
+    if (!Number.isFinite(campaignId)) {
+        return res.status(400).json({ success: false, error: 'campaignId required' });
+    }
+    const b = req.body || {};
+    try {
+        await ensureTables(pool);
+        // Đọc hiện tại (hoặc default) rồi merge field được gửi → upsert tuyệt đối.
+        const cur = await pool.query(
+            `SELECT rows, cols, page FROM web2_live_tv_control WHERE campaign_id = $1`,
+            [campaignId]
+        );
+        const base = cur.rows.length
+            ? {
+                  rows: Number(cur.rows[0].rows) || TV_DEFAULT.rows,
+                  cols: Number(cur.rows[0].cols) || TV_DEFAULT.cols,
+                  page: Math.max(0, Number(cur.rows[0].page) || 0),
+              }
+            : { ...TV_DEFAULT };
+        const next = {
+            rows: b.rows != null ? clampInt(b.rows, 1, 6, base.rows) : base.rows,
+            cols: b.cols != null ? clampInt(b.cols, 1, 10, base.cols) : base.cols,
+            page: b.page != null ? Math.max(0, clampInt(b.page, 0, 9999, base.page)) : base.page,
+        };
+        await pool.query(
+            `INSERT INTO web2_live_tv_control (campaign_id, rows, cols, page, updated_at)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (campaign_id)
+               DO UPDATE SET rows = EXCLUDED.rows, cols = EXCLUDED.cols,
+                             page = EXCLUDED.page, updated_at = EXCLUDED.updated_at`,
+            [campaignId, next.rows, next.cols, next.page, Date.now()]
+        );
+        _notifyTvControl({ campaignId, ...next });
+        res.json({ success: true, control: next });
+    } catch (e) {
+        console.error('[WEB2-CAMPAIGN-PRODUCTS] control patch error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });

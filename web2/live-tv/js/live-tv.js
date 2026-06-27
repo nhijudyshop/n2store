@@ -3,7 +3,14 @@
     'use strict';
 
     var LS_KEY = 'ltv_campaign';
-    var state = { campaignId: null, campaignName: '', codes: new Set(), groups: [] };
+    var state = {
+        campaignId: null,
+        campaignName: '',
+        codes: new Set(),
+        groups: [],
+        control: { rows: 1, cols: 4, page: 0 }, // layout + trang đang chiếu (do live-control điều khiển)
+        _prevPage: 0, // để biết hướng slide khi đổi trang
+    };
     var reloadTimer = null;
 
     var $ = function (id) {
@@ -95,9 +102,24 @@
             ? '<span class="ltv-supplier-badge">' + esc(g.supplier) + '</span>'
             : '';
         var rows = g.variants.map(variantRowHtml).join('');
+        // Trạng thái card (cảnh báo màu): hết hàng / sắp hết / nhiều KH mới.
+        var st = (window.Web2LiveTvDisplay && window.Web2LiveTvDisplay.cardState(g)) || {};
+        var cls = 'ltv-card';
+        if (g.pinned) cls += ' is-pinned';
+        if (st.soldOut) cls += ' is-card-soldout';
+        else if (st.low) cls += ' is-card-low';
+        if (st.hot) cls += ' is-card-hot';
+        var warn = st.soldOut
+            ? '<span class="ltv-warn-badge ltv-warn-out">HẾT HÀNG</span>'
+            : st.low
+              ? '<span class="ltv-warn-badge ltv-warn-low">SẮP HẾT · còn ' + st.con + '</span>'
+              : '';
+        var hot = st.hot
+            ? '<span class="ltv-warn-badge ltv-warn-hot">🔥 ' + st.newCust + ' khách mới</span>'
+            : '';
         return (
-            '<article class="ltv-card' +
-            (g.pinned ? ' is-pinned' : '') +
+            '<article class="' +
+            cls +
             '" data-img="' +
             esc(g.imageUrl || '') +
             '">' +
@@ -105,6 +127,8 @@
             img +
             pin +
             sup +
+            warn +
+            hot +
             '</div>' +
             '<div class="ltv-card-body">' +
             '<h2 class="ltv-card-name">' +
@@ -118,22 +142,43 @@
         );
     }
 
+    function setPageInd(page, total) {
+        var el = $('ltvPageInd');
+        if (!el) return;
+        el.textContent = 'Trang ' + page + '/' + total;
+        el.hidden = total <= 1;
+    }
+
+    // Hiệu ứng slide khi ĐỔI TRANG (không chạy khi chỉ refresh data cùng trang).
+    function animatePage(grid, dir) {
+        grid.classList.remove('ltv-slide-l', 'ltv-slide-r');
+        void grid.offsetWidth; // reflow để restart animation
+        grid.classList.add(dir >= 0 ? 'ltv-slide-r' : 'ltv-slide-l');
+    }
+
     function render() {
         var grid = $('ltvGrid');
         if (!state.groups.length) {
             showEmpty('Chiến dịch chưa có sản phẩm nào. Mở trang Điều khiển để thêm SP.', false);
             $('ltvCount').textContent = '0 sản phẩm';
+            setPageInd(0, 0);
             return;
         }
         $('ltvEmpty').hidden = true;
         grid.hidden = false;
-        grid.innerHTML = state.groups.map(cardHtml).join('');
-        var nSp = state.groups.length;
-        var nVar = state.groups.reduce(function (a, g) {
-            return a + g.variantCount;
-        }, 0);
-        $('ltvCount').textContent =
-            nSp + ' sản phẩm' + (nVar > nSp ? ' · ' + nVar + ' biến thể' : '');
+        var c = state.control;
+        var pg = window.Web2LiveTvDisplay.paginate(state.groups, c.rows, c.cols, c.page);
+        // Layout grid theo cấu hình (lấp đầy stage, không cuộn — mỗi trang vừa 1 màn).
+        grid.style.gridTemplateColumns = 'repeat(' + c.cols + ', minmax(0, 1fr))';
+        grid.style.gridTemplateRows = 'repeat(' + c.rows + ', minmax(0, 1fr))';
+        grid.innerHTML = pg.pageGroups.map(cardHtml).join('');
+        setPageInd(pg.page + 1, pg.totalPages);
+        $('ltvCount').textContent = state.groups.length + ' sản phẩm';
+        // Slide chỉ khi trang thực sự đổi.
+        if (pg.page !== state._prevPage) {
+            animatePage(grid, pg.page - state._prevPage);
+            state._prevPage = pg.page;
+        }
     }
 
     // ── Data ──────────────────────────────────────────
@@ -166,10 +211,38 @@
         reloadTimer = setTimeout(reload, 500);
     }
 
+    // Tải trạng thái điều khiển (rows/cols/page) — gọi lúc chọn chiến dịch.
+    async function loadControl() {
+        if (state.campaignId == null) return;
+        try {
+            var c = await window.Web2Campaign.getTvControl(state.campaignId);
+            if (c) state.control = { rows: c.rows || 1, cols: c.cols || 4, page: c.page || 0 };
+            if (state.groups.length) render();
+        } catch (e) {
+            /* default 1×4 — không chặn hiển thị */
+        }
+    }
+
+    // Áp cấu hình điều khiển từ SSE (live-control lật trang / đổi layout) → render lại.
+    function applyControl(d) {
+        if (!d) return;
+        if (d.campaignId != null && Number(d.campaignId) !== Number(state.campaignId)) return;
+        state.control = {
+            rows: Number(d.rows) || state.control.rows,
+            cols: Number(d.cols) || state.control.cols,
+            page: d.page != null ? Math.max(0, Number(d.page) || 0) : state.control.page,
+        };
+        render();
+    }
+
     // SSE: web2:campaign-products (membership) → reload nếu đúng chiến dịch.
     //      web2:products (tồn/chờ đổi) → reload nếu SP nằm trong board.
     function onSse(msg) {
         var d = (msg && msg.data) || {};
+        if (msg.topic === 'web2:live-tv-control') {
+            applyControl(d);
+            return;
+        }
         if (msg.topic === 'web2:campaign-products') {
             if (d.campaignId == null || Number(d.campaignId) === Number(state.campaignId))
                 scheduleReload();
@@ -241,7 +314,9 @@
                 showEmpty('Đang tải…', false);
             }
         }
+        state._prevPage = 0;
         reload();
+        loadControl();
     }
 
     // ── Wire ──────────────────────────────────────────
@@ -289,6 +364,10 @@
             // cập nhật realtime khi KH thêm/bớt giỏ (không cần refresh).
             window.Web2SSE.subscribe('web2:native-orders', function () {
                 scheduleReload();
+            });
+            // Điều khiển màn TV (live-control lật trang / đổi layout) → áp ngay.
+            window.Web2SSE.subscribe('web2:live-tv-control', function (m) {
+                onSse({ topic: 'web2:live-tv-control', eventType: m.eventType, data: m.data });
             });
         }
         var params = new URLSearchParams(location.search);

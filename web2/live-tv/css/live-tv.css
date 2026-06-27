@@ -139,16 +139,48 @@
 /* ── Stage / grid ─────────────────────────────────── */
 .ltv-stage {
     flex: 1 1 auto;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden; /* phân trang: mỗi trang vừa đúng 1 màn, KHÔNG cuộn */
     padding: var(--ltv-gap) clamp(14px, 2vw, 36px) clamp(20px, 3vw, 48px);
     overscroll-behavior: contain;
 }
 .ltv-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(clamp(230px, 21vw, 460px), 1fr));
+    /* grid-template-columns/rows set inline theo cấu hình rows×cols (live-tv.js) */
     gap: var(--ltv-gap);
-    align-content: start;
+    height: 100%;
+    align-content: stretch;
+}
+/* Hiệu ứng trượt khi đổi trang (compositor-friendly: transform + opacity). */
+@keyframes ltvSlideR {
+    from {
+        opacity: 0;
+        transform: translateX(5%);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@keyframes ltvSlideL {
+    from {
+        opacity: 0;
+        transform: translateX(-5%);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.ltv-grid.ltv-slide-r {
+    animation: ltvSlideR 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ltv-grid.ltv-slide-l {
+    animation: ltvSlideL 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ltv-chip-page {
+    background: var(--ltv-primary);
+    color: #fff;
+    border-color: transparent;
 }
 
 /* ── Card ─────────────────────────────────────────── */
@@ -160,8 +192,11 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-    content-visibility: auto;
-    contain-intrinsic-size: 360px;
+    min-height: 0; /* để card co vừa ô grid (mỗi trang lấp đầy màn) */
+    transition:
+        box-shadow 0.2s,
+        border-color 0.2s,
+        opacity 0.2s;
 }
 .ltv-card.is-pinned {
     border-color: var(--ltv-primary);
@@ -169,10 +204,29 @@
         0 0 0 2px var(--ltv-primary),
         0 8px 24px rgba(0, 0, 0, 0.3);
 }
+/* Cảnh báo màu (viền nổi bật): sắp hết (CÒN thấp) · hot (nhiều KH mới) · hết hàng. */
+.ltv-card.is-card-low {
+    border-color: var(--ltv-pending);
+    box-shadow:
+        0 0 0 2px rgba(251, 191, 36, 0.6),
+        0 8px 24px rgba(0, 0, 0, 0.28);
+}
+.ltv-card.is-card-hot {
+    border-color: #f472b6;
+    box-shadow:
+        0 0 0 2px rgba(244, 114, 182, 0.65),
+        0 8px 24px rgba(0, 0, 0, 0.28);
+}
+.ltv-card.is-card-soldout {
+    opacity: 0.45;
+    border-color: var(--ltv-line);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
 .ltv-card-img {
     position: relative;
     width: 100%;
-    aspect-ratio: 1 / 1;
+    flex: 1 1 auto; /* lấp đầy phần còn lại của ô grid sau phần body */
+    min-height: 0;
     background: var(--ltv-surface-2);
     overflow: hidden;
     cursor: zoom-in;
@@ -222,7 +276,34 @@
     display: flex;
     flex-direction: column;
     gap: clamp(8px, 0.7vw, 14px);
-    flex: 1;
+    flex: 0 0 auto; /* body cao tự nhiên; ảnh phía trên co/giãn lấp ô */
+}
+/* Badge cảnh báo trên ảnh: SẮP HẾT / HẾT HÀNG (trái) · 🔥 KH mới (phải). */
+.ltv-warn-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-size: clamp(0.62rem, 0.85vw, 0.98rem);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    padding: 0.25em 0.7em;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.ltv-warn-low {
+    background: var(--ltv-pending);
+    color: #1a1200;
+}
+.ltv-warn-out {
+    background: rgba(248, 113, 113, 0.95);
+    color: #fff;
+}
+.ltv-warn-hot {
+    left: auto;
+    right: 8px;
+    background: #f472b6;
+    color: #2a0a1a;
 }
 .ltv-card-name {
     font-size: clamp(1.05rem, 1.5vw, 2rem);

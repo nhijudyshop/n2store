@@ -7,7 +7,7 @@
         <meta name="theme-color" content="#0068ff" />
         <title>TV Livestream — Số lượng Live</title>
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260625anim" />
-        <link rel="stylesheet" href="./css/live-tv.css?v=20260625a" />
+        <link rel="stylesheet" href="./css/live-tv.css?v=20260627tv" />
     </head>
     <body class="ltv-body">
         <header class="ltv-topbar" aria-label="Thanh điều khiển TV">
@@ -17,6 +17,7 @@
             </div>
             <div class="ltv-meta">
                 <span class="ltv-chip" id="ltvCount">0 sản phẩm</span>
+                <span class="ltv-chip ltv-chip-page" id="ltvPageInd" hidden>Trang 1/1</span>
                 <span class="ltv-chip ltv-chip-muted" id="ltvSync">—</span>
                 <button class="ltv-btn" id="ltvPickBtn" type="button">Đổi chiến dịch</button>
                 <button class="ltv-btn" id="ltvFsBtn" type="button" title="Toàn màn hình">⛶</button>
@@ -49,8 +50,9 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-skeleton.js?v=20260625a"></script>
         <script src="../shared/web2-variant-group.js?v=20260627lc"></script>
-        <script src="../shared/web2-campaign.js?v=20260627lc"></script>
+        <script src="../shared/web2-live-tv-display.js?v=20260627tv"></script>
+        <script src="../shared/web2-campaign.js?v=20260627tv"></script>
         <script src="../shared/web2-image-lightbox.js?v=20260621livetv"></script>
-        <script src="./js/live-tv.js?v=20260627lc2"></script>
+        <script src="./js/live-tv.js?v=20260627tv"></script>
     </body>
 </html>

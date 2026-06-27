@@ -163,6 +163,23 @@
             });
         },
 
+        // ── Điều khiển màn TV (layout + trang) ────────────────────────
+        // getTvControl → { rows, cols, page } (default 1×4 nếu chưa cấu hình).
+        // setTvControl(patch) → upsert phần được gửi + broadcast web2:live-tv-control.
+        async getTvControl(campaignId) {
+            const j = await _json(
+                `${CP_BASE()}/control?campaignId=${encodeURIComponent(campaignId)}`
+            );
+            return (j && j.control) || { rows: 1, cols: 4, page: 0 };
+        },
+        async setTvControl(campaignId, patch) {
+            const j = await _patch(
+                `${CP_BASE()}/control?campaignId=${encodeURIComponent(campaignId)}`,
+                patch || {}
+            );
+            return (j && j.control) || null;
+        },
+
         // ── Realtime ──────────────────────────────────────────────────
         // cb({ topic, eventType, data }). Subscribe CẢ 2 topic: chiến dịch (bài) +
         // SP-trong-chiến-dịch. Trả hàm unsubscribe gộp.
