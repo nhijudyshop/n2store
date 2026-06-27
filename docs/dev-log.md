@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [web2/products] P4 — Kho SP gom SP CHA–CON: dòng cha + mã cha + expand sửa con
+
+**Files:** `web2/products/js/{web2-products-render.js,web2-products-state.js,web2-products-app.js}`, `web2/products/css/web2-products.css`, `web2/products/index.html`.
+
+SP cùng cha/cùng tên nhiều biến thể (vd ÁO SƠ MI LỤA: Màu Ghi + Màu Đỏ) gom thành **1 dòng CHA**, expand xem CON. Dùng `Web2VariantGroup.group(items,{by:'parent'})` — parent_code khi có, fallback name+supplier+region (data hiện tại phẳng), GIỮ thứ tự gốc bảng (sort theo vị trí xuất hiện đầu, KHÔNG theo tên).
+
+- **Dòng CHA** (`_parentRowHtml`): cột BIẾN THỂ liệt kê mọi biến thể + tổng tồn; TRẠNG THÁI gộp (CHỜ HÀNG ×Σpending / Đang bán / Mua 1 phần); nút chevron expand. SP 1 biến thể/standalone → dòng thường.
+- **Mã CHA ra cột MÃ SP**: `parent_code` thật, fallback tiền tố CHUNG dài nhất các mã con (HCAO3GHI+HCAO4DO→`HCAO`; HCQUAN2JT2+HCQUAN3SH29→`HCQUAN`), min 3 ký tự; kèm nhãn "N biến thể" nhỏ dưới.
+- **CON tách biệt** (`.is-child` + `.is-child-first/last`): thanh dọc tím trái, nền tím nhạt, viền dashed giữa con, viền đậm đóng khối; thụt lề + ↳. Nối liền cha→con khi mở (bỏ viền đáy cha).
+- **Sửa từng con**: dòng con là SP thật → giữ nguyên nút Sửa/In/Xóa/Lịch sử (edit-per-child free). Checkbox CHA chọn cả nhóm. Expand state `STATE.expandedParents` (Set).
+- Thêm `web2-variant-group.js` vào HTML; bump `state/app=p4`, `render/css=p5`.
+
 ### [web2/live-tv + shared] "SẮP HẾT" tỉ lệ + biến thể dài không bị cắt "..." trên TV
 
 **Files:** `web2/shared/web2-live-tv-display.js`, `web2/live-tv/{css/live-tv.css,index.html}`, `web2/live-control/index.html`.

@@ -955,3 +955,116 @@
 .pm-type-empty a {
     color: #4f46e5;
 }
+
+/* ── SP CHA–CON (P4 2026-06-27): dòng cha gom biến thể + expand xem con ── */
+.w2p-group-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.w2p-group-badge i {
+    width: 13px;
+    height: 13px;
+}
+/* Nút expand chevron — xoay khi mở */
+.w2p-expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition:
+        transform 0.18s ease,
+        background 0.15s ease;
+}
+.w2p-expand-toggle:hover {
+    background: #f1f5f9;
+    color: #4f46e5;
+}
+.w2p-expand-toggle i {
+    width: 15px;
+    height: 15px;
+    transition: transform 0.18s ease;
+}
+.w2p-expand-toggle.is-open i {
+    transform: rotate(90deg);
+}
+/* "N biến thể" phụ dưới mã cha (nhỏ hơn) */
+.w2p-parent-code {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+.w2p-group-badge-sub {
+    font-size: 11px;
+    padding: 1px 7px;
+    background: #f5f3ff;
+}
+.code-badge.code-parent {
+    background: #ede9fe;
+    color: #6d28d9;
+    border-color: #ddd6fe;
+}
+/* dòng CHA nổi nhẹ để phân biệt với dòng thường */
+tr.is-parent {
+    background: #faf9ff;
+}
+tr.is-parent:hover {
+    background: #f3f0ff;
+}
+tr.is-parent.is-expanded {
+    background: #f1ecfe;
+}
+/* Khi mở: nối liền CHA → CON (bỏ viền đáy của cha để thành 1 khối) */
+tr.is-parent.is-expanded > td {
+    border-bottom-color: transparent;
+}
+
+/* ── dòng CON: gom thành 1 KHỐI tách biệt (thụt lề + thanh trái tím + nền tím nhạt
+   + bo góc mở/đóng khối + tách khỏi nhóm kế tiếp) ── */
+tr.is-child > td {
+    background: #f7f5ff;
+    border-bottom: 1px dashed #e9e4fb;
+}
+tr.is-child:hover > td {
+    background: #efeafe;
+}
+/* thanh dọc tím chạy suốt nhóm con (đặt ở ô đầu) + thụt nội dung */
+tr.is-child > td:first-child {
+    box-shadow: inset 5px 0 0 #a78bfa;
+}
+/* con ĐẦU: thêm khoảng cách trên cho tách khỏi cha một chút */
+tr.is-child-first > td {
+    border-top: 1px solid #e2dcf7;
+}
+/* con CUỐI: đóng khối bằng viền đáy đậm + đệm tách khỏi dòng kế */
+tr.is-child-last > td {
+    border-bottom: 2px solid #d6cdf5;
+}
+.w2p-child-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #475569;
+    padding-left: 10px;
+}
+.w2p-child-arrow {
+    color: #8b5cf6;
+    font-weight: 800;
+    font-size: 14px;
+}

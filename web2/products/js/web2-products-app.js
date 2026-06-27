@@ -175,9 +175,31 @@
         // - Select-all header checkbox toggle visible rows
         // - Bulk bar buttons (clear + print)
         tbody()?.addEventListener('change', (e) => {
+            // Checkbox dòng CHA (P4): chọn/bỏ TẤT CẢ biến thể con của nhóm.
+            const par = e.target.closest('input[data-select-codes]');
+            if (par) {
+                (par.dataset.selectCodes || '')
+                    .split(',')
+                    .filter(Boolean)
+                    .forEach((c) => W._toggleSelect(c, par.checked));
+                const tr = par.closest('tr');
+                if (tr) tr.classList.toggle('is-selected', par.checked);
+                return;
+            }
             const inp = e.target.closest('input[data-select-code]');
             if (!inp) return;
             W._toggleSelect(inp.dataset.selectCode, inp.checked);
+        });
+        // Expand/thu gọn dòng CHA (P4 cha-con) — toggle nhóm rồi render lại.
+        tbody()?.addEventListener('click', (e) => {
+            const tog = e.target.closest('.w2p-expand-toggle');
+            if (!tog) return;
+            e.preventDefault();
+            const key = tog.dataset.groupKey;
+            if (!key) return;
+            if (W.STATE.expandedParents.has(key)) W.STATE.expandedParents.delete(key);
+            else W.STATE.expandedParents.add(key);
+            W.renderRows();
         });
         $('#selectAllProducts')?.addEventListener('change', (e) => {
             W._selectAllVisible(e.target.checked);

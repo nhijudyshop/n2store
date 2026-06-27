@@ -32,6 +32,9 @@
         editingCode: null, // null = creating, string = editing
         usage: {}, // productCode → array of order entries (from /usage endpoint)
         selectedCodes: new Set(), // P1 2026-05-30: multi-select cho bulk in tem
+        // P4 cha-con 2026-06-27: SP cùng cha/cùng tên nhiều biến thể gom 1 dòng CHA
+        // (expand xem CON). Set<groupKey> các nhóm đang mở. Reset khi đổi trang/search.
+        expandedParents: new Set(),
     };
 
     W.$ = (sel) => document.querySelector(sel);

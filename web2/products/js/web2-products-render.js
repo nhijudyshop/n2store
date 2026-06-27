@@ -30,7 +30,9 @@
     // _rowHtml(p, n) — render 1 <tr> cho 1 product với index n.
     // Tách thành helper để dùng được cho cả full renderRows() và in-place
     // update (tránh giật bảng khi SSE event update).
-    function _rowHtml(p, n) {
+    function _rowHtml(p, n, opts) {
+        opts = opts || {};
+        const isChild = !!opts.child; // dòng CON dưới 1 SP cha (thụt lề + ↳)
         const imgSrc = safeImageUrl(p.imageUrl);
         const imgHtml = imgSrc
             ? `<img class="product-image" src="${escapeHtml(imgSrc)}" alt="" loading="lazy"
@@ -50,13 +52,22 @@
         const variantText = (p.variant || '').trim();
         const checked = STATE.selectedCodes.has(p.code) ? ' checked' : '';
         const rowSelectedClass = STATE.selectedCodes.has(p.code) ? ' is-selected' : '';
+        const trClass = (
+            rowSelectedClass +
+            (isChild ? ' is-child' : '') +
+            (opts.childFirst ? ' is-child-first' : '') +
+            (opts.childLast ? ' is-child-last' : '')
+        ).trim();
+        const nameCell = isChild
+            ? `<td><div class="w2p-child-name" style="font-weight:500;"><span class="w2p-child-arrow">↳</span>${escapeHtml(p.name)}</div></td>`
+            : `<td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>`;
         return `
-                <tr data-code="${escapeHtml(p.code)}" class="${rowSelectedClass.trim()}">
+                <tr data-code="${escapeHtml(p.code)}" class="${trClass}">
                     <td class="select-cell"><input type="checkbox" class="w2p-checkbox" data-select-code="${escapeHtml(p.code)}"${checked} /></td>
                     <td>${n}</td>
                     <td>${imgHtml}</td>
                     <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(escJs(p.code))}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
-                    <td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>
+                    ${nameCell}
                     <td class="variant-cell">
                         <div class="variant-stack">${
                             variantText
@@ -111,6 +122,90 @@
                 </tr>`;
     }
 
+    // Dòng CHA (P4 cha-con): gom SP cùng cha/cùng tên nhiều biến thể → 1 dòng tổng,
+    // expand xem các CON. Cột Biến Thể liệt kê mọi biến thể + tổng tồn; Trạng thái
+    // tính gộp. Checkbox chọn CHA = chọn tất cả CON. Hành động sửa/in nằm ở dòng CON.
+    // Mã CHA hiển thị: ưu tiên parent_code thật (Migration 070, mọi con cùng cha);
+    // SP phẳng cùng tên (chưa có parent_code) → tiền tố CHUNG dài nhất của các mã con
+    // (vd HCQUAN2JT2 + HCQUAN3SH29 → "HCQUAN"). Min 3 ký tự mới coi là mã cha.
+    function _commonPrefix(arr) {
+        if (!arr || !arr.length) return '';
+        let p = String(arr[0] || '');
+        for (const s of arr) {
+            const t = String(s || '');
+            let i = 0;
+            while (i < p.length && i < t.length && p[i] === t[i]) i++;
+            p = p.slice(0, i);
+            if (!p) break;
+        }
+        return p;
+    }
+    function _parentDisplayCode(g) {
+        const reals = g.variants.map((v) => v.orig && v.orig.parentCode).filter(Boolean);
+        if (reals.length === g.variants.length && new Set(reals).size === 1) return reals[0];
+        const lcp = _commonPrefix(g.variants.map((v) => v.code).filter(Boolean));
+        return lcp.length >= 3 ? lcp : '';
+    }
+
+    function _parentRowHtml(g, n, expanded) {
+        const imgSrc = safeImageUrl(g.imageUrl);
+        const imgHtml = imgSrc
+            ? `<img class="product-image" src="${escapeHtml(imgSrc)}" alt="" loading="lazy"
+                       onerror="this.style.display='none';this.nextElementSibling?.style.setProperty('display','inline-flex');">` +
+              `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
+            : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
+        const childCodes = g.variants.map((v) => v.code).filter(Boolean);
+        const totalStock = Number(g.totalStock) || 0;
+        const totalPending = Number(g.totalPending) || 0;
+        const stockClass = totalStock === 0 ? 'zero' : totalStock < 5 ? 'low' : '';
+        const pills = g.variants
+            .map(
+                (v) =>
+                    `<span class="variant-pill">${escapeHtml((v.variant || '').trim() || '—')}</span>`
+            )
+            .join('');
+        const rep = (g.variants[0] && g.variants[0].orig) || {};
+        const statusHtml =
+            totalStock > 0
+                ? totalPending > 0
+                    ? `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Tổng: đã nhận ${totalStock}, còn ${totalPending} chờ mua"><i data-lucide="package-2"></i>MUA 1 PHẦN</span>`
+                    : `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
+                : totalPending > 0
+                  ? `<span class="active-badge active-pending" title="Tổng còn chờ hàng các biến thể"><i data-lucide="clock"></i>CHỜ HÀNG (×${totalPending})</span>`
+                  : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
+        const allSel = childCodes.length && childCodes.every((c) => STATE.selectedCodes.has(c));
+        const someSel = childCodes.some((c) => STATE.selectedCodes.has(c));
+        const gkey = escapeHtml(g.key);
+        const parentCode = _parentDisplayCode(g);
+        // MÃ SP: mã CHA (nếu có) hiện ra cột như SP thường + nhãn "N biến thể" nhỏ dưới.
+        const codeCell = parentCode
+            ? `<span class="code-badge code-product code-parent" title="Mã sản phẩm cha" onclick="Web2ProductsApp.copyCode('${escapeHtml(escJs(parentCode))}')"><i data-lucide="tag"></i>${escapeHtml(parentCode)}</span><span class="w2p-group-badge w2p-group-badge-sub" title="${g.variantCount} biến thể con"><i data-lucide="layers"></i>${g.variantCount} biến thể</span>`
+            : `<span class="w2p-group-badge" title="Sản phẩm cha — ${g.variantCount} biến thể"><i data-lucide="layers"></i>${g.variantCount} biến thể</span>`;
+        return `
+                <tr class="is-parent${expanded ? ' is-expanded' : ''}${allSel ? ' is-selected' : ''}" data-group-key="${gkey}">
+                    <td class="select-cell"><input type="checkbox" class="w2p-checkbox w2p-checkbox-parent" data-select-codes="${escapeHtml(childCodes.join(','))}"${allSel ? ' checked' : ''} aria-label="Chọn cả nhóm" /></td>
+                    <td>${n}</td>
+                    <td>${imgHtml}</td>
+                    <td><div class="w2p-parent-code">${codeCell}</div></td>
+                    <td><div class="w2p-parent-name" style="font-weight:700;display:flex;align-items:center;gap:6px;">
+                        <button class="w2p-expand-toggle${expanded ? ' is-open' : ''}" data-group-key="${gkey}" title="${expanded ? 'Thu gọn' : 'Xem các biến thể'}" aria-expanded="${expanded ? 'true' : 'false'}"><i data-lucide="chevron-right"></i></button>
+                        ${escapeHtml(g.name)}</div></td>
+                    <td class="variant-cell">
+                        <div class="variant-stack">${pills}<span class="stock-badge ${stockClass}" title="Tổng tồn các biến thể"><i data-lucide="package"></i>Tồn: ${totalStock}</span></div>
+                    </td>
+                    <td class="price-cell price-buy">${fmtPrice(Number(rep.originalPrice) || 0)}</td>
+                    <td class="price-cell price-sell">${fmtPrice(Number(rep.price) || 0)}</td>
+                    <td class="region-cell">${g.region ? `<span class="w2p-region-badge">${escapeHtml(g.region)}</span>` : '<span class="w2p-region-empty">—</span>'}</td>
+                    <td class="note-cell"><div class="web2-note-cell">—</div></td>
+                    <td>${statusHtml}</td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="btn-action w2p-expand-toggle${expanded ? ' is-open' : ''}" data-group-key="${gkey}" title="${expanded ? 'Thu gọn' : 'Xem các biến thể'}"><i data-lucide="chevron-down"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+    }
+
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
@@ -121,9 +216,46 @@
             _updateBulkBar();
             return;
         }
-        tbody().innerHTML = items
-            .map((p, idx) => _rowHtml(p, (STATE.page - 1) * STATE.limit + idx + 1))
-            .join('');
+        const baseN = (STATE.page - 1) * STATE.limit;
+        const VG = window.Web2VariantGroup;
+        if (VG && VG.group) {
+            // Gom CHA-CON: parent_code khi có (Migration 070), fallback name+supplier+
+            // region (SP phẳng cùng tên cùng nguồn). Giữ THỨ TỰ gốc của bảng (theo vị
+            // trí xuất hiện đầu tiên trong STATE.products) — KHÔNG sort lại theo tên.
+            const orderIdx = new Map(items.map((p, i) => [p.code, i]));
+            const firstIdx = (g) =>
+                Math.min(...g.variants.map((v) => orderIdx.get(v.code) ?? Number.MAX_SAFE_INTEGER));
+            const groups = VG.group(items, { by: 'parent' }).sort(
+                (a, b) => firstIdx(a) - firstIdx(b)
+            );
+            let n = baseN;
+            const html = [];
+            for (const g of groups) {
+                if (g.variantCount <= 1) {
+                    n += 1;
+                    html.push(_rowHtml((g.variants[0] && g.variants[0].orig) || {}, n));
+                } else {
+                    n += 1;
+                    const expanded = STATE.expandedParents.has(g.key);
+                    html.push(_parentRowHtml(g, n, expanded));
+                    if (expanded) {
+                        const last = g.variants.length - 1;
+                        g.variants.forEach((v, ci) =>
+                            html.push(
+                                _rowHtml(v.orig, '', {
+                                    child: true,
+                                    childFirst: ci === 0,
+                                    childLast: ci === last,
+                                })
+                            )
+                        );
+                    }
+                }
+            }
+            tbody().innerHTML = html.join('');
+        } else {
+            tbody().innerHTML = items.map((p, idx) => _rowHtml(p, baseN + idx + 1)).join('');
+        }
         if (window.lucide) lucide.createIcons();
         _updateSelectAllState();
         _updateBulkBar();
