@@ -22,6 +22,10 @@
             variant: prefill.variant || '',
             // category = loại SP theo món "Áo + Quần" (Web2VariantPicker). Mỗi món 1 biến thể.
             category: prefill.category || '',
+            // variantQtys: SL từng biến thể khi 1 món tách >1 (cartesian) → [{variant,qty}].
+            // qty (dưới) = TỔNG khi có variantQtys. productGroupId set lúc explode/submit.
+            variantQtys: Array.isArray(prefill.variantQtys) ? prefill.variantQtys : [],
+            productGroupId: prefill.productGroupId || null,
             qty: Number.isFinite(Number(prefill.qty)) ? Number(prefill.qty) : 1,
             costPrice: Number(prefill.costPrice) || 0,
             sellPrice: Number(prefill.sellPrice) || 0,
@@ -232,11 +236,30 @@
             if (!row) return;
             const ctl = window.Web2VariantPicker.mount(host, {
                 compact: true,
+                withQty: true,
+                qty: Number(row.qty) || 1,
                 category: row.category || '',
                 value: row.variant || '',
-                onChange: ({ variant, category, name }) => {
+                onChange: ({ variant, category, name, variantQtys, totalQty }) => {
                     row.variant = variant;
                     row.category = category;
+                    // SL từng biến thể (combos>1) → row.qty = TỔNG, ô SL khoá (read-only).
+                    row.variantQtys = Array.isArray(variantQtys) ? variantQtys : [];
+                    const qtyInput = document.querySelector(
+                        `#soModalProductsBody input[data-field="qty"][data-uid="${uid}"]`
+                    );
+                    if (row.variantQtys.length > 1) {
+                        row.qty = totalQty;
+                        if (qtyInput) {
+                            qtyInput.value = totalQty;
+                            qtyInput.readOnly = true;
+                            qtyInput.title =
+                                'SL = tổng các biến thể (sửa SL từng biến thể bên dưới)';
+                        }
+                    } else if (qtyInput) {
+                        qtyInput.readOnly = false;
+                        qtyInput.title = '';
+                    }
                     // Tự tạo TÊN SP từ loại+biến thể (vd "ÁO TRẮNG QUẦN ĐEN") — điền vào
                     // ô Tên. CÓ THỂ SỬA: chỉ điền khi ô tên đang trống hoặc bằng tên
                     // auto trước đó (user chưa gõ tay / chưa chọn SP từ gợi ý).

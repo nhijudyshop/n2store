@@ -303,7 +303,20 @@
             const vstr = (r.variant || '').trim();
             const variants = vstr.includes('+') ? [] : window.Web2VariantMulti.expand(vstr);
             if (variants.length > 1) {
-                for (const v of variants) out.push({ ...r, variant: v });
+                // SP nhiều biến thể → N dòng CON cùng productGroupId (Kho tạo 1 CHA +
+                // N con). SL từng biến thể từ r.variantQtys (picker withQty), fallback r.qty.
+                const groupId =
+                    'pg-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+                const qtyMap = {};
+                for (const vq of r.variantQtys || []) {
+                    if (vq && vq.variant != null) qtyMap[String(vq.variant)] = Number(vq.qty) || 0;
+                }
+                for (const v of variants) {
+                    const q = Object.prototype.hasOwnProperty.call(qtyMap, v)
+                        ? qtyMap[v]
+                        : Number(r.qty) || 0;
+                    out.push({ ...r, variant: v, qty: q, productGroupId: groupId });
+                }
             } else {
                 out.push(r);
             }

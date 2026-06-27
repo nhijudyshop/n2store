@@ -677,6 +677,9 @@
                 variant: rowData.variant || '',
                 // category = loại SP theo món, ngăn ' + ' (vd "Áo + Quần"). Web2VariantPicker.
                 category: rowData.category || '',
+                // productGroupId: nhóm các dòng CON cùng 1 SP nhiều biến thể (→ Kho tạo
+                // 1 CHA + N con). KHÁC invoiceGroupId (nhóm cả ĐƠN). null = SP phẳng.
+                productGroupId: rowData.productGroupId || null,
                 qty: Number(rowData.qty) || 0,
                 sellPrice: Number(rowData.sellPrice) || 0,
                 costPrice: Number(rowData.costPrice) || 0,
