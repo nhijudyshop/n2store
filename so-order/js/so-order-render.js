@@ -463,6 +463,35 @@
             for (let k = i + 1; k < j; k++) out[k].inv = { render: false, span: 0 };
             i = j;
         }
+        // SP CHA nhiều biến thể: gom các dòng biến thể CÙNG SP (productGroupId nếu có,
+        // fallback CÙNG TÊN) TRONG CÙNG đơn → đánh dấu dòng đầu (nameHead) + dòng tiếp
+        // (nameCont, hiện "↳" thay vì lặp tên) + dòng cuối nhóm (nameLast) cho CSS gom
+        // khối. Chỉ gom khi nhóm ≥2 (SP đơn lẻ không đổi).
+        const pkeyOf = (r) =>
+            String(r.productGroupId || '').trim() ||
+            'n:' +
+                String(r.productName || '')
+                    .trim()
+                    .toLowerCase();
+        i = 0;
+        while (i < rows.length) {
+            let j = i + 1;
+            const gid = rows[i].invoiceGroupId || rows[i].id;
+            const pk = pkeyOf(rows[i]);
+            while (
+                j < rows.length &&
+                (rows[j].invoiceGroupId || rows[j].id) === gid &&
+                pkeyOf(rows[j]) === pk &&
+                (rows[i].productName || '').trim()
+            )
+                j++;
+            if (j - i > 1) {
+                out[i].nameHead = true;
+                for (let k = i + 1; k < j; k++) out[k].nameCont = true;
+                out[j - 1].nameLast = true;
+            }
+            i = j;
+        }
         return out;
     };
 
@@ -684,7 +713,11 @@
             stt: `<td class="so-cell-stt">${idx + 1}</td>`,
             productName: edit
                 ? SO.editableCellHtml('productName', r, rid, sid)
-                : `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${SO.escapeHtml(r.productName || '—')}${khoCodeHtml}${khoCode && window.Web2Deeplink ? '<span class="so-kho-link">' + window.Web2Deeplink.linkBtn({ label: '', icon: 'package', url: window.Web2Deeplink.url.product(khoCode), title: 'Mở trong Kho SP' }) + '</span>' : ''}</td>`,
+                : `<td class="so-cell-product${meta?.nameCont ? ' so-cell-product-cont' : ''}${meta?.nameHead ? ' so-cell-product-head' : ''}" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${
+                      meta?.nameCont
+                          ? '<span class="so-cell-product-arrow" title="Cùng SP cha — biến thể khác">↳</span>'
+                          : SO.escapeHtml(r.productName || '—')
+                  }${khoCodeHtml}${khoCode && window.Web2Deeplink ? '<span class="so-kho-link">' + window.Web2Deeplink.linkBtn({ label: '', icon: 'package', url: window.Web2Deeplink.url.product(khoCode), title: 'Mở trong Kho SP' }) + '</span>' : ''}</td>`,
             variant: edit
                 ? SO.editableCellHtml('variant', r, rid, sid)
                 : `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${variantCellInner}</td>`,
@@ -724,10 +757,16 @@
         const lockedClass = r.status === 'received' ? ' is-locked' : '';
         // Nền xen kẽ theo NHÓM NCC (đơn): nhóm lẻ thêm .so-grp-alt (CSS tô nhạt).
         const grpAltClass = meta?.nccParity === 1 ? ' so-grp-alt' : '';
+        // SP cha nhiều biến thể: class gom khối (đầu/tiếp/cuối nhóm) cho CSS bracket.
+        const vgClass =
+            (meta?.nameHead ? ' so-vargroup-head' : '') +
+            (meta?.nameCont ? ' so-vargroup-cont' : '') +
+            (meta?.nameLast ? ' so-vargroup-last' : '');
         return (
             '<tr class="so-data-row' +
             lockedClass +
             grpAltClass +
+            vgClass +
             '" data-row-id="' +
             rid +
             '" data-shipment-id="' +

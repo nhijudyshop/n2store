@@ -2,6 +2,16 @@
 
 ## 2026-06-27
 
+### [so-order] Gom SP cha nhiều biến thể: tên cha hiện 1 lần, biến thể "↳" thụt khối
+
+**Files:** `so-order/js/so-order-render.js`, `so-order/css/so-order.css`, `so-order/index.html`.
+
+Các dòng biến thể CÙNG SP trong 1 đơn (vd ÁO SƠ MI LỤA: Màu Ghi + Màu Đỏ) gom 1 khối: dòng đầu hiện TÊN cha, dòng tiếp hiện **"↳"** thay tên lặp (vẫn giữ mã con + biến thể riêng). Thanh dọc tím ở cột Tên SP gom khối + viền đáy đậm đóng nhóm.
+
+- `_computeRowSpans` thêm pass đánh dấu `nameHead`/`nameCont`/`nameLast`: gom theo `productGroupId` (P3) fallback CÙNG TÊN, TRONG CÙNG `invoiceGroupId`, chỉ khi nhóm ≥2. Độc lập với rowspan NCC/Ảnh-HĐ sẵn có.
+- `rowHtml`: VIEW mode → dòng cont hiện "↳" + class `so-vargroup-*`. EDIT mode KHÔNG đổi (mỗi biến thể vẫn ô tên editable riêng). Receive/inline-edit không ảnh hưởng (chỉ đổi hiển thị tên view).
+- Bump `so-order-render.js` + `so-order.css` = `20260627p4`.
+
 ### [web2/products] P4 — Kho SP gom SP CHA–CON: dòng cha + mã cha + expand sửa con
 
 **Files:** `web2/products/js/{web2-products-render.js,web2-products-state.js,web2-products-app.js}`, `web2/products/css/web2-products.css`, `web2/products/index.html`.

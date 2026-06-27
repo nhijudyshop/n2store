@@ -270,6 +270,28 @@
     letter-spacing: 0.02em;
 }
 
+/* ── SP CHA nhiều biến thể (2026-06-27): gom các dòng biến thể cùng SP trong 1 đơn.
+   Dòng đầu (head) hiện TÊN cha; dòng tiếp (cont) hiện "↳" thay tên lặp + giữ mã con.
+   Thanh dọc tím ở cột Tên SP gom khối; viền đáy đậm đóng khối ở dòng cuối. ── */
+.so-table tbody tr.so-vargroup-head > td.so-cell-product,
+.so-table tbody tr.so-vargroup-cont > td.so-cell-product {
+    box-shadow: inset 3px 0 0 #a78bfa;
+}
+.so-cell-product-head {
+    font-weight: 700;
+}
+.so-cell-product-cont {
+    padding-left: 6px;
+}
+.so-cell-product-arrow {
+    color: #8b5cf6;
+    font-weight: 800;
+    font-size: 14px;
+}
+.so-table tbody tr.so-vargroup-last > td {
+    border-bottom: 2px solid #ddd6fe;
+}
+
 /* SL gộp vào cột Biến thể */
 .so-cell-sl {
     font-weight: 600;
