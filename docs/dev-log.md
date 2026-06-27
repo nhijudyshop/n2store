@@ -2,6 +2,17 @@
 
 ## 2026-06-27
 
+### [web2/live-control + live-tv] Gom SP CHA–CON nhiều biến thể thành 1 card (by:'parent')
+
+**Files:** `web2/shared/web2-variant-group.js`, `web2/live-control/{js/live-control.js,index.html}`, `web2/live-tv/{js/live-tv.js,index.html}`, `render.com/routes/{web2-campaign-products.js,web2-products.js}`.
+
+User: SP cùng sản phẩm cha + nhiều biến thể → màn TV (hình 1) + board điều khiển (hình 2) phải gom 1 card nhiều biến thể (vd ÁO SƠ MI LỤA Màu Ghi + Màu Đỏ đang là 2 card riêng → 1 card 2 dòng biến thể).
+
+- **`Web2VariantGroup` thêm mode `by:'parent'`**: key = `parent_code` khi có (cha-con thật Migration 070, 100% chuẩn) → fallback `name+supplier+region` cho SP phẳng/legacy (data hiện tại CHƯA có parent_code: HCAO3GHI/HCAO4DO là 2 SP phẳng cùng name+NCC+HƯƠNG CHÂU). Region trong key ⇒ **không tái phát bug 2026-06-25** (QUẦN SHORT KAKI HƯƠNG CHÂU vs HÀ NỘI vẫn tách). Dòng `is_parent` (aggregate) bị BỎ khi gom (tránh double-count tồn).
+- **Backend campaign route** `web2-campaign-products.js`: list trả thêm `parentCode`/`isParent`; `autoSyncPending` thêm `AND is_parent = false` (không auto-add dòng CHA aggregate lên board). **`web2-products.js`** pending endpoint thêm `AND is_parent = false`.
+- live-control (board + picker pending + picker all) + live-tv reload đổi `by:'code'` → `by:'parent'`. Hạ tầng board/card/ops (up/down/pin/✕ + NCC edit per-biến-thể) đã iterate `g.variants` sẵn → gom "just works".
+- Bump cache-bust `v=20260627tv10`. Status: ✅ FE live khi refresh; BE deploy web2-api (auto).
+
 ### [gemini-tryon] Research GitHub gemini_webapi image-gen + fix (model Flash + watchdog_timeout)
 
 User: ưu tiên model Flash ở cookie → xoay tua → fail fallback Nano Banana; rồi research GitHub. **Workflow research 4 agent** (issues HanaokaYuzu/Gemini-API): **nguyên nhân gốc** "limit resets" KHÔNG phải hết quota (nếu hết thật → ném `UsageLimitExceeded`) mà **route SAI MODEL** (default UNSPECIFIED không bật image tool → Gemini trả text từ chối) — issue #204/#252/#332. **Fix áp dụng**: (a) ép model `gemini-3-flash` (BASIC_FLASH, #252) + fallback auto nếu phiên không khớp; (b) `client.init(watchdog_timeout=max(GEN_TIMEOUT,300))` — ảnh gen >120s bị watchdog mặc định giết (#294/PR#301), truyền phòng thủ try/except TypeError; (c) GEN_TIMEOUT 150→200, frontend timeout 180s→240s; (d) prompt có "generate" (đã có). **Kết luận research**: free cookie ảnh = best-effort, Google anti-automation (#250/#318) → KHÔNG ổn định lâu dài, đổi model là gãy; **production nên dùng Nano Banana TRẢ PHÍ** (đã có fallback tự động). Không lib free nào tốt hơn (alt #57 broken). Bump `web2-tryon.js?v=20260627k`. ⚠ Máy shop reinstall để test fix.

@@ -131,6 +131,11 @@ function mapItem(row) {
         returnQty: Number(row.return_qty) || 0,
         status: row.status || 'DANG_BAN',
         supplier: row.supplier || null,
+        // SP CHA–CON (Migration 070): parentCode = mã CHA (con trỏ về), isParent =
+        // dòng aggregate. Màn TV/board gom các CON cùng CHA thành 1 card (nhiều biến
+        // thể) qua Web2VariantGroup.group(..., {by:'parent'}). SP phẳng: parentCode=null.
+        parentCode: row.parent_code || null,
+        isParent: !!row.is_parent,
         // địa danh nhập hàng (Sổ Order: HÀ NỘI/HƯƠNG CHÂU) — cho chip lọc/badge picker.
         // Fallback prefix mã khi region rỗng (SP cũ chưa backfill).
         region: row.region || regionFromCode(row.product_code),
@@ -200,8 +205,10 @@ async function autoSyncPending(pool, campaignId) {
     // LIMIT bound worst-case (CHO_MUA là working-set nhỏ, nhưng phòng tích tụ):
     // chỉ auto-add tối đa 300 SP chờ hàng mới nhất / lần. Đủ cho 1 phiên live.
     const pend = await pool.query(
+        // is_parent = false: KHÔNG auto-add dòng CHA aggregate (Migration 070) — chỉ
+        // các CON/SP phẳng bán được mới lên board; frontend gom CON cùng CHA thành 1 card.
         `SELECT code FROM web2_products
-         WHERE status = 'CHO_MUA' AND pending_qty > 0
+         WHERE status = 'CHO_MUA' AND pending_qty > 0 AND is_parent = false
          ORDER BY updated_at DESC NULLS LAST, code
          LIMIT 300`
     );
@@ -259,7 +266,8 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         const r = await pool.query(
             `SELECT cp.product_code, cp.sort, cp.pinned, cp.added_at,
                     p.name, p.image_url, p.stock, p.pending_qty, p.return_qty,
-                    p.status, p.supplier, p.variant, p.price, p.is_active, p.region
+                    p.status, p.supplier, p.variant, p.price, p.is_active, p.region,
+                    p.parent_code, p.is_parent
              FROM web2_campaign_products cp
              LEFT JOIN web2_products p ON p.code = cp.product_code
              WHERE cp.campaign_id = $1 AND cp.removed = false

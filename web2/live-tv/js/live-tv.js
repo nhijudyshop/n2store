@@ -199,8 +199,11 @@
                     return i.code;
                 })
             );
-            // by:'code' — unique theo mã SP: mỗi mã 1 card, KHÔNG gom biến thể.
-            state.groups = window.Web2VariantGroup.group(items, { by: 'code' });
+            // by:'parent' — gom SP CHA–CON thành 1 card nhiều biến thể (Migration 070):
+            // parent_code khi có, fallback name+supplier+region. Vd ÁO SƠ MI LỤA Màu Ghi +
+            // Màu Đỏ → 1 card 2 dòng biến thể (cardHtml render g.variants). Khác địa danh
+            // vẫn tách (region trong key).
+            state.groups = window.Web2VariantGroup.group(items, { by: 'parent' });
             render();
             $('ltvSync').textContent = 'Cập nhật ' + fmtTime(Date.now());
             $('ltvLiveDot').classList.add('is-live');

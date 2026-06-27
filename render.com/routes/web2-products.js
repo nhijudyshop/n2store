@@ -547,7 +547,10 @@ router.get('/pending', async (req, res) => {
     try {
         await ensureTables(pool);
         const supplier = req.query.supplier ? String(req.query.supplier).trim() : null;
-        let sql = `SELECT * FROM web2_products WHERE status = 'CHO_MUA' AND pending_qty > 0`;
+        // is_parent = false: dòng CHA chỉ là aggregate (tồn/pending = TỔNG con) cho
+        // Kho SP — KHÔNG phải SP bán được. Picker/so-order chỉ chờ-mua các CON +
+        // SP phẳng. (Migration 070 cha-con.)
+        let sql = `SELECT * FROM web2_products WHERE status = 'CHO_MUA' AND pending_qty > 0 AND is_parent = false`;
         const params = [];
         if (supplier) {
             params.push(supplier);

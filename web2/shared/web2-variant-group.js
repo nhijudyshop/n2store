@@ -20,12 +20,20 @@
 //       variants: [{ code, variant, stock, pendingQty, returnQty, status,
 //                    supplier, imageUrl, ...orig }] }]
 //   normalizeName(s) → string  (khoá gom)
-// opts: { by: 'code' (default — unique theo MÃ) | 'name' | 'name+supplier' |
-//         'name+supplier+region' (các mode gom-theo-tên CHỈ dùng khi cần view
-//         gom biến thể, phải truyền tường minh), sortVariants: bool=true }
+// opts: { by: 'code' (default — unique theo MÃ) | 'parent' | 'name' |
+//         'name+supplier' | 'name+supplier+region' (các mode gom-theo-tên CHỈ dùng
+//         khi cần view gom biến thể, phải truyền tường minh), sortVariants: bool=true }
 //   ⚠ Default = 'code' (đổi 2026-06-25): theo nguyên tắc "tất cả SP unique theo
 //   mã". Caller quên opts.by → unique theo mã (an toàn), KHÔNG tái phát bug gộp
 //   2 mã trùng tên (chờ 16+18 = 34). Muốn gom biến thể → truyền by tường minh.
+//
+//   by:'parent' (màn TV livestream + board điều khiển — gom SP CHA–CON Migration 070):
+//   key = parent_code khi có (cha-con thật từ so-order nhiều biến thể → 100% chuẩn,
+//   KHÔNG bao giờ trộn nhầm). SP CHƯA có parent_code (tạo phẳng/legacy) → fallback
+//   name+supplier+region (gom biến thể CÙNG nguồn, region tách HÀ NỘI/HƯƠNG CHÂU →
+//   KHÔNG tái phát bug 2026-06-25). Dòng is_parent (aggregate) bị BỎ (group dựng từ
+//   các con, tránh double-count tồn). Vd ÁO SƠ MI LỤA Màu Ghi + Màu Đỏ (cùng name+
+//   NCC+HƯƠNG CHÂU) → 1 card 2 biến thể.
 // =====================================================
 (function (global) {
     'use strict';
@@ -79,7 +87,13 @@
         return p && (p.imageUrl || p.image_url || (Array.isArray(p.images) && p.images[0]) || '');
     }
 
-    const VALID_BY = { name: 1, 'name+supplier': 1, 'name+supplier+region': 1, code: 1 };
+    const VALID_BY = {
+        name: 1,
+        'name+supplier': 1,
+        'name+supplier+region': 1,
+        code: 1,
+        parent: 1,
+    };
     function buildKey(p, by) {
         // by:'code' → MỖI mã sản phẩm là 1 item riêng (KHÔNG gom biến thể). Dùng khi
         // user muốn "tất cả SP unique theo mã" (tránh trộn SP khác mã/NCC/địa danh).
@@ -90,6 +104,21 @@
             if (c) return c;
             // SP chưa có mã → fallback name+variant để vẫn unique từng dòng.
             return `${normalizeName(p.name)}|${normalizeName(p.variant)}`;
+        }
+        // by:'parent' → gom SP CHA–CON. parent_code khi có (chuẩn nhất); nếu chưa có
+        // (SP phẳng/legacy) fallback name+supplier+region. Prefix 'p:'/'n:' để 2 không
+        // gnam collide (parentCode 'HCAO' vs 1 SP phẳng mã 'hcao' hiếm gặp).
+        if (by === 'parent') {
+            const pc = String(p.parentCode == null ? '' : p.parentCode)
+                .trim()
+                .toLowerCase();
+            if (pc) return 'p:' + pc;
+            const nk = normalizeName(p.name);
+            if (nk) return `n:${nk}|${normalizeName(p.supplier)}|${normalizeName(p.region)}`;
+            const c = String(p.code == null ? '' : p.code)
+                .trim()
+                .toLowerCase();
+            return c || `${normalizeName(p.name)}|${normalizeName(p.variant)}`;
         }
         const nkey = normalizeName(p.name);
         if (!nkey) return '';
@@ -108,6 +137,9 @@
 
         for (const p of list) {
             if (!p) continue;
+            // by:'parent' — bỏ dòng CHA aggregate (is_parent): group dựng từ các CON
+            // (tồn/pending/giỏ per-biến-thể), nếu thêm cha sẽ double-count tổng.
+            if (by === 'parent' && (p.isParent || p.is_parent)) continue;
             const key = buildKey(p, by);
             if (!key) continue;
             let g = map.get(key);

@@ -129,9 +129,11 @@
             // nhất trên đầu; SP đã ✕ xoá (tombstone) KHÔNG tự thêm lại.
             var items = await window.Web2Campaign.listProducts(state.campaignId, { sync: true });
             state.addedCodes = new Set(items.map((i) => i.code));
-            // by:'code' — MỖI mã SP là 1 item riêng (unique theo mã). KHÔNG gom biến
-            // thể: 2 SP khác mã (HCQUANXDU31 vs HNQUANGHI33) = 2 card riêng, không gộp 34.
-            state.board = window.Web2VariantGroup.group(items, { by: 'code' });
+            // by:'parent' — gom SP CHA–CON thành 1 card nhiều biến thể (Migration 070):
+            // parent_code khi có (chuẩn nhất), fallback name+supplier+region. Vd ÁO SƠ MI
+            // LỤA Màu Ghi + Màu Đỏ (cùng NCC+HƯƠNG CHÂU) → 1 nhóm 2 biến thể; 2 SP khác
+            // địa danh (HƯƠNG CHÂU vs HÀ NỘI) vẫn TÁCH (region trong key → không gộp 34).
+            state.board = window.Web2VariantGroup.group(items, { by: 'parent' });
             renderBoard();
             renderTvCtl(); // số trang đổi khi SP thêm/bớt → cập nhật preview + nav
             refreshPickerAddedFlags();
@@ -641,14 +643,14 @@
             var groups;
             if (state.pickerTab === 'pending') {
                 var jp = await window.Web2ProductsApi.listPending();
-                groups = window.Web2VariantGroup.group((jp && jp.items) || [], { by: 'code' });
+                groups = window.Web2VariantGroup.group((jp && jp.items) || [], { by: 'parent' });
             } else {
                 var jl = await window.Web2ProductsApi.list({
                     search: state.search || undefined,
                     activeOnly: true,
                     limit: 300,
                 });
-                groups = window.Web2VariantGroup.group((jl && jl.products) || [], { by: 'code' });
+                groups = window.Web2VariantGroup.group((jl && jl.products) || [], { by: 'parent' });
             }
             // Lọc client theo search cho tab pending (server không filter tên).
             // Tìm theo MÃ SP + TÊN (+ NCC) — khớp placeholder "tên / mã / NCC".
@@ -720,11 +722,12 @@
         if (state.showRegion && g.region)
             meta.push('<span class="lc-region-badge">📍 ' + esc(g.region) + '</span>');
         if (g.suppliers && g.suppliers.length) meta.push(esc(g.suppliers.join(', ')));
-        // Unique theo mã (by:'code') → mỗi item 1 mã: hiện BIẾN THỂ (Màu/Size) + MÃ SP
-        // để phân biệt rõ 2 SP trùng tên khác mã. Nhóm cũ (>1) vẫn hiện "N biến thể".
+        // by:'parent' → nhóm CHA–CON nhiều biến thể hiện "N biến thể"; SP phẳng 1 biến
+        // thể hiện BIẾN THỂ (Màu/Size) + MÃ SP để phân biệt 2 SP trùng tên khác mã.
         if (g.variantCount > 1) meta.push(g.variantCount + ' biến thể');
         else if (v0.variant) meta.push(esc(v0.variant));
-        if (v0.code) meta.push('<span class="lc-pcode">' + esc(v0.code) + '</span>');
+        if (g.variantCount <= 1 && v0.code)
+            meta.push('<span class="lc-pcode">' + esc(v0.code) + '</span>');
         if (g.totalPending > 0) meta.push('<span class="cho">chờ ' + g.totalPending + '</span>');
         if (g.totalStock > 0) meta.push('tồn ' + g.totalStock);
         return (
