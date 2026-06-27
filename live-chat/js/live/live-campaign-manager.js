@@ -254,23 +254,36 @@
                             (recent.length
                                 ? ` Tên đã dùng (tránh trùng): ${recent.join('; ')}.`
                                 : '');
-                        const r = await fetch(base + '/api/web2-ai/complete', {
-                            method: 'POST',
-                            headers: _w2AuthHeaders({ 'content-type': 'application/json' }),
-                            body: JSON.stringify({
-                                messages: [{ role: 'user', content: usr }],
-                                system: sys,
-                                temperature: 0.9,
-                                maxTokens: 40,
-                            }),
-                        });
-                        const d = await r.json().catch(() => ({}));
-                        const name = String(d && d.text ? d.text : '')
-                            .trim()
-                            .replace(/^["'“”\s]+|["'“”\s]+$/g, '')
-                            .split('\n')[0]
-                            .slice(0, 60);
-                        if (!r.ok || !name) throw new Error(d?.error || 'AI không phản hồi');
+                        // 2 lần thử: provider free xoay vòng đôi khi trả rỗng (vd OpenRouter
+                        // "phản hồi rỗng") → thử lại 1 lần thường rơi vào provider khác (gemini).
+                        let name = '';
+                        let lastErr = '';
+                        for (let attempt = 0; attempt < 2 && !name; attempt++) {
+                            const r = await fetch(base + '/api/web2-ai/complete', {
+                                method: 'POST',
+                                headers: _w2AuthHeaders({ 'content-type': 'application/json' }),
+                                body: JSON.stringify({
+                                    messages: [{ role: 'user', content: usr }],
+                                    system: sys,
+                                    temperature: 0.9,
+                                    // ⚠ Gemini 2.5 Flash là model "thinking" → đốt token SUY NGHĨ
+                                    // trước khi xuất; maxTokens thấp (40) → tên bị CẮT ("Sóng",
+                                    // "Thời Trang N"). 800 đủ chỗ thinking + tên ngắn.
+                                    maxTokens: 800,
+                                }),
+                            }).catch(() => null);
+                            const d = r ? await r.json().catch(() => ({})) : {};
+                            if (r && r.ok && d && d.text) {
+                                name = String(d.text)
+                                    .trim()
+                                    .replace(/^["'“”\s]+|["'“”\s]+$/g, '')
+                                    .split('\n')[0]
+                                    .slice(0, 60);
+                            } else {
+                                lastErr = (d && d.error) || 'HTTP ' + (r ? r.status : '?');
+                            }
+                        }
+                        if (!name) throw new Error(lastErr || 'AI không phản hồi');
                         if (input) {
                             input.value = name;
                             input.focus();
