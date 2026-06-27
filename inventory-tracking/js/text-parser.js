@@ -39,8 +39,18 @@ function normalizeText(text) {
 }
 
 // Regex patterns - now more flexible
-const PRODUCT_REGEX = /^MA\s+(.+?)\s+(\d+)\s*MAU\s+(\d+)\s*X\s*(\d+)$/i;
-const PRODUCT_NO_COLOR_REGEX = /^MA\s+(.+?)\s+(\d+)\s*X\s*(\d+)$/i;
+// Giá (đơn giá) cho phép số thập phân kiểu VN: "54,5" hoặc "54.5". SL giữ nguyên số nguyên.
+const PRODUCT_REGEX = /^MA\s+(.+?)\s+(\d+)\s*MAU\s+(\d+)\s*X\s*(\d+(?:[.,]\d+)?)$/i;
+const PRODUCT_NO_COLOR_REGEX = /^MA\s+(.+?)\s+(\d+)\s*X\s*(\d+(?:[.,]\d+)?)$/i;
+
+/**
+ * Parse một số thập phân kiểu VN (dấu phẩy hoặc dấu chấm) -> Number
+ * @param {string} raw
+ * @returns {number}
+ */
+function parseVnDecimal(raw) {
+    return parseFloat(String(raw).replace(',', '.'));
+}
 
 /**
  * Parse a single product text line
@@ -56,20 +66,20 @@ function parseProductText(text) {
     let match = normalized.match(PRODUCT_REGEX);
     if (match) {
         const soLuong = parseInt(match[3]);
-        const giaDonVi = parseInt(match[4]);
+        const giaDonVi = parseVnDecimal(match[4]);
         return {
             maSP: match[1].trim(),
-            moTa: '',                  // NEW: Empty for manual entry
-            mauSac: [],                // NEW: Empty array (no color detail)
-            tongSoLuong: soLuong,      // NEW: Direct quantity
+            moTa: '', // NEW: Empty for manual entry
+            mauSac: [], // NEW: Empty array (no color detail)
+            tongSoLuong: soLuong, // NEW: Direct quantity
             soMau: parseInt(match[2]), // Keep legacy field
-            soLuong: soLuong,          // Keep for backward compatibility
+            soLuong: soLuong, // Keep for backward compatibility
             giaDonVi: giaDonVi,
             thanhTien: soLuong * giaDonVi,
             rawText: originalText,
-            aiExtracted: false,        // NEW: Flag as manual
-            dataSource: 'manual',      // NEW: Explicit source tracking
-            isValid: true
+            aiExtracted: false, // NEW: Flag as manual
+            dataSource: 'manual', // NEW: Explicit source tracking
+            isValid: true,
         };
     }
 
@@ -77,27 +87,27 @@ function parseProductText(text) {
     match = normalized.match(PRODUCT_NO_COLOR_REGEX);
     if (match) {
         const soLuong = parseInt(match[2]);
-        const giaDonVi = parseInt(match[3]);
+        const giaDonVi = parseVnDecimal(match[3]);
         return {
             maSP: match[1].trim(),
-            moTa: '',                  // NEW: Empty for manual entry
-            mauSac: [],                // NEW: Empty array
-            tongSoLuong: soLuong,      // NEW
+            moTa: '', // NEW: Empty for manual entry
+            mauSac: [], // NEW: Empty array
+            tongSoLuong: soLuong, // NEW
             soMau: 1,
             soLuong: soLuong,
             giaDonVi: giaDonVi,
             thanhTien: soLuong * giaDonVi,
             rawText: originalText,
-            aiExtracted: false,        // NEW
-            dataSource: 'manual',      // NEW
-            isValid: true
+            aiExtracted: false, // NEW
+            dataSource: 'manual', // NEW
+            isValid: true,
         };
     }
 
     return {
         rawText: originalText,
         isValid: false,
-        error: 'Không parse được. Format: MA [mã] [số màu] MÀU [SL]X[giá] hoặc MA [mã] [SL]*[giá]'
+        error: 'Không parse được. Format: MA [mã] [số màu] MÀU [SL]X[giá] hoặc MA [mã] [SL]*[giá]',
     };
 }
 
@@ -107,8 +117,8 @@ function parseProductText(text) {
  * @returns {Object[]} Array of parsed products
  */
 function parseMultipleProducts(text) {
-    const lines = text.split('\n').filter(line => line.trim());
-    return lines.map(line => parseProductText(line));
+    const lines = text.split('\n').filter((line) => line.trim());
+    return lines.map((line) => parseProductText(line));
 }
 
 /**
@@ -127,11 +137,11 @@ function isValidProductFormat(text) {
  * @returns {Object} Totals object
  */
 function calculateProductTotals(products) {
-    const validProducts = products.filter(p => p.isValid);
+    const validProducts = products.filter((p) => p.isValid);
     return {
         tongTienHD: validProducts.reduce((sum, p) => sum + (p.thanhTien || 0), 0),
         tongMon: validProducts.reduce((sum, p) => sum + (p.soLuong || 0), 0),
-        tongSanPham: validProducts.length
+        tongSanPham: validProducts.length,
     };
 }
 
