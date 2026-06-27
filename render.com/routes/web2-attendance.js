@@ -839,12 +839,15 @@ router.post('/fullday', requireWeb2Admin, async (req, res) => {
         if (await isMonthLocked(db, dateKey.slice(0, 7)))
             return fail(res, 409, LOCK_MSG(dateKey.slice(0, 7)));
         const id = `${empId}_${dateKey}`;
-        await db.query(
+        const _ins = await db.query(
             `INSERT INTO web2_attendance_fullday (id, emp_id, date_key, created_at)
-             VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
+             VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING
+             RETURNING id`,
             [id, empId, dateKey, now()]
         );
-        await stampEdit(db, empId, dateKey, editorOf(req));
+        // Chỉ đóng dấu "đã chỉnh sửa" khi THỰC SỰ thêm dòng mới (DO NOTHING → 0 dòng
+        // nếu ngày đã là công đủ) → re-set trùng không tạo audit giả.
+        if (_ins.rowCount) await stampEdit(db, empId, dateKey, editorOf(req));
         _notify('fullday', { id });
         return ok(res, { id });
     } catch (e) {

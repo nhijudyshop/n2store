@@ -2,6 +2,17 @@
 
 ## 2026-06-27
 
+### [web2/cham-cong] Chỉnh sửa chấm công → LƯU + HIỆN "thời gian chỉnh sửa" (ai + lúc nào)
+
+User: "chỉnh sửa chấm công sẽ lưu lại và hiện thời gian chỉnh sửa". Thêm **audit chỉnh sửa tay** theo NGÀY/NV: mỗi lần admin sửa chấm công 1 ngày (đổi giờ Vào/Ra, thêm/xoá lượt, nghỉ phép, ghi chú) → ghi ai + lúc nào, hiện ở popup ngày + ô lưới.
+
+Files:
+
+- **BE `render.com/routes/web2-attendance.js`**: bảng mới `web2_attendance_edits` (id `{device_user_id}_{date_key}`, `edited_by`, `edited_at`; index date_key — idempotent trong `ensureSchema`). Helper `editorOf(req)` (display_name||username||'admin', khớp convention commands/period-lock) + `stampEdit(db,uid,dk,by)` (upsert, nuốt lỗi — audit phụ trợ KHÔNG làm hỏng mutation chính). `GET /edits?start&end` (mirror `/day-notes`). Đóng dấu trong MỌI path TAY: POST `/records` (manual), DELETE `/records/:id`, PUT `/day-notes/:id`, POST `/fullday`, DELETE `/fullday/:id`. **KHÔNG** dấu ở `/records/bulk` (agent) hay `/records/import` (file) — chỉ thao tác người dùng.
+- **FE `cham-cong-api.js`**: `listEdits(start,end)`. **`cham-cong-app.js`**: `state.edits` ('{uid}\_{dk}' → {by,at}); `applyResults` parse `r.edits`; `loadAll` thêm `listEdits` vào Promise.all (đúng vị trí thứ 5); `fmtEditTs` (GMT+7 HH:MM DD/MM/YYYY); popup hiện pill `✏️ Đã chỉnh sửa: <ts> bởi <tên>`; ô lưới thêm class `cc-edited` + title hover. **`cham-cong.css`**: `.cc-edit-meta` (pill xanh), `.cc-cell.cc-edited::before` (chấm xanh góc dưới-trái, KHÔNG đụng chấm ghi chú góc trên-phải). Bump `?v` (css/api `20260627edit`, app `20260627edit2`).
+
+**Verify**: throwaway-DB test 13/13 (schema idempotent, upsert 1 dòng/ngày + overwrite editor mới nhất, invalid date/empty uid = no-op, range query lọc đúng). Review đối kháng 4 lens × verify → **1 bug MEDIUM** (8 false-positive): re-Lưu ngày NGHỈ PHÉP không đổi gì vẫn đóng dấu giả vì popup pre-check "Nghỉ có phép" + `addFullday` gọi vô điều kiện. **Fix**: FE chỉ `addFullday` khi `!ctx.isFull`; BE `INSERT…ON CONFLICT DO NOTHING RETURNING id` + chỉ `stampEdit` khi `rowCount>0` (test 3/3). Status: ✅
+
 ### [web2 multi] Audit 5 bug user báo → 3 đã fix sẵn + fix 2 (AI tên chiến dịch, lag, zalo cookie, hardening)
 
 User báo 5 bug. Audit (5 agent song song) → 2 đã ĐÚNG sẵn, 1 đã fix sẵn, 2 còn thiếu → làm tiếp + 2 cải thiện.

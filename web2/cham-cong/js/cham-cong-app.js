@@ -745,8 +745,13 @@
         const outTime = document.getElementById('ccOutTime')?.value;
         try {
             // 1) Nghỉ có phép = công đủ override; ngược lại bỏ override.
-            if (leave === 'paid') await Api.addFullday(deviceUserId, dateKey);
-            else if (ctx.isFull) await Api.delFullday(`${deviceUserId}_${dateKey}`);
+            // CHỈ gọi khi trạng thái THỰC SỰ đổi (ngày đã 'paid' mở lại + Lưu mà không
+            // sửa gì → KHÔNG addFullday lại, tránh đóng dấu "đã chỉnh sửa" giả).
+            if (leave === 'paid') {
+                if (!ctx.isFull) await Api.addFullday(deviceUserId, dateKey);
+            } else if (ctx.isFull) {
+                await Api.delFullday(`${deviceUserId}_${dateKey}`);
+            }
 
             // 2) Nghỉ không phép → xoá hết lượt chấm (coi như vắng).
             if (leave === 'absent') {
