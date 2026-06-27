@@ -599,7 +599,7 @@
                             images,
                             account: account || undefined,
                         }),
-                        signal: AbortSignal.timeout(180000),
+                        signal: AbortSignal.timeout(240000), // ảnh gen có thể >120s (watchdog fix)
                     });
                     if (r.status >= 502 && r.status <= 504) throw new Error('tunnel ' + r.status); // transient
                     const j = await r.json();

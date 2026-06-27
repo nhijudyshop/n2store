@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [gemini-tryon] Research GitHub gemini_webapi image-gen + fix (model Flash + watchdog_timeout)
+
+User: ưu tiên model Flash ở cookie → xoay tua → fail fallback Nano Banana; rồi research GitHub. **Workflow research 4 agent** (issues HanaokaYuzu/Gemini-API): **nguyên nhân gốc** "limit resets" KHÔNG phải hết quota (nếu hết thật → ném `UsageLimitExceeded`) mà **route SAI MODEL** (default UNSPECIFIED không bật image tool → Gemini trả text từ chối) — issue #204/#252/#332. **Fix áp dụng**: (a) ép model `gemini-3-flash` (BASIC_FLASH, #252) + fallback auto nếu phiên không khớp; (b) `client.init(watchdog_timeout=max(GEN_TIMEOUT,300))` — ảnh gen >120s bị watchdog mặc định giết (#294/PR#301), truyền phòng thủ try/except TypeError; (c) GEN_TIMEOUT 150→200, frontend timeout 180s→240s; (d) prompt có "generate" (đã có). **Kết luận research**: free cookie ảnh = best-effort, Google anti-automation (#250/#318) → KHÔNG ổn định lâu dài, đổi model là gãy; **production nên dùng Nano Banana TRẢ PHÍ** (đã có fallback tự động). Không lib free nào tốt hơn (alt #57 broken). Bump `web2-tryon.js?v=20260627k`. ⚠ Máy shop reinstall để test fix.
+
 ### [web2/live-control + live-tv] Mô hình GIỎ·MỚI + badge VƯỢT theo địa danh pre-order
 
 **Files:** `web2/live-control/{js/live-control.js,css/live-control.css,index.html}`, `web2/live-tv/{js/live-tv.js,css/live-tv.css,index.html}`, `web2/shared/web2-live-tv-display.js`, `web2/shared/web2-variant-group.js`, `render.com/routes/web2-campaign-products.js`.

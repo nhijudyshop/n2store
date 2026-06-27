@@ -59,7 +59,7 @@ ACCOUNTS_FILE = os.path.join(HERE, "accounts.json")
 MAX_IMAGES = 6
 MAX_PROMPT = 2000
 INIT_TIMEOUT = int(os.environ.get("GEMINI_INIT_TIMEOUT", "30"))
-GEN_TIMEOUT = int(os.environ.get("GEMINI_GEN_TIMEOUT", "150"))
+GEN_TIMEOUT = int(os.environ.get("GEMINI_GEN_TIMEOUT", "200"))  # tạo ảnh có thể lâu (>120s)
 # ƯU TIÊN model "Flash" free-tier (giống user chọn "3.5 Flash" trong web app — model_name
 # gemini_webapi: BASIC_FLASH = "gemini-3-flash"). Image-gen được model Flash gọi qua Nano Banana.
 # Override env GEMINI_MODEL (vd "gemini-3-pro" / "unspecified" để thư viện tự chọn).
@@ -161,7 +161,13 @@ async def _build_client(acc: Account):
 
         _GeminiClient = GeminiClient
     client = _GeminiClient(acc.psid or None, acc.psidts or None, proxy=None) if acc.psid else _GeminiClient(proxy=None)
-    await client.init(timeout=INIT_TIMEOUT, auto_close=False, auto_refresh=True, verbose=False)
+    # watchdog_timeout CAO: tạo ẢNH thường >120s, watchdog mặc định 120 sẽ GIẾT stream giữa chừng →
+    # trả text/images=[] (issue #294/#250, PR #301). Truyền phòng thủ (phiên cũ chưa có param → init thường).
+    _init_kw = dict(timeout=INIT_TIMEOUT, auto_close=False, auto_refresh=True, verbose=False)
+    try:
+        await client.init(watchdog_timeout=max(GEN_TIMEOUT, 300), **_init_kw)
+    except TypeError:
+        await client.init(**_init_kw)
     acc.client = client
     acc.ready = True
     acc.error = ""
