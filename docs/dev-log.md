@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [web2/live-control + live-tv] Mô hình GIỎ·MỚI + badge VƯỢT theo địa danh pre-order
+
+**Files:** `web2/live-control/{js/live-control.js,css/live-control.css,index.html}`, `web2/live-tv/{js/live-tv.js,css/live-tv.css,index.html}`, `web2/shared/web2-live-tv-display.js`, `web2/shared/web2-variant-group.js`, `render.com/routes/web2-campaign-products.js`.
+
+Chốt mô hình cột bảng điều khiển live + màn TV: **NCC | GIỎ | MỚI | CÒN**.
+
+- **GIỎ** = tổng SL món khách đặt (1 KH đặt 2 món → GIỎ +2). **MỚI** = SL món của khách CHƯA có SĐT & địa chỉ (1 phần con của GIỎ, để theo dõi). **CÒN** = `max(0, NCC − GIỎ)` (không âm).
+- **Địa danh pre-order**: setting "📍 KH theo" (Hương Châu mặc định / Hà Nội…). SP thuộc địa danh đang chọn → GIỎ được phép vượt NCC → badge **"VƯỢT +N"** đỏ trên cột GIỎ (cả board lẫn TV), CÒN vẫn = 0 (không âm).
+- Backend aggregate: `new_cust` = `SUM(quantity) FILTER (WHERE phone='' AND address='')` (đổi từ COUNT DISTINCT → SUM SL); bỏ `all_cust`.
+- `khConModel(v, region)` 1 nguồn ở `web2-live-tv-display.js` → `{ncc, gio, moi, con, vuot, isPreOrder}` dùng chung board / TV / mini-preview (tránh drift).
+- Bump cache-bust `v=20260627tv9`. Status: ✅ deployed (backend đã ở HEAD trước), FE live ngay khi refresh.
+
 ### [gemini-tryon + web2/ai-hub] Admin chọn nguồn tạo ảnh (account cụ thể / Nano Banana paid)
 
 User "admin cho chọn account banana". Thêm **selector nguồn CHỈ admin** trong tab Ghép đồ (`.w2t-src`): "🔄 Tự động (xoay tua free)" · "👤 <account> · N ảnh" (từng account của máy shop, lấy từ /health) · "🍌 Nano Banana TRẢ PHÍ". Nhân viên KHÔNG thấy selector → luôn free auto (không lỡ tay tốn tiền). `isAdmin()` (Web2Perm.isAdmin fallback session role). **Sidecar `app.py`**: `/tryon` + `/generate` nhận `account` (label) → `_run_gemini(account=)` chỉ dùng account đó (admin né account full/lỗi). `run()` route: paid→callPaidNano, acc:<label>→callGeminiMachine(acc), auto→xoay tua. Bump `web2-tryon.js?v=20260627i`. ⚠ Máy shop reinstall để nhận app.py mới.
