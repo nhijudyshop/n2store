@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Fix: hàng biến thể (NCC/Giỏ/KH mới/Còn) bị CẮT khi nhiều SP + nhãn GIỎ HÀNG→GIỎ
+
+User báo board hiện 9 SP nhưng KHÔNG thấy hàng số NCC·GIỎ·KH MỚI·CÒN (chỉ thấy header). Debug live (browser-test localhost, eval computed style): hàng biến thể **CÓ trong DOM** (`vrows:9, vnums:27`) nhưng `.lc-group` cao 63px + `overflow:hidden` → bị **flexbox co lại** cắt mất.
+
+**Root cause**: `.lc-board` là `display:flex; flex-direction:column; max-height; overflow-y:auto`. `.lc-group` mặc định `flex-shrink:1` → khi auto-add đẩy SP từ 3 → 9 (tràn khung), flex CO từng card → `overflow:hidden` cắt hàng biến thể. Bug latent từ trước, **auto-add làm lộ ra** (trước chỉ 3 SP nên vừa khung, không co). KHÔNG phải lỗi đổi nhãn.
+
+**Fix**: `.lc-group { flex-shrink: 0 }` (+ `.lc-pitem` phòng tương tự) → board scroll, card giữ nguyên cao. Verify browser: group 63px→105px, `vrowVisible:true`, screenshot rõ NCC·GIỎ·KH MỚI·CÒN từng dòng.
+
+**Kèm theo** (user yêu cầu): nhãn cột `GIỎ HÀNG → GIỎ` (live-control + live-tv) + banner. Cache-bust JS `lc2`, CSS `lc2`.
+
+⚠ User gặp lỗi do **cache trình duyệt cũ** (file JS/CSS mid-edit) — bump version + hard refresh là hết.
+
 ### [web2/live-control] Board: BÁN→GIỎ HÀNG · bỏ CỌC thêm KH MỚI · auto-add SP chờ hàng (mới nhất trên đầu)
 
 User (xem trang `web2/live-control`) yêu cầu 3 đổi:
