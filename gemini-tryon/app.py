@@ -44,6 +44,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+# Windows cp1252 → print emoji/tiếng Việt crash UnicodeEncodeError. Ép UTF-8 cho stdout/stderr.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 _GeminiClient = None  # bind lười để /health vẫn trả lời khi thiếu lib
 
 HERE = os.path.dirname(os.path.abspath(__file__))

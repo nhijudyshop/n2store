@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [gemini-tryon] Fix THẬT: UnicodeEncodeError cp1252 trên Windows → crash dòng print đầu
+
+Debug log (vừa thêm) bắt được lỗi thật từ máy shop Windows: `UnicodeEncodeError: 'charmap' codec can't encode character '▶'`. Windows redirect stdout ra file dùng encoding **cp1252** → `print` ký tự Unicode (▶ 👕 ═ + tiếng Việt có dấu) crash NGAY dòng đầu → serve.py chết → 8131 không lên. **Fix**: ép UTF-8 — `serve.py` + `app.py` thêm `sys.stdout/stderr.reconfigure(encoding='utf-8', errors='replace')` (guarded); `start.cmd` (PS1) thêm `set PYTHONIOENCODING=utf-8` (phủ cả tiến trình uvicorn con). **Verify**: giả lập `PYTHONIOENCODING=cp1252` + redirect file trên Mac — không fix → crash đúng lỗi user; có fix → in ▶👕✅+tiếng Việt OK, exit 0.
+
 ### [gemini-tryon] Thêm DEBUG (máy shop báo "cài xong nhưng 8131 không lên")
 
 Máy shop Windows cài bộ [4] → "báo thành công" nhưng `localhost:8131` không vào được (nghi tải `app.py` CŨ từ github.io — CDN GitHub Pages cache chậm, bản cũ init chặn → treo startup). Thêm debug để nhìn lỗi thật thay vì đoán:

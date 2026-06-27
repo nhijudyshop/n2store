@@ -81,6 +81,7 @@ $startCmd = Join-Path $DIR "start.cmd"
     'set "PATH=%~dp0;%PATH%"',
     "set `"PORT=$Port`"",
     'set "PYTHONUNBUFFERED=1"',
+    'set "PYTHONIOENCODING=utf-8"',
     '".venv\Scripts\pythonw.exe" serve.py > "gemini-tryon.log" 2>&1'
 ) | Out-File -Encoding ASCII -Force $startCmd
 

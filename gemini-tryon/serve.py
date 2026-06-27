@@ -37,6 +37,14 @@ except Exception:  # noqa: BLE001
     _SSL_CTX.check_hostname = False
     _SSL_CTX.verify_mode = ssl.CERT_NONE
 
+# Windows ghi log encoding cp1252 → print ký tự Unicode (▶ 👕 tiếng Việt) crash UnicodeEncodeError.
+# Ép UTF-8 cho stdout/stderr (errors='replace' để không bao giờ chết vì 1 ký tự lạ).
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 PORT = int(os.environ.get("PORT", "8131"))
 ENGINE = "gemini-tryon"
 _HOST = socket.gethostname().split(".")[0] or "May-shop"
