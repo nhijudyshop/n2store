@@ -59,19 +59,29 @@ if (-not (Test-Path $cf)) {
     } catch { Write-Host "  [loi] tai cloudflared: $($_.Exception.Message)" }
 }
 
-# --- tat instance CU truoc khi chay lai ---
-Get-CimInstance Win32_Process -Filter "Name='wscript.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like "*$AppName*" } |
+# --- tat instance CU truoc khi chay lai: wscript launcher + python/pythonw serve.py + cloudflared
+#     cua DUNG thu muc nay (tranh ket cong 8131 khi cai lai do tien trinh cu con song). ---
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.CommandLine -and (
+            $_.CommandLine -like "*$DIR*" -or
+            ($_.Name -eq 'wscript.exe' -and $_.CommandLine -like "*$AppName*")
+        )
+    } |
     ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }
+Start-Sleep -Seconds 1
 
-# --- launcher: start.cmd (set port) chay an qua run-hidden.vbs + auto-start ---
+# --- launcher: start.cmd (set port + GHI LOG) chay an qua run-hidden.vbs + auto-start ---
+#     pythonw nuot output → redirect ra gemini-tryon.log de DEBUG khi server khong len.
+$logFile = Join-Path $DIR "gemini-tryon.log"
 $startCmd = Join-Path $DIR "start.cmd"
 @(
     '@echo off',
     'cd /d "%~dp0"',
     'set "PATH=%~dp0;%PATH%"',
     "set `"PORT=$Port`"",
-    '".venv\Scripts\pythonw.exe" serve.py'
+    'set "PYTHONUNBUFFERED=1"',
+    '".venv\Scripts\pythonw.exe" serve.py > "gemini-tryon.log" 2>&1'
 ) | Out-File -Encoding ASCII -Force $startCmd
 
 $vbs = Join-Path $DIR "run-hidden.vbs"
@@ -80,6 +90,27 @@ $vbs = Join-Path $DIR "run-hidden.vbs"
 Copy-Item -Force $vbs (Join-Path $STARTUP "$AppName.vbs")
 Start-Process -FilePath wscript -ArgumentList ('"{0}"' -f $vbs)
 
-Write-Host "[$Label] [OK] Sidecar Gemini chay nen (port $Port) + TU BAT moi khi mo may."
-Write-Host "[$Label] >>> MO http://localhost:$Port/ de DAN COOKIE nhieu account Google (xoay tua) <<<"
-Start-Process "http://localhost:$Port/"
+# --- DEBUG: kiem tra server co thuc su LEN khong (toi da 30s) + in log loi neu khong ---
+Write-Host "[$Label] Dang kiem tra server len (toi da 30s)..."
+$ok = $false
+for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 1
+    try {
+        $r = Invoke-WebRequest -Uri "http://localhost:$Port/health" -UseBasicParsing -TimeoutSec 2
+        if ($r.StatusCode -eq 200) { $ok = $true; break }
+    } catch {}
+}
+if ($ok) {
+    Write-Host "[$Label] [OK] Server LEN tai http://localhost:$Port/ + TU BAT moi khi mo may."
+    Write-Host "[$Label] >>> MO http://localhost:$Port/ de DAN COOKIE nhieu account Google (xoay tua) <<<"
+    Start-Process "http://localhost:$Port/"
+} else {
+    Write-Host ""
+    Write-Host "[$Label] [LOI] Server KHONG LEN sau 30s. ==== LOG LOI (gui anh nay de sua) ===="
+    Write-Host "------------------------------------------------------------"
+    if (Test-Path $logFile) { Get-Content $logFile -Tail 30 | ForEach-Object { Write-Host "  $_" } }
+    else { Write-Host "  (chua co gemini-tryon.log - launcher chua chay duoc)" }
+    Write-Host "------------------------------------------------------------"
+    Write-Host "[$Label] Log day du o: $logFile"
+    Write-Host "[$Label] Python: $venvPy"
+}

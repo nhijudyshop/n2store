@@ -2,6 +2,16 @@
 
 ## 2026-06-27
 
+### [gemini-tryon] Thêm DEBUG (máy shop báo "cài xong nhưng 8131 không lên")
+
+Máy shop Windows cài bộ [4] → "báo thành công" nhưng `localhost:8131` không vào được (nghi tải `app.py` CŨ từ github.io — CDN GitHub Pages cache chậm, bản cũ init chặn → treo startup). Thêm debug để nhìn lỗi thật thay vì đoán:
+
+- **`gemini-tryon-windows-setup.ps1`**: launcher `start.cmd` thêm `PYTHONUNBUFFERED=1` + **redirect output → `gemini-tryon.log`** (trước `pythonw` nuốt hết). Sau khi start, **health-check `localhost:8131/health` tối đa 30s**; nếu KHÔNG lên → **in 30 dòng cuối log ra cửa sổ bat** + đường dẫn log. Kill instance cũ mở rộng (match `$DIR` → diệt cả `pythonw serve.py` treo giữ cổng, chống kẹt 8131 khi cài lại).
+- **`app.py`**: endpoint **`GET /debug`** (Python ver, platform, import + version 5 lib gemini_webapi/fastapi/uvicorn/browser_cookie3/certifi, cookie_source, accounts). Trang cấu hình `/` thêm card **"🔧 Chẩn đoán máy chủ"** (auto load /debug 8s/lần).
+- **`web2-pos-installer.js`** (`cai-may-pos.bat` :GEMINI): echo block DEBUG trỏ log path + trang chẩn đoán.
+
+**Verify máy này**: `/debug` trả Python 3.12.8 + 5 lib ✅; trang `/` có mục Chẩn đoán; bat có block DEBUG + log path. **Lưu ý deploy**: nhijudy.store đã current, github.io CDN còn cache bản cũ (~10') → máy shop nên cài từ **nhijudy.store** hoặc chờ CDN refresh.
+
 ### [gemini-tryon] Fix: server kẹt khởi động khi cookie hỏng → cổng 8131 không lên
 
 User "sao không vào được localhost 8131" → chạy thử LIVE trên máy thật, lòi ra **3 bug** (fix hết):

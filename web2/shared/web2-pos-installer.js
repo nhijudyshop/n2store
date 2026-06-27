@@ -146,7 +146,11 @@
             "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%GPS1%' -OutFile '%DIR%\\gemini-setup.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
             'if not exist "%DIR%\\gemini-setup.ps1" ( echo   [BO QUA] Khong tai duoc setup & exit /b 1 )',
             'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\gemini-setup.ps1" -VBase "%GBASE%"',
-            'echo   [OK] Gemini chay nen (port 8131). Mo http://localhost:8131/ de dan cookie nhieu account.',
+            'echo.',
+            'echo   ==== DEBUG Gemini ====',
+            'echo   - Ket qua server (LEN / KHONG LEN) + log loi hien o phia tren.',
+            'echo   - Log day du: %LOCALAPPDATA%\\N2StoreGeminiTryon\\gemini-tryon.log',
+            'echo   - Cau hinh cookie + Chan doan: http://localhost:8131/',
             'exit /b 0',
         ].join('\r\n');
     }

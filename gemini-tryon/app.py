@@ -31,7 +31,9 @@ import asyncio
 import base64
 import json
 import os
+import platform
 import re
+import sys
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -320,6 +322,39 @@ async def health():
     }
 
 
+@app.get("/debug")
+async def debug():
+    """Chẩn đoán: phiên bản Python/lib, lib import được không, account + lỗi. Dán cho dev khi treo."""
+
+    def _ver(mod):
+        try:
+            import importlib.metadata as md
+
+            return md.version(mod)
+        except Exception:
+            return None
+
+    libs = {}
+    for m in ("gemini_webapi", "fastapi", "uvicorn", "browser_cookie3", "certifi"):
+        try:
+            __import__(m)
+            libs[m] = {"ok": True, "version": _ver(m.replace("_", "-")) or _ver(m)}
+        except Exception as e:  # noqa: BLE001
+            libs[m] = {"ok": False, "error": str(e)[:160]}
+    return {
+        "ok": True,
+        "engine": "gemini-tryon",
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "cwd": os.getcwd(),
+        "port_env": os.environ.get("PORT"),
+        "cookie_source": _state["cookie_source"],
+        "accounts_file_exists": os.path.exists(ACCOUNTS_FILE),
+        "libs": libs,
+        "accounts": [a.public() for a in _state["accounts"]],
+    }
+
+
 @app.get("/accounts")
 async def list_accounts():
     return {"ok": True, "accounts": [a.public() for a in _state["accounts"]]}
@@ -391,6 +426,7 @@ small{color:#64748b;line-height:1.5}.warn{background:#fffbeb;border:1px solid #f
 </style></head><body>
 <h1>👕 gemini-tryon — Cấu hình account Gemini (xoay tua)</h1>
 <div class="warn">⚠️ Dùng <b>tài khoản Google PHỤ</b>. Cài nhiều account để xoay tua, không bị giới hạn lượt/ngày. Cookie chỉ lưu trên máy này (accounts.json).</div>
+<div class="card"><h3>🔧 Chẩn đoán máy chủ <a href="/debug" target="_blank" style="font-size:.75rem;font-weight:400">(JSON đầy đủ)</a></h3><div id="diag" style="font-size:.82rem;line-height:1.7">Đang tải…</div></div>
 <div class="card"><h3>Account đang có</h3><table id="tbl"><thead><tr><th>Nhãn</th><th>Trạng thái</th><th>Đã dùng</th><th></th></tr></thead><tbody id="rows"><tr><td colspan=4>Đang tải…</td></tr></tbody></table></div>
 <div class="card"><h3>➕ Thêm account</h3>
 <small>Cách lấy cookie: mở <b>gemini.google.com</b> (đã đăng nhập acc phụ) → F12 → tab <b>Application</b> → Cookies → gemini.google.com → copy giá trị <b>__Secure-1PSID</b> và <b>__Secure-1PSIDTS</b>.</small>
@@ -402,5 +438,6 @@ small{color:#64748b;line-height:1.5}.warn{background:#fffbeb;border:1px solid #f
 async function load(){let r=await fetch('/accounts');let d=await r.json();let h='';(d.accounts||[]).forEach(a=>{let st=a.ready?'<span class=ok>● sẵn sàng</span>':(a.cooling?'<span class=cool>● nghỉ '+a.cooldownLeftSec+'s</span>':'<span class=bad>● lỗi'+(a.error?': '+a.error:'')+'</span>');h+='<tr><td>'+a.label+'</td><td>'+st+'</td><td>'+a.uses+'</td><td><button class=del onclick="del(\\''+a.label+'\\')">Xoá</button></td></tr>';});document.getElementById('rows').innerHTML=h||'<tr><td colspan=4>Chưa có account</td></tr>';}
 async function add(){let psid=document.getElementById('psid').value.trim();if(!psid){msg.textContent='Thiếu __Secure-1PSID';return;}msg.textContent='Đang thêm…';let r=await fetch('/accounts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({label:document.getElementById('label').value,psid:psid,psidts:document.getElementById('psidts').value})});let d=await r.json();msg.textContent=d.ok?'✓ Đã thêm':'✗ '+(d.error||'lỗi');if(d.ok){psid.value='';document.getElementById('psid').value='';document.getElementById('psidts').value='';document.getElementById('label').value='';}load();}
 async function del(l){if(!confirm('Xoá account '+l+'?'))return;await fetch('/accounts/'+encodeURIComponent(l),{method:'DELETE'});load();}
-load();setInterval(load,5000);
+async function loadDiag(){try{let r=await fetch('/debug');let d=await r.json();let libs=Object.entries(d.libs||{}).map(function(e){return e[0]+': '+(e[1].ok?('✅ '+(e[1].version||'')):('❌ '+(e[1].error||'')));}).join('<br>');document.getElementById('diag').innerHTML='Python <b>'+d.python+'</b> · '+d.platform+'<br>Cổng env: '+(d.port_env||'(mặc định)')+' · Nguồn cookie: '+d.cookie_source+' · accounts.json: '+(d.accounts_file_exists?'có':'chưa')+'<br><b>Thư viện:</b><br>'+libs;}catch(e){document.getElementById('diag').textContent='Lỗi tải /debug: '+e;}}
+load();loadDiag();setInterval(load,5000);setInterval(loadDiag,8000);
 </script></body></html>"""
