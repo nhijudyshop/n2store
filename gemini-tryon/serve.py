@@ -18,11 +18,24 @@ import os
 import re
 import shutil
 import socket
+import ssl
 import subprocess
 import sys
 import threading
 import time
 import urllib.request
+
+# macOS + Python.org thiếu cert store → urllib HTTPS fail (CERTIFICATE_VERIFY_FAILED) → heartbeat
+# chết âm thầm → KHÔNG đăng ký được registry. Dùng certifi nếu có; thiếu thì fallback unverified
+# (đăng ký name/url lên worker — rủi ro thấp, máy shop tin cậy).
+try:
+    import certifi  # đi kèm httpx của gemini_webapi
+
+    _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+except Exception:  # noqa: BLE001
+    _SSL_CTX = ssl.create_default_context()
+    _SSL_CTX.check_hostname = False
+    _SSL_CTX.verify_mode = ssl.CERT_NONE
 
 PORT = int(os.environ.get("PORT", "8131"))
 ENGINE = "gemini-tryon"
@@ -85,11 +98,12 @@ def _heartbeat(url):
     while True:
         try:
             body = json.dumps({"name": NAME, "url": url, "note": ENGINE, "engine": ENGINE}).encode()
-            headers = {"content-type": "application/json"}
+            # User-Agent BẮT BUỘC: worker Cloudflare chặn UA mặc định 'Python-urllib' (403).
+            headers = {"content-type": "application/json", "User-Agent": "gemini-tryon/1.0"}
             if REGISTRY_SECRET:
                 headers["x-vieneu-secret"] = REGISTRY_SECRET
             req = urllib.request.Request(REGISTRY, data=body, headers=headers)
-            urllib.request.urlopen(req, timeout=8).read()
+            urllib.request.urlopen(req, timeout=8, context=_SSL_CTX).read()
         except Exception:
             pass
         time.sleep(30)

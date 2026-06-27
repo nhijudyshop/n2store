@@ -4,7 +4,13 @@
 
 ### [gemini-tryon] Fix: server kẹt khởi động khi cookie hỏng → cổng 8131 không lên
 
-User "sao không vào được localhost 8131". Gốc: (1) chưa chạy sidecar; (2) BUG — `lifespan` `await _init_pool()` chặn startup, nếu cookie hỏng/mạng chậm thì `GeminiClient.init()` treo → uvicorn kẹt "Waiting for application startup" → cổng 8131 KHÔNG bao giờ mở. **Fix `app.py`**: init account chạy NỀN (`asyncio.create_task`) → server lên ngay; `_safe_build` bọc `asyncio.wait_for(timeout=INIT_TIMEOUT+10)` chống treo 1 account. **Verify máy thật** (venv + uvicorn): port 8131 lên sau 2s, `/health` + trang cấu hình `/` (HTTP 200) truy cập được dù cookie sai; pool init nền xong 1/1. (Lưu ý: gemini_webapi báo ready ngay sau init kể cả cookie sai → cookie hỏng thật bị bắt + nhảy account lúc generate.)
+User "sao không vào được localhost 8131" → chạy thử LIVE trên máy thật, lòi ra **3 bug** (fix hết):
+
+1. **`app.py` — server kẹt khởi động**: `lifespan` `await _init_pool()` chặn startup, cookie hỏng/mạng chậm → `GeminiClient.init()` treo → uvicorn kẹt "Waiting for application startup" → cổng 8131 không mở. Fix: init account chạy NỀN (`asyncio.create_task`) → server lên ngay; `_safe_build` bọc `asyncio.wait_for(INIT_TIMEOUT+10)`.
+2. **`serve.py` — heartbeat SSL fail**: Python.org macOS thiếu cert store → `urllib` HTTPS `CERTIFICATE_VERIFY_FAILED` → heartbeat chết âm thầm (`except: pass`) → KHÔNG đăng ký registry (curl chạy vì dùng cert hệ thống). Fix: SSL context bằng `certifi` (fallback unverified).
+3. **`serve.py` — heartbeat 403**: worker Cloudflare chặn UA mặc định `Python-urllib` (403). Fix: thêm `User-Agent: gemini-tryon/1.0`.
+
+**Verify LIVE** (venv máy này): port 8131 lên sau 2s; `/health` + trang cấu hình `/` HTTP 200 dù cookie sai; serve.py mở tunnel `*.trycloudflare.com` + **đăng ký registry thành công** (`GET /list?engine=gemini-tryon` trả máy "Macs-MacBook-Pro (Gemini)"). Tab Ghép đồ dò ra (localhost + registry). (Lưu ý: gemini_webapi báo ready ngay sau init kể cả cookie sai → cookie hỏng bị bắt + nhảy account lúc generate.) Status: ✅ sidecar đang chạy live, chờ user dán cookie acc phụ tại localhost:8131/.
 
 ### [web2/shared] Trang chỉ-admin: ẩn khỏi menu nhân viên + chặn truy cập URL trực tiếp (1 nguồn)
 
