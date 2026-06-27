@@ -2,6 +2,18 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Địa danh KH pre-order chỉ admin chỉnh được + cảnh báo khi đổi
+
+**Files:** `web2/live-control/{js/live-control.js,index.html,css/live-control.css}`, `render.com/routes/web2-campaign-products.js`.
+
+User: "KH theo" (địa danh pre-order) mặc định HƯƠNG CHÂU, chỉ admin chỉnh được + warning khi chỉnh.
+
+- **Mặc định HƯƠNG CHÂU** (đã có sẵn trong state + loadTvControl fallback).
+- **Chỉ admin**: `isAdmin()` (Web2Perm.isAdmin, fallback session) → non-admin select `#lcRegion` `disabled`+`.is-locked`+tooltip "🔒 Chỉ admin được đổi địa danh KH". Thêm `web2-perm.js` vào HTML.
+- **Cảnh báo khi đổi** (admin): `Popup.confirm` nút đỏ "Đổi địa danh" — giải thích địa danh quyết định vùng nào được ĐẶT VƯỢT NCC (badge VƯỢT) + tính CÒN + áp ngay màn TV. Huỷ → select revert về `state.tvControl.region` (đọc state, không snapshot — phòng SSE đổi region lúc dialog mở).
+- **Defense-in-depth server**: PATCH `/control` BỎ QUA field `region` nếu requester không phải admin (`req.web2User.role`), nhưng VẪN cho non-admin (operator live) đổi rows/cols/page — không reject cả request.
+- Verify: browser admin (enabled + popup + revert) + staff (disabled + locked). Code-review APPROVE 0 CRITICAL/HIGH. Bump `v=20260627tv11`.
+
 ### [web2/live-control + live-tv] Gom SP CHA–CON nhiều biến thể thành 1 card (by:'parent')
 
 **Files:** `web2/shared/web2-variant-group.js`, `web2/live-control/{js/live-control.js,index.html}`, `web2/live-tv/{js/live-tv.js,index.html}`, `render.com/routes/{web2-campaign-products.js,web2-products.js}`.

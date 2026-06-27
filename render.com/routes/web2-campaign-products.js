@@ -573,14 +573,18 @@ router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
             [campaignId]
         );
         const base = readControl(cur.rows[0]);
+        // CHỈ admin được đổi ĐỊA DANH KH pre-order (quyết định vùng được đặt VƯỢT NCC +
+        // cách tính CÒN). Non-admin (operator live) vẫn đổi layout/trang bình thường —
+        // region của họ bị BỎ QUA (giữ base), không reject cả request để khỏi vỡ lật trang.
+        const isAdminReq = String(req.web2User?.role || '').toLowerCase() === 'admin';
+        const regionAllowed = isAdminReq && b.region != null;
         const next = {
             rows: b.rows != null ? clampInt(b.rows, 1, 6, base.rows) : base.rows,
             cols: b.cols != null ? clampInt(b.cols, 1, 10, base.cols) : base.cols,
             page: b.page != null ? Math.max(0, clampInt(b.page, 0, 9999, base.page)) : base.page,
-            region:
-                b.region != null
-                    ? String(b.region).trim().slice(0, 80) || base.region
-                    : base.region,
+            region: regionAllowed
+                ? String(b.region).trim().slice(0, 80) || base.region
+                : base.region,
         };
         await pool.query(
             `INSERT INTO web2_live_tv_control (campaign_id, rows, cols, page, region, updated_at)

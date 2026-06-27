@@ -45,6 +45,24 @@
             .trim()
             .toUpperCase();
     }
+    // CHỈ admin được đổi địa danh KH pre-order (quyết định vùng nào được đặt VƯỢT NCC
+    // + cách tính CÒN trên màn TV đang chiếu). Web2Perm là nguồn chuẩn (role='admin');
+    // fallback đọc session khi module chưa load (defensive, không chặn nhầm admin).
+    function isAdmin() {
+        try {
+            if (window.Web2Perm && typeof window.Web2Perm.isAdmin === 'function')
+                return window.Web2Perm.isAdmin();
+            var u =
+                (window.Web2Auth &&
+                    window.Web2Auth.getStored &&
+                    window.Web2Auth.getStored()?.user) ||
+                (window.Web2UserInfo && window.Web2UserInfo.get && window.Web2UserInfo.get()) ||
+                null;
+            return !!u && String(u.role || '').toLowerCase() === 'admin';
+        } catch (_) {
+            return false;
+        }
+    }
 
     // ── Campaigns ─────────────────────────────────────
     async function loadCampaigns(selectId) {
@@ -402,6 +420,7 @@
                 op === 'first' || op === 'prev' ? pg.page <= 0 : pg.page >= pg.totalPages - 1;
         });
         // Selector địa danh (KH pre-order) — options = địa danh trong board + hiện tại.
+        // CHỈ admin chỉnh được: non-admin → disabled (read-only) + hint khoá.
         var rsel = $('lcRegion');
         if (rsel) {
             rsel.innerHTML = regionOptions()
@@ -417,6 +436,12 @@
                     );
                 })
                 .join('');
+            var admin = isAdmin();
+            rsel.disabled = !admin;
+            rsel.classList.toggle('is-locked', !admin);
+            rsel.title = admin
+                ? 'Địa danh KH pre-order (vùng được đặt VƯỢT số NCC báo)'
+                : '🔒 Chỉ admin được đổi địa danh KH';
         }
     }
     // Địa danh có thể chọn = địa danh trong board + hiện tại + 2 mặc định phổ biến.
@@ -941,8 +966,39 @@
             });
         var rsel = $('lcRegion');
         if (rsel)
-            rsel.addEventListener('change', function () {
-                setTvRegion(this.value);
+            rsel.addEventListener('change', async function () {
+                var sel = this;
+                var next = sel.value;
+                var cur = state.tvControl.region;
+                if (!next || next === cur) return;
+                // CHỈ admin được đổi (select đã disabled cho non-admin; defensive revert
+                // phòng DOM bị can thiệp).
+                if (!isAdmin()) {
+                    sel.value = cur;
+                    toast('🔒 Chỉ admin được đổi địa danh KH', 'warning');
+                    return;
+                }
+                // CẢNH BÁO trước khi đổi: ảnh hưởng ngay toàn bộ màn TV đang chiếu.
+                var ok = true;
+                if (window.Popup && window.Popup.confirm) {
+                    ok = await window.Popup.confirm(
+                        'Đổi địa danh KH pre-order từ "' +
+                            cur +
+                            '" sang "' +
+                            next +
+                            '"?\n\nĐịa danh này quyết định KH vùng nào được ĐẶT VƯỢT số NCC báo (badge VƯỢT) và cách tính CÒN. Đổi sẽ ÁP NGAY cho mọi người đang xem màn TV.',
+                        { title: '⚠️ Đổi địa danh KH', okText: 'Đổi địa danh', danger: true }
+                    );
+                } else {
+                    ok = window.confirm('Đổi địa danh KH sang "' + next + '"?');
+                }
+                if (!ok) {
+                    // Huỷ → trả lại địa danh HIỆN TẠI (đọc state, không phải snapshot cur:
+                    // phòng SSE đổi region trong lúc dialog mở → select khớp state thật).
+                    sel.value = state.tvControl.region;
+                    return;
+                }
+                setTvRegion(next);
             });
         // Bàn phím: ←/→ lật trang, Home/End đầu/cuối, Space trang sau (bỏ khi đang gõ).
         document.addEventListener('keydown', function (e) {
