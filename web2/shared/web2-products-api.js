@@ -48,12 +48,21 @@
         async health() {
             return _fetchJson(`${BASE}/health`);
         },
-        async list({ search, activeOnly, page = 1, limit = 200 } = {}) {
+        async list({ search, activeOnly, page = 1, limit = 200, topLevel } = {}) {
             const qs = new URLSearchParams();
             if (search) qs.set('search', search);
             if (activeOnly === true || activeOnly === 'true') qs.set('activeOnly', 'true');
+            // Migration 070: topLevel=1 → chỉ CHA + standalone (ẩn con) cho bảng Kho SP.
+            if (topLevel === true || topLevel === '1') qs.set('topLevel', '1');
             qs.set('page', String(page));
             qs.set('limit', String(limit));
+            return _fetchJson(`${BASE}/list?${qs}`);
+        },
+        // Migration 070: các CON của 1 cha (lazy expand ở Kho SP).
+        async listChildren(parentCode) {
+            const qs = new URLSearchParams();
+            qs.set('parentCode', String(parentCode || ''));
+            qs.set('limit', '500');
             return _fetchJson(`${BASE}/list?${qs}`);
         },
         async get(code) {

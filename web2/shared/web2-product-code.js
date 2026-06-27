@@ -577,6 +577,37 @@
         };
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Migration 070 — SP CHA–CON: mã cha = mã gốc (prefix+type+counter, BỎ
+    // màu/size); mã con = mã cha + viết tắt màu/size.
+    // ─────────────────────────────────────────────────────────
+    /**
+     * Mã CHA (base) cho 1 nhóm biến thể: prefix + type + counter (KHÔNG màu/size).
+     * Dùng tên CHUNG của nhóm (không kèm màu). Counter unique qua existingCodes.
+     * @returns {{ code: string, parts: object }}
+     */
+    function parentBaseCode(opts) {
+        const s = suggestWithMap(opts);
+        return {
+            code: s.parts.prefix + (s.parts.type || '') + (s.parts.counter || ''),
+            parts: s.parts,
+        };
+    }
+    /**
+     * Mã CON = mã cha + colorShort + sizeShort. existingCodes (optional) để tránh
+     * trùng trong batch (thêm hậu tố số).
+     * @returns {string}
+     */
+    function childCode(parentCode, colorShort, sizeShort, existingCodes) {
+        const base = String(parentCode || '') + (colorShort || '') + (sizeShort || '');
+        if (!base) return base;
+        const used = new Set(existingCodes || []);
+        if (!used.has(base)) return base;
+        let n = 2;
+        while (used.has(base + n)) n++;
+        return base + n;
+    }
+
     global.Web2ProductCode = {
         suggest: suggestWithMap,
         suggestNaive: _originalSuggest,
@@ -589,5 +620,7 @@
         extractColorWithMap,
         extractSize,
         toAsciiUpper,
+        parentBaseCode,
+        childCode,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

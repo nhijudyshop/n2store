@@ -437,6 +437,22 @@ async function _recomputeParent(pool, parentCode) {
     }
 }
 
+// Recompute tồn cha cho tập mã con (sau confirm/adjust). Tra parent_code distinct
+// rồi recompute từng cha. Gọi SAU COMMIT của endpoint mutation con.
+async function _recomputeParentsForCodes(pool, codes) {
+    if (!codes || !codes.length) return;
+    try {
+        const r = await pool.query(
+            `SELECT DISTINCT parent_code FROM web2_products
+             WHERE code = ANY($1) AND parent_code IS NOT NULL`,
+            [codes]
+        );
+        for (const row of r.rows) await _recomputeParent(pool, row.parent_code);
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] _recomputeParentsForCodes error:', e.message);
+    }
+}
+
 // -----------------------------------------------------
 // GET /api/web2/products/health
 // -----------------------------------------------------
@@ -1089,6 +1105,8 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             }
         }
         _notify('update', r.rows[0].code);
+        // Migration 070: sửa con (tồn/giá) → đồng bộ tồn cha.
+        if (r.rows[0].parent_code) await _recomputeParent(pool, r.rows[0].parent_code);
         // Audit 2026-06-20 (low): PATCH dùng action 'update' KHÔNG nằm trong
         // stockAffectingActions → Ví NCC (debt = Σ qty×cost) bị stale khi user
         // sửa stock/price bằng PATCH. Nếu diff có stock hoặc price thì
@@ -1193,6 +1211,11 @@ router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
             });
         }
         await client.query('COMMIT');
+        // Migration 070: con đổi tồn → đồng bộ tồn cha.
+        await _recomputeParentsForCodes(
+            pool,
+            results.map((r) => r.code)
+        );
         if (results.length)
             _notify(
                 'adjust-stock',
@@ -1282,6 +1305,19 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
         }
         const deleted = r.rows[0];
         _notify('delete', deleted.code);
+        // Migration 070: xoá con → đồng bộ tồn cha (xoá cha nếu hết con). Xoá CHA
+        // → xoá luôn các con (tránh con mồ côi).
+        if (deleted.parent_code) {
+            await _recomputeParent(pool, deleted.parent_code);
+        } else if (deleted.is_parent) {
+            try {
+                await pool.query(`DELETE FROM web2_products WHERE parent_code = $1`, [
+                    deleted.code,
+                ]);
+            } catch (e) {
+                console.error('[WEB2-PRODUCTS] delete parent cascade error:', e.message);
+            }
+        }
         await _logHistory(
             pool,
             deleted.code,
@@ -1324,6 +1360,7 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
         await client.query('BEGIN');
         const results = [];
         const warnings = [];
+        const touchedParents = new Set(); // Migration 070
         for (const adj of adjustments) {
             const code = adj.code ? String(adj.code).trim() : null;
             const name = adj.name ? String(adj.name).trim() : null;
@@ -1348,7 +1385,7 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
                 );
             } else if (variant) {
                 const p = [name, variant];
-                let where = `LOWER(name) = LOWER($1) AND LOWER(COALESCE(variant, '')) = LOWER($2)`;
+                let where = `LOWER(name) = LOWER($1) AND LOWER(COALESCE(variant, '')) = LOWER($2) AND is_parent = false`;
                 let order = 'id';
                 if (supplier) {
                     p.push(supplier);
@@ -1361,7 +1398,7 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
                 );
             } else {
                 const p = [name];
-                let where = `LOWER(name) = LOWER($1) AND (variant IS NULL OR variant = '')`;
+                let where = `LOWER(name) = LOWER($1) AND (variant IS NULL OR variant = '') AND is_parent = false`;
                 let order = 'id';
                 if (supplier) {
                     p.push(supplier);
@@ -1380,6 +1417,7 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
                 continue;
             }
             const row = r.rows[0];
+            if (row.parent_code) touchedParents.add(row.parent_code);
             const curPending = Number(row.pending_qty) || 0;
             const curStock = Number(row.stock) || 0;
             const newPending = Math.max(0, curPending + delta);
@@ -1420,6 +1458,8 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
             });
         }
         await client.query('COMMIT');
+        // Migration 070: đồng bộ tồn cha sau khi đổi pending con.
+        for (const pc of touchedParents) await _recomputeParent(pool, pc);
         if (results.length)
             _notify(
                 'adjust-pending',
@@ -1725,6 +1765,11 @@ router.post('/confirm-purchase', requireWeb2AuthSoft, async (req, res) => {
         `;
         const r = await client.query(sql, params);
         await client.query('COMMIT');
+        // Migration 070: con vừa confirm → đồng bộ tồn cha.
+        await _recomputeParentsForCodes(
+            pool,
+            r.rows.map((x) => x.code)
+        );
         if (r.rows.length)
             _notify(
                 'confirm-purchase',
@@ -1862,6 +1907,8 @@ router.post('/confirm-purchase-partial', requireWeb2AuthSoft, async (req, res) =
         const partialCodes = results
             .filter((r) => r.action === 'partial-purchase')
             .map((r) => r.code);
+        // Migration 070: con vừa nhận hàng → đồng bộ tồn cha.
+        await _recomputeParentsForCodes(pool, partialCodes);
         if (partialCodes.length) _notify('confirm-purchase-partial', partialCodes);
         res.json({ success: true, processed: partialCodes.length, items: results });
     } catch (e) {

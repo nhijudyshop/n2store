@@ -2,6 +2,21 @@
 
 ## 2026-06-27
 
+### [web2/products] P1 — SP CHA–CON (biến thể): schema + mã cha/con + API + đồng bộ tồn cha
+
+Feature lớn 4 phase (plan `~/.claude/plans/jaunty-munching-llama.md`): SP nhiều biến thể → 1 CHA (mã gốc, tồn=tổng) + N CON (mã cha+biến thể, SL riêng). Quyết định user: **mã con = mã cha + viết tắt biến thể** (HCAO→HCAOGHI/HCAODO); **cha là dòng THẬT** trong DB. **P1 = backend** (additive, an toàn — SP cũ phẳng không đổi).
+
+**`render.com/routes/web2-products.js`:**
+
+- Migration 070: `parent_code VARCHAR(40)` + `is_parent BOOLEAN` + index. `mapRow` trả `parentCode`/`isParent`.
+- `/list`: thêm `?topLevel=1` (chỉ CHA + standalone, ẩn con — cho bảng Kho SP) + `?parentCode=X` (con của 1 cha, lazy expand). Mặc định trả TẤT CẢ → `Web2ProductsCache` + matching KHÔNG đổi.
+- `/upsert-pending`: item con có `parentCode` → tự tạo dòng CHA (`ON CONFLICT DO NOTHING`, is_parent) + con (`parent_code`); match con loại trừ `is_parent=false` (cha variant=NULL không "ăn" nhầm con).
+- `_recomputeParent(pool,parentCode)` = tồn/pending/status cha = TỔNG con; gọi sau create/upsert/confirm-purchase(-partial)/adjust-stock/adjust-pending/PATCH/delete. Xoá con cuối → xoá cha; xoá cha → cascade xoá con. Mọi match con (`upsert-pending`, `adjust-pending`) thêm `is_parent=false`.
+
+**`web2/shared/web2-product-code.js`:** `parentBaseCode(opts)` (prefix+type+counter, bỏ màu/size) + `childCode(parent,color,size,existing)` (cha+biến thể, hậu tố số nếu trùng). **`web2-products-api.js`:** `list({topLevel})` + `listChildren(parentCode)`.
+
+**Verify:** node unit `parentBaseCode/childCode` → HCAO/HCAOGHI/HCAODO ✅; syntax OK. Cần deploy web2-api để test API round-trip. Status: 🔄 (P2-P4 tiếp)
+
 ### [gemini-tryon + web2/system] Dashboard giám sát máy + tunnel TỰ HỒI SINH (fix tunnel chết vẫn báo online)
 
 Đọc tab `web2/system?tab=services`. Thêm **thẻ "Máy Gemini try-on"** (`system-services.js renderGeminiMachines` + section HTML + `sdGeminiMachines`): client-side dò registry `?engine=gemini-tryon` → fetch `/health` từng máy → hiện account (uses, cooling, `lastError`), online/offline. **Phát hiện bug thật qua dashboard**: máy shop vẫn heartbeat (registry "1s trước") NHƯNG tunnel `catherine-ride...` đã chết (curl /health fail) → request rớt = "lâu lâu lỗi". **Fix `serve.py`**: `_tunnel_loop` đọc liên tục stdout cloudflared (drain + lấy URL) → cloudflared rớt thì **tự khởi động lại + lấy URL mới**; `_heartbeat()` đọc `_tun["url"]` hiện tại, tunnel chết (None) thì **NGỪNG báo** → registry tự xoá (TTL 90s) → không còn URL chết; interval 30s→15s (URL mới lên sớm). **Verify Mac**: tunnel lên → kill cloudflared → log "RỚT → khởi động lại" → lên URL mới (`outreach...`→`fundamentals...`). Bump `system-services.js?v=20260627gmon`. ⚠ Máy shop reinstall để nhận serve.py mới.
