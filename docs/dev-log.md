@@ -19,7 +19,11 @@ Feature lớn 4 phase (plan `~/.claude/plans/jaunty-munching-llama.md`): SP nhi�
 
 **`web2/shared/web2-product-code.js`:** `parentBaseCode(opts)` (prefix+type+counter, bỏ màu/size) + `childCode(parent,color,size,existing)` (cha+biến thể, hậu tố số nếu trùng). **`web2-products-api.js`:** `list({topLevel})` + `listChildren(parentCode)`.
 
-**Verify:** node unit `parentBaseCode/childCode` → HCAO/HCAOGHI/HCAODO ✅; syntax OK. Cần deploy web2-api để test API round-trip. Status: 🔄 (P2-P4 tiếp)
+**Verify:** node unit `parentBaseCode/childCode` → HCAO/HCAOGHI/HCAODO ✅. **Deploy web2-api LIVE → API round-trip ALL PASS**: upsert-pending tạo cha+2 con; cha pending=6 (=tổng); `?topLevel=1` ẩn con; `?parentCode` trả 2 con; confirm-purchase 1 con → cha stock=3/pending=3/MUA_1_PHAN; xoá cha cascade con. Status: ✅
+
+### [web2/shared] P2 — Web2VariantPicker: nhập SL TỪNG biến thể (withQty)
+
+`web2-variant-picker.js`: option `withQty:true` → khi 1 món tách >1 biến thể (cartesian "/") → render ô **SL cho mỗi biến thể** + tổng realtime (`.w2vp-qty`). API thêm `getVariantQtys()`→`[{variant,qty}]`, `getTotalQty()`; onChange payload thêm `variantQtys`+`totalQty`. Đổi SL KHÔNG re-render (giữ focus). `opts.qty` = SL mặc định mỗi biến thể. Set/1-biến-thể → không hiện ô SL. Status: ✅ (test e2e ở P3)
 
 ### [gemini-tryon + web2/system] Dashboard giám sát máy + tunnel TỰ HỒI SINH (fix tunnel chết vẫn báo online)
 
