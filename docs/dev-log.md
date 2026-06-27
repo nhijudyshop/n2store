@@ -2,7 +2,17 @@
 
 ## 2026-06-27
 
-### [web2 sepay R4] Test SePay webhook → ví Web 2.0 (E2E) → 🐞 FIX bug CHECK constraint thiếu `pending_no_order`
+### [web2 multi] Audit 5 bug user báo → 3 đã fix sẵn + fix 2 (AI tên chiến dịch, lag, zalo cookie, hardening)
+
+User báo 5 bug. Audit (5 agent song song) → 2 đã ĐÚNG sẵn, 1 đã fix sẵn, 2 còn thiếu → làm tiếp + 2 cải thiện.
+
+- **#1 ai-hub đổi model**: ✅ ĐÃ ĐÚNG sẵn — model đọc tươi mỗi lần gửi (`ai-chat.js:468`), đổi giữa chừng ăn ngay. Không cần làm gì.
+- **#2 live-chat/chat.html tin giật lên đầu**: ✅ ĐÃ FIX sẵn (`354e8a1fc`+`77392b076`, sort asc theo timestamp, mọi tin có `inserted_at`). + **hardening LOW**: `msgTs` (`web2-chat-panel-state.js`) thiếu/parse-fail timestamp → lấy epoch nhúng id tạm (`ext_/temp_/pk_<ms>`) thay vì 0 → chống tái diễn.
+- **#5 native-orders tách đơn**: ✅ ĐÃ FIX sẵn (`6704382ea` thêm `x-web2-token`, gốc là 401). R3 `8b5c4b22a` KHÔNG gây lỗi. Nếu còn lỗi → hard-refresh/login lại.
+- **#4 live-chat lag + AI tên chiến dịch**: lag → 3 SDK Firebase chuyển `<head>`→cuối body (hết render-block, giữ load order, Firestore vẫn dùng Pancake token). AI gợi ý tên → **THÊM** nút `✨ AI` cạnh ô tên (`live-campaign-manager.js`) gọi `/api/web2-ai/complete` sinh tên ngắn.
+- **#3 zalo auto-thêm account từ cookie**: focus-lease đã có (`927c3e8a3`). **THÊM** auto-bootstrap: web2/zalo `autoRenewZalo` khi chưa có TK + có phiên chat.zalo.me → tự createAccount+cookie-login (không bấm nút); jt-tracking presence `_acquireAll` khi rỗng → `Web2Zalo.getCookieAccountKey` bootstrap (throttle 60s).
+
+Verify: regression toàn bộ 10 suite R1-R4+SePay = **124 assertions GREEN** (fresh DB 1 pass). FE changes syntax-checked. Status: ✅
 
 User: "sepay có chức năng webhook tạo giao dịch nên dùng tạo giao dịch test web 2.0". Webhook `/api/sepay/webhook` là endpoint dùng chung fan-out 2 nhánh độc lập; test đi ĐÚNG nhánh Web 2.0 (`insertWeb2BalanceHistory`+`processWeb2Match`, như fan-out + retry cron), **KHÔNG đụng Web 1.0** (`balance_history`/`processDebtUpdate`). Verify 22 assertions Postgres thật (`sepay-webhook-test.js`).
 
