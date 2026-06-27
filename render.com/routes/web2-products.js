@@ -205,6 +205,17 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
 
+            -- Migration 070: SP CHA–CON (biến thể). 1 SP nhiều biến thể → 1 dòng CHA
+            -- (is_parent=true, parent_code=null, tồn/pending = TỔNG con) + N dòng CON
+            -- (parent_code = mã cha, biến thể riêng, tồn/pending/giá riêng).
+            -- Mã con = mã cha + viết tắt biến thể (HCAO → HCAOGHI, HCAODO).
+            -- SP 1 biến thể → dòng phẳng (parent_code=null, is_parent=false) như cũ.
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS parent_code VARCHAR(40),
+                ADD COLUMN IF NOT EXISTS is_parent   BOOLEAN NOT NULL DEFAULT false;
+            CREATE INDEX IF NOT EXISTS idx_web2_products_parent ON web2_products(parent_code);
+            CREATE INDEX IF NOT EXISTS idx_web2_products_isparent ON web2_products(is_parent);
+
             -- Migration 079: lịch sử chỉnh sửa SP (audit log).
             -- Mỗi mutation create/update/delete/stock-adjust ghi 1 row với
             -- before+after JSONB + user info + source page. Dùng cho modal
@@ -385,7 +396,45 @@ function mapRow(row) {
         // Giá gốc suy ngược = price|original_price / originRate. VND → null.
         originCurrency: row.origin_currency || null,
         originRate: row.origin_rate != null ? Number(row.origin_rate) : null,
+        // Migration 070: SP CHA–CON (biến thể)
+        parentCode: row.parent_code || null,
+        isParent: !!row.is_parent,
     };
+}
+
+// -----------------------------------------------------
+// Migration 070 — đồng bộ tồn/pending/status của dòng CHA = TỔNG các con.
+// Gọi SAU mọi mutation con (create/upsert/confirm/adjust/delete). 1 nguồn cập nhật.
+// Không còn con → xoá cha (tránh cha mồ côi). Lỗi → log, KHÔNG ném (best-effort).
+// -----------------------------------------------------
+async function _recomputeParent(pool, parentCode) {
+    if (!parentCode) return;
+    try {
+        const agg = await pool.query(
+            `SELECT COALESCE(SUM(stock),0)::int AS stock,
+                    COALESCE(SUM(pending_qty),0)::int AS pending,
+                    COALESCE(SUM(return_qty),0)::int AS ret,
+                    COUNT(*)::int AS n
+             FROM web2_products WHERE parent_code = $1`,
+            [parentCode]
+        );
+        const { stock, pending, ret, n } = agg.rows[0];
+        if (n === 0) {
+            await pool.query(`DELETE FROM web2_products WHERE code = $1 AND is_parent = true`, [
+                parentCode,
+            ]);
+            return;
+        }
+        const status = stock > 0 ? (pending > 0 ? 'MUA_1_PHAN' : 'DANG_BAN') : 'CHO_MUA';
+        await pool.query(
+            `UPDATE web2_products
+             SET stock = $2, pending_qty = $3, return_qty = $4, status = $5, updated_at = $6
+             WHERE code = $1 AND is_parent = true`,
+            [parentCode, stock, pending, ret, status, Date.now()]
+        );
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] _recomputeParent error:', e.message);
+    }
 }
 
 // -----------------------------------------------------
@@ -412,7 +461,7 @@ router.get('/list', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const { search, activeOnly, page = 1, limit = 200 } = req.query;
+        const { search, activeOnly, page = 1, limit = 200, topLevel, parentCode } = req.query;
         const pageNum = Math.max(1, parseInt(page, 10));
         const limitNum = Math.min(1000, Math.max(1, parseInt(limit, 10)));
         const offset = (pageNum - 1) * limitNum;
@@ -421,6 +470,15 @@ router.get('/list', async (req, res) => {
         const params = [];
         if (activeOnly === 'true' || activeOnly === '1') {
             conds.push('is_active = true');
+        }
+        // Migration 070 — Kho SP table: topLevel=1 chỉ trả CHA + standalone (ẩn con).
+        // parentCode=X trả CON của 1 cha (lazy expand). Mặc định (không 2 cờ này)
+        // trả TẤT CẢ → Web2ProductsCache + matching (findByNameVariant) KHÔNG đổi.
+        if (parentCode) {
+            params.push(String(parentCode));
+            conds.push(`parent_code = $${params.length}`);
+        } else if (topLevel === '1' || topLevel === 'true') {
+            conds.push('parent_code IS NULL');
         }
         if (search) {
             params.push(`%${search}%`);
@@ -704,10 +762,12 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                 `INSERT INTO web2_products
                  (code, name, price, image_url, stock, note, tags, is_active,
                   original_price, barcode, category, variant, supplier, region,
+                  parent_code, is_parent,
                   created_by, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, true,
                          $8, $9, $10, $11, $12, $13,
-                         $14, $15, $15)
+                         $14, $15,
+                         $16, $17, $17)
                  RETURNING *`,
                 [
                     b.code.trim(),
@@ -723,11 +783,15 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     b.variant ? String(b.variant).trim() : null,
                     b.supplier ? String(b.supplier).trim() : null,
                     b.region ? String(b.region).trim() : null,
+                    b.parentCode ? String(b.parentCode).trim() : null,
+                    !!b.isParent,
                     b.createdBy || null,
                     now,
                 ]
             );
             await client.query('COMMIT');
+            // Con mới (có parent_code) → đồng bộ tồn cha.
+            if (b.parentCode) await _recomputeParent(pool, String(b.parentCode).trim());
             _notify('create', r.rows[0].code);
             await _logHistory(
                 pool,

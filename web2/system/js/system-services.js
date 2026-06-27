@@ -101,6 +101,7 @@
         renderDatabases(data.databases || {});
         renderServices(data.services || []);
         renderProcess(data.process || {});
+        renderGeminiMachines(); // async — dò registry + /health từng máy shop (độc lập services-overview)
 
         _wireClicks();
         if (window.lucide) lucide.createIcons();
@@ -269,6 +270,66 @@
             </div>`;
         });
         grid.innerHTML = cards.join('');
+    }
+
+    // Giám sát máy shop tự host gemini-tryon: dò registry → /health từng máy → account uses/lỗi.
+    // Client-side (độc lập /api/services-overview) vì máy chạy nhà shop, không phải dịch vụ Render.
+    async function renderGeminiMachines() {
+        const grid = $('sdGeminiMachines');
+        if (!grid) return;
+        const base =
+            window.WEB2_CONFIG?.WORKER_URL ||
+            window.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        let machines = [];
+        try {
+            const r = await fetch(base + '/api/web2-vieneu-registry/list?engine=gemini-tryon', {
+                signal: AbortSignal.timeout(8000),
+            });
+            const d = await r.json();
+            machines = (d.servers || []).filter((s) => s && s.url);
+        } catch (_) {}
+        if (!machines.length) {
+            grid.innerHTML =
+                '<div class="sd-loading" style="color:var(--web2-text-3)">⚪ Chưa thấy máy nào online — bật sidecar trên máy shop (bộ cài chọn [4] Gemini).</div>';
+            return;
+        }
+        const cards = await Promise.all(
+            machines.map(async (m) => {
+                const url = m.url.replace(/\/+$/, '');
+                let h = null;
+                try {
+                    const r = await fetch(url + '/health', { signal: AbortSignal.timeout(8000) });
+                    h = await r.json();
+                } catch (_) {}
+                const accts = (h && h.accounts) || [];
+                const rows =
+                    accts
+                        .map((a) => {
+                            const dot = a.ready ? (a.cooling ? '🟠' : '🟢') : '🔴';
+                            const meta =
+                                (a.uses != null ? a.uses + ' ảnh' : '') +
+                                (a.cooling ? ' · nghỉ ' + a.cooldownLeftSec + 's' : '');
+                            const err = a.lastError
+                                ? `<div style="color:#b45309;font-size:10px;line-height:1.4">⚠ ${escapeHtml(String(a.lastError).slice(0, 130))}</div>`
+                                : '';
+                            return `<div style="padding:5px 0;border-top:1px solid var(--web2-border)"><b>${dot} ${escapeHtml(a.label)}</b> <span style="color:var(--web2-text-3)">${escapeHtml(meta)}</span>${err}</div>`;
+                        })
+                        .join('') ||
+                    '<div style="color:var(--web2-text-3);font-size:12px">(không lấy được /health của máy)</div>';
+                const head =
+                    h && h.ready
+                        ? `<span class="sd-svc-cost free">${h.readyCount} acc sẵn sàng</span>`
+                        : `<span class="sd-svc-cost paid">offline/lỗi</span>`;
+                return `<div class="sd-svc-card sd-cat-other">
+                    <div class="sd-svc-head"><span class="sd-svc-name">👕 ${escapeHtml(m.name)}</span>${head}</div>
+                    <div class="sd-svc-provider">cập nhật ${m.ageSec}s trước · ${escapeHtml(url.replace(/^https?:\/\//, '').slice(0, 34))}…</div>
+                    ${rows}
+                </div>`;
+            })
+        );
+        grid.innerHTML = cards.join('');
+        if (window.lucide) lucide.createIcons();
     }
 
     function renderProcess(proc) {

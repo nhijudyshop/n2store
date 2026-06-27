@@ -80,41 +80,58 @@ def _find_cloudflared():
     return None
 
 
-def _start_tunnel(cf):
-    p = subprocess.Popen(
-        [cf, "tunnel", "--url", f"http://localhost:{PORT}"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        creationflags=_NOWIN,
-    )
-    url = None
-    for _ in range(90):
-        line = p.stdout.readline()
-        if not line:
-            if p.poll() is not None:
-                break
-            continue
-        m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
-        if m:
-            url = m.group(0)
-            break
-    return p, url
+# URL tunnel HIỆN TẠI (None = tunnel đang chết). Tunnel tự hồi sinh cập nhật biến này; heartbeat đọc.
+_tun = {"url": None}
 
 
-def _heartbeat(url):
+def _tunnel_loop(cf):
+    """Chạy cloudflared + tự KHỞI ĐỘNG LẠI khi nó rớt → URL tunnel luôn sống (chống 'lâu lâu lỗi').
+    Đọc liên tục stdout (vừa lấy URL vừa drain để pipe không nghẽn); cloudflared thoát → url=None → restart."""
     while True:
         try:
-            body = json.dumps({"name": NAME, "url": url, "note": ENGINE, "engine": ENGINE}).encode()
-            # User-Agent BẮT BUỘC: worker Cloudflare chặn UA mặc định 'Python-urllib' (403).
-            headers = {"content-type": "application/json", "User-Agent": "gemini-tryon/1.0"}
-            if REGISTRY_SECRET:
-                headers["x-vieneu-secret"] = REGISTRY_SECRET
-            req = urllib.request.Request(REGISTRY, data=body, headers=headers)
-            urllib.request.urlopen(req, timeout=8, context=_SSL_CTX).read()
-        except Exception:
-            pass
-        time.sleep(30)
+            p = subprocess.Popen(
+                [cf, "tunnel", "--url", f"http://localhost:{PORT}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=_NOWIN,
+                bufsize=1,
+            )
+            for line in p.stdout:  # đọc tới khi cloudflared thoát
+                if _tun["url"] is None:
+                    m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+                    if m:
+                        _tun["url"] = m.group(0)
+                        print(f"👕 Tunnel ONLINE: {_tun['url']}", flush=True)
+            _tun["url"] = None
+            print("⚠️ Tunnel cloudflared RỚT → tự khởi động lại sau 3s…", flush=True)
+        except Exception as e:  # noqa: BLE001
+            _tun["url"] = None
+            print(f"⚠️ Tunnel lỗi: {e} → thử lại sau 3s", flush=True)
+        time.sleep(3)
+
+
+def _heartbeat():
+    """Báo danh URL HIỆN TẠI mỗi 15s. Tunnel chết (url=None) → NGỪNG báo → registry tự xoá (TTL 90s)
+    → máy không còn hiện 'online' với URL chết; khi tunnel lên lại (URL mới) thì báo URL mới."""
+    while True:
+        url = _tun.get("url")
+        if url:
+            try:
+                body = json.dumps(
+                    {"name": NAME, "url": url, "note": ENGINE, "engine": ENGINE}
+                ).encode()
+                # User-Agent BẮT BUỘC: worker Cloudflare chặn UA mặc định 'Python-urllib' (403).
+                headers = {"content-type": "application/json", "User-Agent": "gemini-tryon/1.0"}
+                if REGISTRY_SECRET:
+                    headers["x-vieneu-secret"] = REGISTRY_SECRET
+                req = urllib.request.Request(REGISTRY, data=body, headers=headers)
+                urllib.request.urlopen(req, timeout=8, context=_SSL_CTX).read()
+            except Exception:
+                pass
+        time.sleep(15)
 
 
 def main():
@@ -157,17 +174,11 @@ def main():
                 "    Mac:  brew install cloudflared   |   Windows: tải cloudflared.exe vào thư mục này."
             )
         else:
-            print("▶ Mở tunnel HTTPS…")
-            tun, url = _start_tunnel(cf)
-            if url:
-                print("═" * 64)
-                print(f"👕  Máy '{NAME}' đã ONLINE (Gemini try-on FREE).")
-                print("    Mở Web 2.0 → tab 'Ghép đồ' → máy này TỰ HIỆN để chọn (KHÔNG cần dán URL).")
-                print(f"    URL dự phòng (dán tay nếu cần): {url}")
-                print("═" * 64)
-                threading.Thread(target=_heartbeat, args=(url,), daemon=True).start()
-            else:
-                print("⚠️  Chưa lấy được URL tunnel — kiểm tra mạng/cloudflared.")
+            print("▶ Mở tunnel HTTPS (tự hồi sinh nếu rớt)…")
+            print(f"👕  Máy '{NAME}' sẽ ONLINE — Web 2.0 tab 'Ghép đồ' tự hiện để chọn.")
+            # Tunnel tự khởi động lại khi rớt + heartbeat đọc URL hiện tại → registry luôn đúng.
+            threading.Thread(target=_tunnel_loop, args=(cf,), daemon=True).start()
+            threading.Thread(target=_heartbeat, args=(), daemon=True).start()
 
     print("\nĐang chạy. Đóng cửa sổ này để dừng.")
     try:
