@@ -2,15 +2,16 @@
 
 ## 2026-06-26
 
-### [web2 flow R3] Audit vòng 3 (PBH tách + khoá kỳ lương) → fix 2 bug HIGH money/stock + verify integration test
+### [web2 flow R3] Audit vòng 3 (PBH tách + khoá kỳ lương + cashbook) → fix 3 bug + verify đối kháng 5 false-positive
 
-Vòng 3 nối R1/R2, soi luồng phụ: PBH tách (split), chấm công/khoá kỳ lương, soquy, voucher → **8 finding** (2 HIGH fixed + 6 LOW/FE documented). Doc: [`docs/web2/FLOW-AUDIT-2026-06-26-R3.md`](web2/FLOW-AUDIT-2026-06-26-R3.md).
+Vòng 3 nối R1/R2, soi luồng phụ: PBH tách (split), chấm công/khoá kỳ lương, soquy/cashbook, voucher → **8 finding**. Verify đối kháng từng cái với code thật: **3 bug THẬT đã fix** (1, 2 HIGH + 5 LOW), **5 còn lại false-positive / fix sẽ regress** (đã ghi lý do). Doc: [`docs/web2/FLOW-AUDIT-2026-06-26-R3.md`](web2/FLOW-AUDIT-2026-06-26-R3.md).
 
 - **#1 [HIGH]** PBH tách (N bill cùng `source_code`): enrich tag dùng `DISTINCT ON` chỉ đọc bill#1 → ẩn nợ bill#2 + đối soát sớm sai. Đổi sang AGGREGATE: `SUM(residual)` (còn nợ nếu BẤT KỲ bill nợ) + `BOOL_AND(packed+)` → `pbhAllReconciled`. Verify 9 assertions. Commit `8b5c4b22a`.
 - **#2 [MEDIUM→HIGH]** Khoá kỳ lương CHỈ chặn frontend → tab cũ/API trực tiếp vẫn sửa punch/payroll/fullday/holiday tháng ĐÃ CHỐT. Thêm guard server-side `isMonthLocked(db, monthKey)` reject 409 ở 7 route mutation (`POST/DELETE records`, `PUT payroll`, `POST/DELETE fullday`, `POST/DELETE holidays`); fail-open khi bảng lock chưa migrate; agent ingest nền KHÔNG chặn. Verify 18 assertions (`lock-test.js`).
-- **Document (LOW/FE, follow-up)**: #3 soquy optimistic số dư stale, #4 soquy back-dated double-count, #5 sổ quỹ biên ngày sub-second, #6 payroll override merge-on-omit, #7 Excel double-count đếm báo, #8 voucher fallback mã rỗng.
+- **#5 [LOW]** Cashbook filter biên cuối `<= 23:59:59` bỏ sót phiếu sub-second giây cuối (vd 23:59:59.7) → thiếu tổng thu/chi + số dư. Đổi biên EXCLUSIVE `< (end+1 ngày)T00:00` ở `/summary`+`/report` (web2-cashbook.js) + `buildVoucherFilter` (web2-cashbook-lib.js). Verify 7 assertions (`cashbook-test.js`).
+- **Verify KHÔNG phải bug (vòng đối kháng — KHÔNG sửa mù)**: #3 soquy optimistic (thực tế `loadAll()` refetch + SSE reconcile, không optimistic balance), #4 back-dated double-count (report query tươi, đếm 1 lần theo voucher_time), #6 payroll override (FE gửi đủ field, null=xoá chủ ý — COALESCE sẽ regress), #7 Excel count (cosmetic; fix xmax sẽ chặn SSE refresh khi sửa punch), #8 voucher mã rỗng (`nextCode` prefix luôn gán + seq atomic, không nhánh rỗng).
 
-Test: harness `tags-test.js` (9) + `lock-test.js` (18) — không regression suite R1/R2. ⚠ Tiện thể RESTORE `dev-log.md` bị xoá nhầm 539 dòng (section 2026-06-19) ở working tree session trước. Status: ✅
+Test: harness `tags-test.js` (9) + `lock-test.js` (18) + `cashbook-test.js` (7) — không regression suite R1/R2. ⚠ Tiện thể RESTORE `dev-log.md` bị xoá nhầm 539 dòng (section 2026-06-19) ở working tree session trước. Status: ✅
 
 ### [web2 flow R2] Audit vòng 2 (7 luồng còn lại) → fix 8 bug HIGH/MEDIUM money/stock + verify integration test
 

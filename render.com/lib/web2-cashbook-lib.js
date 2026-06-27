@@ -181,8 +181,14 @@ function buildVoucherFilter(q) {
         params.push(new Date(`${String(q.start).slice(0, 10)}T00:00:00+07:00`).toISOString());
     }
     if (q.end) {
-        where.push(`voucher_time <= $${i++}`);
-        params.push(new Date(`${String(q.end).slice(0, 10)}T23:59:59+07:00`).toISOString());
+        // FIX audit R3 (#5): biên cuối EXCLUSIVE (< 00:00 ngày kế) — không bỏ sót phiếu
+        // có sub-second trong giây cuối (vd 23:59:59.7). +1 ngày an toàn (VN không DST).
+        where.push(`voucher_time < $${i++}`);
+        params.push(
+            new Date(
+                new Date(`${String(q.end).slice(0, 10)}T00:00:00+07:00`).getTime() + 86400000
+            ).toISOString()
+        );
     }
     if (TYPES.includes(q.type)) {
         where.push(`type = $${i++}`);

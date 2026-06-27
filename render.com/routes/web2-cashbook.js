@@ -565,8 +565,13 @@ router.get('/summary', requireWeb2Admin, async (req, res) => {
             params.push(new Date(`${start}T00:00:00+07:00`).toISOString());
         }
         if (end) {
-            where.push(`voucher_time <= $${i++}`);
-            params.push(new Date(`${end}T23:59:59+07:00`).toISOString());
+            // FIX audit R3 (#5): biên cuối EXCLUSIVE (< 00:00 ngày kế) thay vì <= 23:59:59
+            // → không bỏ sót phiếu có sub-second trong giây cuối (vd 23:59:59.7). +1 ngày
+            // an toàn (VN không DST). Nhất quán với biên đầu kỳ (>= 00:00 ngày start).
+            where.push(`voucher_time < $${i++}`);
+            params.push(
+                new Date(new Date(`${end}T00:00:00+07:00`).getTime() + 86400000).toISOString()
+            );
         }
         if (fund) {
             where.push(`fund_type = $${i++}`);
@@ -617,8 +622,13 @@ router.get('/report', requireWeb2Admin, async (req, res) => {
             params.push(new Date(`${start}T00:00:00+07:00`).toISOString());
         }
         if (end) {
-            where.push(`voucher_time <= $${i++}`);
-            params.push(new Date(`${end}T23:59:59+07:00`).toISOString());
+            // FIX audit R3 (#5): biên cuối EXCLUSIVE (< 00:00 ngày kế) thay vì <= 23:59:59
+            // → không bỏ sót phiếu có sub-second trong giây cuối (vd 23:59:59.7). +1 ngày
+            // an toàn (VN không DST). Nhất quán với biên đầu kỳ (>= 00:00 ngày start).
+            where.push(`voucher_time < $${i++}`);
+            params.push(
+                new Date(new Date(`${end}T00:00:00+07:00`).getTime() + 86400000).toISOString()
+            );
         }
         if (fund) {
             where.push(`fund_type = $${i++}`);
