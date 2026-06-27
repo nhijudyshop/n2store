@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2/`
+# Latest Snapshot — `gemini-tryon/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,19 +9,19 @@
 **Last updated**: 2026-06-27 11:27:59 +07
 **Summary**: web2 ai-hub: 49 prompt Nano Banana + nhóm Ghép mặt + try-on cải tiến + sidecar gemini-tryon cookie FREE
 
-## Files changed in this commit (`web2/`)
+## Files changed in this commit (`gemini-tryon/`)
 
-- `web2/ai-hub/index.html`
-- `web2/shared/web2-ai-presets.js`
-- `web2/shared/web2-tryon.js`
+- `gemini-tryon/.gitignore`
+- `gemini-tryon/README.md`
+- `gemini-tryon/app.py`
+- `gemini-tryon/requirements.txt`
+- `gemini-tryon/run-mac.command`
+- `gemini-tryon/run_local.sh`
+- `gemini-tryon/serve.py`
 
-## Last 5 commits touching `web2/`
+## Last 5 commits touching `gemini-tryon/`
 
 - `41e805464` feat(web2 ai-hub): thư viện 49 prompt Nano Banana + nhóm Ghép mặt + try-on cải tiến + sidecar gemini-tryon (cookie FREE) _(2026-06-27)_
-- `6ed930d63` feat(web2/cham-cong): audit "thời gian chỉnh sửa" chấm công (ai + lúc nào) + fix false-stamp nghỉ phép _(2026-06-27)_
-- `b27f50bda` auto: session update _(2026-06-27)_
-- `f614de58c` feat(web2 zalo R3): auto-bootstrap account từ cookie chat.zalo.me (không cần bấm nút) _(2026-06-27)_
-- `7aa1f2507` feat(live-chat): AI gợi ý tên chiến dịch + giảm lag (firebase head→body) + hardening msgTs _(2026-06-27)_
 
 ---
 
