@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `254da26` — feat(gemini-tryon): đa account xoay tua + cài 1-click (bộ cài máy POS [4]) + route free vào tab Ghép đồ
-**Last updated**: 2026-06-27 11:45:39 +07
-**Latest session**: [`RESUME:20260627-114539-254da26`](../20260627-114539-254da26.md)
-**Summary**: gemini-tryon đa account xoay tua + cài 1-click (bộ cài [4]) + route free tab Ghép đồ
+**Latest commit**: `a607fb1` — auto: session update
+**Last updated**: 2026-06-27 11:46:52 +07
+**Latest session**: [`RESUME:20260627-114652-a607fb1`](../20260627-114652-a607fb1.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`gemini-tryon/`](./gemini-tryon.md) — 5 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -41,7 +39,7 @@
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
 - [`index/`](./index.md) — updated 2026-06-20 16:43
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-24 16:27
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-27 11:46
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-26 14:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
