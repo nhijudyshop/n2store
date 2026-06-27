@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a607fb1` — auto: session update
-**Last updated**: 2026-06-27 11:46:52 +07
-**Latest session**: [`RESUME:20260627-114652-a607fb1`](../20260627-114652-a607fb1.md)
-**Summary**: auto: session update
+**Latest commit**: `a8933df` — feat(inventory-tracking): cho nhập giá thập phân (ô Sản phẩm) + kg thập phân (ô Kiện Hàng), dấu phẩy kiểu VN
+**Last updated**: 2026-06-27 11:49:33 +07
+**Latest session**: [`RESUME:20260627-114933-a8933df`](../20260627-114933-a8933df.md)
+**Summary**: inventory-tracking: nhập giá/kg thập phân dấu phẩy VN
 
 ## Folders affected in this commit
 
+- [`docs/`](./docs.md) — 1 file(s)
 - [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 
 ## All folder snapshots
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 11:45
+- [`docs/`](./docs.md) — updated 2026-06-27 11:49
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -39,7 +40,7 @@
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
 - [`index/`](./index.md) — updated 2026-06-20 16:43
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-27 11:46
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-27 11:49
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-26 14:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
