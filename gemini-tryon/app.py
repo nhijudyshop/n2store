@@ -85,7 +85,8 @@ class Account:
         self.psidts = (psidts or "").strip()
         self.client = None
         self.ready = False
-        self.error = ""
+        self.error = ""  # lỗi init/cookie (tắt account)
+        self.last_error = ""  # lỗi LẦN TẠO ẢNH gần nhất (để debug acc nào fail vì gì)
         self.cooldown_until = 0.0
         self.uses = 0
 
@@ -98,6 +99,7 @@ class Account:
             "cooldownLeftSec": max(0, int(self.cooldown_until - now)),
             "uses": self.uses,
             "error": self.error or None,
+            "lastError": self.last_error or None,
         }
 
 
@@ -285,14 +287,21 @@ async def _run_gemini(prompt: str, image_dataurls: List[str]) -> dict:
                     kwargs = {"files": paths} if paths else {}
                     if MODEL:
                         kwargs["model"] = MODEL
+                    # temporary=True → KHÔNG lưu hội thoại vào lịch sử Gemini (đỡ rác + đỡ lộ automation).
+                    # Tắt bằng env GEMINI_TEMPORARY=0 nếu phiên gemini_webapi không hỗ trợ.
+                    if os.environ.get("GEMINI_TEMPORARY", "1") != "0":
+                        kwargs["temporary"] = True
+                    print(f"[gen] thử account '{acc.label}'…", flush=True)
                     resp = await asyncio.wait_for(
                         acc.client.generate_content(gen_prompt, **kwargs), timeout=GEN_TIMEOUT
                     )
                     images = getattr(resp, "images", None) or []
                     if not images:
-                        txt = (getattr(resp, "text", "") or "").strip()[:200]
-                        # không có ảnh → có thể bị chặn nội dung HOẶC account hết lượt → thử account kế
-                        last_err = "Gemini không trả ảnh" + (f" ({txt})" if txt else "")
+                        txt = (getattr(resp, "text", "") or "").strip()[:300]
+                        # không có ảnh → account hết lượt / IP bị giới hạn / bị chặn → thử account kế
+                        acc.last_error = "không trả ảnh: " + (txt or "(rỗng)")
+                        last_err = f"[{acc.label}] " + acc.last_error
+                        print(f"[gen] account '{acc.label}' KHÔNG trả ảnh: {txt[:160]}", flush=True)
                         if _QUOTA_RE.search(txt):
                             acc.cooldown_until = time.time() + COOLDOWN_SEC
                         continue
@@ -301,14 +310,20 @@ async def _run_gemini(prompt: str, image_dataurls: List[str]) -> dict:
                     with open(out_path, "rb") as f:
                         data = f.read()
                     acc.uses += 1
+                    acc.last_error = ""
+                    print(f"[gen] ✅ account '{acc.label}' tạo ảnh OK ({len(data)} bytes)", flush=True)
                     b64 = base64.b64encode(data).decode()
                     return {"ok": True, "provider": "gemini-web", "account": acc.label, "dataUrl": f"data:image/png;base64,{b64}"}
                 except asyncio.TimeoutError:
-                    last_err = "Gemini quá lâu (timeout)"
+                    acc.last_error = "timeout (quá lâu)"
+                    last_err = f"[{acc.label}] timeout"
+                    print(f"[gen] account '{acc.label}' timeout", flush=True)
                     continue
                 except Exception as e:  # noqa: BLE001
                     msg = str(e)
-                    last_err = msg[:200]
+                    acc.last_error = msg[:300]
+                    last_err = f"[{acc.label}] " + msg[:200]
+                    print(f"[gen] account '{acc.label}' LỖI: {msg[:200]}", flush=True)
                     if _QUOTA_RE.search(msg):
                         acc.cooldown_until = time.time() + COOLDOWN_SEC  # hết lượt → nghỉ, nhảy account kế
                     elif _AUTH_RE.search(msg):
@@ -446,7 +461,7 @@ small{color:#64748b;line-height:1.5}.warn{background:#fffbeb;border:1px solid #f
 <label>__Secure-1PSIDTS (có thể trống)</label><input id="psidts" placeholder="dán cookie __Secure-1PSIDTS">
 <button onclick="add()">Thêm account</button> <span id="msg"></span></div>
 <script>
-async function load(){let r=await fetch('/accounts');let d=await r.json();let h='';(d.accounts||[]).forEach(a=>{let st=a.ready?'<span class=ok>● sẵn sàng</span>':(a.cooling?'<span class=cool>● nghỉ '+a.cooldownLeftSec+'s</span>':'<span class=bad>● lỗi'+(a.error?': '+a.error:'')+'</span>');h+='<tr><td>'+a.label+'</td><td>'+st+'</td><td>'+a.uses+'</td><td><button class=del onclick="del(\\''+a.label+'\\')">Xoá</button></td></tr>';});document.getElementById('rows').innerHTML=h||'<tr><td colspan=4>Chưa có account</td></tr>';}
+async function load(){let r=await fetch('/accounts');let d=await r.json();let h='';(d.accounts||[]).forEach(a=>{let st=a.ready?'<span class=ok>● sẵn sàng</span>':(a.cooling?'<span class=cool>● nghỉ '+a.cooldownLeftSec+'s</span>':'<span class=bad>● lỗi'+(a.error?': '+a.error:'')+'</span>');if(a.lastError)st+='<br><small style="color:#b45309">⚠ tạo ảnh gần nhất: '+a.lastError.slice(0,110)+'</small>';h+='<tr><td>'+a.label+'</td><td>'+st+'</td><td>'+a.uses+'</td><td><button class=del onclick="del(\\''+a.label+'\\')">Xoá</button></td></tr>';});document.getElementById('rows').innerHTML=h||'<tr><td colspan=4>Chưa có account</td></tr>';}
 async function add(){let psid=document.getElementById('psid').value.trim();if(!psid){msg.textContent='Thiếu __Secure-1PSID';return;}msg.textContent='Đang thêm…';let r=await fetch('/accounts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({label:document.getElementById('label').value,psid:psid,psidts:document.getElementById('psidts').value})});let d=await r.json();msg.textContent=d.ok?'✓ Đã thêm':'✗ '+(d.error||'lỗi');if(d.ok){psid.value='';document.getElementById('psid').value='';document.getElementById('psidts').value='';document.getElementById('label').value='';}load();}
 async function del(l){if(!confirm('Xoá account '+l+'?'))return;await fetch('/accounts/'+encodeURIComponent(l),{method:'DELETE'});load();}
 async function loadDiag(){try{let r=await fetch('/debug');let d=await r.json();let libs=Object.entries(d.libs||{}).map(function(e){return e[0]+': '+(e[1].ok?('✅ '+(e[1].version||'')):('❌ '+(e[1].error||'')));}).join('<br>');document.getElementById('diag').innerHTML='Python <b>'+d.python+'</b> · '+d.platform+'<br>Cổng env: '+(d.port_env||'(mặc định)')+' · Nguồn cookie: '+d.cookie_source+' · accounts.json: '+(d.accounts_file_exists?'có':'chưa')+'<br><b>Thư viện:</b><br>'+libs;}catch(e){document.getElementById('diag').textContent='Lỗi tải /debug: '+e;}}

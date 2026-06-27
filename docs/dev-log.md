@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [gemini-tryon] temporary mode (đỡ rác hội thoại) + log lỗi từng account (debug "1 acc full, 4 acc 0%")
+
+User: sidecar tạo nhiều hội thoại trong lịch sử Gemini; và 1 account bị full còn 4 account khác 0% dù account nào cũng tạo ảnh được bằng tay → nghi LỖI SIDECAR hoặc Google giới hạn theo IP (1 máy 1 IP, hết ngạch ảnh của IP thì mọi acc trên máy đó bị "limit reset"). Thêm để chẩn đoán: (1) `generate_content(temporary=True)` → không lưu hội thoại vào history (đỡ rác + đỡ lộ automation; env `GEMINI_TEMPORARY=0` để tắt). (2) Mỗi account lưu `last_error` (lỗi lần tạo ảnh gần nhất) + log `[gen] account 'X' …` ra gemini-tryon.log; hiện `lastError` trên trang cấu hình + /health. ⚠ Máy shop reinstall để nhận. Bước tiếp: user test 1 acc "0%" NGAY TRÊN MÁY SHOP (cùng IP) — fail = giới hạn IP (xoay acc 1 máy vô ích, cần nhiều IP/máy); OK = lỗi sidecar.
+
 ### [web2/live-control] Đổi chỗ banner hint ↔ panel điều khiển TV
 
 User: đổi vị trí hint (banner cam) và panel "📺 Điều khiển màn TV". → panel điều khiển TV lên TRÊN (ngay sau header), hint xuống DƯỚI cùng. Chỉ chỉnh CSS `order`: `.lc-tvctl{order:1}` `.lc-cols{order:2}` `.lc-hint{order:3}`. Verify browser: tvTop 61 < colsTop 390 < hintTop 1211 ✅. Cache-bust css `tv3`.
