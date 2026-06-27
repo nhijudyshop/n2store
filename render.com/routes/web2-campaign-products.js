@@ -136,12 +136,11 @@ function mapItem(row) {
         region: row.region || regionFromCode(row.product_code),
         variant: row.variant || null,
         price: Number(row.price || 0),
-        // sold (GIỎ HÀNG = SL trong giỏ KH draft) + newCust (KH MỚI = số khách
-        // CHƯA có SĐT & địa chỉ) + allCust (KH = TẤT CẢ khách đang có SP trong giỏ)
-        // gắn sau ở GET / (aggregate native_orders draft). Default 0 cho path khác.
+        // sold (GIỎ = TỔNG SL món trong giỏ KH draft) + newCust (MỚI = SL món của
+        // khách CHƯA có SĐT & địa chỉ — 1 phần của GIỎ) gắn sau ở GET / (aggregate
+        // native_orders draft). Default 0 cho path khác.
         sold: 0,
         newCust: 0,
-        allCust: 0,
         isActive: row.is_active == null ? true : !!row.is_active,
         // membership (campaign-product)
         sort: Number(row.sort) || 0,
@@ -268,20 +267,19 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
             [campaignId]
         );
         const items = r.rows.map(mapItem);
-        // GIỎ HÀNG (sold = SL trong giỏ KH draft) + KH MỚI (new_cust = khách chưa
-        // SĐT & địa chỉ) + KH (all_cust = TẤT CẢ khách distinct) per mã SP. Dùng cho
-        // board live-control + màn TV. Cùng pool web2Db (native_orders ⊂ web2Db).
-        // CÒN/VƯỢT tính ở CLIENT qua Web2LiveTvDisplay.khConModel theo địa danh:
-        //   ready-stock: CÒN = max(0, NCC − GIỎ); pre-order: CÒN = max(0, NCC − KH).
+        // GIỎ (sold = TỔNG SL món trong giỏ KH draft) + MỚI (new_cust = SL món của
+        // khách chưa SĐT & địa chỉ — 1 phần của GIỎ) per mã SP. Dùng cho board +
+        // màn TV. Cùng pool web2Db (native_orders ⊂ web2Db). CÒN = max(0, NCC − GIỎ)
+        // tính ở CLIENT (Web2LiveTvDisplay.khConModel); địa danh pre-order → GIỎ
+        // vượt NCC được (badge VƯỢT).
         const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
         if (codes.length) {
             const hr = await pool.query(
                 `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
-                        COUNT(DISTINCT COALESCE(NULLIF(n.fb_user_id, ''), n.id::text))
+                        SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0))
                           FILTER (WHERE COALESCE(n.phone, '') = ''
-                                    AND COALESCE(n.address, '') = '') AS new_cust,
-                        COUNT(DISTINCT COALESCE(NULLIF(n.fb_user_id, ''), n.id::text)) AS all_cust
+                                    AND COALESCE(n.address, '') = '') AS new_cust
                  FROM native_orders n, jsonb_array_elements(n.products) prod
                  WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
                    AND n.status = 'draft'
@@ -293,8 +291,7 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                 if (row.code)
                     soldMap.set(row.code, {
                         sold: Number(row.sold) || 0,
-                        newCust: Number(row.new_cust) || 0,
-                        allCust: Number(row.all_cust) || 0,
+                        newCust: Number(row.new_cust) || 0, // MỚI = SL món của khách mới
                     });
             }
             for (const it of items) {
@@ -302,7 +299,6 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                 if (m) {
                     it.sold = m.sold;
                     it.newCust = m.newCust;
-                    it.allCust = m.allCust;
                 }
             }
         }

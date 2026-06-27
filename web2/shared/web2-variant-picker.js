@@ -74,6 +74,12 @@
 .w2vp-hint{display:flex;align-items:center;gap:5px;font-size:11px;color:#6366f1;background:#eef2ff;border-radius:6px;padding:4px 8px;cursor:pointer;}
 .w2vp-preview{font-size:11px;color:#475569;}
 .w2vp-preview b{color:#4f46e5;}
+.w2vp-qty-head{font-size:11px;font-weight:600;color:#475569;margin-bottom:4px;}
+.w2vp-qty-list{display:flex;flex-wrap:wrap;gap:6px;}
+.w2vp-qty-item{display:flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:3px 6px;font-size:12px;}
+.w2vp-qty-item span{color:#334155;font-weight:600;white-space:nowrap;}
+.w2vp-qty{width:52px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:12px;text-align:right;}
+.w2vp-qty:focus{outline:none;border-color:#4f46e5;}
 .w2vp.is-compact{gap:5px;}
 .w2vp.is-compact .w2vp-piece{min-width:96px;flex-basis:110px;}
 .w2vp.is-compact .w2vp-input{padding:4px 7px;font-size:12px;}
@@ -89,9 +95,13 @@
         if (!container) throw new Error('Web2VariantPicker.mount: container required');
         const showTypes = opts.showTypes !== false;
         const onChange = typeof opts.onChange === 'function' ? opts.onChange : () => {};
+        // withQty: khi 1 món tách >1 biến thể (cartesian) → cho nhập SL TỪNG biến thể.
+        const withQty = opts.withQty === true;
+        const defaultQty = Number.isFinite(Number(opts.qty)) ? Math.max(0, Number(opts.qty)) : 1;
 
         // State: pieces = [{ type, value }]. type = tên loại (''), value = biến thể của món.
         let pieces = [];
+        const qtyByVariant = new Map(); // variant → SL (chỉ dùng khi withQty + combos>1)
 
         const root = document.createElement('div');
         root.className = 'w2vp' + (opts.compact ? ' is-compact' : '');
@@ -143,20 +153,67 @@
                 .trim()
                 .toLocaleUpperCase('vi-VN');
         }
-        function fire() {
-            renderPreview();
-            onChange({
+        // SL từng biến thể (chỉ ý nghĩa khi withQty + combos>1). variant chưa nhập
+        // → defaultQty (mặc định = SL dòng truyền vào). [{variant, qty}].
+        function variantQtys() {
+            const cb = combos();
+            if (!withQty || cb.length <= 1) return [];
+            return cb.map((v) => ({
+                variant: v,
+                qty: qtyByVariant.has(v) ? qtyByVariant.get(v) : defaultQty,
+            }));
+        }
+        function totalQty() {
+            return variantQtys().reduce((s, x) => s + (Number(x.qty) || 0), 0);
+        }
+        function payload() {
+            return {
                 variant: combinedVariant(),
                 category: combinedCategory(),
                 combos: combos(),
                 name: genName(),
-            });
+                variantQtys: variantQtys(),
+                totalQty: totalQty(),
+            };
+        }
+        function fire() {
+            renderPreview();
+            onChange(payload());
+        }
+        // Đổi SL từng biến thể: KHÔNG re-render (giữ focus ô input), chỉ báo onChange.
+        function fireQtyOnly() {
+            onChange(payload());
         }
 
         function renderPreview() {
             const cb = combos();
             if (cb.length > 1) {
                 previewEl.hidden = false;
+                if (withQty) {
+                    // Nhập SL từng biến thể; tổng cập nhật realtime.
+                    previewEl.innerHTML =
+                        `<div class="w2vp-qty-head">Nhập SL từng biến thể (tổng: <b class="w2vp-qty-total">${totalQty()}</b>):</div>` +
+                        `<div class="w2vp-qty-list">` +
+                        cb
+                            .map(
+                                (c) =>
+                                    `<label class="w2vp-qty-item"><span>${esc(c)}</span><input type="number" min="0" class="w2vp-qty" data-variant="${esc(c)}" value="${qtyByVariant.has(c) ? qtyByVariant.get(c) : defaultQty}" /></label>`
+                            )
+                            .join('') +
+                        `</div>`;
+                    previewEl.querySelectorAll('.w2vp-qty').forEach((inp) => {
+                        inp.addEventListener('input', () => {
+                            qtyByVariant.set(
+                                inp.dataset.variant,
+                                Math.max(0, Number(inp.value) || 0)
+                            );
+                            const t = previewEl.querySelector('.w2vp-qty-total');
+                            if (t) t.textContent = totalQty();
+                            fireQtyOnly();
+                        });
+                    });
+                    return;
+                }
                 previewEl.innerHTML = `Tạo <b>${cb.length}</b> SP biến thể: ${cb
                     .slice(0, 12)
                     .map((c) => esc(c))
@@ -330,6 +387,8 @@
             getCategory: combinedCategory,
             getCombos: combos,
             getName: genName,
+            getVariantQtys: variantQtys,
+            getTotalQty: totalQty,
             setValue,
             focus: () => root.querySelector('.w2vp-input')?.focus(),
             destroy: () => {

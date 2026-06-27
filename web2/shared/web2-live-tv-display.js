@@ -94,32 +94,30 @@
             .toUpperCase();
     }
 
-    // Mô hình KH / CÒN cho 1 BIẾN THỂ theo địa danh đang chọn (NGUỒN DUY NHẤT, dùng
-    // CHUNG live-control board + màn TV để không lệch). Công thức (user 2026-06-27):
-    //   GIỎ = SL trong giỏ của khách ĐÃ CHỐT (có SĐT/địa chỉ); KH MỚI = khách CHƯA
-    //   chốt; KH = TẤT CẢ khách (allCust). GIỎ và KH MỚI rời nhau (không trùng).
-    //   • READY-STOCK (địa danh khác): NCC = GIỎ + KH MỚI → CÒN = max(0, NCC − GIỎ − KH MỚI).
-    //   • PRE-ORDER (địa danh chọn): cột "KH" = allCust; CÒN = max(0, NCC − KH);
-    //     VƯỢT khi KH > NCC, vuot = KH − NCC ("KH vượt ngưỡng").
+    // Mô hình GIỎ / MỚI / CÒN cho 1 BIẾN THỂ (NGUỒN DUY NHẤT, dùng CHUNG board + TV
+    // + preview để không lệch). Định nghĩa user 2026-06-27:
+    //   • GIỎ = TỔNG số lượng món trong giỏ KH (mọi khách).
+    //   • MỚI = số lượng món của khách CHƯA có SĐT & địa chỉ (1 PHẦN của GIỎ).
+    //   • CÒN = max(0, NCC − GIỎ).
+    //   • Địa danh PRE-ORDER (SP đúng địa danh chọn): GIỎ được VƯỢT NCC → vuot =
+    //     max(0, GIỎ − NCC) (báo hiệu trên cột GIỎ). Địa danh khác: vuot = 0 (CÒN = 0
+    //     khi GIỎ ≥ NCC = hết).
     function khConModel(v, selectedRegion) {
         var ncc = Number(v && v.pendingQty) || 0;
-        var gio = Number(v && v.sold) || 0; // SL khách ĐÃ chốt (BE filter có SĐT/địa chỉ)
-        var newCust = Number(v && v.newCust) || 0;
-        var allCust = Number(v && v.allCust) || 0;
-        var isKhMode = !!(
+        var gio = Number(v && v.sold) || 0; // GIỎ = tổng SL món
+        var moi = Number(v && v.newCust) || 0; // MỚI = SL món của khách mới
+        var isPreOrder = !!(
             selectedRegion && normRegion(v && v.region) === normRegion(selectedRegion)
         );
-        var khCount = isKhMode ? allCust : newCust;
-        var con = isKhMode ? Math.max(0, ncc - allCust) : Math.max(0, ncc - gio - newCust);
-        var vuot = isKhMode ? Math.max(0, allCust - ncc) : 0;
+        var con = Math.max(0, ncc - gio);
+        var vuot = isPreOrder ? Math.max(0, gio - ncc) : 0;
         return {
-            isKhMode: isKhMode,
-            khLabel: isKhMode ? 'KH' : 'KH MỚI',
-            khCount: khCount,
-            con: con,
-            vuot: vuot, // >0 = KH đã vượt ngưỡng NCC (chỉ chế độ KH)
+            isPreOrder: isPreOrder,
             ncc: ncc,
             gio: gio,
+            moi: moi,
+            con: con,
+            vuot: vuot, // >0 = GIỎ vượt NCC (chỉ địa danh pre-order)
         };
     }
 
