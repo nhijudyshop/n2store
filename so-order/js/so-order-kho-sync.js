@@ -163,25 +163,20 @@
         } catch (_) {
             existingCodes = [];
         }
-        for (const it of items) {
-            if (!it || !it.name) continue;
-            // Prefix theo TAB active (không phải cột NCC). Tab không xác định →
-            // "KHO" → mã KHO+LOẠI+MÀU+SIZE (vd KHOAODEN) thay vì KHO-<rnd> server sinh.
-            const supplierName = activeTabLabel || 'KHO';
-            // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP).
-            // ⚠ Biến thể so-order là chuỗi GỘP "Màu / Size" (vd "Đen / XL") →
-            // findByValueExact("Đen / XL") = null (cache lưu "Đen", "XL" RIÊNG).
-            // → trước đây override fail → mã rớt màu/size → trùng (HCQUAN/HCQUAN2/
-            // HCQUAN3 cho 3 SP khác variant). FIX: tách "/" tra cứu TỪNG phần.
+        // Prefix theo TAB active (không phải cột NCC). Tab không xác định → "KHO".
+        const supplierName = activeTabLabel || 'KHO';
+        // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP).
+        // ⚠ Biến thể so-order là chuỗi GỘP "Màu / Size" → findByValueExact nguyên
+        // chuỗi = null (cache lưu "Đen", "XL" RIÊNG) → tách "/" tra TỪNG phần.
+        const computeOverrides = (variant) => {
             let overrideColorShort = null;
             let overrideSizeShort = null;
-            if (it.variant && window.Web2VariantsCache?.findByValueExact) {
-                const parts = String(it.variant)
+            if (variant && window.Web2VariantsCache?.findByValueExact) {
+                const parts = String(variant)
                     .split('/')
                     .map((s) => s.trim())
                     .filter(Boolean);
-                // Variant 1 giá trị (không có "/") → vẫn lookup nguyên chuỗi.
-                const lookups = parts.length ? parts : [String(it.variant).trim()];
+                const lookups = parts.length ? parts : [String(variant).trim()];
                 for (const part of lookups) {
                     const v = window.Web2VariantsCache.findByValueExact(part);
                     if (!v || !v.shortCode) continue;
@@ -193,6 +188,10 @@
                     }
                 }
             }
+            return { overrideColorShort, overrideSizeShort };
+        };
+        const assignFlat = (it) => {
+            const { overrideColorShort, overrideSizeShort } = computeOverrides(it.variant);
             try {
                 const result = window.Web2ProductCode.suggest({
                     supplierName,
@@ -211,7 +210,79 @@
             } catch (_) {
                 /* thiếu NCC / lỗi sinh mã → để server tự sinh (giữ hành vi cũ) */
             }
+        };
+
+        // Migration 070 — gom theo productGroupId: nhóm ≥2 item = SP CHA–CON
+        // (mã cha = prefix+type+counter; mã con = cha + màu/size). Item lẻ → flat.
+        const groups = new Map();
+        const singles = [];
+        for (const it of items) {
+            if (!it || !it.name) continue;
+            if (it.productGroupId) {
+                if (!groups.has(it.productGroupId)) groups.set(it.productGroupId, []);
+                groups.get(it.productGroupId).push(it);
+            } else {
+                singles.push(it);
+            }
         }
+        for (const grp of groups.values()) {
+            if (grp.length < 2) {
+                singles.push(...grp); // nhóm chỉ 1 item → coi như SP phẳng
+                continue;
+            }
+            const groupName = grp[0].name;
+            let parentBase = '';
+            try {
+                parentBase = window.Web2ProductCode.parentBaseCode({
+                    supplierName,
+                    productName: groupName,
+                    existingCodes,
+                    supplierPrefixMap,
+                    colorShortMap,
+                }).code;
+            } catch (_) {
+                /* lỗi sinh mã cha → fallback flat */
+            }
+            if (!parentBase) {
+                singles.push(...grp);
+                continue;
+            }
+            existingCodes.push(parentBase);
+            for (const it of grp) {
+                const { overrideColorShort, overrideSizeShort } = computeOverrides(it.variant);
+                let color = overrideColorShort;
+                let size = overrideSizeShort;
+                if (!color || !size) {
+                    try {
+                        const sg = window.Web2ProductCode.suggest({
+                            supplierName,
+                            productName: groupName,
+                            variant: it.variant || '',
+                            existingCodes: [],
+                            supplierPrefixMap,
+                            colorShortMap,
+                            overrideColorShort,
+                            overrideSizeShort,
+                        });
+                        if (!color) color = sg.parts.colorShort;
+                        if (!size) size = sg.parts.sizeShort;
+                    } catch (_) {
+                        /* giữ override (có thể null) */
+                    }
+                }
+                const code = window.Web2ProductCode.childCode(
+                    parentBase,
+                    color,
+                    size,
+                    existingCodes
+                );
+                it.code = code;
+                it.parentCode = parentBase;
+                it.parentName = groupName;
+                existingCodes.push(code);
+            }
+        }
+        for (const it of singles) assignFlat(it);
         return items;
     };
 
@@ -243,6 +314,9 @@
                     name,
                     variant: variant || null,
                     qty,
+                    // productGroupId: nhóm con cùng 1 SP nhiều biến thể → _assignKhoCodes
+                    // sinh mã CHA + con; upsertPending tạo 1 CHA + N con trong Kho.
+                    productGroupId: r.productGroupId || null,
                     sellPrice: sellVnd,
                     costPrice: costVnd,
                     // NCC nằm ở sharedFields (per-đơn), modalRow không có field

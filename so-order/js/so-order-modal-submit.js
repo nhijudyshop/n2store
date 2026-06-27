@@ -204,19 +204,40 @@
                     const variants = vstr.includes('+')
                         ? null
                         : window.Web2VariantMulti?.expand?.(vstr);
-                    const vlist = variants && variants.length > 1 ? variants : [rowData.variant];
+                    const isMulti = variants && variants.length > 1;
+                    const vlist = isMulti ? variants : [rowData.variant];
+                    // SP nhiều biến thể → con cùng productGroupId + SL từng biến thể.
+                    const groupId = isMulti
+                        ? 'pg-' +
+                          Date.now().toString(36) +
+                          '-' +
+                          Math.random().toString(36).slice(2, 7)
+                        : null;
+                    const qtyMap = {};
+                    for (const vq of r.variantQtys || []) {
+                        if (vq && vq.variant != null)
+                            qtyMap[String(vq.variant)] = Number(vq.qty) || 0;
+                    }
                     for (const v of vlist) {
+                        const q =
+                            isMulti && Object.prototype.hasOwnProperty.call(qtyMap, v)
+                                ? qtyMap[v]
+                                : Number(rowData.qty) || 0;
                         window.SoOrderStorage.addRow(SO.state, tab.id, sh.id, {
                             ...rowData,
                             variant: v,
+                            qty: q,
+                            productGroupId: groupId,
                             invoiceGroupId: newInvoiceGroupId,
                         });
-                        // Carry NCC đã resolve để syncRowsToKho sinh mã đúng prefix.
-                        addedRows.push(
-                            vlist.length > 1
-                                ? { ...r, supplier: rowSupplier, variant: v }
-                                : { ...r, supplier: rowSupplier }
-                        );
+                        // Carry NCC đã resolve + groupId/qty để syncRowsToKho gom cha-con.
+                        addedRows.push({
+                            ...r,
+                            supplier: rowSupplier,
+                            variant: v,
+                            qty: q,
+                            productGroupId: groupId,
+                        });
                     }
                 }
             }
@@ -257,6 +278,8 @@
                     productName: r.productName.trim(),
                     variant: r.variant.trim(),
                     category: (r.category || '').trim(),
+                    // productGroupId: nhóm con cùng 1 SP nhiều biến thể (Kho → 1 CHA + N con).
+                    productGroupId: r.productGroupId || null,
                     qty: Number(r.qty) || 0,
                     sellPrice: Number(r.sellPrice) || 0,
                     costPrice: Number(r.costPrice) || 0,
