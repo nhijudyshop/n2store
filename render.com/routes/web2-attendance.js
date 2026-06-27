@@ -368,6 +368,7 @@ router.delete('/device-users/:id', requireWeb2Admin, async (req, res) => {
         await db.query(`DELETE FROM web2_attendance_day_notes WHERE device_user_id = $1`, [id]);
         await db.query(`DELETE FROM web2_attendance_payroll WHERE emp_id = $1`, [id]);
         await db.query(`DELETE FROM web2_attendance_fullday WHERE emp_id = $1`, [id]);
+        await db.query(`DELETE FROM web2_attendance_edits WHERE device_user_id = $1`, [id]);
         const r = await db.query(
             `DELETE FROM web2_attendance_device_users WHERE device_user_id = $1 RETURNING device_user_id`,
             [id]
