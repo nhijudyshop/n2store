@@ -267,9 +267,33 @@
         if (_autoRenewTried) return;
         _autoRenewTried = true;
         if (!window.Web2Ext?.hasExtension?.()) return;
-        const stale = (state.accounts || []).filter(
-            (a) => a.accountType === 'personal' && a.isActive && a.status !== 'connected'
-        );
+        const personal = (state.accounts || []).filter((a) => a.accountType === 'personal');
+        // #3.1 (2026-06-27): CHƯA có TK cá nhân nào của máy này → nếu trình duyệt còn phiên
+        // chat.zalo.me (extension trả creds) thì TỰ tạo slot + cookie-login (KHÔNG cần bấm
+        // "Đăng nhập Zalo"). Pre-check creds TRƯỚC khi tạo slot → tránh tạo+xoá slot rác khi
+        // không có phiên. Dùng login KHÔNG-silent (TK đầu = chính → không bị gate "TK phụ").
+        if (!personal.length) {
+            try {
+                const cr = await window.Web2Ext.request('GET_ZALO_CREDS', {}, 12000).catch(
+                    () => null
+                );
+                if (cr && cr.ok && cr.data && cr.data.cookie && cr.data.imei) {
+                    const acc = await window.ZaloApi.createAccount('Zalo (tự động)').catch(
+                        () => null
+                    );
+                    const key = acc && acc.data && acc.data.accountKey;
+                    if (key) {
+                        const ok = await loginZaloCookie(key, false);
+                        if (ok) await loadAccounts();
+                        else await window.ZaloApi.deleteAccount(key).catch(() => {}); // xoá slot rỗng
+                    }
+                }
+            } catch (e) {
+                /* im lặng — không phiên/cookie → giữ onboarding */
+            }
+            return;
+        }
+        const stale = personal.filter((a) => a.isActive && a.status !== 'connected');
         for (const a of stale) {
             try {
                 await loginZaloCookie(a.accountKey, true); // silent

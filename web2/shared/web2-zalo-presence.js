@@ -81,11 +81,32 @@
         }
     }
 
+    let _bootstrapAt = 0;
+    const BOOTSTRAP_COOLDOWN_MS = 60000;
     async function _acquireAll() {
         if (_acquiring) return;
         _acquiring = true;
         try {
-            const list = await _personalKeys();
+            let list = await _personalKeys();
+            // #3.2 (2026-06-27): CHƯA có TK cá nhân nào + còn phiên chat.zalo.me (cookie) →
+            // TỰ tạo+login account đầu tiên từ cookie (không cần vào tab Zalo bấm nút). Tái
+            // dùng Web2Zalo.getCookieAccountKey (chỉ có khi trang load web2-zalo.js, vd
+            // jt-tracking). Throttle 60s + chỉ khi đang focus + có extension.
+            if (
+                !list.length &&
+                _focused() &&
+                global.Web2Zalo?.getCookieAccountKey &&
+                _ext()?.hasExtension?.() &&
+                Date.now() - _bootstrapAt > BOOTSTRAP_COOLDOWN_MS
+            ) {
+                _bootstrapAt = Date.now();
+                try {
+                    const key = await global.Web2Zalo.getCookieAccountKey({ autoLogin: true });
+                    if (key) list = await _personalKeys();
+                } catch {
+                    /* không phiên/cookie → im lặng */
+                }
+            }
             for (const a of list) {
                 if (!_focused()) break; // mất focus giữa chừng → dừng
                 await _acquireOne(a.key);
