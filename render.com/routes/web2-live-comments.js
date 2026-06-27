@@ -755,6 +755,26 @@ router.get('/posts', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
+// GET /assignments — map post_id → campaign_id LẤY TỪ BẢNG GÁN (web2_live_post_assign),
+// KHÔNG phụ thuộc web2_live_comments. /posts ở trên driven bởi web2_live_comments nên
+// bài LIVE CŨ đã hết comment (aged/pruned) sẽ KHÔNG xuất hiện → picker mất trạng thái
+// "đã gom" và hiện "chưa gom" dù vẫn được đếm trong post_count (bug 2026-06-27).
+// Dùng endpoint này cho picker để trạng thái gán luôn đúng theo nguồn-sự-thật.
+router.get('/assignments', requireWeb2AuthSoft, async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureCampaignTables(pool);
+        const r = await pool.query(
+            `SELECT post_id, campaign_id, post_title, page_id
+             FROM web2_live_post_assign WHERE campaign_id IS NOT NULL`
+        );
+        res.json({ success: true, data: r.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // GET /page-posts — TẤT CẢ bài livestream gần đây (14 ngày) của page đã bật, kèm
 // campaign_id hiện tại. Dùng cho UI "gom vào chiến dịch cha" ở native-orders +
 // live-chat (chung dữ liệu). Lấy live từ poller (server-side Pancake JWT).

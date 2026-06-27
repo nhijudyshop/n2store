@@ -16,7 +16,7 @@
 //
 // API (window.Web2Campaign):
 //   Campaign:  list() · create(name,note) · remove(id)
-//   Bài:       listPosts() · listPagePosts() · assignPost(cid,{postId,postTitle,pageId}) · unassignPost(postId)
+//   Bài:       listPosts() · listAssignments() · listPagePosts() · assignPost(cid,{postId,postTitle,pageId}) · unassignPost(postId)
 //   Sản phẩm:  listProducts(cid) · addProducts(cid, codes) · removeProduct(cid, code) · reorder(cid, codes) · setPinned(cid, code, pinned)
 //   Realtime:  subscribe(cb) → unsub  (SSE web2:live-comments + web2:campaign-products)
 //   Helper:    authHeaders(extra)
@@ -107,6 +107,14 @@
         // ── Bài livestream ⇄ chiến dịch ───────────────────────────────
         async listPosts() {
             const j = await _json(`${LC_BASE()}/posts`);
+            return (j && j.data) || [];
+        },
+        // Trạng thái gán bài→chiến dịch LẤY TỪ BẢNG GÁN (web2_live_post_assign),
+        // KHÔNG phụ thuộc comment. listPosts() chỉ trả post CÒN comment trong
+        // web2_live_comments → live CŨ mất comment hiện "chưa gom" dù đã gom. Dùng
+        // hàm này cho picker để hiển thị đúng. → [{ post_id, campaign_id, ... }]
+        async listAssignments() {
+            const j = await _json(`${LC_BASE()}/assignments`);
             return (j && j.data) || [];
         },
         async listPagePosts() {

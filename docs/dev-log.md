@@ -2,6 +2,21 @@
 
 ## 2026-06-27
 
+### [live-chat] Fix picker "Chiến dịch cha": live CŨ hiện "chưa gom" dù đã gom
+
+User: "sao hình 2 tôi không gán được chiến dịch cha?" (live-chat). Live 27/06 gán OK, live 26/06 chọn xong nhảy về "— chưa gom —".
+
+**Root cause** (bug HIỂN THỊ, không phải bug lưu): `_render()` (live-campaign-manager.js) xây `assignMap` từ `Web2Campaign.listPosts()` → `GET /posts`, mà `/posts` **driven bởi `FROM web2_live_comments`** (chỉ post CÒN comment). Live mới → comment còn → dropdown đúng; live cũ → comment aged/pruned khỏi `web2_live_comments` → post KHÔNG có trong `/posts` → `assignMap` thiếu → dropdown về "chưa gom". Gán vẫn LƯU (`web2_live_post_assign`, nên campaign vẫn đếm "2 bài" qua `COUNT(DISTINCT a.post_id)`), chỉ UI mất trạng thái → tưởng "không gán được".
+
+**Fix**: lấy trạng-thái-gán từ **bảng-sự-thật `web2_live_post_assign`**, độc lập comment.
+
+- **Backend** `web2-live-comments.js`: thêm `GET /assignments` → `[{post_id, campaign_id, post_title, page_id}]` từ `web2_live_post_assign WHERE campaign_id IS NOT NULL`.
+- **Shared** `web2/shared/web2-campaign.js`: thêm `Web2Campaign.listAssignments()`.
+- **live-chat** `_render()`: `assignMap` từ `listAssignments()` (fallback `listPosts()` nếu backend chưa deploy `/assignments`).
+- Cache-bust `?v=20260627camp` (live-campaign-manager.js + web2-campaign.js ở live-chat/native-orders/live-tv/live-control).
+
+Status: ✅ code + syntax OK. Chờ web2-api redeploy (`/assignments`) — trước deploy fallback giữ hành vi cũ, không regression.
+
 ### [web2/live-control] Fix avatar giỏ khách: dựng URL qua worker /api/fb-avatar (id+page)
 
 User "chưa thấy avatar". Đọc module live-chat: avatar KH dựng bằng `SharedUtils.getAvatarUrl(fbId, pageId, ...)` → worker `/api/fb-avatar?id=<fbId>&page=<pageId>` (Pancake `pages/{page}/avatar/{fbId}` → ảnh thật, fallback Graph → SVG default). `web2_live_comments.avatar` LUÔN null (poller không lưu) nên JOIN không đủ — phải dùng fb-avatar proxy.

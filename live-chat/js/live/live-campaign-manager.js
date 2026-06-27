@@ -116,12 +116,21 @@
         if (gen !== _renderGen) return;
         _camps = camps || [];
         const posts = _pagePosts();
-        // map post→campaign từ /posts (assign hiện tại)
+        // map post→campaign LẤY TỪ BẢNG GÁN (web2_live_post_assign) — KHÔNG phụ
+        // thuộc comment. Trước đây dùng listPosts() (driven web2_live_comments) →
+        // live CŨ đã hết comment hiện "chưa gom" dù đã gom (gán vẫn LƯU, chỉ UI
+        // mất trạng thái → user tưởng "không gán được", bug 2026-06-27).
         let assignMap = {};
         try {
-            const pd = await global.Web2Campaign.listPosts();
-            for (const p of pd || []) assignMap[String(p.post_id)] = p.campaign_id;
-        } catch {}
+            const pa = await global.Web2Campaign.listAssignments();
+            for (const p of pa || []) assignMap[String(p.post_id)] = p.campaign_id;
+        } catch {
+            // Fallback khi backend chưa có /assignments (deploy gap): comment-driven như cũ.
+            try {
+                const pd = await global.Web2Campaign.listPosts();
+                for (const p of pd || []) assignMap[String(p.post_id)] = p.campaign_id;
+            } catch {}
+        }
         if (gen !== _renderGen) return;
 
         const campOpts = (sel) =>
