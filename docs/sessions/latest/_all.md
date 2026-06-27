@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5f9d698` — feat(web2/live-control+live-tv): điều khiển màn TV — phân trang + lật trang từ xa + mini-preview + cảnh báo màu
-**Last updated**: 2026-06-27 15:08:53 +07
-**Latest session**: [`RESUME:20260627-150853-5f9d698`](../20260627-150853-5f9d698.md)
-**Summary**: feat(web2/live-control+live-tv): điều khiển màn TV — phân trang + lật trang từ xa + mini-preview + cản...
+**Latest commit**: `4258fb0` — feat(gemini-tryon): nút 'Mở cấu hình account (máy shop)' — tự dò + mở URL tunnel từ máy bất kỳ
+**Last updated**: 2026-06-27 15:11:14 +07
+**Latest session**: [`RESUME:20260627-151114-4258fb0`](../20260627-151114-4258fb0.md)
+**Summary**: feat(gemini-tryon): nút 'Mở cấu hình account (máy shop)' — tự dò + mở URL tunnel từ máy bất kỳ
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -82,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 15:08
+- [`web2/`](./web2.md) — updated 2026-06-27 15:11
