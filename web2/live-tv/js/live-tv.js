@@ -54,8 +54,8 @@
     }
 
     // ── Render ────────────────────────────────────────
-    // Người live xem: NCC (số NCC báo có sẵn) · BÁN (đã vào giỏ KH, gồm cọc) ·
-    // CÒN (= max(0, NCC − BÁN) — số còn bán được). Hết khi CÒN ≤ 0.
+    // Người live xem: NCC (số NCC báo có sẵn) · GIỎ HÀNG (SL trong giỏ KH = v.sold) ·
+    // CÒN (= max(0, NCC − GIỎ HÀNG) — số còn bán được). Hết khi CÒN ≤ 0.
     function variantRowHtml(v) {
         var label = v.variant && v.variant.trim() ? v.variant : '(mặc định)';
         var ncc = Number(v.pendingQty) || 0;
@@ -74,7 +74,7 @@
             '<small>NCC</small></span>' +
             '<span class="ltv-num ltv-num-ban">' +
             ban +
-            '<small>BÁN</small></span>' +
+            '<small>GIỎ HÀNG</small></span>' +
             '<span class="ltv-num ltv-num-con' +
             (con <= 0 ? ' is-zero' : '') +
             '">' +

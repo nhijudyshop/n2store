@@ -121,7 +121,9 @@
             }
         }
         try {
-            var items = await window.Web2Campaign.listProducts(state.campaignId);
+            // sync:true → server auto-add SP chờ hàng (Sổ Order) lên board, mới
+            // nhất trên đầu; SP đã ✕ xoá (tombstone) KHÔNG tự thêm lại.
+            var items = await window.Web2Campaign.listProducts(state.campaignId, { sync: true });
             state.addedCodes = new Set(items.map((i) => i.code));
             // by:'code' — MỖI mã SP là 1 item riêng (unique theo mã). KHÔNG gom biến
             // thể: 2 SP khác mã (HCQUANXDU31 vs HNQUANGHI33) = 2 card riêng, không gộp 34.
@@ -140,13 +142,14 @@
         }, 600);
     }
 
-    // Board "Trên TV" mỗi biến thể: NCC (ô nhập "số NCC báo" = pending_qty) + BÁN
-    // (SL trong giỏ KH, gồm cọc) + CỌC (SL giỏ có đặt cọc) + CÒN (= max(0, NCC−BÁN),
-    // BÁN đã gồm cọc nên KHÔNG trừ cọc lần nữa). BÁN/CỌC/CÒN read-only (tự tính).
+    // Board "Trên TV" mỗi biến thể: NCC (ô nhập "số NCC báo" = pending_qty) +
+    // GIỎ HÀNG (SL trong giỏ KH draft = v.sold) + KH MỚI (số khách chưa có SĐT &
+    // địa chỉ đang có SP trong giỏ = v.newCust) + CÒN (= max(0, NCC−GIỎ HÀNG)).
+    // GIỎ HÀNG/KH MỚI/CÒN read-only (tự tính).
     function vrowHtml(v) {
         var ncc = Number(v.pendingQty) || 0;
         var ban = Number(v.sold) || 0;
-        var coc = Number(v.coc) || 0;
+        var khm = Number(v.newCust) || 0;
         var con = Math.max(0, ncc - ban);
         var conCls = con <= 0 ? ' zero' : '';
         return (
@@ -165,15 +168,15 @@
             ncc +
             '" />' +
             '</span>' +
-            '<span class="lc-vnum lc-vban" title="Đã vào giỏ khách (gồm cọc)">' +
+            '<span class="lc-vnum lc-vban" title="SL trong giỏ khách">' +
             ban +
-            '<small>BÁN</small></span>' +
-            '<span class="lc-vnum lc-vcoc" title="SL trong giỏ đã đặt cọc">' +
-            coc +
-            '<small>CỌC</small></span>' +
+            '<small>GIỎ HÀNG</small></span>' +
+            '<span class="lc-vnum lc-vkhm" title="Khách mới (chưa có SĐT & địa chỉ) đang có SP này trong giỏ">' +
+            khm +
+            '<small>KH MỚI</small></span>' +
             '<span class="lc-vnum lc-vcon' +
             conCls +
-            '" title="Còn lại = NCC − Bán (≥ 0)">' +
+            '" title="Còn lại = NCC − Giỏ hàng (≥ 0)">' +
             con +
             '<small>CÒN</small></span>' +
             '</div>'
@@ -595,8 +598,8 @@
             window.Web2SSE.subscribe('web2:products', function (m) {
                 onSse({ topic: 'web2:products', eventType: m.eventType, data: m.data });
             });
-            // BÁN/CỌC = SL trong giỏ native-orders → đổi khi cart thay đổi. Nghe
-            // web2:native-orders để board cập nhật BÁN/CỌC/CÒN realtime (không refresh).
+            // GIỎ HÀNG/KH MỚI = từ giỏ native-orders → đổi khi cart thay đổi. Nghe
+            // web2:native-orders để board cập nhật GIỎ HÀNG/KH MỚI/CÒN realtime.
             window.Web2SSE.subscribe('web2:native-orders', function () {
                 scheduleBoard();
             });

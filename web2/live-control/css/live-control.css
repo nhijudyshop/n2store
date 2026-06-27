@@ -319,29 +319,30 @@
     background: #f0fdf4;
 }
 
-/* Board "Trên TV": BÁN / CỌC / CÒN (read-only) cạnh ô NCC (số NCC báo). */
+/* Board "Trên TV": GIỎ HÀNG / KH MỚI / CÒN (read-only) cạnh ô NCC (số NCC báo). */
 .lc-vnum {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     line-height: 1.1;
-    min-width: 38px;
+    min-width: 46px;
     font-size: 14px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
 }
 .lc-vnum small {
-    font-size: 9px;
+    font-size: 8.5px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
     color: #94a3b8;
     margin-top: 1px;
+    white-space: nowrap;
 }
 .lc-vban {
     color: #0058da;
 }
-.lc-vcoc {
-    color: #b45309;
+.lc-vkhm {
+    color: #7c3aed;
 }
 .lc-vcon {
     color: #16a34a;

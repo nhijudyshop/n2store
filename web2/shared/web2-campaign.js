@@ -125,9 +125,15 @@
         },
 
         // ── Sản phẩm ⇄ chiến dịch (cho trang TV) ──────────────────────
-        // → [{ code, name, imageUrl, stock, pendingQty, status, supplier, variant, sort, pinned, missing }]
-        async listProducts(campaignId) {
-            const j = await _json(`${CP_BASE()}/?campaignId=${encodeURIComponent(campaignId)}`);
+        // → [{ code, name, imageUrl, stock, pendingQty, status, supplier, variant,
+        //      sort, pinned, missing, sold, newCust }]
+        // opts.sync=true (chỉ live-control gửi) → server auto-add SP chờ hàng (Sổ
+        // Order) lên board, mới nhất trên đầu. TV gọi KHÔNG sync (read-only).
+        async listProducts(campaignId, opts) {
+            const sync = opts && opts.sync ? '&sync=1' : '';
+            const j = await _json(
+                `${CP_BASE()}/?campaignId=${encodeURIComponent(campaignId)}${sync}`
+            );
             return (j && j.items) || [];
         },
         async addProducts(campaignId, codes) {

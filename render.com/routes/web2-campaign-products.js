@@ -71,6 +71,14 @@ async function ensureTables(pool) {
         CREATE INDEX IF NOT EXISTS idx_web2_campaign_products_cid
             ON web2_campaign_products (campaign_id, sort);
     `);
+    // 2026-06-27: TOMBSTONE cho auto-add. Khi user ✕ xoá SP khỏi board → set
+    // removed=true (KHÔNG hard-delete) để autoSyncPending KHÔNG tự thêm lại SP
+    // "chờ hàng" đó. Re-add tay (POST /) sẽ un-tombstone. Idempotent (Render
+    // restart chạy lần 2 = no-op).
+    await pool.query(
+        `ALTER TABLE web2_campaign_products
+            ADD COLUMN IF NOT EXISTS removed BOOLEAN NOT NULL DEFAULT false`
+    );
     _ensuredPools.add(pool);
 }
 
@@ -100,10 +108,11 @@ function mapItem(row) {
         region: row.region || regionFromCode(row.product_code),
         variant: row.variant || null,
         price: Number(row.price || 0),
-        // sold (BÁN = SL trong giỏ KH, gồm cả cọc) + coc (CỌC = SL giỏ có đặt cọc)
-        // gắn sau ở GET / (aggregate native_orders draft). Default 0 cho path khác.
+        // sold (GIỎ HÀNG = SL trong giỏ KH draft) + newCust (KH MỚI = số khách
+        // CHƯA có SĐT & địa chỉ đang có SP này trong giỏ) gắn sau ở GET /
+        // (aggregate native_orders draft). Default 0 cho path khác.
         sold: 0,
-        coc: 0,
+        newCust: 0,
         isActive: row.is_active == null ? true : !!row.is_active,
         // membership (campaign-product)
         sort: Number(row.sort) || 0,
@@ -137,7 +146,58 @@ function _auditCampaign(req, action, campaignId, note) {
     });
 }
 
-// GET /?campaignId=X — list SP của 1 chiến dịch, JOIN kho (LEFT để giữ SP đã xoá).
+// -----------------------------------------------------
+// AUTO-ADD (2026-06-27): tự đồng bộ SP "chờ hàng" (Sổ Order) vào board livestream.
+// Mỗi SP web2_products status='CHO_MUA' & pending_qty>0 (khớp ĐÚNG định nghĩa
+// picker /api/web2-products/pending) mà CHƯA có trong chiến dịch → INSERT, MỚI
+// NHẤT (updated_at DESC) lên TRÊN CÙNG. SP đã ✕ xoá (removed=true) = tombstone →
+// KHÔNG tự thêm lại. Trả số dòng vừa thêm để caller broadcast SSE. Idempotent.
+//
+// sort: prepend lên đầu. base = MIN(sort) của row CÒN HIỂN THỊ (removed=false),
+// =0 nếu trống. toAdd newest-first → newest nhận sort nhỏ nhất (base − len) =
+// trên cùng, oldest = base − 1, đều nhỏ hơn mọi row visible hiện có.
+async function autoSyncPending(pool, campaignId) {
+    // LIMIT bound worst-case (CHO_MUA là working-set nhỏ, nhưng phòng tích tụ):
+    // chỉ auto-add tối đa 300 SP chờ hàng mới nhất / lần. Đủ cho 1 phiên live.
+    const pend = await pool.query(
+        `SELECT code FROM web2_products
+         WHERE status = 'CHO_MUA' AND pending_qty > 0
+         ORDER BY updated_at DESC NULLS LAST, code
+         LIMIT 300`
+    );
+    if (!pend.rows.length) return 0;
+    const ex = await pool.query(
+        `SELECT product_code FROM web2_campaign_products WHERE campaign_id = $1`,
+        [campaignId]
+    );
+    const existing = new Set(ex.rows.map((r) => r.product_code));
+    const toAdd = pend.rows.map((r) => r.code).filter((c) => c && !existing.has(c));
+    if (!toAdd.length) return 0;
+    const minR = await pool.query(
+        `SELECT COALESCE(MIN(sort), 0)::int AS m
+           FROM web2_campaign_products WHERE campaign_id = $1 AND removed = false`,
+        [campaignId]
+    );
+    const base = minR.rows[0].m | 0;
+    const now = Date.now();
+    let added = 0;
+    for (let i = 0; i < toAdd.length; i++) {
+        const sortVal = base - (toAdd.length - i); // i=0 (newest) → nhỏ nhất = top
+        const ins = await pool.query(
+            `INSERT INTO web2_campaign_products (campaign_id, product_code, sort, added_by, added_at)
+             VALUES ($1, $2, $3, 'auto:so-order', $4)
+             ON CONFLICT (campaign_id, product_code) DO NOTHING
+             RETURNING id`,
+            [campaignId, toAdd[i], sortVal, now]
+        );
+        if (ins.rows.length) added += 1;
+    }
+    return added;
+}
+
+// GET /?campaignId=X[&sync=1] — list SP của 1 chiến dịch, JOIN kho (LEFT để giữ
+// SP đã xoá). sync=1 (chỉ live-control gửi) → autoSyncPending TRƯỚC khi list; TV
+// (read-only) KHÔNG gửi sync nên không ghi DB. Chỉ trả row removed=false.
 router.get('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
@@ -147,29 +207,39 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
     }
     try {
         await ensureTables(pool);
+        // Auto-add SP chờ hàng (chỉ khi sync=1 → live-control). Broadcast nếu có
+        // thêm để TV + tab khác refresh. KHÔNG throw (best-effort) → list vẫn chạy.
+        if (req.query.sync === '1') {
+            const added = await autoSyncPending(pool, campaignId).catch((e) => {
+                console.warn('[WEB2-CAMPAIGN-PRODUCTS] autoSync failed:', e.message);
+                return 0;
+            });
+            if (added > 0) _notify('auto-add', campaignId);
+        }
         const r = await pool.query(
             `SELECT cp.product_code, cp.sort, cp.pinned, cp.added_at,
                     p.name, p.image_url, p.stock, p.pending_qty, p.return_qty,
                     p.status, p.supplier, p.variant, p.price, p.is_active, p.region
              FROM web2_campaign_products cp
              LEFT JOIN web2_products p ON p.code = cp.product_code
-             WHERE cp.campaign_id = $1
-             ORDER BY cp.pinned DESC, cp.sort ASC, cp.added_at ASC`,
+             WHERE cp.campaign_id = $1 AND cp.removed = false
+             ORDER BY cp.pinned DESC, cp.sort ASC, cp.added_at DESC`,
             [campaignId]
         );
         const items = r.rows.map(mapItem);
-        // BÁN (SL trong giỏ KH = held ở native_orders DRAFT, GỒM cả giỏ đã cọc) +
-        // CỌC (SL trong giỏ có đặt cọc, deposit>0 = tag "ĐÃ CỌC") per mã SP. Dùng cho
-        // board live-control (NCC/Bán/Cọc/Còn) + màn TV. Cùng pool web2Db (native_orders
-        // ⊂ web2Db). Còn = max(0, NCC − Bán) tính ở client (Bán đã gồm cọc).
+        // GIỎ HÀNG (sold = SL trong giỏ KH = held ở native_orders DRAFT) + KH MỚI
+        // (new_cust = số KHÁCH chưa có SĐT & địa chỉ — cả 2 trống — đang có SP này
+        // trong giỏ; distinct theo fb_user_id, fallback id đơn) per mã SP. Dùng cho
+        // board live-control (NCC/Giỏ hàng/KH mới/Còn). Cùng pool web2Db
+        // (native_orders ⊂ web2Db). Còn = max(0, NCC − Giỏ hàng) tính ở client.
         const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
         if (codes.length) {
             const hr = await pool.query(
                 `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
-                        SUM(CASE WHEN COALESCE(n.deposit, 0) > 0
-                                 THEN COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)
-                                 ELSE 0 END) AS coc
+                        COUNT(DISTINCT COALESCE(NULLIF(n.fb_user_id, ''), n.id::text))
+                          FILTER (WHERE COALESCE(n.phone, '') = ''
+                                    AND COALESCE(n.address, '') = '') AS new_cust
                  FROM native_orders n, jsonb_array_elements(n.products) prod
                  WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
                    AND n.status = 'draft'
@@ -181,14 +251,14 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                 if (row.code)
                     soldMap.set(row.code, {
                         sold: Number(row.sold) || 0,
-                        coc: Number(row.coc) || 0,
+                        newCust: Number(row.new_cust) || 0,
                     });
             }
             for (const it of items) {
                 const m = soldMap.get(it.code);
                 if (m) {
                     it.sold = m.sold;
-                    it.coc = m.coc;
+                    it.newCust = m.newCust;
                 }
             }
         }
@@ -200,7 +270,8 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // POST / {campaignId, productCode | productCodes:[]} — gắn SP vào chiến dịch.
-// sort mới = (max sort hiện tại) + 1, theo thứ tự truyền vào.
+// 2026-06-27: thêm tay → LÊN TRÊN CÙNG (sort = MIN(sort)−1, giảm dần). UPSERT
+// un-tombstone (removed=false) → re-add SP đã ✕ xoá đưa lại lên đầu.
 router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
@@ -222,24 +293,28 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const addedBy = actorOf(req);
     try {
         await ensureTables(pool);
-        const maxR = await pool.query(
-            `SELECT COALESCE(MAX(sort), -1)::int AS m FROM web2_campaign_products WHERE campaign_id = $1`,
+        // Prepend lên đầu: base = MIN(sort) của row visible (=0 nếu trống); mỗi
+        // code nhận sort giảm dần → code đầu danh sách nằm trên cùng.
+        const minR = await pool.query(
+            `SELECT COALESCE(MIN(sort), 0)::int AS m
+               FROM web2_campaign_products WHERE campaign_id = $1 AND removed = false`,
             [campaignId]
         );
-        let nextSort = (maxR.rows[0].m | 0) + 1;
+        let nextSort = (minR.rows[0].m | 0) - 1;
         let added = 0;
         for (const code of codes) {
-            const ins = await pool.query(
+            // UPSERT: SP mới → insert; SP đã tombstone (removed=true) → un-tombstone
+            // + đưa lên đầu. ON CONFLICT vẫn move-to-top cho re-add tay.
+            await pool.query(
                 `INSERT INTO web2_campaign_products (campaign_id, product_code, sort, added_by, added_at)
                  VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT (campaign_id, product_code) DO NOTHING
-                 RETURNING id`,
+                 ON CONFLICT (campaign_id, product_code)
+                   DO UPDATE SET removed = false, sort = EXCLUDED.sort,
+                                 added_at = EXCLUDED.added_at, added_by = EXCLUDED.added_by`,
                 [campaignId, code, nextSort, addedBy, now]
             );
-            if (ins.rows.length) {
-                nextSort += 1;
-                added += 1;
-            }
+            nextSort -= 1;
+            added += 1;
         }
         _notify('add', campaignId);
         if (added)
@@ -252,6 +327,9 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // DELETE / {campaignId, productCode} (hoặc query) — gỡ SP khỏi chiến dịch.
+// 2026-06-27: SOFT-DELETE (removed=true) thay vì hard-delete → tombstone để
+// autoSyncPending KHÔNG tự thêm lại SP chờ hàng đã gỡ. Re-add tay (POST /)
+// un-tombstone. Row vẫn ẩn khỏi GET (filter removed=false).
 router.delete('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
@@ -263,7 +341,8 @@ router.delete('/', requireWeb2AuthSoft, async (req, res) => {
     try {
         await ensureTables(pool);
         await pool.query(
-            `DELETE FROM web2_campaign_products WHERE campaign_id = $1 AND product_code = $2`,
+            `UPDATE web2_campaign_products SET removed = true
+             WHERE campaign_id = $1 AND product_code = $2`,
             [campaignId, code]
         );
         _notify('remove', campaignId);
@@ -291,7 +370,7 @@ router.patch('/reorder', requireWeb2AuthSoft, async (req, res) => {
         for (let i = 0; i < order.length; i++) {
             await client.query(
                 `UPDATE web2_campaign_products SET sort = $3
-                 WHERE campaign_id = $1 AND product_code = $2`,
+                 WHERE campaign_id = $1 AND product_code = $2 AND removed = false`,
                 [campaignId, String(order[i]).trim(), i]
             );
         }

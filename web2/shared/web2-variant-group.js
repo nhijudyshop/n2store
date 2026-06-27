@@ -123,8 +123,9 @@
                     totalStock: 0,
                     totalPending: 0,
                     totalReturn: 0,
-                    totalSold: 0, // BÁN = SL trong giỏ KH (gồm cọc)
-                    totalCoc: 0, // CỌC = SL trong giỏ có đặt cọc
+                    totalSold: 0, // GIỎ HÀNG = SL trong giỏ KH draft
+                    totalCoc: 0, // CỌC (legacy, BE không còn populate — giữ tránh vỡ consumer cũ)
+                    totalNewCust: 0, // KH MỚI = số khách chưa có SĐT & địa chỉ (live-control)
                     _firstSort: Number.isFinite(p.sort) ? p.sort : Number.MAX_SAFE_INTEGER,
                     _pinned: false,
                 };
@@ -144,6 +145,7 @@
                 region: p.region || null,
                 sold: Number(p.sold) || 0,
                 coc: Number(p.coc) || 0,
+                newCust: Number(p.newCust) || 0,
                 imageUrl: imgOf(p),
                 pinned: !!p.pinned,
                 sort: Number.isFinite(p.sort) ? p.sort : null,
@@ -154,6 +156,7 @@
             g.totalReturn += ret;
             g.totalSold += Number(p.sold) || 0;
             g.totalCoc += Number(p.coc) || 0;
+            g.totalNewCust += Number(p.newCust) || 0;
             if (p.supplier) g.suppliers.add(p.supplier);
             if (p.region) g.regions.add(p.region);
             if (!g.imageUrl && imgOf(p)) g.imageUrl = imgOf(p);
@@ -179,6 +182,7 @@
                 totalReturn: g.totalReturn,
                 totalSold: g.totalSold,
                 totalCoc: g.totalCoc,
+                totalNewCust: g.totalNewCust,
                 hasPending: g.totalPending > 0,
                 pinned: g._pinned,
                 _firstSort: g._firstSort,
