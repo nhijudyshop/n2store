@@ -6,6 +6,9 @@
 param([string]$VBase = "", [int]$Port = 8131)
 
 $ErrorActionPreference = "Continue"
+# Hien thi tieng Viet + emoji dung (tranh mojibake khi Write-Host / doc log UTF-8).
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $AppName = "N2StoreGeminiTryon"; $Label = "GeminiTryon"
 $DIR = Join-Path $env:LOCALAPPDATA $AppName
 $STARTUP = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"
@@ -109,7 +112,7 @@ if ($ok) {
     Write-Host ""
     Write-Host "[$Label] [LOI] Server KHONG LEN sau 30s. ==== LOG LOI (gui anh nay de sua) ===="
     Write-Host "------------------------------------------------------------"
-    if (Test-Path $logFile) { Get-Content $logFile -Tail 30 | ForEach-Object { Write-Host "  $_" } }
+    if (Test-Path $logFile) { Get-Content $logFile -Tail 30 -Encoding UTF8 | ForEach-Object { Write-Host "  $_" } }
     else { Write-Host "  (chua co gemini-tryon.log - launcher chua chay duoc)" }
     Write-Host "------------------------------------------------------------"
     Write-Host "[$Label] Log day du o: $logFile"

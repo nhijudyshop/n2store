@@ -120,11 +120,28 @@ def _heartbeat(url):
 def main():
     print(f"▶ Khởi động sidecar Gemini try-on (cổng {PORT})… đọc cookie + dò model, chờ chút.")
     print(f"   ⚙️  Cấu hình account (dán cookie nhiều acc để xoay tua): http://localhost:{PORT}/")
+    # Bắt output uvicorn qua PIPE (utf-8) rồi bơm vào stdout (→ log) → THẤY lỗi nếu uvicorn crash
+    # (trước đây pythonw + handle inherit trên Windows làm mất log uvicorn).
     srv = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", str(PORT)],
         cwd=HERE,
         creationflags=_NOWIN,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
     )
+
+    def _pump():
+        try:
+            for line in srv.stdout:
+                print("[uvicorn]", line.rstrip(), flush=True)
+        except Exception:
+            pass
+
+    threading.Thread(target=_pump, args=(), daemon=True).start()
     if _wait_health():
         print(f"✅ Server local: http://localhost:{PORT}  (dùng trên CHÍNH máy này)")
     else:
