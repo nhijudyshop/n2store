@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [gemini-tryon] Fix: server kẹt khởi động khi cookie hỏng → cổng 8131 không lên
+
+User "sao không vào được localhost 8131". Gốc: (1) chưa chạy sidecar; (2) BUG — `lifespan` `await _init_pool()` chặn startup, nếu cookie hỏng/mạng chậm thì `GeminiClient.init()` treo → uvicorn kẹt "Waiting for application startup" → cổng 8131 KHÔNG bao giờ mở. **Fix `app.py`**: init account chạy NỀN (`asyncio.create_task`) → server lên ngay; `_safe_build` bọc `asyncio.wait_for(timeout=INIT_TIMEOUT+10)` chống treo 1 account. **Verify máy thật** (venv + uvicorn): port 8131 lên sau 2s, `/health` + trang cấu hình `/` (HTTP 200) truy cập được dù cookie sai; pool init nền xong 1/1. (Lưu ý: gemini_webapi báo ready ngay sau init kể cả cookie sai → cookie hỏng thật bị bắt + nhảy account lúc generate.)
+
 ### [web2/shared] Trang chỉ-admin: ẩn khỏi menu nhân viên + chặn truy cập URL trực tiếp (1 nguồn)
 
 User: group "Quản trị viên" + 6 trang (`system`, `pancake-settings`, `delivery-zone`, `audit-log`, `order-tags`, `livestream-poller`) chỉ admin được vào; **mọi trang admin-only phải ẩn khỏi menu** để nhân viên không thấy.
