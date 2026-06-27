@@ -66,13 +66,14 @@
     // CÒN (= max(0, NCC − GIỎ HÀNG) — số còn bán được). Hết khi CÒN ≤ 0.
     function variantRowHtml(v) {
         var label = v.variant && v.variant.trim() ? v.variant : '(mặc định)';
-        // CÒN dùng chung công thức với board: max(0, NCC − GIỎ − [KH | KH MỚI]) theo
-        // địa danh đang chọn → màn TV khớp số CÒN với trang điều khiển.
+        // CÒN = max(0, NCC − GIỎ) dùng chung công thức với board (khớp số). Địa danh
+        // pre-order → GIỎ vượt NCC được (badge VƯỢT). soldOut khi CÒN = 0 & KHÔNG vượt.
         var m = window.Web2LiveTvDisplay.khConModel(v, state.control.region);
         var ncc = m.ncc;
         var ban = m.gio;
         var con = m.con;
-        var soldOut = con <= 0;
+        var over = m.vuot > 0;
+        var soldOut = con <= 0 && !over;
         return (
             '<div class="ltv-vrow' +
             (soldOut ? ' is-sold-out' : '') +
@@ -83,9 +84,12 @@
             '<span class="ltv-num ltv-num-ncc">' +
             ncc +
             '<small>NCC</small></span>' +
-            '<span class="ltv-num ltv-num-ban">' +
+            '<span class="ltv-num ltv-num-ban' +
+            (over ? ' is-over' : '') +
+            '">' +
             ban +
-            '<small>GIỎ</small></span>' +
+            (over ? '<small>VƯỢT +' + m.vuot + '</small>' : '<small>GIỎ</small>') +
+            '</span>' +
             '<span class="ltv-num ltv-num-con' +
             (con <= 0 ? ' is-zero' : '') +
             '">' +

@@ -152,22 +152,23 @@
     // địa chỉ đang có SP trong giỏ = v.newCust) + CÒN (= max(0, NCC−GIỎ HÀNG)).
     // GIỎ HÀNG/KH MỚI/CÒN read-only (tự tính).
     function vrowHtml(v) {
-        // Mô hình KH/CÒN theo địa danh đang chọn (shared, khớp màn TV).
+        // Mô hình GIỎ/MỚI/CÒN (shared, khớp màn TV). GIỎ vượt NCC (địa danh pre-order)
+        // → số đỏ + badge "VƯỢT +N" trên cột GIỎ. MỚI = SL món của khách chưa SĐT/địa chỉ.
         var m = window.Web2LiveTvDisplay.khConModel(v, state.tvControl.region);
-        var ncc = m.ncc;
-        var ban = m.gio;
-        var con = m.con;
-        var conCls = con <= 0 ? ' zero' : '';
-        var khMode = m.isKhMode ? 'all' : 'new'; // popup: KH=tất cả giỏ, KH MỚI=lọc mới
+        var conCls = m.con <= 0 ? ' zero' : '';
         var over = m.vuot > 0;
-        var khLabelHtml = over
+        var gioLabel = over
             ? '<small class="lc-over-badge">VƯỢT +' + m.vuot + '</small>'
-            : '<small>' + (m.isKhMode ? 'KH' : 'KH MỚI') + '</small>';
-        var khTitle = m.isKhMode
-            ? 'Số khách đặt SP này (' +
+            : '<small>GIỎ</small>';
+        var gioTitle = over
+            ? 'Đã đặt ' +
+              m.gio +
+              ' — vượt NCC +' +
+              m.vuot +
+              ' (' +
               esc(state.tvControl.region || '') +
-              ') — vượt NCC được, bấm xem'
-            : 'Khách mới (chưa SĐT & địa chỉ) — bấm xem';
+              '). Bấm xem ai đang có'
+            : 'Tổng SL món trong giỏ khách — bấm xem ai đang có';
         return (
             '<div class="lc-vrow">' +
             '<span class="lc-vname">' +
@@ -179,37 +180,33 @@
             'data-code="' +
             esc(v.code) +
             '" data-cur="' +
-            ncc +
+            m.ncc +
             '" value="' +
-            ncc +
+            m.ncc +
             '" />' +
             '</span>' +
             '<span class="lc-vnum lc-vban' +
-            (ban > 0 ? ' lc-clickable' : '') +
-            '" data-cart="' +
-            esc(v.code) +
-            '" data-cart-mode="all" title="SL trong giỏ khách — bấm xem ai đang có">' +
-            ban +
-            '<small>GIỎ</small></span>' +
-            '<span class="lc-vnum lc-vkhm' +
             (over ? ' over' : '') +
-            (m.khCount > 0 ? ' lc-clickable' : '') +
+            (m.gio > 0 ? ' lc-clickable' : '') +
             '" data-cart="' +
             esc(v.code) +
-            '" data-cart-mode="' +
-            khMode +
-            '" title="' +
-            khTitle +
+            '" data-cart-mode="all" title="' +
+            gioTitle +
             '">' +
-            m.khCount +
-            khLabelHtml +
+            m.gio +
+            gioLabel +
             '</span>' +
+            '<span class="lc-vnum lc-vkhm' +
+            (m.moi > 0 ? ' lc-clickable' : '') +
+            '" data-cart="' +
+            esc(v.code) +
+            '" data-cart-mode="new" title="Số món của khách MỚI (chưa SĐT & địa chỉ) — bấm xem">' +
+            m.moi +
+            '<small>MỚI</small></span>' +
             '<span class="lc-vnum lc-vcon' +
             conCls +
-            '" title="' +
-            (m.isKhMode ? 'Còn = NCC − KH (≥ 0)' : 'Còn = NCC − Giỏ − KH mới (≥ 0)') +
-            '">' +
-            con +
+            '" title="Còn = NCC − Giỏ (≥ 0)">' +
+            m.con +
             '<small>CÒN</small></span>' +
             '</div>'
         );

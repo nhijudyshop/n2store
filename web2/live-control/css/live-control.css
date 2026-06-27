@@ -945,11 +945,11 @@ span.lc-mini-noimg {
     border-color: #7c3aed;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
 }
-/* KH vượt ngưỡng NCC: số đỏ + badge "VƯỢT +N" */
-.lc-vnum.lc-vkhm.over {
+/* GIỎ vượt ngưỡng NCC (địa danh pre-order): số đỏ + badge "VƯỢT +N" */
+.lc-vnum.lc-vban.over {
     color: #dc2626;
 }
-.lc-vnum.lc-vkhm.over small.lc-over-badge {
+.lc-vnum.lc-vban.over small.lc-over-badge {
     background: #fee2e2;
     color: #b91c1c;
     border-radius: 5px;

@@ -484,3 +484,11 @@
         transition: none;
     }
 }
+
+/* GIỎ vượt NCC (địa danh pre-order): đỏ + nhãn "VƯỢT +N" trên màn TV */
+.ltv-num-ban.is-over {
+    color: var(--ltv-danger);
+}
+.ltv-num-ban.is-over small {
+    color: var(--ltv-danger);
+}
