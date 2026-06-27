@@ -270,7 +270,7 @@
                     <div class="w2t-srv-actions">
                         <button type="button" class="w2t-srv-install">⬇ Tải bộ cài (Windows)</button>
                         <button type="button" class="w2t-srv-refresh">🔄 Dò máy</button>
-                        <a class="w2t-srv-cfg" href="http://localhost:8131/" target="_blank" rel="noopener">⚙️ Cấu hình account</a>
+                        <button type="button" class="w2t-srv-cfg">⚙️ Mở cấu hình account (máy shop)</button>
                     </div>
                     <div class="w2t-srv-status">Đang dò máy Gemini…</div>
                 </details>
@@ -330,10 +330,6 @@
             srvDot.classList.remove('on');
             const m = await discoverGemini();
             geminiUrl = m ? m.url : '';
-            // Nút "Cấu hình account" trỏ thẳng máy shop đang dùng (tunnel) → THÊM COOKIE TỪ BẤT KỲ MÁY
-            // NÀO, không cần ngồi ở máy shop. Chưa thấy máy → fallback localhost (dùng trên chính máy shop).
-            const cfg = $('.w2t-srv-cfg');
-            if (cfg) cfg.href = (geminiUrl || GEMINI_LOCAL) + '/';
             if (geminiUrl) {
                 srvDot.classList.add('on');
                 srvStatus.classList.add('on');
@@ -355,6 +351,33 @@
             }
         });
         $('.w2t-srv-refresh')?.addEventListener('click', refreshSrv);
+        // Nút mở trang cấu hình máy shop: dò máy online (localhost nếu ở máy shop, TUNNEL nếu máy khác)
+        // → mở đúng URL để DÁN COOKIE từ bất kỳ máy nào. URL tunnel đổi mỗi lần restart nên luôn dò mới.
+        $('.w2t-srv-cfg')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const old = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ Đang tìm máy shop…';
+            try {
+                let url = geminiUrl;
+                if (!url) {
+                    const m = await discoverGemini();
+                    url = m ? m.url : '';
+                    geminiUrl = url;
+                }
+                if (url) {
+                    window.open(url + '/', '_blank', 'noopener');
+                } else {
+                    toast(
+                        'Chưa thấy máy Gemini online. Bật sidecar trên máy shop (chạy bộ cài [4]) rồi bấm "Dò máy".',
+                        'warning'
+                    );
+                }
+            } finally {
+                btn.disabled = false;
+                btn.textContent = old;
+            }
+        });
         refreshSrv();
 
         function renderPerson() {
