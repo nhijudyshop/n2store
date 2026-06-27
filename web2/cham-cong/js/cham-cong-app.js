@@ -42,6 +42,7 @@
         employees: [],
         recordsByUserDate: {}, // { deviceUserId: { dateKey: [rec] } }
         dayNotes: {}, // '{deviceUserId}_{dateKey}' → note
+        edits: {}, // '{deviceUserId}_{dateKey}' → { by, at } (audit chỉnh sửa tay)
         fulldaySet: new Set(), // '{empId}_{dateKey}'
         holidaySet: new Set(), // 'dateKey'
         payrollById: {}, // '{empId}_{monthKey}' → row
@@ -133,6 +134,13 @@
         for (const n of r.dayNotes || [])
             notes[n.id || `${n.device_user_id}_${n.date_key}`] = n.note;
         state.dayNotes = notes;
+        const edits = {};
+        for (const e of r.edits || [])
+            edits[e.id || `${e.device_user_id}_${e.date_key}`] = {
+                by: e.edited_by || '',
+                at: Number(e.edited_at) || 0,
+            };
+        state.edits = edits;
         state.fulldaySet = new Set((r.fullday || []).map((x) => x.id));
         state.holidaySet = new Set((r.holidays || []).map((x) => x.date_key));
         const pById = {};
@@ -188,11 +196,12 @@
         // 2) Revalidate ngầm từ server.
         const { start, end } = monthRange();
         try {
-            const [du, emp, rec, note, fd, hol, pay, sync, lk] = await Promise.all([
+            const [du, emp, rec, note, ed, fd, hol, pay, sync, lk] = await Promise.all([
                 Api.listDeviceUsers().catch(() => ({ items: [] })),
                 Api.listEmployees().catch(() => ({ users: [] })),
                 Api.listRecords(start, end).catch(() => ({ items: [] })),
                 Api.listDayNotes(start, end).catch(() => ({ items: [] })),
+                Api.listEdits(start, end).catch(() => ({ items: [] })),
                 Api.listFullday().catch(() => ({ items: [] })),
                 Api.listHolidays().catch(() => ({ items: [] })),
                 Api.getPayroll(mk).catch(() => ({ items: [] })),
@@ -205,6 +214,7 @@
                 employees: emp.users || [],
                 records: rec.items || [],
                 dayNotes: note.items || [],
+                edits: ed.items || [],
                 fullday: fd.items || [],
                 holidays: hol.items || [],
                 payroll: pay.items || [],
@@ -465,8 +475,14 @@
                 const note = state.dayNotes[`${du.device_user_id}_${dk}`];
                 const noteCls = note ? ' has-note' : '';
                 const noteTitle = note ? ` · 📝 ${esc(note)}` : '';
+                const edit = state.edits[`${du.device_user_id}_${dk}`];
+                const editCls = edit && edit.at ? ' cc-edited' : '';
+                const editTitle =
+                    edit && edit.at
+                        ? ` · ✏️ Đã sửa ${esc(fmtEditTs(edit.at))}${edit.by ? ' bởi ' + esc(edit.by) : ''}`
+                        : '';
                 const stLabel = st === 'inprogress' ? 'Đang làm (chưa tan ca)' : S.STATUS_LABEL[st];
-                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${stLabel} — bấm xem chi tiết${noteTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${stLabel}" data-g="${GLYPH[st] || ''}"></span></td>`;
+                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}${editCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${stLabel} — bấm xem chi tiết${noteTitle}${editTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${stLabel}" data-g="${GLYPH[st] || ''}"></span></td>`;
             }
             rows += `<tr>${cells}</tr>`;
         }
@@ -540,6 +556,11 @@
         const nvCode = 'NV' + String(deviceUserId).padStart(6, '0');
         const leaveMode = isFull ? 'paid' : dayData.status === 'absent' ? 'absent' : 'work';
         const dayNote = state.dayNotes[`${deviceUserId}_${dateKey}`] || '';
+        const editMeta = state.edits[`${deviceUserId}_${dateKey}`];
+        const editMetaHtml =
+            editMeta && editMeta.at
+                ? `<div class="cc-edit-meta" title="Lần chỉnh sửa tay gần nhất của ngày này">✏️ Đã chỉnh sửa: <b>${esc(fmtEditTs(editMeta.at))}</b>${editMeta.by ? ` · bởi <b>${esc(editMeta.by)}</b>` : ''}</div>`
+                : '';
 
         const histHtml = recs.length
             ? recs
@@ -581,6 +602,7 @@
                   <div><span class="cc-dh-lbl">Thời gian</span><div>${fmtDayHeader(dateKey)}${isHoliday ? ' <span class="cc-pill hol">Shop nghỉ</span>' : ''}</div></div>
                   <div><span class="cc-dh-lbl">Ca làm việc</span><div>CA BÌNH THƯỜNG (${esc(cfg.workStart)} - ${esc(cfg.workEnd)})</div></div>
                 </div>
+                ${editMetaHtml}
 
                 <div class="cc-detail-tabs">
                   <button class="cc-dt-tab active" data-dt="cc">Chấm công</button>
@@ -686,6 +708,19 @@
         // Lưu: áp dụng nghỉ phép + chỉnh giờ Vào/Ra
         document.getElementById('ccDaySave').onclick = () =>
             saveDayDetail(deviceUserId, dateKey, { checkIn, checkOut, inHM, outHM, isFull, close });
+    }
+
+    // Định dạng dấu thời gian chỉnh sửa "HH:MM DD/MM/YYYY" theo GMT+7.
+    function fmtEditTs(ms) {
+        if (!ms) return '';
+        return new Intl.DateTimeFormat('vi-VN', {
+            timeZone: VN_TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        }).format(new Date(ms));
     }
 
     // Định dạng "Thứ tư, 10/06/2026" theo GMT+7.

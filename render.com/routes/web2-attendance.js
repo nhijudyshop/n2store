@@ -115,6 +115,28 @@ function ok(res, data) {
 function fail(res, code, error) {
     return res.status(code).json({ success: false, error });
 }
+// Tên người sửa (audit) — quy ước CHUNG với commands/period-lock của route này.
+const editorOf = (req) => req.web2User?.display_name || req.web2User?.username || 'admin';
+// Đóng dấu "đã chỉnh sửa" cho 1 NGÀY của 1 NV (upsert: ai + lúc nào sửa lần cuối).
+// Gọi SAU khi 1 thao tác TAY (đổi giờ Vào/Ra, thêm/xoá lượt, nghỉ phép, ghi chú) đã
+// ghi DB thành công. Nuốt lỗi (audit phụ trợ — KHÔNG được làm hỏng mutation chính).
+async function stampEdit(db, deviceUserId, dateKey, by) {
+    const uid = String(deviceUserId || '').trim();
+    const dk = String(dateKey || '').slice(0, 10);
+    if (!uid || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) return;
+    try {
+        await db.query(
+            `INSERT INTO web2_attendance_edits (id, device_user_id, date_key, edited_by, edited_at)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (id) DO UPDATE SET
+                edited_by = EXCLUDED.edited_by,
+                edited_at = EXCLUDED.edited_at`,
+            [`${uid}_${dk}`, uid, dk, String(by || 'admin').slice(0, 120), now()]
+        );
+    } catch (e) {
+        console.warn('[WEB2-ATTENDANCE] stampEdit failed:', e.message);
+    }
+}
 
 // ── Schema (idempotent) ────────────────────────────────────────────────────
 async function ensureSchema(pool) {
@@ -198,6 +220,18 @@ async function ensureSchema(pool) {
         );
         CREATE INDEX IF NOT EXISTS idx_w2att_note_date ON web2_attendance_day_notes(date_key);
         CREATE INDEX IF NOT EXISTS idx_w2att_note_user ON web2_attendance_day_notes(device_user_id);
+        -- Audit chỉnh sửa thủ công theo NGÀY/NV: ai + lúc nào sửa chấm công 1 ngày.
+        -- 1 dòng / (device_user_id, date_key); upsert mỗi lần admin sửa qua popup ngày
+        -- (đổi giờ Vào/Ra, thêm/xoá lượt, nghỉ phép, ghi chú). KHÔNG ghi cho punch máy
+        -- (agent/ADMS) hay import file — chỉ thao tác TAY của người dùng.
+        CREATE TABLE IF NOT EXISTS web2_attendance_edits (
+            id              VARCHAR(96) PRIMARY KEY, -- '{device_user_id}_{date_key}'
+            device_user_id  VARCHAR(64) NOT NULL,
+            date_key        VARCHAR(10) NOT NULL,
+            edited_by       VARCHAR(120),
+            edited_at       BIGINT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_w2att_edit_date ON web2_attendance_edits(date_key);
         -- Trạng thái đồng bộ agent (1 dòng id='current').
         CREATE TABLE IF NOT EXISTS web2_attendance_sync_status (
             id              VARCHAR(20) PRIMARY KEY,
@@ -454,6 +488,38 @@ router.get('/day-notes', requireWeb2Admin, async (req, res) => {
     }
 });
 
+// =====================================================================
+// EDIT AUDIT (ai + lúc nào sửa chấm công 1 ngày)
+// =====================================================================
+
+// GET /edits?start=YYYY-MM-DD&end=YYYY-MM-DD (admin) — dấu thời gian chỉnh sửa tay
+// theo ngày/NV để hiện "Đã chỉnh sửa: HH:MM DD/MM bởi <ai>" ở popup ngày + ô lưới.
+router.get('/edits', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const start = String(req.query.start || '').slice(0, 10);
+        const end = String(req.query.end || '').slice(0, 10);
+        const params = [];
+        let where = '';
+        if (start && end) {
+            where = `WHERE date_key >= $1 AND date_key <= $2`;
+            params.push(start, end);
+        } else if (start) {
+            where = `WHERE date_key >= $1`;
+            params.push(start);
+        }
+        const r = await db.query(
+            `SELECT id, device_user_id, date_key, edited_by, edited_at
+                 FROM web2_attendance_edits ${where}`,
+            params
+        );
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] edits list:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
 // PUT /day-notes/:id — upsert ghi chú 1 ngày (id = '{device_user_id}_{date_key}').
 // note rỗng → xoá dòng (giữ bảng sạch). (admin)
 router.put('/day-notes/:id', requireWeb2Admin, async (req, res) => {
@@ -468,6 +534,7 @@ router.put('/day-notes/:id', requireWeb2Admin, async (req, res) => {
             return fail(res, 400, 'id ghi chú không hợp lệ');
         if (!note) {
             await db.query(`DELETE FROM web2_attendance_day_notes WHERE id = $1`, [id]);
+            await stampEdit(db, deviceUserId, dateKey, editorOf(req));
             _notify('day-note', { id });
             return ok(res, { deleted: true });
         }
@@ -477,6 +544,7 @@ router.put('/day-notes/:id', requireWeb2Admin, async (req, res) => {
              ON CONFLICT (id) DO UPDATE SET note = EXCLUDED.note, updated_at = EXCLUDED.updated_at`,
             [id, deviceUserId, dateKey, note.slice(0, 1000), now()]
         );
+        await stampEdit(db, deviceUserId, dateKey, editorOf(req));
         _notify('day-note', { id });
         return ok(res, {});
     } catch (e) {
@@ -621,6 +689,9 @@ router.post('/records', requireWeb2Admin, async (req, res) => {
         if (_mk && (await isMonthLocked(db, _mk))) return fail(res, 409, LOCK_MSG(_mk));
         const inserted = await insertRecords(db, [b], 'manual');
         if (!inserted) return fail(res, 400, 'Dữ liệu punch không hợp lệ');
+        // Audit: ai + lúc nào sửa ngày này (dùng date_key +7 từ giờ punch).
+        const _uid = String(b.device_user_id ?? b.deviceUserId ?? b.pin ?? '').trim();
+        if (_uid && _dt) await stampEdit(db, _uid, dateKeyVN(_dt), editorOf(req));
         _notify('records', { inserted, source: 'manual' });
         return ok(res, { inserted });
     } catch (e) {
@@ -653,12 +724,16 @@ router.delete('/records/:id', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const _id = String(req.params.id);
-        const _rec = await db.query(`SELECT date_key FROM web2_attendance_records WHERE id = $1`, [
-            _id,
-        ]);
-        const _mk = _rec.rows[0]?.date_key ? String(_rec.rows[0].date_key).slice(0, 7) : null;
+        const _rec = await db.query(
+            `SELECT date_key, device_user_id FROM web2_attendance_records WHERE id = $1`,
+            [_id]
+        );
+        const _row = _rec.rows[0];
+        const _mk = _row?.date_key ? String(_row.date_key).slice(0, 7) : null;
         if (_mk && (await isMonthLocked(db, _mk))) return fail(res, 409, LOCK_MSG(_mk));
         await db.query(`DELETE FROM web2_attendance_records WHERE id = $1`, [_id]);
+        if (_row?.device_user_id && _row?.date_key)
+            await stampEdit(db, _row.device_user_id, _row.date_key, editorOf(req));
         _notify('records', { deleted: req.params.id });
         return ok(res, {});
     } catch (e) {
@@ -769,6 +844,7 @@ router.post('/fullday', requireWeb2Admin, async (req, res) => {
              VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
             [id, empId, dateKey, now()]
         );
+        await stampEdit(db, empId, dateKey, editorOf(req));
         _notify('fullday', { id });
         return ok(res, { id });
     } catch (e) {
@@ -784,6 +860,9 @@ router.delete('/fullday/:id', requireWeb2Admin, async (req, res) => {
         if (/^\d{4}-\d{2}-\d{2}$/.test(_fdk) && (await isMonthLocked(db, _fdk.slice(0, 7))))
             return fail(res, 409, LOCK_MSG(_fdk.slice(0, 7)));
         await db.query(`DELETE FROM web2_attendance_fullday WHERE id = $1`, [_fid]);
+        // id = '{emp_id}_{date_key}' → tách để đóng dấu chỉnh sửa.
+        if (/^\d{4}-\d{2}-\d{2}$/.test(_fdk))
+            await stampEdit(db, _fid.slice(0, -11), _fdk, editorOf(req));
         _notify('fullday', { deleted: req.params.id });
         return ok(res, {});
     } catch (e) {

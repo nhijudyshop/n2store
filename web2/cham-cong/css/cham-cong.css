@@ -899,6 +899,23 @@
     color: var(--web2-text-faded);
     margin-bottom: 3px;
 }
+/* Dấu thời gian chỉnh sửa tay (popup ngày) — pill xanh nhạt, đặt dưới meta. */
+.cc-edit-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--web2-primary);
+    background: var(--web2-primary-soft);
+    border: 1px solid var(--web2-primary-soft-2);
+    border-radius: 999px;
+    padding: 4px 10px;
+    margin: -4px 0 14px;
+}
+.cc-edit-meta b {
+    font-weight: 600;
+}
 .cc-detail-tabs {
     display: flex;
     gap: 18px;
@@ -1045,6 +1062,21 @@
     height: 6px;
     border-radius: 50%;
     background: var(--web2-warning, #f59e0b);
+    box-shadow: 0 0 0 1px #fff;
+}
+/* Ô đã chỉnh sửa tay → chấm xanh góc dưới-trái (KHÔNG đụng chấm ghi chú góc trên-phải). */
+.cc-cell.cc-edited {
+    position: relative;
+}
+.cc-cell.cc-edited::before {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    left: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--web2-primary, #0068ff);
     box-shadow: 0 0 0 1px #fff;
 }
 

@@ -65,6 +65,9 @@
             api(`/day-notes?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
         putDayNote: (id, note) =>
             api('/day-notes/' + encodeURIComponent(id), { method: 'PUT', body: { note } }),
+        // Edit audit (ai + lúc nào sửa chấm công 1 ngày) — chỉ đọc.
+        listEdits: (start, end) =>
+            api(`/edits?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
         // Fullday / holidays
         listFullday: () => api('/fullday'),
         addFullday: (empId, dateKey) =>
