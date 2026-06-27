@@ -42,6 +42,32 @@
         return !!u && String(u.role || '').toLowerCase() === 'admin';
     }
 
+    // ── ADMIN-ONLY PAGES (1 NGUỒN) ──────────────────────────────────
+    // Danh sách slug trang CHỈ admin được vào. Dùng CHUNG cho:
+    //   • Page guard (chặn truy cập trực tiếp URL khi không phải admin) — bên dưới.
+    //   • Sidebar menu (ẩn item khỏi menu nhân viên) — web2-sidebar.js đọc
+    //     Web2Perm.isAdminOnlyUrl() làm backstop bên cạnh flag NAV adminOnly.
+    // Khác với per-user 'view' revoke (default-open): admin-only là FAIL-CLOSED —
+    // mặc định CHẶN mọi non-admin, không phụ thuộc dữ liệu permissions.
+    // Slug = tên folder (khớp slugFromUrl). Thêm trang admin-only mới vào đây.
+    const ADMIN_ONLY_SLUGS = new Set([
+        'system', // Cấu hình & Hệ thống (web2/system)
+        'pancake-settings', // Pancake (Token)
+        'delivery-zone', // Phương thức giao hàng
+        'audit-log', // Lịch sử thao tác
+        'order-tags', // TAG đơn hàng
+        'livestream-poller', // Lấy comment Live (poller)
+        'cham-cong', // Chấm công (group Quản trị viên)
+        'chi-tieu', // Quản lý chi tiêu (group Quản trị viên)
+        'users', // Người dùng (group Quản trị viên)
+    ]);
+    function isAdminOnlySlug(slug) {
+        return !!slug && ADMIN_ONLY_SLUGS.has(slug);
+    }
+    function isAdminOnlyUrl(url) {
+        return isAdminOnlySlug(slugFromUrl(url));
+    }
+
     // Slug từ URL/path — khớp slug folder ở backend WEB2_PAGES.
     function slugFromUrl(url) {
         try {
@@ -82,7 +108,16 @@
         return canView(slugFromUrl(url));
     }
 
-    global.Web2Perm = { isAdmin, slugFromUrl, can, canView, canViewUrl, _user };
+    global.Web2Perm = {
+        isAdmin,
+        slugFromUrl,
+        can,
+        canView,
+        canViewUrl,
+        isAdminOnlySlug,
+        isAdminOnlyUrl,
+        _user,
+    };
 
     // ── PAGE GUARD ──────────────────────────────────────────────────
     // Chặn truy cập trực tiếp URL trang mà user bị thu hồi 'view'. Soft-block
@@ -115,7 +150,15 @@
             if (isAdmin()) return; // admin không bao giờ bị chặn
             const slug = slugFromUrl(global.location.href);
             if (!slug) return;
-            // Chỉ chặn khi có user + có dữ liệu quyền RÕ RÀNG bỏ 'view'.
+            // Admin-only page: FAIL-CLOSED — chặn mọi non-admin (kể cả khi chưa có
+            // dữ liệu permissions). web2-auth.js đã redirect user chưa đăng nhập về
+            // login, nên tới đây luôn có user; getStored() đọc localStorage đồng bộ.
+            if (isAdminOnlySlug(slug)) {
+                _block(slug);
+                return;
+            }
+            // Per-user 'view' revoke (default-open): chỉ chặn khi có user + có dữ
+            // liệu quyền RÕ RÀNG bỏ 'view'.
             const u = _user();
             if (!u || !u.permissions) return; // chưa có dữ liệu → cho qua
             if (!canView(slug)) _block(slug);

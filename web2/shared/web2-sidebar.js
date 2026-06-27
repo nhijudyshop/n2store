@@ -370,24 +370,28 @@
                     label: 'Lấy comment Live (poller)',
                     icon: 'radio',
                     our: '../web2/livestream-poller/index.html',
+                    adminOnly: true,
                     // Web 2.0-only — bật/tắt trang server tự lấy comment livestream.
                 },
                 {
                     label: 'Pancake (Token)',
                     icon: 'key-round',
                     our: '../web2/pancake-settings/index.html',
+                    adminOnly: true,
                     // Web 2.0-only page — no WEB2 counterpart.
                 },
                 {
                     label: 'Phương thức giao hàng',
                     icon: 'truck',
                     our: '../web2/delivery-zone/index.html',
+                    adminOnly: true,
                     // Web 2.0-only — quản lý vùng giao + phí + từ khoá auto-detect.
                 },
                 {
                     label: 'TAG đơn hàng',
                     icon: 'tags',
                     our: '../web2/order-tags/index.html',
+                    adminOnly: true,
                     // Web 2.0-only — thẻ auto theo trigger, hiện ở cột "Thẻ" Đơn Web.
                 },
                 {
@@ -401,6 +405,7 @@
                     label: 'Lịch sử thao tác',
                     icon: 'history',
                     our: '../web2/audit-log/index.html',
+                    adminOnly: true,
                 },
                 // 2026-06-24 reorg: Cấu hình & Hệ thống chuyển vào đây + CHỈ ADMIN
                 // (item-level adminOnly → renderItem ẩn nếu không phải admin).
@@ -596,7 +601,16 @@
     }
 
     function renderItem(item, activeUrl) {
-        if (item.adminOnly && !_isAdmin()) return '';
+        // Admin-only: ẩn item nếu user không phải admin. 2 nguồn:
+        //  • flag NAV `adminOnly` (timing-independent, không phụ thuộc Web2Perm load).
+        //  • backstop danh sách 1-nguồn Web2Perm.ADMIN_ONLY_SLUGS (web2-perm.js) —
+        //    phòng khi quên gắn flag; cũng đồng bộ với page-guard chặn URL trực tiếp.
+        const adminOnly =
+            item.adminOnly ||
+            (item.our && global.Web2Perm && global.Web2Perm.isAdminOnlyUrl
+                ? global.Web2Perm.isAdminOnlyUrl(item.our)
+                : false);
+        if (adminOnly && !_isAdmin()) return '';
         // Ẩn item nếu user bị thu hồi 'view' trang này (default-open: admin / chưa
         // có dữ liệu / trang mới → vẫn hiện). Server vẫn gate độc lập.
         if (item.our && global.Web2Perm && !global.Web2Perm.canViewUrl(item.our)) return '';
