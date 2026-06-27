@@ -266,7 +266,7 @@
                 if (stored?.token) {
                     const params = new URLSearchParams(location.search);
                     const next = params.get('next');
-                    location.replace(next || '../index.html');
+                    location.replace(next || '../overview/index.html');
                     return;
                 }
 
@@ -315,7 +315,7 @@
                         });
                         const params = new URLSearchParams(location.search);
                         const next = params.get('next');
-                        location.replace(next || '../index.html');
+                        location.replace(next || '../overview/index.html');
                     } catch (err) {
                         showError(err.message || 'Đăng nhập thất bại');
                         submitBtn.disabled = false;
