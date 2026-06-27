@@ -165,21 +165,28 @@ async def _init_pool():
 
 async def _safe_build(acc: Account):
     try:
-        await _build_client(acc)
+        # Bound cứng: 1 account cookie hỏng/mạng treo KHÔNG được làm kẹt mãi (init có thể hang).
+        await asyncio.wait_for(_build_client(acc), timeout=INIT_TIMEOUT + 10)
         print(f"   ✓ account '{acc.label}' OK")
     except Exception as e:  # noqa: BLE001
         acc.ready = False
-        acc.error = str(e)[:200]
+        acc.error = ("timeout init" if isinstance(e, asyncio.TimeoutError) else str(e))[:200]
         print(f"   ✗ account '{acc.label}' lỗi: {acc.error}")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    try:
-        await _init_pool()
-    except Exception as e:  # noqa: BLE001
-        print(f"⚠️  Khởi tạo pool lỗi: {e}")
+    # Init account chạy NỀN → server lên NGAY (cookie hỏng/mạng chậm KHÔNG làm kẹt cổng 8131).
+    # /health + trang cấu hình / luôn truy cập được; account "đang khởi tạo" hiện dần.
+    async def _bg():
+        try:
+            await _init_pool()
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠️  Khởi tạo pool lỗi: {e}")
+
+    task = asyncio.create_task(_bg())
     yield
+    task.cancel()
     for a in _state["accounts"]:
         if a.client is not None:
             try:
