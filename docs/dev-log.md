@@ -6,7 +6,6 @@
 
 Đọc tab `web2/system?tab=services`. Thêm **thẻ "Máy Gemini try-on"** (`system-services.js renderGeminiMachines` + section HTML + `sdGeminiMachines`): client-side dò registry `?engine=gemini-tryon` → fetch `/health` từng máy → hiện account (uses, cooling, `lastError`), online/offline. **Phát hiện bug thật qua dashboard**: máy shop vẫn heartbeat (registry "1s trước") NHƯNG tunnel `catherine-ride...` đã chết (curl /health fail) → request rớt = "lâu lâu lỗi". **Fix `serve.py`**: `_tunnel_loop` đọc liên tục stdout cloudflared (drain + lấy URL) → cloudflared rớt thì **tự khởi động lại + lấy URL mới**; `_heartbeat()` đọc `_tun["url"]` hiện tại, tunnel chết (None) thì **NGỪNG báo** → registry tự xoá (TTL 90s) → không còn URL chết; interval 30s→15s (URL mới lên sớm). **Verify Mac**: tunnel lên → kill cloudflared → log "RỚT → khởi động lại" → lên URL mới (`outreach...`→`fundamentals...`). Bump `system-services.js?v=20260627gmon`. ⚠ Máy shop reinstall để nhận serve.py mới.
 
-
 ### [web2/live-control + live-tv] Địa danh pre-order: KH MỚI → KH (vượt NCC được + báo hiệu)
 
 User: thêm chọn ĐỊA DANH (Hương Châu/Hà Nội). SP đúng địa danh chọn → cột "KH MỚI" thành "KH" (đếm TẤT CẢ khách), được VƯỢT NCC (số KH đỏ + badge "VƯỢT +N", CÒN = 0). Mặc định Hương Châu.
