@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ca2878c` — fix(web2 cashbook R3 #5 LOW): biên ngày cuối EXCLUSIVE — không bỏ sót phiếu sub-second
-**Last updated**: 2026-06-27 08:15:45 +07
-**Latest session**: [`RESUME:20260627-081545-ca2878c`](../20260627-081545-ca2878c.md)
-**Summary**: web2 flow R3: fix #2 khoá kỳ lương server-side (7 route 409) + #5 cashbook biên ngày sub-second; verify đối kháng 5 false-positive; restore dev-log xoá nhầm 539 dòng
+**Latest commit**: `b649a26` — docs(session): fill R3 summary + files modified
+**Last updated**: 2026-06-27 08:17:50 +07
+**Latest session**: [`RESUME:20260627-081750-b649a26`](../20260627-081750-b649a26.md)
+**Summary**: docs(session): fill R3 summary + files modified
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
