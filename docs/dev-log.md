@@ -2,6 +2,17 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Bấm GIỎ / KH MỚI ở board → popup chi tiết giỏ khách
+
+User: bấm số GIỎ / KH MỚI xem được thông tin (ai đang có SP trong giỏ).
+
+- **Backend** (`web2-campaign-products.js`): `GET /cart-detail?code=X` — liệt kê đơn `native_orders` status='draft' chứa SP (GROUP theo đơn, SUM qty); mỗi dòng có customerName/phone/address/fbName/qty + `isNewCust` (chưa SĐT & địa chỉ). Khớp ĐÚNG nguồn GIỎ/KH MỚI ở GET /.
+- **Client** (`web2-campaign.js`): `getCartDetail(code)`.
+- **live-control.js**: span GIỎ + KH MỚI thành `.lc-clickable` (khi >0) với `data-cart`/`data-cart-mode`; bấm → `openCartDetail(code, mode)` mở popup (dùng class shared `.w2p-overlay/.w2p-card/.w2p-scroll-area` của popup.js — anti-lag sẵn). mode 'new' lọc KH chưa có SĐT&địa chỉ. Mỗi dòng: tên KH + STT + SĐT/badge "KH mới" + địa chỉ + SL.
+- **CSS**: `.lc-cart-*` list rows + `.lc-clickable` hover. Cache-bust `tv4`.
+
+Status: ✅ code + syntax OK, chờ deploy Render verify.
+
 ### [gemini-tryon] temporary mode (đỡ rác hội thoại) + log lỗi từng account (debug "1 acc full, 4 acc 0%")
 
 User: sidecar tạo nhiều hội thoại trong lịch sử Gemini; và 1 account bị full còn 4 account khác 0% dù account nào cũng tạo ảnh được bằng tay → nghi LỖI SIDECAR hoặc Google giới hạn theo IP (1 máy 1 IP, hết ngạch ảnh của IP thì mọi acc trên máy đó bị "limit reset"). Thêm để chẩn đoán: (1) `generate_content(temporary=True)` → không lưu hội thoại vào history (đỡ rác + đỡ lộ automation; env `GEMINI_TEMPORARY=0` để tắt). (2) Mỗi account lưu `last_error` (lỗi lần tạo ảnh gần nhất) + log `[gen] account 'X' …` ra gemini-tryon.log; hiện `lastError` trên trang cấu hình + /health. ⚠ Máy shop reinstall để nhận. Bước tiếp: user test 1 acc "0%" NGAY TRÊN MÁY SHOP (cùng IP) — fail = giới hạn IP (xoay acc 1 máy vô ích, cần nhiều IP/máy); OK = lỗi sidecar.

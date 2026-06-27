@@ -172,10 +172,18 @@
             ncc +
             '" />' +
             '</span>' +
-            '<span class="lc-vnum lc-vban" title="SL trong giỏ khách">' +
+            '<span class="lc-vnum lc-vban' +
+            (ban > 0 ? ' lc-clickable' : '') +
+            '" data-cart="' +
+            esc(v.code) +
+            '" data-cart-mode="all" title="SL trong giỏ khách — bấm xem ai đang có">' +
             ban +
             '<small>GIỎ</small></span>' +
-            '<span class="lc-vnum lc-vkhm" title="Khách mới (chưa có SĐT & địa chỉ) đang có SP này trong giỏ">' +
+            '<span class="lc-vnum lc-vkhm' +
+            (khm > 0 ? ' lc-clickable' : '') +
+            '" data-cart="' +
+            esc(v.code) +
+            '" data-cart-mode="new" title="Khách mới (chưa SĐT & địa chỉ) — bấm xem">' +
             khm +
             '<small>KH MỚI</small></span>' +
             '<span class="lc-vnum lc-vcon' +
@@ -418,6 +426,98 @@
         renderTvCtl();
     }
 
+    // ── Popup chi tiết GIỎ / KH MỚI (bấm số ở board) ──
+    // Liệt kê đơn draft chứa SP (mỗi đơn = 1 giỏ khách). mode 'new' = lọc KH chưa
+    // có SĐT & địa chỉ. Dùng class shared .w2p-* (popup.js) cho overlay/card/scroll.
+    function cartRowHtml(it) {
+        var name = it.customerName || it.fbName || '(chưa có tên)';
+        var stt = it.stt != null ? ' <span class="lc-cart-stt">#' + it.stt + '</span>' : '';
+        var contact = it.phone
+            ? '<span class="lc-cart-phone">' + esc(it.phone) + '</span>'
+            : it.isNewCust
+              ? '<span class="lc-cart-newbadge">KH mới</span>'
+              : '<span class="lc-cart-muted">chưa có SĐT</span>';
+        var addr = it.address ? '<div class="lc-cart-addr">📍 ' + esc(it.address) + '</div>' : '';
+        return (
+            '<div class="lc-cart-row">' +
+            '<div class="lc-cart-cinfo">' +
+            '<div class="lc-cart-cname">' +
+            esc(name) +
+            stt +
+            '</div>' +
+            '<div class="lc-cart-contact">' +
+            contact +
+            '</div>' +
+            addr +
+            '</div>' +
+            '<div class="lc-cart-qty">' +
+            (it.qty || 0) +
+            '<small>SL</small></div>' +
+            '</div>'
+        );
+    }
+    async function openCartDetail(code, mode) {
+        var isNew = mode === 'new';
+        // Tên SP từ board (cho tiêu đề popup).
+        var label = code;
+        for (var i = 0; i < state.board.length; i++) {
+            var v = (state.board[i].variants || []).find((x) => x.code === code);
+            if (v) {
+                label = state.board[i].name + (v.variant ? ' · ' + v.variant : '');
+                break;
+            }
+        }
+        if (window.Popup && window.Popup.ensureStyles) window.Popup.ensureStyles();
+        var ov = document.createElement('div');
+        ov.className = 'w2p-overlay lc-cart-overlay';
+        ov.innerHTML =
+            '<div class="w2p-card lc-cart-card">' +
+            '<div class="lc-cart-head"><div class="lc-cart-title">' +
+            (isNew ? '👤 Khách mới: ' : '🛒 Giỏ hàng: ') +
+            esc(label) +
+            '</div><button class="lc-cart-close" type="button" aria-label="Đóng">✕</button></div>' +
+            '<div class="lc-cart-list w2p-scroll-area"><div class="lc-cart-empty">Đang tải…</div></div>' +
+            '</div>';
+        document.body.appendChild(ov);
+        function close() {
+            ov.remove();
+            document.removeEventListener('keydown', onEsc);
+        }
+        function onEsc(e) {
+            if (e.key === 'Escape') close();
+        }
+        document.addEventListener('keydown', onEsc);
+        ov.addEventListener('click', function (e) {
+            if (e.target === ov) close();
+        });
+        ov.querySelector('.lc-cart-close').addEventListener('click', close);
+        try {
+            var items = await window.Web2Campaign.getCartDetail(code);
+            if (isNew) items = items.filter((it) => it.isNewCust);
+            var listEl = ov.querySelector('.lc-cart-list');
+            if (!items.length) {
+                listEl.innerHTML =
+                    '<div class="lc-cart-empty">' +
+                    (isNew ? 'Chưa có khách mới nào.' : 'Chưa có ai trong giỏ.') +
+                    '</div>';
+                return;
+            }
+            var totalQty = items.reduce(function (a, it) {
+                return a + (it.qty || 0);
+            }, 0);
+            listEl.innerHTML =
+                '<div class="lc-cart-sum">' +
+                items.length +
+                ' khách · ' +
+                totalQty +
+                ' sản phẩm</div>' +
+                items.map(cartRowHtml).join('');
+        } catch (e) {
+            ov.querySelector('.lc-cart-list').innerHTML =
+                '<div class="lc-cart-empty">Lỗi tải: ' + esc(e && e.message) + '</div>';
+        }
+    }
+
     // ── Picker (thêm SP) ──────────────────────────────
     async function loadPicker() {
         var box = $('lcPicker');
@@ -635,8 +735,13 @@
                 window.open('../live-tv/index.html?campaign=' + state.campaignId, '_blank');
         });
         $('lcHistory').addEventListener('click', openHistory);
-        // Board ops + pending edit (delegated)
+        // Board ops + pending edit + bấm GIỎ/KH MỚI xem chi tiết (delegated)
         $('lcBoard').addEventListener('click', function (e) {
+            var cart = e.target.closest('[data-cart].lc-clickable');
+            if (cart) {
+                openCartDetail(cart.dataset.cart, cart.dataset.cartMode);
+                return;
+            }
             var btn = e.target.closest('[data-op]');
             if (!btn) return;
             var grp = btn.closest('.lc-group');

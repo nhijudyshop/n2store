@@ -745,3 +745,145 @@ span.lc-mini-noimg {
 .lc-mini-nums span.z {
     color: #f87171;
 }
+
+/* ── Clickable GIỎ/KH MỚI + popup chi tiết giỏ khách ─────────────── */
+.lc-vnum.lc-clickable {
+    cursor: pointer;
+    border-radius: 7px;
+    padding: 2px 4px;
+    margin: -2px -2px;
+    transition: background 0.12s;
+}
+.lc-vnum.lc-clickable:hover {
+    background: #eff6ff;
+}
+.lc-vban.lc-clickable:hover {
+    background: #e6f0ff;
+}
+.lc-vkhm.lc-clickable:hover {
+    background: #f3e8ff;
+}
+.lc-cart-card {
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    max-height: min(82vh, 640px);
+}
+.lc-cart-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef1f6;
+    flex: 0 0 auto;
+}
+.lc-cart-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 800;
+    font-size: 15px;
+    color: #0f172a;
+    line-height: 1.3;
+}
+.lc-cart-close {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1;
+}
+.lc-cart-close:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+.lc-cart-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px 10px 12px;
+}
+.lc-cart-sum {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    padding: 6px 6px 10px;
+}
+.lc-cart-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 28px 12px;
+    font-size: 13.5px;
+}
+.lc-cart-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    border-bottom: 1px solid #f4f6fb;
+}
+.lc-cart-row:last-child {
+    border-bottom: none;
+}
+.lc-cart-cinfo {
+    flex: 1;
+    min-width: 0;
+}
+.lc-cart-cname {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+}
+.lc-cart-stt {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+}
+.lc-cart-contact {
+    margin-top: 2px;
+    font-size: 12px;
+}
+.lc-cart-phone {
+    color: #0058da;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.lc-cart-muted {
+    color: #94a3b8;
+}
+.lc-cart-newbadge {
+    display: inline-block;
+    background: #f3e8ff;
+    color: #7c3aed;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 999px;
+}
+.lc-cart-addr {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: #64748b;
+    line-height: 1.3;
+}
+.lc-cart-qty {
+    flex: 0 0 auto;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.05;
+    font-size: 16px;
+    font-weight: 800;
+    color: #16a34a;
+    font-variant-numeric: tabular-nums;
+}
+.lc-cart-qty small {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 0.04em;
+}

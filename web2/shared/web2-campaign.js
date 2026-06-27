@@ -172,6 +172,12 @@
             );
             return (j && j.control) || { rows: 1, cols: 4, page: 0 };
         },
+        // Chi tiết giỏ KH của 1 SP (đơn draft chứa SP) — cho popup GIỎ / KH MỚI.
+        // → [{ orderCode, stt, customerName, phone, address, fbName, qty, isNewCust }]
+        async getCartDetail(code) {
+            const j = await _json(`${CP_BASE()}/cart-detail?code=${encodeURIComponent(code)}`);
+            return (j && j.items) || [];
+        },
         async setTvControl(campaignId, patch) {
             const j = await _patch(
                 `${CP_BASE()}/control?campaignId=${encodeURIComponent(campaignId)}`,

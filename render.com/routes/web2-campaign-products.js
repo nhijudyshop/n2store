@@ -583,6 +583,50 @@ router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
+// GET /cart-detail?code=X — chi tiết "GIỎ" / "KH MỚI" của 1 SP cho popup khi bấm
+// số ở board. Mỗi dòng = 1 đơn draft chứa SP X (1 giỏ khách) + SL + KH có MỚI
+// không (chưa SĐT & địa chỉ — cả 2 trống). Khớp ĐÚNG nguồn GIỎ/KH MỚI ở GET /
+// (native_orders status='draft'). KHÔNG cần campaignId (giỏ global theo mã SP).
+router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const code = String(req.query.code || '').trim();
+    if (!code) return res.status(400).json({ success: false, error: 'code required' });
+    try {
+        const r = await pool.query(
+            `SELECT n.code AS order_code, n.display_stt, n.customer_name, n.phone,
+                    n.address, n.fb_user_id, n.fb_user_name, n.created_at,
+                    SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS qty
+             FROM native_orders n, jsonb_array_elements(n.products) prod
+             WHERE COALESCE(prod->>'productCode', prod->>'code') = $1
+               AND n.status = 'draft'
+             GROUP BY n.id, n.code, n.display_stt, n.customer_name, n.phone, n.address,
+                      n.fb_user_id, n.fb_user_name, n.created_at
+             ORDER BY n.created_at DESC NULLS LAST`,
+            [code]
+        );
+        const items = r.rows.map((row) => {
+            const phone = String(row.phone || '').trim();
+            const address = String(row.address || '').trim();
+            return {
+                orderCode: row.order_code,
+                stt: row.display_stt != null ? Number(row.display_stt) : null,
+                customerName: row.customer_name || null,
+                phone: phone || null,
+                address: address || null,
+                fbName: row.fb_user_name || null,
+                qty: Number(row.qty) || 0,
+                isNewCust: !phone && !address, // KH mới = chưa có SĐT & địa chỉ
+                createdAt: Number(row.created_at) || 0,
+            };
+        });
+        res.json({ success: true, items });
+    } catch (e) {
+        console.error('[WEB2-CAMPAIGN-PRODUCTS] cart-detail error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.ensureTables = ensureTables;
