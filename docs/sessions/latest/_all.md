@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a8933df` — feat(inventory-tracking): cho nhập giá thập phân (ô Sản phẩm) + kg thập phân (ô Kiện Hàng), dấu phẩy kiểu VN
-**Last updated**: 2026-06-27 11:49:33 +07
-**Latest session**: [`RESUME:20260627-114933-a8933df`](../20260627-114933-a8933df.md)
-**Summary**: inventory-tracking: nhập giá/kg thập phân dấu phẩy VN
+**Latest commit**: `66cd010` — docs(session): fill detail RESUME:20260627-114933-a8933df
+**Last updated**: 2026-06-27 11:50:43 +07
+**Latest session**: [`RESUME:20260627-115043-66cd010`](../20260627-115043-66cd010.md)
+**Summary**: docs(session): fill detail RESUME:20260627-114933-a8933df
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
+- [`gemini-tryon/`](./gemini-tryon.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -35,7 +34,7 @@
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 11:45
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-27 11:50
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
