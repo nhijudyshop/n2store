@@ -57,6 +57,30 @@
         return null;
     }
 
+    // Tiến trình GIẢ LẬP (model ảnh không trả % thật): bò tới ~cap% theo đường tiệm cận
+    // (nhanh lúc đầu, chậm dần) rồi NHẢY 100% khi xong. speed lớn = nhanh hơn. Trả {done, stop}.
+    function startFakeProgress(setPct, opts) {
+        opts = opts || {};
+        const cap = opts.cap || 95;
+        const speed = opts.speed || 0.055;
+        let p = 0;
+        setPct(0);
+        const id = setInterval(() => {
+            p += Math.max(0.4, (cap - p) * speed);
+            if (p > cap) p = cap;
+            setPct(Math.round(p));
+        }, 220);
+        return {
+            done() {
+                clearInterval(id);
+                setPct(100);
+            },
+            stop() {
+                clearInterval(id);
+            },
+        };
+    }
+
     function workerUrl() {
         return (
             global.WEB2_CONFIG?.WORKER_URL ||
@@ -194,13 +218,12 @@
 .w2t-card-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;padding:6px 8px;background:linear-gradient(transparent,rgba(0,0,0,.55));opacity:0;transition:opacity .15s}
 .w2t-card:hover .w2t-card-bar{opacity:1}
 .w2t-card-bar a,.w2t-card-bar button{color:#fff;font-size:.74rem;text-decoration:none;border:none;background:rgba(255,255,255,.18);border-radius:6px;padding:3px 8px;cursor:pointer}
-.w2t-gen-core{position:relative;width:48px;height:48px;display:grid;place-items:center;z-index:1}
-.w2t-gen-ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,#6366f1,#a855f7,#ec4899,#f59e0b,#6366f1);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);animation:w2tSpin .9s linear infinite}
-.w2t-gen-icon{font-size:19px;animation:w2tPulse 1.5s ease-in-out infinite;filter:drop-shadow(0 1px 5px rgba(99,102,241,.45))}
+.w2t-gen-core{position:relative;width:56px;height:56px;display:grid;place-items:center;z-index:1}
+.w2t-gen-ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,#6366f1,#a855f7,#ec4899,#f59e0b,#6366f1);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);animation:w2tSpin .8s linear infinite}
+.w2t-gen-pct{font-size:14px;font-weight:800;color:#6366f1;z-index:1;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
 .w2t-gen-text{font-weight:700;letter-spacing:.2px;z-index:1}
 .w2t-gen-text::after{content:"";animation:w2tDots 1.5s steps(1,end) infinite}
 @keyframes w2tSpin{to{transform:rotate(360deg)}}
-@keyframes w2tPulse{0%,100%{transform:scale(.8);opacity:.65}50%{transform:scale(1.18);opacity:1}}
 @keyframes w2tDots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media(max-width:760px){.w2t{grid-template-columns:1fr}}`;
         document.head.appendChild(st);
@@ -515,17 +538,32 @@
             );
         }
 
-        // Gọi máy Gemini FREE (sidecar gemini-tryon) — trả dataUrl ảnh.
+        // Gọi máy Gemini FREE (sidecar gemini-tryon) — trả dataUrl ảnh. RETRY khi tunnel chập
+        // chờn (ERR_NETWORK_CHANGED / 502-504 / fetch fail tạm thời — hay xảy ra với cloudflared).
         async function callGeminiMachine(promptText, images) {
-            const r = await fetch(geminiUrl + '/tryon', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: promptText, images }),
-                signal: AbortSignal.timeout(180000),
-            });
-            const j = await r.json();
-            if (!j.ok) throw new Error(j.error || 'Máy Gemini lỗi');
-            return j.dataUrl;
+            let lastErr;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const r = await fetch(geminiUrl + '/tryon', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: promptText, images }),
+                        signal: AbortSignal.timeout(180000),
+                    });
+                    if (r.status >= 502 && r.status <= 504) throw new Error('tunnel ' + r.status); // transient
+                    const j = await r.json();
+                    if (!j.ok)
+                        throw Object.assign(new Error(j.error || 'Máy Gemini lỗi'), {
+                            _final: true,
+                        });
+                    return j.dataUrl;
+                } catch (e) {
+                    lastErr = e;
+                    if (e._final) throw e; // lỗi thật từ sidecar (vd hết account) → không retry, để fallback
+                    if (attempt < 2) await new Promise((r) => setTimeout(r, 700 * (attempt + 1))); // backoff rồi thử lại
+                }
+            }
+            throw lastErr;
         }
         // Gọi Nano Banana TRẢ PHÍ (backend /api/web2-ai/image) — fallback khi không có máy free.
         async function callPaidNano(promptText, images) {
@@ -563,11 +601,15 @@
                 );
             const card = document.createElement('div');
             card.className = 'w2t-card loading';
-            card.innerHTML = `<div class="w2t-gen-core"><div class="w2t-gen-ring"></div><span class="w2t-gen-icon">${isFace ? '🧑‍🤝‍🧑' : '✨'}</span></div><span class="w2t-gen-text">${isFace ? 'Đang ghép mặt' : 'Đang ghép đồ'}</span>`;
+            card.innerHTML = `<div class="w2t-gen-core"><div class="w2t-gen-ring"></div><span class="w2t-gen-pct">0%</span></div><span class="w2t-gen-text">${isFace ? 'Đang ghép mặt' : 'Đang ghép đồ'}</span>`;
             gallery.prepend(card);
             goBtn.disabled = true;
             const promptText = buildPrompt($('.w2t-prompt')?.value, mode);
             const images = [person, ...garments];
+            const pctEl = card.querySelector('.w2t-gen-pct');
+            const prog = startFakeProgress((p) => {
+                if (pctEl) pctEl.textContent = p + '%';
+            });
             try {
                 let src;
                 if (geminiUrl) {
@@ -585,9 +627,11 @@
                 } else {
                     src = await callPaidNano(promptText, images);
                 }
+                prog.done();
                 renderResultCard(card, src);
                 if (opts.onResult) opts.onResult(src);
             } catch (e) {
+                prog.stop();
                 const msg =
                     e.name === 'TimeoutError' || e.name === 'AbortError'
                         ? 'Quá lâu — thử lại nhé.'

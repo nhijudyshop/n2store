@@ -344,6 +344,29 @@
         return card;
     }
 
+    // Tiến trình GIẢ LẬP (model ảnh không trả % thật) → bò tới ~95% rồi NHẢY 100% khi xong.
+    function startFakeProgress(setPct, opts) {
+        opts = opts || {};
+        const cap = opts.cap || 95;
+        const speed = opts.speed || 0.055;
+        let p = 0;
+        setPct(0);
+        const id = setInterval(() => {
+            p += Math.max(0.4, (cap - p) * speed);
+            if (p > cap) p = cap;
+            setPct(Math.round(p));
+        }, 220);
+        return {
+            done() {
+                clearInterval(id);
+                setPct(100);
+            },
+            stop() {
+                clearInterval(id);
+            },
+        };
+    }
+
     async function generate() {
         const prompt = document.getElementById('aihImgPrompt').value.trim();
         if (!prompt) return H().toast('Nhập mô tả ảnh', 'warning');
@@ -358,8 +381,12 @@
         const card = document.createElement('div');
         card.className = 'aih-imgcard loading';
         card.innerHTML =
-            '<div class="aih-gen-core"><div class="aih-gen-ring"></div><span class="aih-gen-icon">✨</span></div><span class="aih-gen-text">Đang tạo</span>';
+            '<div class="aih-gen-core"><div class="aih-gen-ring"></div><span class="aih-gen-pct">0%</span></div><span class="aih-gen-text">Đang tạo</span>';
         gallery.prepend(card);
+        const _pctEl = card.querySelector('.aih-gen-pct');
+        const _prog = startFakeProgress((p) => {
+            if (_pctEl) _pctEl.textContent = p + '%';
+        });
 
         // Ảnh gốc chỉ dùng được với Gemini (Nano Banana) — cảnh báo rõ nếu nguồn khác sẽ bỏ qua.
         if (editImageData && provider !== 'gemini') {
@@ -384,9 +411,11 @@
             const j = await r.json();
             if (!j.ok) throw new Error(j.error || 'Tạo ảnh thất bại');
             const srcUrl = j.url || j.dataUrl;
+            _prog.done();
             renderCard(card, srcUrl, prompt, j.provider);
             if (provider === 'gemini') refreshQuota(); // Nano Banana → cập nhật lượt còn lại
         } catch (e) {
+            _prog.stop();
             const msg =
                 e.name === 'TimeoutError' || e.name === 'AbortError'
                     ? 'Quá lâu (nguồn ảnh bận) — bấm Tạo ảnh lại nhé.'

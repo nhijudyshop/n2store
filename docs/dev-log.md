@@ -2,6 +2,16 @@
 
 ## 2026-06-27
 
+### [web2/ai-hub + gemini-tryon] % tiến trình hiệu ứng + retry tunnel (fix "lâu lâu lỗi") + fix icon
+
+User: thêm % tiến trình + chỉnh tốc độ; báo "lâu lâu bị lỗi" (log: ERR_NETWORK_CHANGED/502 trên tunnel `/tryon`, icon `wand-sparkles` not found spam console).
+
+- **% tiến trình GIẢ LẬP**: model ảnh không trả % thật → helper `startFakeProgress` (bò tiệm cận tới ~95% rồi nhảy 100% khi xong). Hiện **% TO ở GIỮA vòng cầu vồng** (`.w2t-gen-pct`/`.aih-gen-pct`), bỏ icon sparkle giữa. Áp dụng `web2-tryon.js` (Ghép đồ) + `ai-image.js`+`ai-hub.css` (Tạo ảnh). **Tốc độ nhanh hơn**: ring 0.9s→0.8s, core to hơn (56-58px).
+- **Retry tunnel** (`web2-tryon.js` callGeminiMachine): tunnel cloudflared chập chờn (ERR_NETWORK_CHANGED/502-504/fetch fail) → **retry 3 lần backoff 700ms** trước khi rớt Nano Banana; lỗi thật từ sidecar (`_final`, vd hết account) không retry → fallback luôn.
+- **Fix icon**: `data-lucide="wand-sparkles"` (không có trong lucide 0.294.0) → `sparkles` ở `ai-hub`/`ai-photo`/`video-maker` index.html (hết spam console + toast lỗi).
+
+Bump `web2-tryon.js?v=20260627g`, `ai-image.js?v=20260627gen2`, `ai-hub.css?v=20260627gen2`. Verify browser: card hiện "42%" giữa vòng cầu vồng + nút Tạo ảnh có ✨, screenshot OK.
+
 ### [web2/ai-hub] Hiệu ứng "AI đang tạo" cao cấp (Ghép đồ + Tạo ảnh)
 
 User muốn hiệu ứng giao diện khi đang tạo ảnh (thay vòng xoay đơn giản). Thêm hiệu ứng card loading: nền gradient chuyển động (indigo→tím→hồng) + tia sáng quét (shimmer ::before translateX) + vòng cầu vồng conic-gradient (mask radial) + icon ✨/🧑‍🤝‍🧑/✂️ nhịp thở (scale+opacity) + chữ "..." động (steps content). Compositor-friendly (transform/opacity). Áp dụng cả `web2-tryon.js` (Ghép đồ/Ghép mặt, class `.w2t-gen-*`) lẫn `ai-image.js`+`ai-hub.css` (Tạo ảnh + tách nền, class `.aih-gen-*`). Bump `web2-tryon.js?v=20260627f`, `ai-image.js?v=20260627gen`, `ai-hub.css?v=20260627gen`. Verify browser: card render đẹp (gradient + ring cầu vồng + ✨), screenshot OK.

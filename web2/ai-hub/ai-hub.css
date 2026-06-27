@@ -823,8 +823,8 @@
 }
 .aih-gen-core {
     position: relative;
-    width: 50px;
-    height: 50px;
+    width: 58px;
+    height: 58px;
     display: grid;
     place-items: center;
     z-index: 1;
@@ -836,12 +836,15 @@
     background: conic-gradient(from 0deg, #6366f1, #a855f7, #ec4899, #f59e0b, #6366f1);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
     mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
-    animation: aih-spin 0.9s linear infinite;
+    animation: aih-spin 0.8s linear infinite;
 }
-.aih-gen-icon {
-    font-size: 20px;
-    animation: aih-genpulse 1.5s ease-in-out infinite;
-    filter: drop-shadow(0 1px 5px rgba(99, 102, 241, 0.45));
+.aih-gen-pct {
+    font-size: 15px;
+    font-weight: 800;
+    color: #6366f1;
+    z-index: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
 }
 .aih-gen-text {
     font-weight: 700;
