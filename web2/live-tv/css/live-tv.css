@@ -337,9 +337,16 @@
 .ltv-vlabel {
     font-size: clamp(0.9rem, 1.1vw, 1.5rem);
     font-weight: 700;
-    white-space: nowrap;
+    /* TV phải đọc được biến thể dài (vd "Màu Xám Chuột / Size 43"): cho xuống tối đa
+       2 dòng thay vì cắt "...". Giữ font lớn (không thu nhỏ) — ưu tiên đọc được. */
+    white-space: normal;
     overflow: hidden;
-    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 1.2;
+    word-break: break-word;
 }
 .ltv-vlabel.ltv-vlabel-mono {
     color: var(--ltv-muted);

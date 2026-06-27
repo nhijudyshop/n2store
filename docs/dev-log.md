@@ -2,6 +2,14 @@
 
 ## 2026-06-27
 
+### [web2/live-tv + shared] "SẮP HẾT" tỉ lệ + biến thể dài không bị cắt "..." trên TV
+
+**Files:** `web2/shared/web2-live-tv-display.js`, `web2/live-tv/{css/live-tv.css,index.html}`, `web2/live-control/index.html`.
+
+- **"SẮP HẾT" theo TỈ LỆ** (tùy tình hình), bỏ số cứng CÒN≤5: nay `low = đã bán (GIỎ>0) & CÒN ≤ max(1, round(NCC×0.3))`. Vd NCC 6 → ngưỡng 2 → CÒN 4 (67%) KHÔNG sắp hết (trước báo nhầm), CÒN ≤2 mới sắp hết. `LOW_THRESHOLD`→`LOW_RATIO=0.3` (single source `cardState`, dùng chung live-tv badge + live-control mini-preview).
+- **Biến thể dài đọc được trên TV**: `.ltv-vlabel` bỏ `nowrap/ellipsis` 1 dòng → cho xuống tối đa 2 dòng (`-webkit-line-clamp:2`), giữ font lớn. Vd "Màu Xám Chuột / Size 43" không còn bị "...".
+- Bump `v=20260627tv12` (display.js + live-tv.css). Đổi nhãn chip `KH theo`→`MỚI theo` (commit trước).
+
 ### [web2/live-control] Địa danh KH pre-order chỉ admin chỉnh được + cảnh báo khi đổi
 
 **Files:** `web2/live-control/{js/live-control.js,index.html,css/live-control.css}`, `render.com/routes/web2-campaign-products.js`.

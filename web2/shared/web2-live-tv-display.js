@@ -14,7 +14,10 @@
     'use strict';
     if (global.Web2LiveTvDisplay) return;
 
-    var LOW_THRESHOLD = 5; // CÒN ≤ 5 (mà > 0) = "sắp hết" → viền cảnh báo
+    // "Sắp hết" theo TỈ LỆ (tùy tình hình), KHÔNG phải số cứng: CÒN ≤ 30% số NCC báo
+    // và ĐÃ bán bớt (GIỎ>0). Vd tổng 6 còn 4 (67%) → KHÔNG sắp hết; tổng 6 còn ≤2 mới
+    // sắp hết. (Trước đây cứng CÒN≤5 → 6 còn 4 bị báo nhầm "sắp hết".)
+    var LOW_RATIO = 0.3;
     var HOT_THRESHOLD = 3; // KH mới ≥ 3 = "hot" → viền nổi bật
 
     // Tính trạng thái 1 card (group) từ các biến thể.
@@ -51,7 +54,9 @@
             newCust: newCust,
             allCust: allCust,
             soldOut: soldOut,
-            low: !soldOut && con > 0 && con <= LOW_THRESHOLD,
+            // "Sắp hết" tỉ lệ: đã bán bớt (GIỎ>0) & CÒN ≤ 30% NCC (tối thiểu 1).
+            // Vd NCC 6: ngưỡng = round(1.8)=2 → CÒN 4 KHÔNG sắp hết, CÒN ≤2 mới sắp hết.
+            low: !soldOut && con > 0 && sold > 0 && con <= Math.max(1, Math.round(ncc * LOW_RATIO)),
             hot: newCust >= HOT_THRESHOLD,
         };
     }
@@ -122,7 +127,7 @@
     }
 
     global.Web2LiveTvDisplay = {
-        LOW_THRESHOLD: LOW_THRESHOLD,
+        LOW_RATIO: LOW_RATIO,
         HOT_THRESHOLD: HOT_THRESHOLD,
         cardState: cardState,
         orderForDisplay: orderForDisplay,
