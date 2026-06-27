@@ -2,6 +2,25 @@
 
 ## 2026-06-27
 
+### [web2/live-control] Board: BÁN→GIỎ HÀNG · bỏ CỌC thêm KH MỚI · auto-add SP chờ hàng (mới nhất trên đầu)
+
+User (xem trang `web2/live-control`) yêu cầu 3 đổi:
+
+1. **Đổi nhãn cột `BÁN` → `GIỎ HÀNG`** (live-control + màn TV live-tv). Giá trị KHÔNG đổi (`v.sold` = SL trong giỏ KH draft).
+2. **Bỏ cột `CỌC`, thêm cột `KH MỚI`** = số khách MỚI (giỏ draft có **cả** SĐT LẪN địa chỉ trống) đang giữ SP đó. BE trả `newCust` thay `coc`; đếm `COUNT(DISTINCT COALESCE(NULLIF(fb_user_id,''), id)) FILTER (phone='' AND address='')`. CÒN = max(0, NCC − Giỏ hàng) giữ nguyên. (CHỈ live-control, KHÔNG thêm KH MỚI trên TV.)
+3. **Auto-add**: SP chờ hàng (`web2_products` status='CHO_MUA' AND pending_qty>0 — khớp picker `/pending`) tự lên board, **mới nhất (updated_at DESC) trên cùng**, không cần bấm. ✕ xoá = **soft-delete** (cột mới `removed`, tombstone) → auto-sync KHÔNG tự thêm lại; `+ Thêm` tay = UPSERT un-tombstone lên đầu. `GET /?…&sync=1` (chỉ live-control gửi; TV read-only) chạy `autoSyncPending` rồi list `removed=false`; insert → `_notify('auto-add')` → SSE `web2:campaign-products` (cho TV + tab khác).
+
+**Files**:
+
+- `render.com/routes/web2-campaign-products.js`: migration `ADD COLUMN removed` (idempotent); `mapItem` coc→newCust; helper `autoSyncPending` (pending LIMIT 300, prepend sort = MIN−len); GET sync+`removed=false`+aggregate `new_cust`; POST prepend-top + `ON CONFLICT DO UPDATE` un-tombstone; DELETE → `removed=true`; reorder/pin thêm guard `removed=false`.
+- `web2/shared/web2-variant-group.js`: thêm `newCust`/`totalNewCust` per-variant + emit group (giữ `coc` legacy).
+- `web2/shared/web2-campaign.js`: `listProducts(campaignId,{sync})` → `&sync=1`.
+- `web2/live-control/js/live-control.js`: `vrowHtml` nhãn + `v.newCust` (class `lc-vkhm`); `loadBoard` truyền `{sync:true}`.
+- `web2/live-control/css/live-control.css`: `.lc-vnum` min-width 50px + `small` nowrap 8.5px; `.lc-vcoc`→`.lc-vkhm` (tím #7c3aed).
+- `web2/live-tv/js/live-tv.js`: nhãn BÁN→GIỎ HÀNG. index.html (cả 2): banner + cache-bust `v=20260627lc`.
+
+**Verify**: throwaway PG test — migration 2 lần idempotent ✅; pending newest-first ✅; auto-sync chỉ thêm SP chưa có + bỏ tombstone ✅; aggregate sold=12/new_cust=2 (dedup) ✅; soft-delete + re-add lên top ✅. JS `node --check` OK. Code-review (1 HIGH thật đã fix: thiếu emit `totalNewCust`; + hardening LIMIT/guard/min-width). Không consumer nào đọc `web2_campaign_products` thiếu filter `removed`. Status: ✅ code xong, chờ deploy Render (web2-api) + verify prod.
+
 ### [gemini-tryon] Fix THẬT: UnicodeEncodeError cp1252 trên Windows → crash dòng print đầu
 
 Debug log (vừa thêm) bắt được lỗi thật từ máy shop Windows: `UnicodeEncodeError: 'charmap' codec can't encode character '▶'`. Windows redirect stdout ra file dùng encoding **cp1252** → `print` ký tự Unicode (▶ 👕 ═ + tiếng Việt có dấu) crash NGAY dòng đầu → serve.py chết → 8131 không lên. **Fix**: ép UTF-8 — `serve.py` + `app.py` thêm `sys.stdout/stderr.reconfigure(encoding='utf-8', errors='replace')` (guarded); `start.cmd` (PS1) thêm `set PYTHONIOENCODING=utf-8` (phủ cả tiến trình uvicorn con). **Verify**: giả lập `PYTHONIOENCODING=cp1252` + redirect file trên Mac — không fix → crash đúng lỗi user; có fix → in ▶👕✅+tiếng Việt OK, exit 0.

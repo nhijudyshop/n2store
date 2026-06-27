@@ -400,7 +400,7 @@ router.patch('/pin', requireWeb2AuthSoft, async (req, res) => {
         await ensureTables(pool);
         await pool.query(
             `UPDATE web2_campaign_products SET pinned = $3
-             WHERE campaign_id = $1 AND product_code = $2`,
+             WHERE campaign_id = $1 AND product_code = $2 AND removed = false`,
             [campaignId, code, pinned]
         );
         _notify('pin', campaignId);
