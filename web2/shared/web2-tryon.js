@@ -388,7 +388,7 @@
                     ' — tab này đang dùng MIỄN PHÍ. Bấm "⚙️ Cấu hình account" để thêm cookie.';
             } else {
                 srvStatus.textContent =
-                    '⚪ Chưa thấy máy Gemini free online — bật sidecar trên máy shop (bộ cài trên) rồi 🔄 Dò máy. Chế độ CHỈ-FREE: không tự dùng Nano Banana trả phí.';
+                    '⚪ Chưa thấy máy Gemini free → đang dùng Nano Banana TRẢ PHÍ. Bật sidecar máy shop (bộ cài trên) để ưu tiên FREE (fail mới tốn phí).';
             }
             populateSrc();
         }
@@ -666,18 +666,32 @@
             try {
                 let src;
                 if (srcSel === 'paid') {
-                    // ADMIN chủ động chọn Nano Banana TRẢ PHÍ.
+                    // ADMIN chủ động chọn Nano Banana TRẢ PHÍ (không thử free).
                     src = await callPaidNano(promptText, images);
-                } else if (geminiUrl) {
-                    // Free máy shop: 'auto' xoay tua, 'acc:<label>' = account admin chọn.
-                    const acc = srcSel.startsWith('acc:') ? srcSel.slice(4) : null;
-                    src = await callGeminiMachine(promptText, images, acc);
                 } else {
-                    // CHỈ-FREE mà chưa có máy → báo rõ (KHÔNG tự dùng paid; admin muốn paid thì chọn ở trên).
-                    throw new Error(
-                        'Chưa có máy Gemini free online — bật sidecar máy shop rồi 🔄 Dò máy' +
-                            (isAdmin() ? ' (hoặc admin chọn "Nano Banana trả phí" ở trên).' : '.')
-                    );
+                    // FLOW: FREE TRƯỚC (model Flash, xoay tua / account admin chọn) → FAIL thì
+                    // FALLBACK Nano Banana TRẢ PHÍ (luôn ra ảnh). srcSel 'auto' = xoay tua.
+                    const acc = srcSel.startsWith('acc:') ? srcSel.slice(4) : null;
+                    if (geminiUrl) {
+                        try {
+                            src = await callGeminiMachine(promptText, images, acc);
+                        } catch (e) {
+                            toast(
+                                'Free lỗi/hết lượt (' +
+                                    (e.message || e) +
+                                    ') → chuyển Nano Banana trả phí',
+                                'warning'
+                            );
+                            refreshSrv(); // dò lại (máy có thể tắt/đổi tunnel/hết lượt)
+                            src = await callPaidNano(promptText, images);
+                        }
+                    } else {
+                        toast(
+                            'Chưa có máy Gemini free online → dùng Nano Banana trả phí',
+                            'warning'
+                        );
+                        src = await callPaidNano(promptText, images);
+                    }
                 }
                 prog.done();
                 renderResultCard(card, src);

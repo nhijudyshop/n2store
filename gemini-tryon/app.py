@@ -60,7 +60,12 @@ MAX_IMAGES = 6
 MAX_PROMPT = 2000
 INIT_TIMEOUT = int(os.environ.get("GEMINI_INIT_TIMEOUT", "30"))
 GEN_TIMEOUT = int(os.environ.get("GEMINI_GEN_TIMEOUT", "150"))
-MODEL = (os.environ.get("GEMINI_MODEL") or "").strip()
+# ƯU TIÊN model "Flash" free-tier (giống user chọn "3.5 Flash" trong web app — model_name
+# gemini_webapi: BASIC_FLASH = "gemini-3-flash"). Image-gen được model Flash gọi qua Nano Banana.
+# Override env GEMINI_MODEL (vd "gemini-3-pro" / "unspecified" để thư viện tự chọn).
+MODEL = (os.environ.get("GEMINI_MODEL") or "gemini-3-flash").strip()
+if MODEL.lower() in ("", "unspecified", "auto", "none"):
+    MODEL = ""
 SECRET = (os.environ.get("GEMINI_TRYON_SECRET") or "").strip()
 # Account hết lượt ảnh free/ngày → nghỉ tới khi reset. Gemini free reset theo NGÀY → mặc định 8h
 # (đủ để qua mốc reset; tránh thử lại 37s/lần khi cả pool hết lượt). Override GEMINI_COOLDOWN_SEC.
@@ -301,10 +306,25 @@ async def _run_gemini(prompt: str, image_dataurls: List[str], account: Optional[
                     # Tắt bằng env GEMINI_TEMPORARY=0 nếu phiên gemini_webapi không hỗ trợ.
                     if os.environ.get("GEMINI_TEMPORARY", "1") != "0":
                         kwargs["temporary"] = True
-                    print(f"[gen] thử account '{acc.label}'…", flush=True)
-                    resp = await asyncio.wait_for(
-                        acc.client.generate_content(gen_prompt, **kwargs), timeout=GEN_TIMEOUT
-                    )
+                    print(f"[gen] thử account '{acc.label}' (model={MODEL or 'auto'})…", flush=True)
+                    try:
+                        resp = await asyncio.wait_for(
+                            acc.client.generate_content(gen_prompt, **kwargs), timeout=GEN_TIMEOUT
+                        )
+                    except Exception as me:  # noqa: BLE001
+                        # Model ép không hợp phiên thư viện/account → thử lại KHÔNG ép model (auto).
+                        if "model" in kwargs and re.search(
+                            r"model|unknown|not.?found|not.?available|invalid", str(me), re.I
+                        ):
+                            print(
+                                f"[gen] model '{MODEL}' lỗi ({str(me)[:80]}) → thử lại auto", flush=True
+                            )
+                            kw2 = {k: v for k, v in kwargs.items() if k != "model"}
+                            resp = await asyncio.wait_for(
+                                acc.client.generate_content(gen_prompt, **kw2), timeout=GEN_TIMEOUT
+                            )
+                        else:
+                            raise
                     images = getattr(resp, "images", None) or []
                     if not images:
                         txt = (getattr(resp, "text", "") or "").strip()[:300]
