@@ -2,6 +2,10 @@
 
 ## 2026-06-27
 
+### [web2/ai-hub] Hiệu ứng "AI đang tạo" cao cấp (Ghép đồ + Tạo ảnh)
+
+User muốn hiệu ứng giao diện khi đang tạo ảnh (thay vòng xoay đơn giản). Thêm hiệu ứng card loading: nền gradient chuyển động (indigo→tím→hồng) + tia sáng quét (shimmer ::before translateX) + vòng cầu vồng conic-gradient (mask radial) + icon ✨/🧑‍🤝‍🧑/✂️ nhịp thở (scale+opacity) + chữ "..." động (steps content). Compositor-friendly (transform/opacity). Áp dụng cả `web2-tryon.js` (Ghép đồ/Ghép mặt, class `.w2t-gen-*`) lẫn `ai-image.js`+`ai-hub.css` (Tạo ảnh + tách nền, class `.aih-gen-*`). Bump `web2-tryon.js?v=20260627f`, `ai-image.js?v=20260627gen`, `ai-hub.css?v=20260627gen`. Verify browser: card render đẹp (gradient + ring cầu vồng + ✨), screenshot OK.
+
 ### [web2/live-control + live-tv] Điều khiển màn TV: phân trang + lật trang từ xa + mini-preview + cảnh báo màu
 
 Feature theo yêu cầu user (điều khiển trang TV từ live-control cho người live xem):

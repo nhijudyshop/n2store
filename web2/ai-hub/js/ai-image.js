@@ -195,7 +195,8 @@
         const gallery = document.getElementById('aihGallery');
         const card = document.createElement('div');
         card.className = 'aih-imgcard loading';
-        card.innerHTML = '<div class="aih-spinner"></div><span>Đang tách nền…</span>';
+        card.innerHTML =
+            '<div class="aih-gen-core"><div class="aih-gen-ring"></div><span class="aih-gen-icon">✂️</span></div><span class="aih-gen-text">Đang tách nền</span>';
         gallery.prepend(card);
         try {
             const dataUrl = await global.Web2BgRemover.removeBgAuto(src);
@@ -356,7 +357,8 @@
         // card loading (prepend)
         const card = document.createElement('div');
         card.className = 'aih-imgcard loading';
-        card.innerHTML = '<div class="aih-spinner"></div><span>Đang tạo…</span>';
+        card.innerHTML =
+            '<div class="aih-gen-core"><div class="aih-gen-ring"></div><span class="aih-gen-icon">✨</span></div><span class="aih-gen-text">Đang tạo</span>';
         gallery.prepend(card);
 
         // Ảnh gốc chỉ dùng được với Gemini (Nano Banana) — cảnh báo rõ nếu nguồn khác sẽ bỏ qua.

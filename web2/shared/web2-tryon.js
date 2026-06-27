@@ -187,12 +187,21 @@
 .w2t-gallery{display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;min-height:120px}
 .w2t-card{position:relative;width:170px;min-height:120px;border-radius:11px;overflow:hidden;border:1px solid #e6e9ef;background:#f8fafc;display:flex;align-items:center;justify-content:center}
 .w2t-card img{width:100%;height:auto;display:block}
-.w2t-card.loading{flex-direction:column;gap:8px;color:#64748b;font-size:.78rem;padding:18px}
+.w2t-card.loading{flex-direction:column;gap:13px;color:#6366f1;font-size:.8rem;padding:22px;background:linear-gradient(135deg,#eef2ff,#faf5ff,#fdf2f8,#eef2ff);background-size:300% 300%;animation:w2tGenBg 4s ease infinite}
+.w2t-card.loading::before{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);transform:translateX(-100%);animation:w2tShimmer 1.8s ease-in-out infinite;pointer-events:none}
+@keyframes w2tGenBg{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes w2tShimmer{to{transform:translateX(100%)}}
 .w2t-card-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;padding:6px 8px;background:linear-gradient(transparent,rgba(0,0,0,.55));opacity:0;transition:opacity .15s}
 .w2t-card:hover .w2t-card-bar{opacity:1}
 .w2t-card-bar a,.w2t-card-bar button{color:#fff;font-size:.74rem;text-decoration:none;border:none;background:rgba(255,255,255,.18);border-radius:6px;padding:3px 8px;cursor:pointer}
-.w2t-spin{width:26px;height:26px;border:3px solid #c7d2fe;border-top-color:#6366f1;border-radius:50%;animation:w2tSpin .8s linear infinite}
+.w2t-gen-core{position:relative;width:48px;height:48px;display:grid;place-items:center;z-index:1}
+.w2t-gen-ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,#6366f1,#a855f7,#ec4899,#f59e0b,#6366f1);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);animation:w2tSpin .9s linear infinite}
+.w2t-gen-icon{font-size:19px;animation:w2tPulse 1.5s ease-in-out infinite;filter:drop-shadow(0 1px 5px rgba(99,102,241,.45))}
+.w2t-gen-text{font-weight:700;letter-spacing:.2px;z-index:1}
+.w2t-gen-text::after{content:"";animation:w2tDots 1.5s steps(1,end) infinite}
 @keyframes w2tSpin{to{transform:rotate(360deg)}}
+@keyframes w2tPulse{0%,100%{transform:scale(.8);opacity:.65}50%{transform:scale(1.18);opacity:1}}
+@keyframes w2tDots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media(max-width:760px){.w2t{grid-template-columns:1fr}}`;
         document.head.appendChild(st);
     }
@@ -554,7 +563,7 @@
                 );
             const card = document.createElement('div');
             card.className = 'w2t-card loading';
-            card.innerHTML = `<div class="w2t-spin"></div><span>${isFace ? 'Đang ghép mặt…' : 'Đang ghép đồ…'}</span>`;
+            card.innerHTML = `<div class="w2t-gen-core"><div class="w2t-gen-ring"></div><span class="w2t-gen-icon">${isFace ? '🧑‍🤝‍🧑' : '✨'}</span></div><span class="w2t-gen-text">${isFace ? 'Đang ghép mặt' : 'Đang ghép đồ'}</span>`;
             gallery.prepend(card);
             goBtn.disabled = true;
             const promptText = buildPrompt($('.w2t-prompt')?.value, mode);
