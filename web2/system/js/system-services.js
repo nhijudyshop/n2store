@@ -289,9 +289,12 @@
             });
             const d = await r.json();
             if (!d.ok) {
-                host.innerHTML = `<div class="sd-loading" style="color:#b45309">⚠️ ${escapeHtml(
-                    d.error || 'Không tải được hóa đơn SePay'
-                )}${d.configured === false ? ' (cấu hình env trên Render rồi redeploy)' : ''}</div>`;
+                host.innerHTML = `<div style="padding:12px 14px;border:1px solid #fde68a;background:#fffbeb;border-radius:11px;color:#92400e;font-size:.84rem;line-height:1.55">
+                    ⚠️ ${escapeHtml(d.error || 'Không tải được hóa đơn SePay')}${d.configured === false ? ' (chưa cấu hình env Render)' : ''}
+                    <div style="margin-top:8px">SePay (Cloudflare) chặn scrape từ server. Xem hóa đơn trực tiếp:
+                        <a href="https://my.sepay.vn/invoices" target="_blank" rel="noopener" style="color:#0068ff;font-weight:600">my.sepay.vn/invoices ↗</a>
+                        — hoặc chạy <code>node scripts/sepay-push.js</code> từ máy IP nhà để đẩy snapshot.</div>
+                </div>`;
                 return;
             }
             const s = d.summary || {};

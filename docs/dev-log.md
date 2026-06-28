@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [sepay-invoices] Push snapshot từ máy IP nhà (SePay Cloudflare chặn scrape IP server)
+
+**Files:** `render.com/routes/web2-sepay-invoices.js`, `scripts/sepay-push.js` (MỚI), `web2/system/js/system-services.js`.
+
+⚠ **SePay (Cloudflare WAF) CHẶN scrape**: GET /login từ IP datacenter Render → **403** (cả với full browser headers — block ASN cloud, không phải header). IP nhà cũng bị **rate-limit 403** khi request nhiều. → server-side auto-scrape KHÔNG khả thi.
+
+- **Route**: GET thử login direct; 403 → báo lỗi rõ + fallback **snapshot pushed**. `POST /push` (secret `SEPAY_PUSH_SECRET`) nhận snapshot từ máy IP nhà.
+- **`scripts/sepay-push.js`**: chạy MÁY IP NHÀ (Mac/shop) → scrape /invoices + dựng QR VietQR → POST /push. Đọc creds + secret + worker URL từ serect_dont_push. Dùng cron/launchd 1 lần/ngày (KHÔNG hammer kẻo bị rate-limit).
+- **Frontend**: blocked → hiện link trực tiếp `my.sepay.vn/invoices ↗` + hướng dẫn chạy push. Có snapshot → hiện hóa đơn + QR.
+- Env Render: SEPAY_LOGIN_EMAIL/PASSWORD + SEPAY_PUSH_SECRET (set qua Render API).
+
 ### [web2/system][services] Render API verify + fix DB disk 15GB + SePay paid + theo dõi hóa đơn SePay + QR
 
 **Files:** `render.com/routes/web2-sepay-invoices.js` (MỚI), `render.com/routes/services-overview.js`, `render.com/server.js`, `web2/system/{index.html, js/system-services.js}`.
