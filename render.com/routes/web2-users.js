@@ -222,6 +222,12 @@ const WEB2_PAGES = [
         group: 'Bán hàng',
         actions: ['view', 'editStatus', 'cancel'],
     },
+    {
+        slug: 'unit-scan',
+        label: 'Quét tem đóng gói',
+        group: 'Bán hàng',
+        actions: ['view', 'scan', 'assign', 'reprint'],
+    },
 
     // ─── Sản phẩm ──────────────────────────────────────────────────
     {
@@ -235,6 +241,12 @@ const WEB2_PAGES = [
         label: 'Kho Biến Thể',
         group: 'Sản phẩm',
         actions: ['view', 'create', 'edit', 'delete'],
+    },
+    {
+        slug: 'clearance',
+        label: 'Kho rớt xả',
+        group: 'Sản phẩm',
+        actions: ['view', 'keep'],
     },
 
     // ─── Tích hợp ──────────────────────────────────────────────────
