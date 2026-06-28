@@ -22,13 +22,17 @@
     SO._soImportConfig = function _soImportConfig() {
         // 2026-06-16: 'ordered'/'Đã đặt' khai tử — import map về 'draft' (chặn tái
         // nhập trạng thái đã bỏ qua Excel). Chỉ "Nhận hàng" tạo received/partial.
+        // 2026-06-28 (audit fix): 'Đã nhận' cũng map 'draft' — import KHÔNG được tạo
+        // row 'received' vì import chỉ upsertPending (KHÔNG mint unit / KHÔNG cộng tồn
+        // thật), tạo row received → kẹt (không xoá/sửa được, pending ảo ở Kho). Nhận
+        // hàng phải qua flow "Nhận hàng" để cộng tồn + mint tem đúng.
         const STATUS_MAP = {
             nhap: 'draft',
             draft: 'draft',
             dadat: 'draft',
             ordered: 'draft',
-            danhan: 'received',
-            received: 'received',
+            danhan: 'draft',
+            received: 'draft',
             dahuy: 'cancelled',
             huy: 'cancelled',
             cancelled: 'cancelled',

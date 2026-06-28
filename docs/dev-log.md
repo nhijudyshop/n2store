@@ -12,7 +12,15 @@ User: bỏ nút Gán — việc gán phải TỰ ĐỘNG khi kéo/thêm SP vào 
 - **Hook**: `create-manual` (sau commit) + `PATCH /:code` (khi `products`/`status` đổi) gọi `reconcileOrderUnits` fire-and-forget (`.catch`, không chặn response). Đơn huỷ (status cancelled) → giỏ rỗng → nhả hết. Unit của đơn huỷ tự available lại (availability check loại đơn cancelled).
 - Liên kết Task 3 (unit-scan bỏ nút Gán) — gán giờ chạy ở luồng giỏ này.
 
-**Status:** 🔄 Backend done, đang deploy web2-api để test live (/assign-auto + create-manual auto-reconcile).
+**Status:** ✅ Done + verified live (web2-api). Test 5/5 PASS (mã SP tươi, hist=0 tất định): A qty2→gán 001,002 (seq khi hist bằng); rỗng giỏ A→nhả về IN_STOCK; B qty1→chọn **003 (ÍT lịch sử nhất, KHÔNG 001)** = chứng minh ưu tiên ít-lịch-sử; C qty2→001,002; cleanup nhả hết.
+
+### [so-order] Audit fix #1 — import "Đã nhận" tạo row kẹt
+
+**Files:** `so-order/js/so-order-import.js` (STATUS_MAP), `so-order/index.html` (cache-bust `b`).
+
+Import map `danhan`/`received` → `'received'` MÂU THUẪN comment ngay trên ("Chỉ Nhận hàng tạo received"). Import chỉ `upsertPending` (KHÔNG mint unit / KHÔNG cộng tồn thật) → row `received` bị KẸT (không xoá/sửa được + pending ảo Kho). Fix: `danhan`/`received` → `'draft'`. Nhận hàng phải qua flow "Nhận hàng" thật. (Audit findings còn lại: admin gate server-side = đổi auth money endpoint rủi ro khoá NV → report; validation qty 0 = product-decision; còn lại edge → report cho user chọn.)
+
+**Status:** ✅ #1 fixed.
 
 ### [web2-products + unit-scan] Per-unit cho nút In tem + bỏ nút Gán thủ công (gán giờ tự động)
 
