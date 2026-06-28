@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `52c4e45` — feat(unit-scan): nút In lại tem 1 đơn vị (reuse Web2ProductsPrint) + fix hero khi mọi đơn đã đủ
-**Last updated**: 2026-06-28 19:35:32 +07
-**Latest session**: [`RESUME:20260628-193532-52c4e45`](../20260628-193532-52c4e45.md)
-**Summary**: feat(unit-scan): nút In lại tem 1 đơn vị (reuse Web2ProductsPrint) + fix hero khi mọi đơn đã đủ
+**Latest commit**: `1da7e99` — feat(web2-products): nút In lại tem đơn vị (Web2UnitReprint shared) — chọn mã đơn vị qr1..qrN rồi in
+**Last updated**: 2026-06-28 19:47:26 +07
+**Latest session**: [`RESUME:20260628-194726-1da7e99`](../20260628-194726-1da7e99.md)
+**Summary**: feat(web2-products): nút In lại tem đơn vị (Web2UnitReprint shared) — chọn mã đơn vị qr1..qrN rồi in
 
 ## Folders affected in this commit
 
@@ -81,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-28 19:35
+- [`web2/`](./web2.md) — updated 2026-06-28 19:47
