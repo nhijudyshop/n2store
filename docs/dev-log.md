@@ -2,6 +2,14 @@
 
 ## 2026-06-28
 
+### [so-order] Suggest tạo đơn: mục SP CHA trên cùng (thêm tất cả con) + chọn con điền biến thể
+
+Modal "Tạo Đơn Hàng" — suggest tên SP giờ dùng module chung `Web2ProductGroup`:
+
+- **Mục CHA ưu tiên TRÊN CÙNG** (badge "🌿 cha · N biến thể" + mã cha): bấm → `applyParentSuggestionToRow` THÊM TẤT CẢ biến thể con thành **từng dòng** (dòng hiện tại = con đầu, các con còn lại chèn ngay dưới, kế thừa NCC + ảnh HĐ đơn, **chung `productGroupId`** → Kho gom 1 cha+N con + bảng gom khối).
+- **Mục CON** (↳ thụt lề) bên dưới: bấm → điền dòng theo **biến thể mới** (ghi đè variant + category). Tách `_fillRowFromProduct(row,p,fillVariant)` dùng chung.
+- SP đơn lẻ → mục thường như cũ. Load `web2-variant-group.js` + `web2-product-group.js` vào so-order. CSS mục cha/con (`.so-suggest-parent/.so-suggest-child`). Verify browser: suggest "ÁO SƠ MI" → 1 cha (cha·3 biến thể, codes HCAO5BEO/HCAO3GHI/HCAO4DO) + 3 con. (Test click cha bị giới hạn do tranh chấp browser-port với agent khác — logic reuse `_fillRowFromProduct` đã verify.)
+
 ### [ai-hub][shared] Fix Trợ lý AI: busy "Đang xử lý ảnh" stuck, chip không tắt UI cũ, switchTab + review
 
 **Files:** `web2/shared/web2-image-paste.js`, `web2/shared/web2-gemini-chat.js`, `web2/ai-hub/{index.html, js/ai-hub.js}`.
