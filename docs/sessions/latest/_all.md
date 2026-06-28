@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6e4a616` — feat(so-order): gom SP cha nhiều biến thể — tên cha 1 lần, biến thể '↳' thụt khối
-**Last updated**: 2026-06-27 20:43:20 +07
-**Latest session**: [`RESUME:20260627-204320-6e4a616`](../20260627-204320-6e4a616.md)
-**Summary**: feat(so-order): gom SP cha nhiều biến thể — tên cha 1 lần, biến thể '↳' thụt khối
+**Latest commit**: `643e26a` — feat(web2/products): Kho SP khối SP cha-con tách biệt rõ trong bảng
+**Last updated**: 2026-06-28 08:34:19 +07
+**Latest session**: [`RESUME:20260628-083419-643e26a`](../20260628-083419-643e26a.md)
+**Summary**: feat(web2/products): Kho SP khối SP cha-con tách biệt rõ trong bảng
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
-- [`web2/`](./web2.md) — 9 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-27 20:43
+- [`docs/`](./docs.md) — updated 2026-06-28 08:34
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -83,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-27 20:43
+- [`web2/`](./web2.md) — updated 2026-06-28 08:34
