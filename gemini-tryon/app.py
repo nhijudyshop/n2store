@@ -434,7 +434,10 @@ async def _run_chat(message, metadata=None, account=None, image_dataurls=None) -
         start = _state["rr"] % len(pool)
         _state["rr"] = (_state["rr"] + 1) % max(1, len(pool))
         order = [pool[(start + i) % len(pool)] for i in range(len(pool))]
-        order.sort(key=lambda a: 0 if a.premium else 1)  # PREMIUM (trả phí) ưu tiên TRƯỚC
+        # Chat MỚI → PREMIUM (trả phí) ưu tiên trước. TIẾP TỤC hội thoại (metadata) → KHÔNG reorder:
+        # metadata gắn với 1 account cụ thể; ép premium lên đầu có thể thử nhầm account → start_chat fail.
+        if not metadata:
+            order.sort(key=lambda a: 0 if a.premium else 1)
         last_err = ""
         async with _lock:
             for acc in order:
