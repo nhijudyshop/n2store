@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [so-order] Modal Thanh toán CK: thêm Chi phí đợt inline + rộng modal
+
+**Files:** `so-order/js/so-order-payments.js` (đợt-level expense editor: `_payExpRows/_renderPayExpenses/_payExpRowHtml/_afterPayExpenseChange` + wire add/edit/delete trong wirePaymentPanel), `so-order/index.html` (markup `#soPayExpensesWrap` + panel `so-pay-panel` thay `so-modal-panel-narrow` + bump `payments?v=x`, `css?v=x`), `so-order/css/so-order.css` (`.so-pay-panel` rộng 680px).
+
+User yêu cầu: (1) trong modal Thanh toán CK thêm phần "Chi phí đợt" + ghi chú, bấm **+** thêm 1 hàng chi phí; (2) modal rộng ra.
+
+- CP gắn per-shipment (`sh.expenses`) — modal đợt gộp expenses MỌI lô của đợt (mỗi dòng giữ `data-exp-ship` riêng để sửa/xoá đúng lô); dòng MỚI gắn lô ĐẦU của đợt. Cùng storage API + nguồn dữ liệu với modal Sửa lô (1 nguồn). Add/edit/delete → cập nhật Tổng CP + CÒN LẠI (summary) + stat cards nền + pushSync realtime.
+- Panel `so-pay-panel` = `min(680px,94vw)` (rộng hơn narrow 420px).
+- **Verify** (fake state, writes stubbed): mở modal width 653px, có section Chi phí; +2 dòng (Ship 300 + Thuế 100 CNY) → Tổng CP 400, payable 6.65M, CÒN LẠI 6.65M live; xoá 1 → CP 300, CÒN LẠI 6.3M.
+
 ### [so-order] Money feature S2→S5 (Tab Đợt · Stat cards · Chi phí · Thanh toán CK) + 2 tweak UI
 
 **Files:** `so-order/js/so-order-storage.js` (per-device batch view-state + `batchKeyOf`), `so-order-render.js` (batchGroups/renderBatchStrip + lọc bảng/footer theo đợt + getBatchTotals + renderStatCards + chip CP header), `so-order-shipment.js` (expense UI inline + wireExpensesEditor), `so-order-modal-core.js` (toggle `#soExpensesWrap`), `so-order-payments.js` (MỚI — ledger NCC POST/load + modal Thanh toán CK + SSE), `so-order-app.js` (wire expenses/payment + deeplink reset batch), `so-order-state.js` (BỎ cột costNote), `so-order-modal-submit.js`/`so-order-modal-open.js` (guard costNote đã bỏ), `so-order/index.html` (markup dải Đợt + stat strip TRÊN bảng + modal Thanh toán + bỏ ô Ghi chú CP + bump `?v=20260628w`), `so-order/css/so-order.css`.

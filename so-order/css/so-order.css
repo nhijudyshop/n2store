@@ -1137,6 +1137,14 @@
     width: min(420px, 92vw);
 }
 
+/* Modal Thanh toán CK — rộng hơn narrow để chứa CP + lịch sử (2026-06-28). */
+.so-pay-panel {
+    width: min(680px, 94vw);
+}
+.so-pay-expenses-wrap {
+    margin-top: 14px;
+}
+
 @keyframes soPop {
     from {
         opacity: 0;

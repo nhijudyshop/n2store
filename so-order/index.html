@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260628s" />
         <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260628s" />
         <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260628s" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260628w" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260628x" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
         <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260628s" />
 
@@ -633,7 +633,7 @@
         <!-- Thanh toán CK theo ĐỢT (2026-06-28) — POST ledger NCC, money op await -->
         <div class="so-modal" id="soPaymentModal" hidden>
             <div class="so-modal-backdrop" data-so-close></div>
-            <div class="so-modal-panel so-modal-panel-narrow">
+            <div class="so-modal-panel so-pay-panel">
                 <header class="so-modal-head">
                     <h2 id="soPayTitle">Thanh toán CK</h2>
                     <button class="so-modal-close" type="button" data-so-close>
@@ -683,6 +683,31 @@
                             placeholder="Vd: CK Vietcombank…"
                         />
                     </label>
+
+                    <!-- 2026-06-28: Chi phí (CP) của đợt — sửa ngay trong modal Thanh
+                         toán (thêm/sửa/xoá dòng), cộng vào CÒN LẠI realtime. Cùng nguồn
+                         sh.expenses như modal Sửa lô (dòng mới gắn lô đầu của đợt). -->
+                    <div class="so-expenses-wrap so-pay-expenses-wrap" id="soPayExpensesWrap">
+                        <div class="so-expenses-head">
+                            <i data-lucide="receipt"></i>
+                            Chi phí đợt
+                            <span class="so-expenses-hint"
+                                >(ship nội địa, phí gom, thuế… — cộng vào CÒN LẠI)</span
+                            >
+                            <span class="so-expenses-total" id="soPayExpTotal"></span>
+                        </div>
+                        <div id="soPayExpList" class="so-expenses-list">
+                            <!-- expense rows injected -->
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-secondary so-expenses-add"
+                            id="soPayExpAddBtn"
+                        >
+                            <i data-lucide="plus-circle"></i> Thêm chi phí
+                        </button>
+                    </div>
+
                     <div class="so-pay-history-wrap">
                         <div class="so-pay-history-head">Lịch sử thanh toán đợt</div>
                         <div id="soPayHistory" class="so-pay-history">
@@ -767,7 +792,7 @@
         <script src="js/so-order-delete.js?v=20260628u"></script>
         <script src="js/so-order-shipment.js?v=20260628w"></script>
         <!-- Thanh toán CK theo đợt (S5 money-plan) — POST ledger NCC + SSE -->
-        <script src="js/so-order-payments.js?v=20260628w"></script>
+        <script src="js/so-order-payments.js?v=20260628x"></script>
         <script src="js/so-order-settings.js?v=20260628s"></script>
         <script src="js/so-order-import.js?v=20260628s"></script>
         <script src="js/so-order-image-modal.js?v=20260628s"></script>
