@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [web2/shared] Logo đẹp hơn + áp vào sidebar menu (mọi trang Web 2.0)
+
+**Files:** `web2/shared/web2-logo.svg`, `web2/shared/web2-sidebar.js`, `web2/overview/index.html`.
+
+User: làm logo đẹp hơn + đổi logo thanh menu (sidebar, hình 2 — đang là emblem vương miện vàng cũ).
+
+- **Logo refine v2**: gradient richer (#0a74ff→#6d5cff→#c026d3), thêm radial highlight bóng (glossy app-icon), inner stroke trắng .2 (viền nét trên cả nền sáng/tối), monogram **N** thân bo góc (rx2.4) + diagonal đặc, **spark dot** trắng top-right (accent realtime). Đẹp trên cả nav sáng lẫn sidebar tối.
+- **Sidebar**: `LOGO_URL` `img/logo-emblem.png` → `web2-logo.svg?v=20260628b` → áp cho **mọi trang Web 2.0** dùng sidebar (JS no-cache trên Render tự propagate). Giữ chữ "Web 2.0 / v1.0".
+- Overview: bump `?v=20260628b` cho img + favicon để bust cache SVG.
+- Verify browser: sidebar (tối) + nav (sáng) render logo mới OK (SVG 150px, 0 error), zoom 260px sắc nét. Crown PNG cũ GIỮ lại cho apple-touch-icon/PWA (raster) — chưa đổi (cần PNG full-bleed riêng).
+
 ### [so-order] Suggest tạo đơn: mục SP CHA trên cùng (thêm tất cả con) + chọn con điền biến thể
 
 Modal "Tạo Đơn Hàng" — suggest tên SP giờ dùng module chung `Web2ProductGroup`:
