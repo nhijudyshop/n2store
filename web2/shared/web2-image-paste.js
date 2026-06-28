@@ -194,6 +194,9 @@
             'display:flex;align-items:center;justify-content:center;padding:0;}',
             '.w2ip-thumb .w2ip-del:hover{background:#dc2626;}',
             '.w2ip-busy{font-size:12px;color:#6366f1;display:flex;align-items:center;gap:6px;}',
+            // [hidden] phải đè display:flex (author rule thắng UA [hidden]{display:none}) — nếu không
+            // "Đang xử lý ảnh…" hiện vĩnh viễn dù đã set hidden.
+            '.w2ip-busy[hidden]{display:none;}',
             // enhance(): highlight khi kéo-thả + hint chip cạnh input gốc.
             '.w2ip-enh-drag{outline:2px dashed #6366f1;outline-offset:3px;border-radius:8px;',
             'background:rgba(99,102,241,.06);}',

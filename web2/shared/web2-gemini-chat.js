@@ -191,7 +191,7 @@
                 maxHeight: 1280,
                 quality: 0.82,
                 compact: true,
-                hint: 'Dán (Ctrl+V) / kéo-thả / chọn ảnh',
+                hint: '', // dropzone đã có nhãn — không lặp lại
             });
             attachBtn.addEventListener('click', () => {
                 const show = attachEl.hidden;
@@ -213,10 +213,12 @@
                 b.classList.toggle('on', b.dataset.mode === k)
             );
             taEl.placeholder = MODES[k].hint;
-            // mở sẵn khu đính ảnh cho ghép đồ/ghép mặt (cần ảnh)
-            if (imgCtrl && MODES[k].minImgs) {
-                attachEl.hidden = false;
-                attachBtn.classList.add('on');
+            // Khu đính ảnh: MỞ cho ghép đồ/ghép mặt (cần ảnh) hoặc khi đang có ảnh; ĐÓNG ở chat/tạo
+            // ảnh khi chưa có ảnh → đổi chip không để sót UI đính ảnh của chip cũ.
+            if (imgCtrl) {
+                const want = !!MODES[k].minImgs || imgCtrl.count() > 0;
+                attachEl.hidden = !want;
+                attachBtn.classList.toggle('on', want);
             }
         }
 
@@ -297,6 +299,7 @@
         }
 
         async function send() {
+            if (sendBtn.disabled) return; // đang gửi → chặn double-submit
             if (!Client) return toast('Thiếu Web2GeminiClient (tải lại trang)', 'error');
             const text = taEl.value.trim();
             const imgs = imgCtrl ? imgCtrl.getDataUrls() : [];

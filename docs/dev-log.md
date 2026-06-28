@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [ai-hub][shared] Fix Trợ lý AI: busy "Đang xử lý ảnh" stuck, chip không tắt UI cũ, switchTab + review
+
+**Files:** `web2/shared/web2-image-paste.js`, `web2/shared/web2-gemini-chat.js`, `web2/ai-hub/{index.html, js/ai-hub.js}`.
+
+User báo 2 bug + review đối kháng (4 agent) tìm thêm:
+
+- **Bug1 "Đang xử lý ảnh…" hiện vĩnh viễn**: `.w2ip-busy{display:flex}` (author, spec 0,1,0) ĐÈ `[hidden]{display:none}` (UA) → busy luôn hiện. Fix shared `.w2ip-busy[hidden]{display:none}` (spec 0,2,0 thắng) — sửa cho MỌI trang dùng Web2ImagePaste. + bỏ hint trùng (`hint:''`, dropzone đã có nhãn). [[reference_css_hidden_display_override]]
+- **Bug2 chuyển chip không tắt UI chip cũ**: ghép đồ/mặt auto-mở khu đính ảnh, về Chat không đóng. Fix `applyMode`: `attachEl.hidden = !(minImgs || imgCtrl.count()>0)` → chip không-cần-ảnh + chưa có ảnh thì ĐÓNG.
+- **Review HIGH (thật)**: `switchTab` fallback `'chat'` (tab đã xoá) → blank UI khi NV bấm Cấu hình. Fix → `'gemini'`. + double-submit guard `if (sendBtn.disabled) return` ở send().
+- **Review bỏ qua (không phải bug)**: KHÔNG truyền account cho image/tryon là ĐÚNG (để PREMIUM-first rotation mỗi lượt); XSS error đã esc qua mdToHtml; secret không cần (sidecar không set SECRET, Web2Tryon cũng không gửi).
+- Bump web2-gemini-chat.js?v=20260628d. JS no-cache → fix shared áp dụng ngay reload.
+
 ### [web2/overview + shared] Logo riêng n2shop Web 2.0 (mark "N" gradient + wordmark)
 
 **Files:** `web2/shared/web2-logo.svg` (mới), `web2/overview/{index.html,overview.css}`.
