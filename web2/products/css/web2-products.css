@@ -1020,41 +1020,54 @@
     color: #6d28d9;
     border-color: #ddd6fe;
 }
-/* dòng CHA nổi nhẹ để phân biệt với dòng thường */
-tr.is-parent {
-    background: #faf9ff;
-}
-tr.is-parent:hover {
-    background: #f3f0ff;
-}
-tr.is-parent.is-expanded {
-    background: #f1ecfe;
-}
-/* Khi mở: nối liền CHA → CON (bỏ viền đáy của cha để thành 1 khối) */
-tr.is-parent.is-expanded > td {
-    border-bottom-color: transparent;
-}
-
-/* ── dòng CON: gom thành 1 KHỐI tách biệt (thụt lề + thanh trái tím + nền tím nhạt
-   + bo góc mở/đóng khối + tách khỏi nhóm kế tiếp) ── */
+/* ── KHỐI SP CHA–CON: cả nhóm (cha + các con) = 1 KHỐI tách biệt rõ trong bảng ──
+   Nền tím chung (khác hẳn dòng thường trắng) + thanh trái tím ĐẬM chạy suốt + viền
+   bracket trên/dưới/phải + dòng đệm `.w2p-grp-gap` tách khỏi SP khác. */
+tr.is-parent > td,
 tr.is-child > td {
-    background: #f7f5ff;
-    border-bottom: 1px dashed #e9e4fb;
+    background: #f4f1ff;
 }
+tr.is-parent:hover > td,
 tr.is-child:hover > td {
-    background: #efeafe;
+    background: #eae3fd;
 }
-/* thanh dọc tím chạy suốt nhóm con (đặt ở ô đầu) + thụt nội dung */
+/* thanh dọc tím đậm chạy suốt nhóm (ô đầu mỗi dòng) */
+tr.is-parent > td:first-child,
 tr.is-child > td:first-child {
-    box-shadow: inset 5px 0 0 #a78bfa;
+    box-shadow: inset 5px 0 0 #8b5cf6;
 }
-/* con ĐẦU: thêm khoảng cách trên cho tách khỏi cha một chút */
-tr.is-child-first > td {
-    border-top: 1px solid #e2dcf7;
+/* viền phải đóng khối (cột Thao tác) */
+tr.is-parent > td:last-child,
+tr.is-child > td:last-child {
+    border-right: 2px solid #b89cf3;
 }
-/* con CUỐI: đóng khối bằng viền đáy đậm + đệm tách khỏi dòng kế */
+/* NÓC khối = dòng cha */
+tr.is-parent > td {
+    border-top: 2px solid #b89cf3;
+}
+/* MỞ: nối cha → con (bỏ viền đáy cha) */
+tr.is-parent.is-expanded > td {
+    border-bottom: 0;
+}
+/* THU GỌN: cha là cả khối → đóng đáy luôn ở cha */
+tr.is-parent:not(.is-expanded) > td {
+    border-bottom: 2px solid #b89cf3;
+}
+/* vạch ngăn nhẹ giữa các con */
+tr.is-child > td {
+    border-bottom: 1px dashed #e1d8fb;
+}
+/* con CUỐI: đóng đáy khối */
 tr.is-child-last > td {
-    border-bottom: 2px solid #d6cdf5;
+    border-bottom: 2px solid #b89cf3;
+}
+/* dòng đệm: khoảng trắng tách khối khỏi SP trên/dưới */
+tr.w2p-grp-gap > td {
+    height: 12px;
+    padding: 0;
+    background: #fff;
+    border: 0;
+    box-shadow: none;
 }
 .w2p-child-name {
     display: flex;

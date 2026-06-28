@@ -1,5 +1,11 @@
 # Dev Log
 
+## 2026-06-28
+
+### [web2/products] Kho SP — khối SP cha-con tách biệt rõ trong bảng
+
+User: "giao diện table tách biệt để nhìn cho rõ". Mỗi nhóm cha-con giờ là 1 **KHỐI** riêng: nền tím chung (cha + con), thanh trái tím đậm 5px chạy suốt, viền bracket trên/dưới/phải, + **dòng đệm trắng** (`.w2p-grp-gap`) tách khối khỏi SP đứng trên/dưới. `renderRows` chèn GAP trước (nếu chưa có) + sau mỗi nhóm ≥2 biến thể; standalone vẫn dòng trắng thường. Bump `render/css=p6`.
+
 ## 2026-06-27
 
 ### [so-order] Gom SP cha nhiều biến thể: tên cha hiện 1 lần, biến thể "↳" thụt khối
