@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `259d9a2` — fix(ai-hub): ẩn nút nổi ✨ trợ lý AI trên trang ai-hub (đã là khung trợ lý)
-**Last updated**: 2026-06-28 10:15:33 +07
-**Latest session**: [`RESUME:20260628-101533-259d9a2`](../20260628-101533-259d9a2.md)
-**Summary**: fix(ai-hub): ẩn nút nổi ✨ trợ lý AI trên trang ai-hub (đã là khung trợ lý)
+**Latest commit**: `32a6ce5` — fix(so-order): picker không auto-đặt tên cho dòng đã chọn SP (matchedCode)
+**Last updated**: 2026-06-28 10:28:41 +07
+**Latest session**: [`RESUME:20260628-102841-32a6ce5`](../20260628-102841-32a6ce5.md)
+**Summary**: fix(so-order): picker không auto-đặt tên cho dòng đã chọn SP (matchedCode)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 10:15
+- [`docs/`](./docs.md) — updated 2026-06-28 10:28
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -67,7 +67,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-28 10:03
+- [`so-order/`](./so-order.md) — updated 2026-06-28 10:28
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
