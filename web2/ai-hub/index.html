@@ -33,32 +33,13 @@
                             khách, tạo hình sản phẩm.
                         </p>
                         <nav class="aih-tabs" role="tablist">
-                            <button class="aih-tab" data-tab="chat" role="tab" aria-selected="true">
-                                <i data-lucide="message-circle"></i> Chat
-                            </button>
                             <button
                                 class="aih-tab"
                                 data-tab="gemini"
                                 role="tab"
-                                aria-selected="false"
+                                aria-selected="true"
                             >
-                                <i data-lucide="sparkles"></i> Gemini Free
-                            </button>
-                            <button
-                                class="aih-tab"
-                                data-tab="image"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                <i data-lucide="image"></i> Tạo ảnh
-                            </button>
-                            <button
-                                class="aih-tab"
-                                data-tab="tryon"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                <i data-lucide="shirt"></i> Ghép đồ
+                                <i data-lucide="sparkles"></i> Trợ lý AI
                             </button>
                             <button
                                 class="aih-tab"
@@ -80,207 +61,16 @@
                         </nav>
                     </header>
 
-                    <!-- ════════ CHAT ════════ -->
-                    <section class="aih-pane" data-pane="chat">
-                        <div class="aih-chat-wrap">
-                            <aside class="aih-convos" id="aihConvos">
-                                <button class="aih-newchat" id="aihNewChat">
-                                    <i data-lucide="plus"></i> Cuộc trò chuyện mới
-                                </button>
-                                <div class="aih-convo-list" id="aihConvoList"></div>
-                            </aside>
-
-                            <div class="aih-chat">
-                                <div class="aih-chat-bar">
-                                    <div
-                                        class="aih-chips"
-                                        id="aihProviderChips"
-                                        role="group"
-                                        aria-label="Nhà cung cấp"
-                                    ></div>
-                                    <select class="aih-select" id="aihModel" title="Model"></select>
-                                    <span class="aih-pill" id="aihKeyPill" hidden></span>
-                                    <button
-                                        class="aih-iconbtn"
-                                        id="aihSysBtn"
-                                        title="System prompt — định hướng AI"
-                                    >
-                                        <i data-lucide="settings-2"></i> Vai trò
-                                    </button>
-                                </div>
-
-                                <div class="aih-messages" id="aihMessages"></div>
-
-                                <div class="aih-composer">
-                                    <div class="aih-attach-strip" id="aihAttachStrip" hidden></div>
-                                    <div class="aih-input-row">
-                                        <button
-                                            type="button"
-                                            class="aih-attach"
-                                            id="aihAttachBtn"
-                                            title="Đính ảnh (model có 👁) — dán/chọn ảnh để hỏi AI"
-                                            hidden
-                                        >
-                                            <i data-lucide="image-plus"></i>
-                                        </button>
-                                        <input
-                                            type="file"
-                                            id="aihAttachFile"
-                                            accept="image/*"
-                                            multiple
-                                            hidden
-                                        />
-                                        <textarea
-                                            class="aih-textarea"
-                                            id="aihInput"
-                                            rows="1"
-                                            placeholder="Nhập câu hỏi… (Enter gửi · Shift+Enter xuống dòng)"
-                                        ></textarea>
-                                        <button class="aih-send" id="aihSend" title="Gửi" disabled>
-                                            <i data-lucide="arrow-up"></i>
-                                        </button>
-                                    </div>
-                                    <div class="aih-hint" id="aihStatusHint"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ════════ TẠO ẢNH ════════ -->
-                    <section class="aih-pane" data-pane="image" hidden>
-                        <div class="aih-img-wrap">
-                            <div class="aih-img-controls">
-                                <div class="aih-field">
-                                    <div class="aih-label-row">
-                                        <label class="aih-label" for="aihImgPrompt"
-                                            >Mô tả ảnh</label
-                                        >
-                                        <span style="display: flex; gap: 6px">
-                                            <button
-                                                type="button"
-                                                class="aih-enhance"
-                                                id="aihImgPresets"
-                                                title="Chọn mẫu câu lệnh có sẵn (sản phẩm, người mẫu, đổi nền, poster…)"
-                                            >
-                                                <i data-lucide="layout-template"></i> Mẫu
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="aih-enhance"
-                                                id="aihImgEnhance"
-                                                title="Nhập ngắn (vd: áo trắng) → AI tự viết mô tả chi tiết để tạo ảnh đẹp hơn"
-                                            >
-                                                <i data-lucide="sparkles"></i> AI viết mô tả
-                                            </button>
-                                        </span>
-                                    </div>
-                                    <textarea
-                                        class="aih-img-prompt"
-                                        id="aihImgPrompt"
-                                        placeholder="Nhập ngắn (vd: áo trắng nữ) rồi bấm ✨ AI viết mô tả — hoặc tả chi tiết tuỳ ý"
-                                    ></textarea>
-                                </div>
-                                <div class="aih-field">
-                                    <label class="aih-label" for="aihImgProvider">Nguồn ảnh</label>
-                                    <select
-                                        class="aih-select"
-                                        id="aihImgProvider"
-                                        style="max-width: none"
-                                    ></select>
-                                </div>
-                                <div class="aih-field">
-                                    <label class="aih-label" for="aihImgModel">Model</label>
-                                    <select
-                                        class="aih-select"
-                                        id="aihImgModel"
-                                        style="max-width: none"
-                                    ></select>
-                                </div>
-                                <div class="aih-row2">
-                                    <div class="aih-field">
-                                        <label class="aih-label" for="aihImgW">Rộng</label>
-                                        <select
-                                            class="aih-select"
-                                            id="aihImgW"
-                                            style="max-width: none"
-                                        >
-                                            <option value="768">768</option>
-                                            <option value="1024" selected>1024</option>
-                                            <option value="1280">1280</option>
-                                        </select>
-                                    </div>
-                                    <div class="aih-field">
-                                        <label class="aih-label" for="aihImgH">Cao</label>
-                                        <select
-                                            class="aih-select"
-                                            id="aihImgH"
-                                            style="max-width: none"
-                                        >
-                                            <option value="768">768</option>
-                                            <option value="1024" selected>1024</option>
-                                            <option value="1280">1280</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="aih-field" id="aihImgEditField" hidden>
-                                    <label class="aih-label"
-                                        >Ảnh gốc để sửa/ghép (Nano Banana)</label
-                                    >
-                                    <input type="file" id="aihImgFile" accept="image/*" />
-                                </div>
-                                <button class="aih-gen" id="aihImgGen">
-                                    <i data-lucide="sparkles"></i> Tạo ảnh
-                                </button>
-                                <button
-                                    type="button"
-                                    class="aih-gen"
-                                    id="aihImgStock"
-                                    style="background: #475569; margin-top: 8px"
-                                    title="Chọn ảnh bản quyền-free làm ảnh gốc để Nano Banana sửa/ghép"
-                                >
-                                    <i data-lucide="folder-open"></i> Kho ảnh free (làm ảnh gốc)
-                                </button>
-                                <button
-                                    type="button"
-                                    class="aih-gen"
-                                    id="aihImgHistory"
-                                    style="background: #0f766e; margin-top: 8px"
-                                    title="Xem lại ảnh AI đã tạo (lưu trên server)"
-                                >
-                                    <i data-lucide="history"></i> Ảnh đã lưu
-                                </button>
-                                <p
-                                    class="aih-keyhint"
-                                    id="aihQuotaHint"
-                                    hidden
-                                    style="color: #b45309"
-                                ></p>
-                                <p class="aih-keyhint">
-                                    🟢 <b>Pollinations</b> miễn phí dùng ngay.
-                                    <b>Nano Banana</b> (Gemini) cần quyền + có giới hạn lượt/ngày.
-                                </p>
-                            </div>
-                            <div class="aih-img-gallery" id="aihGallery"></div>
-                        </div>
-                    </section>
-
-                    <!-- ════════ GHÉP ĐỒ / THỬ ĐỒ ════════ -->
-                    <!-- ════════ GEMINI FREE (chat qua COOKIE — sidecar gemini-tryon /chat) ════════ -->
-                    <!-- Mount module shared Web2GeminiChat (web2/shared/web2-gemini-chat.js).
-                         Chat TEXT bằng tài khoản Gemini cookie của shop (FREE), multi-turn, xem hội thoại.
-                         Khác tab "Chat" (chat qua API-key backend). -->
-                    <section class="aih-pane" data-pane="gemini" hidden>
+                    <!-- ════════ TRỢ LÝ AI HỢP NHẤT (Chat + Tạo ảnh + Ghép đồ + Ghép mặt) ════════ -->
+                    <!-- 1 khung chat làm hết — chọn năng lực bằng CHIP CHẾ ĐỘ. Mount module shared
+                         Web2GeminiChat. Chat = cookie máy Bo; Tạo ảnh/Ghép đồ/Ghép mặt qua
+                         Web2GeminiClient (cookie máy Bo → fallback Nano Banana trả phí). -->
+                    <section class="aih-pane" data-pane="gemini">
                         <div
                             id="aihGeminiMount"
                             class="aih-mount"
-                            style="height: 72vh; min-height: 460px"
+                            style="height: 76vh; min-height: 480px"
                         ></div>
-                    </section>
-
-                    <!-- Mount điểm cho module shared Web2Tryon (web2/shared/web2-tryon.js) —
-                         1 NGUỒN dùng chung với widget ✨. KHÔNG dựng lại UI ở đây. -->
-                    <section class="aih-pane" data-pane="tryon" hidden>
-                        <div id="aihTryMount" class="aih-mount"></div>
                     </section>
 
                     <!-- ════════ QUẢN LÝ KEY ════════ -->
@@ -305,8 +95,7 @@
         <script src="../shared/web2-sidebar.js?v=20260627adm"></script>
         <script src="../shared/web2-skeleton.js?v=20260625a"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
-        <script src="./js/ai-hub.js?v=20260624h"></script>
-        <script src="./js/ai-chat.js?v=20260625f"></script>
+        <script src="./js/ai-hub.js?v=20260628u"></script>
         <!-- Kho ảnh/video miễn phí dùng chung (từ video-maker) — picker stock cho
              tab Tạo ảnh + Ghép đồ (onPick callback). -->
         <script src="../video-maker/js/video-stock.js?v=20260624b"></script>
@@ -319,10 +108,10 @@
         <!-- Chat Gemini qua COOKIE (sidecar gemini-tryon /chat) — module shared + thin wrapper. -->
         <!-- Đính ảnh hỏi Gemini (paste/kéo-thả/nén) — module shared dùng chung. -->
         <script src="../shared/web2-image-paste.js?v=20260623b"></script>
-        <script src="../shared/web2-gemini-chat.js?v=20260628b"></script>
-        <script src="./js/ai-gemini-chat.js?v=20260628a"></script>
-        <script src="./js/ai-image.js?v=20260627gen2"></script>
-        <script src="./js/ai-tryon.js?v=20260625a"></script>
+        <!-- Trợ lý AI hợp nhất: client sidecar (nguồn duy nhất) + UI 1 khung chat (chat/tạo ảnh/ghép đồ/ghép mặt). -->
+        <script src="../shared/web2-gemini-client.js?v=20260628a"></script>
+        <script src="../shared/web2-gemini-chat.js?v=20260628c"></script>
+        <script src="./js/ai-gemini-chat.js?v=20260628b"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
         <!-- HTML Studio: sinh HTML đẹp từ data (skill + anti-slop) bằng AI free. -->
         <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>

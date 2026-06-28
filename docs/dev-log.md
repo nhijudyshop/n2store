@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [ai-hub] GỘP 4 tab → 1 "Trợ lý AI": chat + tạo ảnh + ghép đồ + ghép mặt, chip chế độ, máy Bo
+
+**Files:** `web2/shared/web2-gemini-client.js` (MỚI — nguồn duy nhất gọi sidecar), `web2/shared/web2-gemini-chat.js` (rewrite thành trợ lý hợp nhất), `web2/ai-hub/{index.html, js/ai-hub.js}`.
+
+User: gộp 4 tab (Chat, Gemini Free, Tạo ảnh, Ghép đồ) thành **1 khung chat** — gửi ảnh, prompt mẫu sẵn. Chốt: **chip chế độ** trên ô nhập + chat engine **cookie acc shop** + **bỏ chữ "FREE"** + mất tunnel → báo **"bật máy Bo lên"**.
+
+- **`Web2GeminiClient`** (shared, nguồn DUY NHẤT giao tiếp sidecar máy Bo): `discover()` / `chat()` / `generate()` (text→ảnh/img2img) / `tryon()` (ghép đồ+mặt) / `health()` / `paidImage()`. Fail-fast 105s + KHÔNG retry timeout → fallback Nano Banana trả phí. Gom prompt TRYON/FACESWAP + `buildTryonPrompt`. `OFFLINE_MSG = "bật máy Bo lên"`. Dùng chung cho trợ lý + (sẽ refactor) widget ✨.
+- **`Web2GeminiChat` hợp nhất**: 1 khung hội thoại + **chip chế độ** 💬 Chat / 🎨 Tạo ảnh / 👕 Ghép đồ / 🙂 Ghép mặt. Routing theo chế độ qua client. Đính ảnh (Web2ImagePaste, auto-mở cho ghép đồ/mặt), prompt mẫu 📋 (Web2AiPresets: chat→vai trò, ảnh→thư viện 49 prompt + tự đổi chế độ). Kết quả (text + ảnh) inline trong thread, tag "✨ máy Bo" / "🍌 trả phí". Lightbox ảnh. localStorage nhiều cuộc.
+- **ai-hub**: 4 tab → **1 tab "✨ Trợ lý AI"** (default) + giữ HTML Studio + Cấu hình. Gỡ ai-chat.js/ai-image.js/ai-tryon.js (đã gộp). Bỏ hết chữ "FREE", dùng "máy Bo".
+- **Verify browser** (standalone, no-auth): mount sạch **0 lỗi console**, 4 chip chế độ, chuyển chế độ cập nhật hint + auto-mở đính ảnh cho ghép đồ/mặt, Web2ImagePaste + presets + client load OK, status "🟢 Máy Bo đang bật".
+- ⚠ Tech-debt: Web2Tryon (widget ✨) chưa refactor sang client → tạm trùng logic try-on (B fail-fast đã có ở cả 2). Refactor sau.
+
 ### [web2/overview] Nav gọn: avatar DiceBear + 1 nút duy nhất → trang đầu user có quyền
 
 **Files:** `web2/overview/{index.html,overview.css,overview.js}`.
