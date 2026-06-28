@@ -17,7 +17,7 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="./overview.css?v=20260628lite2" />
+        <link rel="stylesheet" href="./overview.css?v=20260628nav" />
 
         <!-- Auth guard + base-URL config (must run before page logic) -->
         <script src="../shared/web2-auth.js?v=20260627ovr"></script>
@@ -35,15 +35,11 @@
                 <a class="ov-brand" href="#top"
                     ><span class="ov-brand-dot" aria-hidden="true"></span> Web 2.0</a
                 >
-                <div class="ov-nav-links">
-                    <a href="#features" data-scroll>Tính năng</a>
-                    <a href="#modules" data-scroll>Module</a>
-                    <a href="../system/index.html">Hệ thống</a>
-                </div>
                 <div class="ov-nav-account">
                     <span id="ovAccount"></span>
-                    <a class="ov-btn ov-btn-sm" href="#modules" data-scroll data-magnetic
-                        >Vào module <i data-lucide="arrow-right"></i
+                    <!-- Single CTA → trang ĐẦU TIÊN user có quyền (href + nhãn set bởi JS theo role) -->
+                    <a class="ov-btn ov-btn-sm" id="ovEnterBtn" href="#" data-magnetic
+                        >Vào hệ thống <i data-lucide="arrow-right"></i
                     ></a>
                 </div>
             </nav>
@@ -208,6 +204,6 @@
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
         <!-- Light motion: pure CSS entrance + CSS marquee + IntersectionObserver reveal.
              No GSAP / ScrollTrigger / SplitText / Lenis (removed 2026-06-28 — heavy/jank). -->
-        <script defer src="./overview.js?v=20260628lite"></script>
+        <script defer src="./overview.js?v=20260628nav"></script>
     </body>
 </html>

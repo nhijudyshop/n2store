@@ -218,29 +218,73 @@ a {
 .ov-nav-account {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-shrink: 0;
+    margin-left: auto; /* center links removed → push account to the right */
 }
-.ov-user-chip {
+/* User chip — avatar + name, clickable → account/avatar modal (Web2UserProfile),
+   same identity source as the sidebar footer. */
+.ov-user {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    gap: 9px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
     color: var(--ov-ink-2);
-    padding: 6px 6px 6px 12px;
-    white-space: nowrap;
+    font: inherit;
+    cursor: pointer;
+    transition:
+        background 0.2s var(--ov-ease),
+        border-color 0.2s var(--ov-ease);
 }
-.ov-user-chip .av {
-    width: 28px;
-    height: 28px;
+.ov-user:hover {
+    background: var(--ov-bg-tint);
+    border-color: var(--ov-line);
+}
+.ov-user-av {
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
     display: grid;
     place-items: center;
     background: var(--ov-grad);
     color: #fff;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 700;
+    box-shadow: var(--ov-shadow-sm);
+}
+.ov-user.has-img .ov-user-av {
+    background: var(--ov-bg-tint);
+}
+.ov-user-av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.ov-user-meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    text-align: left;
+    min-width: 0;
+}
+.ov-user-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ov-ink);
+    white-space: nowrap;
+}
+.ov-user-role {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--ov-faint);
+    text-transform: capitalize;
+    white-space: nowrap;
 }
 
 /* ---------- Buttons ---------- */
@@ -899,11 +943,8 @@ a {
     }
 }
 @media (max-width: 860px) {
-    .ov-nav-links {
-        display: none;
-    }
-    .ov-user-chip .uname {
-        display: none;
+    .ov-user-meta {
+        display: none; /* keep avatar only on narrow screens */
     }
     .ov-pillars {
         grid-template-columns: 1fr;

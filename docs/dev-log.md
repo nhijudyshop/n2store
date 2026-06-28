@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [web2/overview] Nav gọn: avatar DiceBear + 1 nút duy nhất → trang đầu user có quyền
+
+**Files:** `web2/overview/{index.html,overview.css,overview.js}`.
+
+User: thêm avatar user, chỉnh bố cục nav, **xóa hết nút**, chỉ giữ **1 nút** dẫn tới trang ĐẦU TIÊN user có quyền.
+
+- **Xóa** center links (Tính năng/Module/Hệ thống), nút Đăng xuất, nút "Vào module". Nav giờ: brand (trái) + chip user + 1 nút (phải, `margin-left:auto`).
+- **Avatar thật = DiceBear** qua `Web2UserProfile.avatarUrlFor(user)` (cùng nguồn footer sidebar + bảng users; load `web2-user-profile.js` ở head). Chip = avatar + tên + role, click → `Web2UserProfile.open()` (xem/đổi avatar). Fallback chữ cái đầu nếu chưa có avatar.
+- **1 nút** `#ovEnterBtn` href + nhãn set bởi JS: `firstAccessiblePage()` = item đầu của nhóm hiển thị đầu (`visibleGroups()` đã lọc role/admin) → admin/NV = "Vào Bán hàng (HĐ)" → `web2/fastsaleorder-invoice`. Nhóm bị ẩn cho user thì tự rớt xuống nhóm kế.
+- Verify browser (admin): 0 nav-link, 0 logout, 1 nút, avatar DiceBear load OK (naturalW 150), tên "Quản trị viên"/role "Admin", href resolve `../../web2/fastsaleorder-invoice/index.html`, 0 console error. Bump `?v=20260628nav`.
+
 ### [so-order] SP cha nhiều biến thể = KHỐI tách biệt rõ (an toàn, giữ NCC/Ảnh-HĐ rowspan)
 
 User muốn Sổ Order "cũng vậy" như Kho SP (bảng con). **Ràng buộc cấu trúc**: Sổ Order gộp ô NCC + Ảnh-Hóa-Đơn (rowspan) trải cả đơn, Ảnh-HĐ ở GIỮA bảng → bảng-con full-width sẽ vỡ layout + lệch "Nhận hàng" (đã giải thích user). Chọn: gom mỗi nhóm biến thể thành **1 KHỐI tách biệt** bằng CSS (an toàn, giữ nguyên nhận-hàng/sửa/rowspan):

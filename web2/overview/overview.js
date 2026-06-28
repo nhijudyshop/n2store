@@ -239,7 +239,10 @@
             });
     }
 
-    // ----- render account chip -----
+    // ----- render account chip (avatar + name → account modal) -----
+    // Avatar = DiceBear via Web2UserProfile.avatarUrlFor (cùng nguồn footer sidebar
+    // + bảng users). Click chip → mở modal tài khoản/đổi avatar. KHÔNG còn nút
+    // Đăng xuất ở đây (landing chỉ giữ 1 nút → Dashboard).
     function renderAccount() {
         var box = document.getElementById('ovAccount');
         if (!box) return;
@@ -247,25 +250,70 @@
             window.Web2Auth && window.Web2Auth.getStored ? window.Web2Auth.getStored() : null;
         var user = stored && stored.user ? stored.user : null;
         var name = user ? user.displayName || user.username || 'Người dùng' : 'Khách';
+        var role = user ? user.role || '' : '';
         var initial = (name || '?').slice(0, 1).toUpperCase();
+
+        var avUrl = '';
+        try {
+            if (user && window.Web2UserProfile && window.Web2UserProfile.avatarUrlFor) {
+                avUrl = window.Web2UserProfile.avatarUrlFor(user) || '';
+            }
+        } catch (e) {
+            /* fallback to initial */
+        }
+        var avInner = avUrl
+            ? '<img src="' + esc(avUrl) + '" alt="" referrerpolicy="no-referrer" />'
+            : esc(initial);
+
         box.innerHTML =
-            '<span class="ov-user-chip"><span class="av">' +
-            esc(initial) +
-            '</span><span class="uname">' +
+            '<button class="ov-user' +
+            (avUrl ? ' has-img' : '') +
+            '" id="ovUser" type="button" title="Tài khoản · đổi avatar">' +
+            '<span class="ov-user-av">' +
+            avInner +
+            '</span><span class="ov-user-meta"><span class="ov-user-name">' +
             esc(name) +
-            '</span></span>' +
-            (window.Web2Auth
-                ? '<button class="ov-btn-link" id="ovLogout" type="button">Đăng xuất</button>'
-                : '');
-        var lo = document.getElementById('ovLogout');
-        if (lo)
-            lo.addEventListener('click', function () {
-                try {
-                    window.Web2Auth.logout({ redirect: true });
-                } catch (e) {
-                    location.href = 'login/index.html';
+            '</span>' +
+            (role ? '<span class="ov-user-role">' + esc(role) + '</span>' : '') +
+            '</span></button>';
+
+        var btn = document.getElementById('ovUser');
+        if (btn)
+            btn.addEventListener('click', function () {
+                if (window.Web2UserProfile && window.Web2UserProfile.open) {
+                    window.Web2UserProfile.open();
                 }
             });
+    }
+
+    // ----- single CTA → first page the user is allowed to open -----
+    // "Trang đầu tiên user có quyền" = item ĐẦU TIÊN của nhóm hiển thị ĐẦU TIÊN
+    // (visibleGroups đã lọc theo role/admin). Admin & NV hiện cùng nhóm đầu (Bán Hàng)
+    // trừ khi nhóm đó bị ẩn cho user → tự rớt xuống nhóm kế tiếp.
+    function firstAccessiblePage() {
+        var groups = visibleGroups();
+        for (var i = 0; i < groups.length; i++) {
+            if (groups[i].items && groups[i].items.length) return groups[i].items[0];
+        }
+        return null;
+    }
+
+    function renderEnterButton() {
+        var btn = document.getElementById('ovEnterBtn');
+        if (!btn) return;
+        var page = firstAccessiblePage();
+        if (!page) {
+            btn.style.display = 'none';
+            return;
+        }
+        btn.setAttribute('href', resolveHref(page.h));
+        btn.setAttribute('title', 'Vào ' + page.l);
+        btn.innerHTML =
+            '<i data-lucide="' +
+            esc(page.i || 'arrow-right') +
+            '"></i> Vào ' +
+            esc(page.l) +
+            ' <i data-lucide="arrow-right"></i>';
     }
 
     // ----- render hero stats -----
@@ -543,6 +591,7 @@
     // ----- boot -----
     function boot() {
         renderAccount();
+        renderEnterButton();
         renderStats();
         renderModules();
         if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
