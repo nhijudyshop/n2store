@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [web2/system][services] Render API verify + fix DB disk 15GB + SePay paid + theo dõi hóa đơn SePay + QR
+
+**Files:** `render.com/routes/web2-sepay-invoices.js` (MỚI), `render.com/routes/services-overview.js`, `render.com/server.js`, `web2/system/{index.html, js/system-services.js}`.
+
+- **Render API verify dịch vụ**: 3 web (web2-api/n2store-fallback Standard, web2-realtime Starter) + 2 Postgres basic_1gb = $95/mo — KHỚP data hardcode.
+- **Fix DB disk** (user báo "dung lượng db không đúng"): chat-db báo 1043MB/**1GB**=101.9% (đỏ) nhưng Render API `diskSizeGB=**15**` ("basic_1gb"=RAM, không phải storage) → thật ~7%. Sửa `DB_LIMITS`=15GB + label.
+- **SePay = trả phí** (user): API SePay không có billing → login my.sepay.vn (creds secrets) xem `/invoices`: gói gia hạn **589.000đ/tháng (~$24)**. `costMonth` 0→24.
+- **Theo dõi hóa đơn SePay + QR** (user): route `/api/web2-sepay-invoices` login server-side (CodeIgniter CSRF: GET /login→do_login→GET /invoices csrf2→POST ajax_invoices_list) → list hóa đơn; chưa thanh toán → **QR VietQR** (`vietqr.app`, des=`SEP`+id pad8) để quét trả. Cache 10p. Creds lưu **Render env** (SEPAY_LOGIN_EMAIL/PASSWORD qua Render API + redeploy). Card trong tab Services (`renderSepayInvoices`).
+- Verify flow đầy đủ qua prototype (login OK, ajax 10 HĐ, QR đúng). ⚠ Route read-only chưa gắn auth (system page admin-gated) — có thể thêm sau.
+
 ### [ai-widget][live-chat] Bỏ nút đọc comment DB + "SP nhiều giỏ nhất" dùng số liệu GIỎ Web 2.0
 
 **Files:** `web2/shared/web2-ai-page-registry.js`, `live-chat/js/pancake/inventory-panel-init.js`.

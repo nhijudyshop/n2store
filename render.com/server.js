@@ -801,6 +801,7 @@ app.use('/api/web2-order-tags', web2OrderTagsRoutes); // WEB2.0 — TAG đơn h�
 app.use('/api/web2-elevenlabs', web2ElevenLabsRoutes); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
 app.use('/api/web2-tts-pro', web2TtsProRoutes); // WEB2.0 — "Giọng AI Pro" TTS proxy (video-maker), tên trung tính
 app.use('/api/web2-translate', web2TranslateRoutes); // WEB2.0 — Dịch thuật dùng chung
+app.use('/api/web2-sepay-invoices', require('./routes/web2-sepay-invoices')); // WEB2.0 — hóa đơn SePay + QR thanh toán
 app.use('/api/web2-ai', web2AiRoutes); // WEB2.0 — Trợ lý AI (chat free + tạo ảnh free, xoay nhiều key)
 app.use('/api/web2-stock-media', web2StockMediaRoutes); // WEB2.0 — Stock media Pexels/Pixabay (Xưởng Video AI)
 app.use('/api/web2-campaign-products', web2CampaignProductsRoutes); // WEB2.0 — SP trong chiến dịch livestream (TV board)

@@ -104,6 +104,7 @@
         renderServices(data.services || []);
         renderProcess(data.process || {});
         renderGeminiMachines(); // async — dò registry + /health từng máy shop (độc lập services-overview)
+        renderSepayInvoices(); // async — login my.sepay.vn → hóa đơn + QR (độc lập)
 
         _wireClicks();
         if (window.lucide) lucide.createIcons();
@@ -272,6 +273,56 @@
             </div>`;
         });
         grid.innerHTML = cards.join('');
+    }
+
+    // Hóa đơn SePay: backend login my.sepay.vn → list hóa đơn + QR VietQR cho hóa đơn chưa trả.
+    async function renderSepayInvoices() {
+        const host = $('sdSepayInvoices');
+        if (!host) return;
+        const base =
+            window.WEB2_CONFIG?.WORKER_URL ||
+            window.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const r = await fetch(base + '/api/web2-sepay-invoices', {
+                signal: AbortSignal.timeout(25000),
+            });
+            const d = await r.json();
+            if (!d.ok) {
+                host.innerHTML = `<div class="sd-loading" style="color:#b45309">⚠️ ${escapeHtml(
+                    d.error || 'Không tải được hóa đơn SePay'
+                )}${d.configured === false ? ' (cấu hình env trên Render rồi redeploy)' : ''}</div>`;
+                return;
+            }
+            const s = d.summary || {};
+            const fmtV = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+            const head = `<div class="sd-cost-strip" style="margin-bottom:12px">
+                <div class="sd-cost-card"><span class="sd-cost-label">📅 Gói/tháng</span><strong class="sd-cost-value">${s.monthlyVnd ? fmtV(s.monthlyVnd) : '—'}</strong></div>
+                <div class="sd-cost-card ${s.unpaidCount ? 'sd-cost-total' : 'sd-cost-free'}"><span class="sd-cost-label">🔴 Chưa thanh toán</span><strong class="sd-cost-value">${s.unpaidCount || 0} HĐ · ${fmtV(s.unpaidAmountVnd)}</strong></div>
+                <div class="sd-cost-card"><span class="sd-cost-label">🧾 Tổng hóa đơn</span><strong class="sd-cost-value">${s.total || 0}</strong></div>
+            </div>`;
+            const rows = (d.invoices || [])
+                .map((inv) => {
+                    const badge = inv.paid
+                        ? '<span style="color:#16a34a;font-weight:700">✓ Đã trả</span>'
+                        : '<span style="color:#dc2626;font-weight:700">● Chưa trả</span>';
+                    const qr = inv.qrUrl
+                        ? `<div style="margin-top:8px"><img src="${escapeHtml(inv.qrUrl)}" alt="QR thanh toán" style="width:150px;height:150px;border:1px solid #e2e8f0;border-radius:8px" loading="lazy"><div style="font-size:.72rem;color:#64748b;margin-top:3px">Quét VietQR để thanh toán ${escapeHtml(inv.amountStr)}</div></div>`
+                        : '';
+                    return `<div style="padding:11px 13px;border:1px solid ${inv.paid ? '#e2e8f0' : '#fecaca'};border-radius:11px;background:${inv.paid ? '#fff' : '#fef2f2'};margin-bottom:8px">
+                        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+                            <div><strong>${escapeHtml(inv.number || '#' + inv.id)}</strong> · ${escapeHtml(inv.type)} <span style="color:#94a3b8;font-size:.8rem">· ${escapeHtml(inv.date)}</span></div>
+                            <div style="display:flex;gap:12px;align-items:center"><span style="font-weight:700">${escapeHtml(inv.amountStr)}</span>${badge}</div>
+                        </div>${qr}</div>`;
+                })
+                .join('');
+            host.innerHTML =
+                head +
+                rows +
+                `<div style="font-size:.72rem;color:#94a3b8;margin-top:4px">${d.cached ? '(cache 10 phút) ' : ''}${d.staleError ? '⚠️ ' + escapeHtml(d.staleError) : ''}</div>`;
+        } catch (e) {
+            host.innerHTML = `<div class="sd-loading" style="color:#b45309">⚠️ ${escapeHtml(e.message || 'Lỗi tải hóa đơn SePay')}</div>`;
+        }
     }
 
     // Giám sát máy shop tự host gemini-tryon: dò registry → /health từng máy → account uses/lỗi.
