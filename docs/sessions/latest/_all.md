@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a56562d` — fix(so-order): server-authoritative sync — wipe DB sticks (kill local-first footgun)
-**Last updated**: 2026-06-28 22:25:55 +07
-**Latest session**: [`RESUME:20260628-222555-a56562d`](../20260628-222555-a56562d.md)
-**Summary**: so-order server-authoritative: wipe DB sticks, kill local-first footgun (verified E2E)
+**Latest commit**: `7e6950d` — fix(so-order): audit fixes — per-unit QR on main receive path + orphan dropdown on modal close
+**Last updated**: 2026-06-28 22:56:58 +07
+**Latest session**: [`RESUME:20260628-225658-7e6950d`](../20260628-225658-7e6950d.md)
+**Summary**: Audit so-order từng tab/modal: fix per-unit QR receive path + orphan dropdown (verified live)
 
 ## Folders affected in this commit
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 22:25
+- [`docs/`](./docs.md) — updated 2026-06-28 22:56
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -67,7 +67,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-28 22:25
+- [`so-order/`](./so-order.md) — updated 2026-06-28 22:56
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
