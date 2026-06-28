@@ -159,6 +159,8 @@
     function init() {
         if (window.lucide) lucide.createIcons();
         $('#btnCreateProduct')?.addEventListener('click', W.openCreate);
+        // In lại tem ĐƠN VỊ: chọn mã đơn vị (qr1..qrN) của 1 SP rồi in lại (per-unit).
+        $('#btnReprintUnits')?.addEventListener('click', () => window.Web2UnitReprint?.open());
         // Import dữ liệu CSV/JSON + tải file mẫu (NGUỒN CHUNG Web2Import).
         $('#btnImportProducts')?.addEventListener('click', () => {
             if (!window.Web2Import) return notify('Module nhập dữ liệu chưa load', 'error');

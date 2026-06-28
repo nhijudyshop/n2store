@@ -65,6 +65,14 @@
                             <i data-lucide="download"></i> Tải mẫu
                         </button>
                         <button
+                            class="btn-ghost page-head-action"
+                            id="btnReprintUnits"
+                            type="button"
+                            title="In lại tem đơn vị — chọn mã đơn vị (qr1..qrN) của 1 SP rồi in"
+                        >
+                            <i data-lucide="printer"></i> In lại tem
+                        </button>
+                        <button
                             class="btn-primary page-head-action"
                             id="btnCreateProduct"
                             type="button"
@@ -446,10 +454,12 @@
         <!-- [SPLIT 2026-06-18] tách 1293 dòng → 5 module: utils → barcode → render → modal → entry. Thứ tự BẮT BUỘC. -->
         <script src="js/web2-products-print-utils.js?v=20260623fix"></script>
         <script src="js/web2-products-print-barcode.js?v=20260618w2"></script>
-        <script src="js/web2-products-print-render.js?v=20260626b"></script>
-        <script src="js/web2-products-print-modal.js?v=20260626b"></script>
+        <script src="js/web2-products-print-render.js?v=20260628b"></script>
+        <script src="js/web2-products-print-modal.js?v=20260628b"></script>
         <script src="js/web2-products-print.js?v=20260618w2"></script>
         <!-- Drawer chi tiết SP (WEB2.0 module — bấm row → tabs NCC/đơn hàng/lịch sử/sửa) -->
         <script src="js/web2-product-detail.js?v=20260628hh"></script>
+        <!-- In lại tem ĐƠN VỊ (per-unit reprint) — dùng Web2ProductsPrint + API web2-product-units -->
+        <script src="../shared/web2-unit-reprint.js?v=20260628a"></script>
     </body>
 </html>
