@@ -81,6 +81,7 @@
                 let changed = false;
                 if (wantTabId && SO.state.activeTabId !== wantTabId) {
                     SO.state.activeTabId = wantTabId;
+                    window.SoOrderStorage.setLocalActiveTab(wantTabId); // deep-link → per-device
                     changed = true;
                 }
                 if (owningSh && owningSh.collapsed) {

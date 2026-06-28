@@ -54,6 +54,33 @@
     'use strict';
 
     const STORAGE_KEY = 'soOrder_v1';
+    // 2026-06-28: activeTabId (tab địa danh ĐANG XEM) là trạng thái UI RIÊNG TỪNG MÁY,
+    // KHÔNG đồng bộ qua doc web2_so_order (trước đây nằm trong state → chuyển tab máy A
+    // làm máy B nhảy tab). Lưu riêng localStorage per-device + áp lại sau mỗi load/pull.
+    const ACTIVE_TAB_KEY = 'soOrder_activeTabId_v1';
+    function _getLocalActiveTab() {
+        try {
+            return localStorage.getItem(ACTIVE_TAB_KEY) || null;
+        } catch {
+            return null;
+        }
+    }
+    function _setLocalActiveTab(id) {
+        try {
+            if (id) localStorage.setItem(ACTIVE_TAB_KEY, id);
+        } catch {
+            /* localStorage không khả dụng — bỏ qua */
+        }
+    }
+    // Ghi đè activeTabId của data (đến từ server/IDB) bằng tab per-device. Idempotent.
+    function _applyLocalActiveTab(data) {
+        if (!data || !Array.isArray(data.tabs) || !data.tabs.length) return data;
+        const local = _getLocalActiveTab();
+        if (local && data.tabs.find((t) => t.id === local)) data.activeTabId = local;
+        else if (!data.activeTabId || !data.tabs.find((t) => t.id === data.activeTabId))
+            data.activeTabId = data.tabs[0].id;
+        return data;
+    }
 
     const DEFAULT_COLUMNS = {
         supplier: true,
@@ -313,6 +340,8 @@
             if (!data.activeTabId || !data.tabs.find((t) => t.id === data.activeTabId)) {
                 data.activeTabId = data.tabs[0].id;
             }
+            // Tab đang xem = per-device (đè giá trị đến từ server/IDB).
+            _applyLocalActiveTab(data);
             const globalColVis = data.columnVisibility;
             let mutated = false;
             for (const tab of data.tabs) {
@@ -391,7 +420,7 @@
         // Sync cached state nếu đã load 1 lần (after first load() resolved).
         // Caller dùng cho code path không thể await (event handlers re-read).
         loadCached() {
-            return _cachedState || _defaultState();
+            return _applyLocalActiveTab(_cachedState || _defaultState());
         },
 
         save(state) {
@@ -409,9 +438,18 @@
         setActiveTab(state, tabId) {
             if (state.tabs.find((t) => t.id === tabId)) {
                 state.activeTabId = tabId;
+                _setLocalActiveTab(tabId); // per-device — KHÔNG đồng bộ sang máy khác
                 _write(state);
             }
             return state;
+        },
+
+        // Expose helper để render/sync áp lại tab per-device sau pull.
+        applyLocalActiveTab(state) {
+            return _applyLocalActiveTab(state);
+        },
+        setLocalActiveTab(id) {
+            _setLocalActiveTab(id);
         },
 
         addTab(state, { label, currency, rate, showShipMeta, shipMetaFields }) {
@@ -427,6 +465,7 @@
                 shipments: [],
             });
             state.activeTabId = id;
+            _setLocalActiveTab(id); // tab mới active trên máy này (per-device)
             _write(state);
             return id;
         },
@@ -654,7 +693,10 @@
         deleteTab(state, tabId) {
             if (state.tabs.length <= 1) return false; // keep at least 1
             state.tabs = state.tabs.filter((t) => t.id !== tabId);
-            if (state.activeTabId === tabId) state.activeTabId = state.tabs[0].id;
+            if (state.activeTabId === tabId) {
+                state.activeTabId = state.tabs[0].id;
+                _setLocalActiveTab(state.activeTabId);
+            }
             _write(state);
             return true;
         },

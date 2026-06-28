@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [so-order] FIX: tab địa danh (activeTabId) thành PER-DEVICE (máy khác không nhảy tab)
+
+**Files:** `so-order/js/so-order-storage.js`, `so-order/js/so-order-render.js`, `so-order/js/so-order-app.js`, `so-order/index.html` (bump `?v=20260628u`).
+
+User báo: chuyển tab địa danh ở máy A → so-order máy B cũng nhảy tab. Root cause: `activeTabId` (tab đang xem) nằm TRONG state đồng bộ `web2_so_order` → tab-switch `pushSync()` đẩy cả activeTabId lên server → SSE `web2:so-order` → máy B pull về render theo tab máy A.
+
+- Fix: tách `activeTabId` thành **per-device localStorage** key `soOrder_activeTabId_v1` (giống `editTableMode`). Helper `_getLocalActiveTab/_setLocalActiveTab/_applyLocalActiveTab` trong storage.js; áp lại trong `_read()` + `loadCached()` (đè activeTabId đến từ server/IDB bằng tab local). `setActiveTab/addTab/deleteTab` ghi key per-device.
+- Tab-click (render.js): đổi sang `setActiveTab()` (ghi local) + **BỎ `pushSync()`** → không bump doc chung, không notify máy khác. Deep-link `?tab=` cũng ghi key per-device.
+- Verify LIVE (Playwright): click tab → lsKey set + **0 /save call**; mô phỏng remote pull activeTabId khác → `applyLocalActiveTab` giữ tab local. Đã cập nhật sổ tay SSE (web2:so-order dontBreak).
+
 ### [web2/system + so-order SSE] Sổ tay SSE trong tab + fix 4 gap subscribe web2:so-order
 
 **Files:** `web2/system/data/web2-sse-registry.json` (MỚI), `web2/system/js/system-sse-registry.js` (MỚI), `web2/system/{index.html, js/system-sse.js, css/system.css}`, `web2/supplier-debt/js/supplier-debt-app.js`, `web2/purchase-refund/js/purchase-refund-app.js`, `live-chat/js/pancake/inventory-panel-actions.js`, `web2/dashboard/index.html`.

@@ -39,9 +39,9 @@
         strip.innerHTML = html;
         strip.querySelectorAll('.so-tab-pill').forEach((el) => {
             el.addEventListener('click', () => {
-                SO.state.activeTabId = el.dataset.tabId;
-                window.SoOrderStorage.save(SO.state);
-                SO.pushSync();
+                // Tab đang xem = per-device → setActiveTab (ghi localStorage riêng máy),
+                // KHÔNG pushSync để máy khác không bị nhảy tab theo.
+                window.SoOrderStorage.setActiveTab(SO.state, el.dataset.tabId);
                 SO.renderAll();
             });
         });
