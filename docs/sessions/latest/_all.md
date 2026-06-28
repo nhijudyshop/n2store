@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4aed2bd` — feat(admin-reset): target 'reset-flow' wipe ĐÚNG 9 domain luồng mua-ban-kho (so-order/products+units/native-orders/PBH/reconcile/supplier-debt+wallet/ck); + units vào PRODUCT_TABLES
-**Last updated**: 2026-06-28 21:33:18 +07
-**Latest session**: [`RESUME:20260628-213318-4aed2bd`](../20260628-213318-4aed2bd.md)
-**Summary**: feat(admin-reset): target 'reset-flow' wipe ĐÚNG 9 domain luồng mua-ban-kho (so-order/products+units/native-order...
+**Latest commit**: `8f37cff` — feat(so-order): Dien ngau nhien bom nhieu data hon - LOAI bien the (Ao/Quan/Dam/Vay/Giay/Dep) tu ProductTypesCache + 12 NCC + 2-6 dong; reset-flow wipe target
+**Last updated**: 2026-06-28 21:43:04 +07
+**Latest session**: [`RESUME:20260628-214304-8f37cff`](../20260628-214304-8f37cff.md)
+**Summary**: feat(so-order): Dien ngau nhien bom nhieu data hon - LOAI bien the (Ao/Quan/Dam/Vay/Giay/Dep) tu ProductTypesCache + ...
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 21:10
+- [`docs/`](./docs.md) — updated 2026-06-28 21:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -66,7 +67,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-28 19:27
+- [`so-order/`](./so-order.md) — updated 2026-06-28 21:43
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
