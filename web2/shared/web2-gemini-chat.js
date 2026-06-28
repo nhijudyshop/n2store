@@ -393,17 +393,19 @@
             const P = global.Web2AiPresets || global.AiPresets;
             if (!P) return toast('Thư viện prompt chưa tải', 'warning');
             if (mode === 'chat' && P.pickRole) {
-                P.pickRole((role) => {
-                    if (!role) return;
-                    taEl.value = (role.prompt || role.title || '') + '\n\n';
+                // pickRole gọi cb(systemPromptString, roleObj) — tham số 1 LÀ prompt.
+                P.pickRole((systemPrompt) => {
+                    if (!systemPrompt) return;
+                    taEl.value = systemPrompt + '\n\n';
                     taEl.focus();
                 });
             } else if (P.pickImage) {
-                P.pickImage((preset) => {
-                    if (!preset) return;
-                    if (preset.cat === 'faceswap') applyMode('faceswap');
+                // pickImage gọi cb(promptString, presetObj) — tham số 1 LÀ prompt, 2 là object.
+                P.pickImage((prompt, preset) => {
+                    if (!prompt) return;
+                    if (preset && preset.cat === 'faceswap') applyMode('faceswap');
                     else if (mode === 'chat') applyMode('image');
-                    taEl.value = preset.prompt || '';
+                    taEl.value = prompt;
                     taEl.focus();
                 });
             }
