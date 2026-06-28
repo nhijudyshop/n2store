@@ -734,10 +734,23 @@
                         const code = codeByKey.get(it.key);
                         const serverRow = (data.items || []).find((r) => r.code === code);
                         if (!serverRow) return null;
+                        // FIX 2026-06-28: confirm-purchase-partial response KHÔNG trả
+                        // price/sellPrice → tem in ra giá 0. Nguồn giá bán (VND) ưu tiên:
+                        // (1) giá bán dòng so-order (it.sellPriceVnd), (2) giá Kho SP
+                        // (cache theo code — đúng khi SP đã có sẵn giá trong Kho mà dòng
+                        // order để trống giá bán), (3) 0.
+                        const khoPrice = window.Web2ProductsCache?.findByCode?.(code)?.price;
+                        const temPrice =
+                            Number(it.sellPriceVnd) ||
+                            Number(khoPrice) ||
+                            Number(serverRow.price) ||
+                            0;
                         return {
                             ...serverRow,
                             variant: it.variant,
                             qtyReceived: receivedMap.get(it.key),
+                            price: temPrice,
+                            sellPriceVnd: temPrice,
                         };
                     })
                     .filter(Boolean);

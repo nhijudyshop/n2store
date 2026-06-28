@@ -81,15 +81,22 @@
             // openBarcodePrintModal map quantity = it.qtyReceived → đặt đúng field.
             const products = items
                 .filter((it) => codeByKey.get(it.key))
-                .map((it) => ({
-                    code: codeByKey.get(it.key),
-                    name: it.name,
-                    variant: it.variant,
-                    qtyReceived: Math.max(1, it.printQty),
-                    price: it.sellPriceVnd,
-                    sellPriceVnd: it.sellPriceVnd,
-                    stock: it.currentStock,
-                }));
+                .map((it) => {
+                    const code = codeByKey.get(it.key);
+                    // Giá bán tem: ưu tiên giá dòng order, fallback giá Kho SP theo code
+                    // (SP đã có giá trong Kho nhưng dòng order để trống) → tránh tem giá 0.
+                    const khoPrice = window.Web2ProductsCache?.findByCode?.(code)?.price;
+                    const temPrice = Number(it.sellPriceVnd) || Number(khoPrice) || 0;
+                    return {
+                        code,
+                        name: it.name,
+                        variant: it.variant,
+                        qtyReceived: Math.max(1, it.printQty),
+                        price: temPrice,
+                        sellPriceVnd: temPrice,
+                        stock: it.currentStock,
+                    };
+                });
             if (!products.length) {
                 SO.notify('Không có mã SP để in tem', 'warning');
                 return;

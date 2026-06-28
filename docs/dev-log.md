@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [so-order] FIX: in tem sau khi nhận hàng ra giá 0
+
+**Files:** `so-order/js/so-order-receive.js`, `so-order/js/so-order-barcode.js`, `so-order/index.html` (bump `?v=20260628t`).
+
+User báo: bấm "Nhận hàng" → modal in tem mã SP nhưng **giá in = 0**. Root cause: response `confirm-purchase-partial` (web2-products.js:1963-1972) KHÔNG trả `price`/`sellPrice` (chỉ code/name/stock/pendingQty/status). Đường auto-print (`so-order-receive.js` ~737) build tem từ `{...serverRow, variant, qtyReceived}` → không có price → `openBarcodePrintModal` rớt về `price: ...||0`. Đường "In tem" thủ công (barcode.js) dùng `it.sellPriceVnd` nên không lỗi.
+
+- Fix: cả 2 đường truyền giá bán tem theo thứ tự ưu tiên: **(1) `it.sellPriceVnd` (giá bán dòng order) → (2) `Web2ProductsCache.findByCode(code).price` (giá Kho SP, đúng khi dòng order để trống giá) → (3) 0**.
+- Verify LIVE (Playwright, wrap `Web2ProductsPrint.open` bắt products): trước fix giá 0; sau bump `?v` load JS mới → tem ra giá đúng (126.000 / 717.000 / 316.000). Kho sync stock đúng (MUA_1_PHAN/DANG_BAN/CHO_MUA).
+- Bài học cache: localhost `python -m http.server` KHÔNG no-cache cho .js → phải bump `?v=` mới load JS sửa (HTML `?t=` chỉ bust HTML, không bust subresource).
+
 ### [ai-widget] Full-data theo CACHE browser (IDB) + freshness gate + nút "Lấy full dữ liệu mới nhất"
 
 **Files:** `web2/shared/web2-ai-assistant.js` (+ bump sidebar inject).
