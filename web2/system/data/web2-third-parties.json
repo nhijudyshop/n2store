@@ -2,11 +2,11 @@
     "generatedAt": "2026-06-24T10:12:44.624Z",
     "source": "Audit 5 vòng (workflow web2-thirdparty-audit, 2026-06-24) — discover 6 góc + 5 vòng rà soát + synthesize. Mọi mục có usedIn = bằng chứng file thật.",
     "summary": {
-        "total": 70,
-        "web2Count": 64,
+        "total": 71,
+        "web2Count": 65,
         "web1Count": 16,
         "paidOrFreemium": 26,
-        "free": 44,
+        "free": 45,
         "byCategory": {
             "ai-llm": 7,
             "browser-lib": 6,
@@ -16,24 +16,24 @@
             "media-gen": 7,
             "messaging-social": 3,
             "ml-model-ondevice": 6,
-            "opensource-port": 14,
+            "opensource-port": 15,
             "other": 4,
             "payment": 2,
             "stock-media": 3,
             "tts-voice": 4
         },
         "byCost": {
-            "free": 44,
+            "free": 45,
             "freemium": 18,
             "paid": 8
         },
         "byLayer": {
-            "web2": 54,
+            "web2": 55,
             "web1": 6,
             "both": 10
         },
         "byStatus": {
-            "active": 67,
+            "active": 68,
             "dormant": 3
         }
     },
@@ -1448,6 +1448,27 @@
             ],
             "githubUrl": "",
             "notes": "Async job-based TTS (JSON-RPC at api.lucylab.io). Route obfuscated as /api/web2-tts-pro and labeled 'Giọng AI Pro' to hide provider from frontend (per user request 2026-06-22)."
+        },
+        {
+            "name": "Vietnamese Provinces Database",
+            "category": "opensource-port",
+            "provider": "thanglequoc (GitHub)",
+            "type": "dataset",
+            "cost": "free",
+            "costDetail": "Dataset tĩnh MIT — bundle web2/shared/data/vn-units.json (~143KB), lazy-load qua GitHub Pages, KHÔNG backend/route.",
+            "license": "MIT",
+            "layer": "web2",
+            "status": "active",
+            "usedIn": [
+                "web2/shared/web2-vn-address.js",
+                "web2/shared/data/vn-units.json",
+                "scripts/gen-vn-address-data.js",
+                "web2/customers/js/customers-detail.js",
+                "native-orders/js/native-orders-modal-edit.js"
+            ],
+            "envKeys": [],
+            "githubUrl": "https://github.com/thanglequoc/vietnamese-provinces-database",
+            "notes": "Đơn vị hành chính VN 2 cấp (Tỉnh/TP → Phường/Xã, 34 tỉnh · 3321 phường/xã) theo nghị định 30/2026/QH16 (hiệu lực 30/04/2026, bỏ cấp Quận/Huyện từ 01/07/2025). Nguồn cho Web2VnAddress (bộ chọn địa chỉ phụ thuộc dùng chung). Regen: node scripts/gen-vn-address-data.js."
         }
     ]
 }

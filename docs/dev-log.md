@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [web2/shared/web2-vn-address + customers + native-orders] Bộ chọn Tỉnh/TP → Phường/Xã (tích hợp vietnamese-provinces-database)
+
+**Files:** MỚI `web2/shared/web2-vn-address.js` (`Web2VnAddress`), `web2/shared/data/vn-units.json` (143KB, dataset 2 cấp), `scripts/gen-vn-address-data.js` (generator); customers `web2/customers/index.html` (Tỉnh/TP+Phường/Xã `<input>`→`<select>`, district giữ free-text) + `js/customers-detail.js` (mount/destroy) + load script; native-orders `js/native-orders-modal-edit.js` (2 select editCity/editWard + persist cityName/wardName/cityCode/wardCode qua PATCH có sẵn + detect giao hàng trên địa chỉ ĐẦY ĐỦ) + `index.html` load script; registry `web2/system/data/web2-third-parties.json` (+1 entry, summary 70→71) + regen docs.
+
+User: đọc `web2/system?tab=services` + tích hợp [thanglequoc/vietnamese-provinces-database](https://github.com/thanglequoc/vietnamese-provinces-database) (MIT). Scope (user chọn): customers + native-orders; district = giữ free-text tuỳ chọn.
+
+- **Dataset 2 cấp** (nghị định 30/2026/QH16, hiệu lực 30/04/2026 — VN bỏ cấp Quận/Huyện 01/07/2025): **34 tỉnh → 3321 phường/xã**. Bundle tĩnh `web2/shared/data/vn-units.json` (lazy-load + HTTP cache, KHÔNG backend route — đúng convention "fetch trực tiếp browser / no unnecessary backend"). Regen khi có nghị định mới: `node scripts/gen-vn-address-data.js`.
+- **`Web2VnAddress`** (shared 1 nguồn): `load/getProvinces/getWards/findProvince/findWard/normName/mount`. `mount({provinceEl,wardEl,province,ward,onChange})` → dropdown phụ thuộc + preselect theo tên/code + **GIỮ giá trị legacy không khớp dataset** (option "(cũ)", không mất data) + `getValue()` trả {provinceCode,provinceName,wardCode,wardName}.
+- **native-orders**: cột `city_*/ward_*` + PATCH allow-list + `mapRowToOrder` ĐÃ CÓ sẵn → chỉ wiring FE; địa chỉ tách "số nhà/đường" + Tỉnh + Phường, detect giao hàng dùng địa chỉ ghép đủ.
+- **Verify**: 30/30 jsdom unit-test (module thật + dataset thật: match/dependent/legacy/getValue) PASS; real-DOM smoke 2 trang PASS (customers cityOptions=35→ward 169 sau chọn HCM; native-orders editCity/editWard preselect đúng code 79/27460). so-order KHÔNG có ô địa chỉ → không tích hợp (báo user).
+
 ### [web2-product-units/web2/clearance] Kho hàng RỚT XẢ + In lại tem (per-unit) — derived/lazy 0 cron
 
 **Files:** BE `render.com/routes/web2-product-units.js` (+ cột `clearance_state`, `GET /clearance` derived, `POST /:id/clearance` override, resolve trả `clearance`); FE trang MỚI `web2/clearance/{index.html,css/clearance.css,js/clearance.js}` + sidebar `web2/shared/web2-sidebar.js` (mục "Kho rớt xả" group Mua hàng); In lại tem: `web2/shared/web2-unit-reprint.js` (MỚI) + Kho SP `web2/products/index.html`+`web2-products-app.js` (nút "In lại tem"); trang quét `web2/unit-scan/js/unit-scan.js` (badge "Rớt xả" + nút "In lại tem này") + `index.html` (load 5 file print) + `css`.
