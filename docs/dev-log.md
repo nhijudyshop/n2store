@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [web2-product-units/so-order/web2/unit-scan] Per-unit product code + QR tracking (mã đơn vị riêng/món + quét định tuyến kệ STT)
+
+**Files:** BE `render.com/routes/web2-product-units.js` (MỚI) + `server.js` (require + mount `/api/web2-product-units` + initializeNotifiers); FE in tem `web2/products/js/web2-products-print-modal.js` (item.units → per-unit label + qrText; preserve units), `web2-products-print-render.js` (QR lookup theo qrText); so-order `so-order/js/so-order-barcode.js` (`_attachUnitCodes` mint + qrUrl + reprint); trang quét MỚI `web2/unit-scan/{index.html, css/unit-scan.css, js/unit-scan.js, unit-scan.webmanifest}`; doc `docs/web2/PER-UNIT-QR-PLAN.md` (MỚI).
+
+User "Làm full": mỗi MÓN VẬT LÝ của SP có mã đơn vị riêng (`KHOAODEN-017`) + QR riêng → in tem dán lên món → quét ngoài (điện thoại) biết SP của NCC/đợt nào, đã in mấy lần, đơn nào → **bỏ vào kệ STT** (put wall). Đủ hàng → đóng gói.
+
+- **Backend** (web2Db, SSE `web2:product-units`): bảng `web2_product_units` + `web2_product_unit_events`. Routes: `/mint` (idempotent theo product_code+shipment_id, **serial server cấp atomic advisory-lock** — vá đua-race của Web2ProductCode), `/resolve?u=<id>` (unit + SP + đơn mở chứa product_code theo `campaign_stt` FIFO), `/by-product/:code`, `/:id/events`, `/reprint`, `/assign` (unit→đơn→STT + fulfillment), `/:id/status`.
+- **Tem**: serial GLOBAL theo SP (đợt12→001-010, đợt15→011-018, không trùng giữa đợt; multi-NCC truy đúng nguồn). QR = URL `<origin>/web2/unit-scan/?u=<id>` (camera điện thoại mở thẳng trang). Print backward-compat: không `units` → hành vi cũ.
+- **Trang quét** `web2/unit-scan/` (phone-native, khuôn comments-mobile: theme #0068ff, safe-area, PWA manifest riêng, auth-guard): `Web2BarcodeScanner` camera; deep-link `?u=`; hiện NCC/đợt/print_count + **"BỎ VÀO KỆ STT"** + list đơn chờ (FIFO suggest) → tap Gán; lịch sử event; SSE refresh.
+- **Quyết định** (user): STT = `native_orders.campaign_stt`; gán đơn↔khách↔STT từ lúc tạo giỏ; gán unit↔đơn lúc quét. Đặc tả đầy đủ: `docs/web2/PER-UNIT-QR-PLAN.md`.
+- **Verify**: node --check toàn bộ file mới/sửa OK. ⏳ E2E sau deploy (route chạy web2-api Render — cần push để redeploy; trước deploy mint 404 → in fallback mã SP cũ, không regression).
+
 ### [so-order/web2-so-order-images] Quản lý ảnh NCC theo đợt (BYTEA web2Db) + admin-only
 
 **Files:** BE `render.com/routes/web2-so-order-images.js` (MỚI) + `server.js` mount; FE `so-order/js/so-order-image-manager.js` (MỚI), `so-order-state.js` (`_isAdmin`), `so-order-render.js` (nút Quản lý ảnh + admin gate), `so-order-modal-image.js` (nút "chọn ảnh từ kho NCC" + gallery wire), `so-order-modal-core.js`/`so-order-modal-open.js` (auto ảnh hóa đơn khi nhập NCC), `so-order-payments.js`/`so-order-settings.js` (admin guard), `so-order-app.js` (wire), `so-order/index.html` (nút + modal + script + bump -ab), `so-order/css/so-order.css`.

@@ -6,6 +6,85 @@
 
     const SO = (window.SoOrder = window.SoOrder || {});
 
+    // PER-UNIT (2026-06-28): cấp mã ĐƠN VỊ + QR riêng/món lúc in tem.
+    // Mint server-side (idempotent theo product_code+shipment_id) → mỗi tem 1 mã
+    // (KHOAODEN-017) + QR = URL trace .../web2/unit-scan/?u=<id>. Lỗi mint → fallback
+    // hành vi cũ (in mã SP lặp). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md.
+    function _unitsApiBase() {
+        return (
+            window.API_CONFIG?.WORKER_URL ||
+            window.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
+    }
+    function _web2Token() {
+        try {
+            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || '';
+        } catch (_) {
+            return '';
+        }
+    }
+    async function _mintUnits(productCode, supplier, shipmentId, qty) {
+        const token = _web2Token();
+        const res = await fetch(`${_unitsApiBase()}/api/web2-product-units/mint`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'x-web2-token': token } : {}),
+            },
+            body: JSON.stringify({
+                product_code: productCode,
+                supplier: supplier || null,
+                shipment_id: shipmentId || null,
+                qty,
+            }),
+        });
+        if (!res.ok) throw new Error('mint HTTP ' + res.status);
+        const data = await res.json();
+        return Array.isArray(data.units) ? data.units : [];
+    }
+    async function _bumpReprint(unitIds) {
+        if (!unitIds.length) return;
+        try {
+            const token = _web2Token();
+            await fetch(`${_unitsApiBase()}/api/web2-product-units/reprint`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'x-web2-token': token } : {}),
+                },
+                body: JSON.stringify({ unitIds }),
+            });
+        } catch (_) {
+            /* best-effort: print_count không tăng cũng không chặn in */
+        }
+    }
+    // Gắn item.units = [{unitCode, qrUrl}] cho mỗi product (in-place). Best-effort.
+    SO._attachUnitCodes = async function _attachUnitCodes(products) {
+        const scanBase = location.origin; // vd https://nhijudy.store
+        const minted = [];
+        await Promise.all(
+            (products || []).map(async (p) => {
+                const qty = Math.max(1, Number(p.quantity || p.qtyReceived) || 1);
+                if (!p.code) return;
+                try {
+                    const units = await _mintUnits(p.code, p.supplier, p.shipmentId, qty);
+                    if (units.length) {
+                        p.units = units.slice(0, qty).map((u) => ({
+                            unitCode: u.unitCode,
+                            qrUrl: `${scanBase}/web2/unit-scan/?u=${u.id}`,
+                        }));
+                        units.slice(0, qty).forEach((u) => minted.push(u.id));
+                    }
+                } catch (e) {
+                    console.warn('[so-order] mint units fail cho', p.code, e.message || e);
+                }
+            })
+        );
+        if (minted.length) _bumpReprint(minted); // fire-and-forget print_count++
+        return products;
+    };
+
     // 2026-06-07: In tem QR theo SL — KHÔNG cần nhận lại (dùng cho SP đã nhận đủ
     // cần in/in lại tem, hoặc in trước khi xác nhận). SL mỗi SP = qty nhập (>0) →
     // else đã nhận → else qty đặt. Resolve code: dùng code có sẵn (server lookup),
@@ -95,12 +174,18 @@
                         price: temPrice,
                         sellPriceVnd: temPrice,
                         stock: it.currentStock,
+                        // PER-UNIT context: NCC nguồn + đợt → mint unit + QR riêng/món.
+                        supplier: it.supplier || null,
+                        shipmentId: it.shipmentId || null,
+                        quantity: Math.max(1, it.printQty),
                     };
                 });
             if (!products.length) {
                 SO.notify('Không có mã SP để in tem', 'warning');
                 return;
             }
+            // PER-UNIT: cấp mã đơn vị + QR URL cho từng món (best-effort, không chặn in).
+            await SO._attachUnitCodes(products);
             const uniqSuppliers = Array.from(new Set(items.map((it) => it.supplier)));
             const supplierLabel =
                 uniqSuppliers.length === 1 ? uniqSuppliers[0] : `${uniqSuppliers.length} NCC`;
@@ -136,6 +221,8 @@
             quantity: Math.max(1, Number(it.qtyReceived) || 1),
             price: Number(it.price) || Number(it.sellPriceVnd) || 0,
             stock: Number(it.stock) || 0,
+            // PER-UNIT: giữ mảng unit (mỗi tem 1 mã + QR URL) nếu đã mint sẵn.
+            units: Array.isArray(it.units) ? it.units : undefined,
         }));
         window.Web2ProductsPrint.open(products);
     };

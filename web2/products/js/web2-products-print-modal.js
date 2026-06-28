@@ -46,6 +46,9 @@
             quantity: Math.max(1, Math.round(Number(p.quantity) || 1)),
             qtyActual: Math.max(0, Math.round(p.stock || 0)), // for "Gán tồn"
             price: Number(p.price) || 0,
+            // PER-UNIT (2026-06-28): mỗi tem 1 mã đơn vị + QR URL riêng (đã mint sẵn).
+            // Thiếu units → hành vi cũ (lặp mã SP). units[i] khớp tem thứ i.
+            units: Array.isArray(p.units) ? p.units : undefined,
             selected: true,
         }));
 
@@ -461,10 +464,18 @@
         _markProductsPrinted(items);
         const labels = [];
         for (const item of items) {
+            // PER-UNIT (2026-06-28): nếu item.units có (mỗi món 1 mã riêng + QR URL),
+            // mỗi tem lấy unitCode + qrUrl riêng. KHÔNG có units → hành vi cũ (lặp mã,
+            // QR mã hóa chính chuỗi mã). units[i] khớp tem thứ i của vòng quantity.
+            const units = Array.isArray(item.units) ? item.units : null;
             for (let i = 0; i < item.quantity; i++) {
+                const u = units && units[i] ? units[i] : null;
+                const unitCode = u ? u.unitCode || u.unit_code : null;
+                const qrUrl = u ? u.qrUrl || u.qr_url : null;
                 labels.push({
                     name: stripBrackets(item.name),
-                    code: item.code,
+                    code: unitCode || item.code, // chữ DƯỚI QR = mã đơn vị (vd KHOAODEN-017)
+                    qrText: qrUrl || item.code, // NỘI DUNG QR = URL trace (per-unit) / mã SP (cũ)
                     price: item.price,
                     variant: item.variant || '',
                 });
@@ -482,18 +493,18 @@
                 // + EC mặc định 'M' (module TO hơn 'H') = quét nhạy hơn trên tem 25mm.
                 // Key vẫn theo code+variant để khớp render (nội dung QR = mã SP, giống
                 // nhau giữa các biến thể nên render ra QR như nhau — vô hại).
-                const wantVariant = !!opts.showVariant;
+                // Key qrMap = NỘI DUNG QR (l.qrText) — unique/đơn-vị (URL ?u=<id>) hoặc
+                // mã SP (hành vi cũ). Mỗi nội dung QR render 1 lần.
                 const seen = new Set();
                 for (const l of labels) {
-                    if (!l.code) continue;
-                    const variant = wantVariant && l.variant ? String(l.variant) : '';
-                    const key = _qrKey(l.code, variant);
-                    if (seen.has(key)) continue;
-                    seen.add(key);
+                    const qrText = l.qrText || l.code;
+                    if (!qrText) continue;
+                    if (seen.has(qrText)) continue;
+                    seen.add(qrText);
                     if (window.Web2QR) {
                         try {
-                            qrMap[key] = {
-                                src: await window.Web2QR.toDataUrl(l.code, {
+                            qrMap[qrText] = {
+                                src: await window.Web2QR.toDataUrl(qrText, {
                                     style: 'rounded',
                                     margin: 2,
                                     pxPerCell: 12,
@@ -505,7 +516,7 @@
                             /* fallthrough → davidshimjs */
                         }
                     }
-                    qrMap[key] = { src: genQrDataUrl(l.code), baked: false };
+                    qrMap[qrText] = { src: genQrDataUrl(qrText), baked: false };
                 }
             } catch (e) {
                 notify('Lỗi tạo QR, in tạm mã 1D: ' + e.message, 'warning');

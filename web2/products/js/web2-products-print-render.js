@@ -136,8 +136,8 @@
                 // 2026-06-06: QR (2D) → ảnh QR pre-render (quét mọi độ dài mã trên
                 // tem 25mm); hoặc Code128 PNG canvas crisp giống WEB2 (/Web/Barcode).
                 // QR entry theo code+biến thể (biến thể bake giữa QR khi baked=true).
-                const qrVariant = showVariant && label.variant ? String(label.variant) : '';
-                const qrEntry = isQr ? qrMap[_qrKey(label.code, qrVariant)] || {} : {};
+                // QR lookup theo NỘI DUNG QR (label.qrText: URL per-unit / mã SP cũ).
+                const qrEntry = isQr ? qrMap[label.qrText || label.code] || {} : {};
                 const barcodeImg = isQr
                     ? `<img class="qrimg" src="${escapeHtml(qrEntry.src || '')}" alt="" />`
                     : `<img class="bcimg" data-code="${escapeHtml(label.code)}" alt="" />`;

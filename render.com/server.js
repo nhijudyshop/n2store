@@ -647,6 +647,7 @@ const deliveryInvoicesRoutes = require('./routes/delivery-invoices');
 const refundsRoutes = require('./routes/refunds');
 const pbhReportsRoutes = require('./routes/pbh-reports');
 const web2ProductsRoutes = require('./routes/web2-products');
+const web2ProductUnitsRoutes = require('./routes/web2-product-units'); // WEB2.0 — mã đơn vị + QR riêng/món (per-unit tracking)
 const web2ReturnsRoutes = require('./routes/web2-returns'); // WEB2.0 — Thu về (goods return)
 const web2VariantsRoutes = require('./routes/web2-variants');
 const web2ProductTypesRoutes = require('./routes/web2-product-types');
@@ -797,6 +798,8 @@ app.use('/api/delivery-invoices', deliveryInvoicesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/pbh-reports', pbhReportsRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
+web2ProductUnitsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-product-units', web2ProductUnitsRoutes); // WEB2.0 — per-unit code + QR (mint/resolve/assign/reprint)
 app.use('/api/web2-order-tags', web2OrderTagsRoutes); // WEB2.0 — TAG đơn hàng config (auto theo trigger)
 app.use('/api/web2-elevenlabs', web2ElevenLabsRoutes); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
 app.use('/api/web2-tts-pro', web2TtsProRoutes); // WEB2.0 — "Giọng AI Pro" TTS proxy (video-maker), tên trung tính
