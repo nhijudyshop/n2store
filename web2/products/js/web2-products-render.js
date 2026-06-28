@@ -202,6 +202,64 @@
                 </tr>`;
     }
 
+    // Bảng CON: khi expand 1 SP cha → render các biến thể con thành 1 BẢNG RIÊNG
+    // nhúng trong 1 ô colspan (drawer). Tách hẳn khỏi bảng chính → KHÔNG lẫn với SP
+    // thường. Mỗi con vẫn đủ nút Sửa/In/Tạm dừng/Lịch sử/Xóa + checkbox chọn.
+    function _childRowHtml(p) {
+        const code = escapeHtml(p.code);
+        const imgSrc = safeImageUrl(p.imageUrl);
+        const img = imgSrc
+            ? `<img class="w2pc-img" src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
+            : `<span class="w2pc-img w2pc-noimg"><i data-lucide="image"></i></span>`;
+        const variantText = (p.variant || '').trim();
+        const stock = p.stock ?? 0;
+        const stockClass = stock === 0 ? 'zero' : stock < 5 ? 'low' : '';
+        const checked = STATE.selectedCodes.has(p.code) ? ' checked' : '';
+        const selClass = STATE.selectedCodes.has(p.code) ? ' is-selected' : '';
+        return `<tr class="w2pc-row${selClass}" data-code="${code}">
+            <td class="w2pc-sel"><input type="checkbox" class="w2p-checkbox" data-select-code="${code}"${checked} /></td>
+            <td class="w2pc-imgcell">${img}</td>
+            <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(escJs(p.code))}')"><i data-lucide="tag"></i>${code}</span></td>
+            <td class="w2pc-variantcell"><div class="variant-stack">${
+                variantText
+                    ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
+                    : '<span class="variant-empty">—</span>'
+            }<span class="stock-badge ${stockClass}" title="Tồn kho"><i data-lucide="package"></i>Tồn: ${stock}</span></div></td>
+            <td class="price-cell price-buy">${fmtPrice(Number(p.originalPrice) || 0)}</td>
+            <td class="price-cell price-sell">${fmtPrice(Number(p.price) || 0)}</td>
+            <td>${p.region ? `<span class="w2p-region-badge">${escapeHtml(p.region)}</span>` : '<span class="w2p-region-empty">—</span>'}</td>
+            <td>${_statusBadgeHtml(p)}</td>
+            <td><div class="row-actions">${_rowActionsHtml(p)}</div></td>
+        </tr>`;
+    }
+    function _childPanelHtml(g) {
+        const body = g.variants.map((v) => _childRowHtml(v.orig || {})).join('');
+        return `
+                <tr class="w2p-child-drawer" data-group-key="${escapeHtml(g.key)}">
+                    <td colspan="12">
+                        <div class="w2p-child-panel">
+                            <div class="w2p-child-panel-head"><i data-lucide="git-branch"></i>${g.variantCount} biến thể con của <strong>${escapeHtml(g.name)}</strong></div>
+                            <table class="w2p-child-table">
+                                <thead>
+                                    <tr>
+                                        <th class="w2pc-sel"></th>
+                                        <th>Ảnh</th>
+                                        <th>Mã SP</th>
+                                        <th>Biến thể / Tồn</th>
+                                        <th>Giá mua</th>
+                                        <th>Giá bán</th>
+                                        <th>Địa danh</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${body}</tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>`;
+    }
+
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
@@ -236,18 +294,7 @@
                     n += 1;
                     const expanded = STATE.expandedParents.has(g.key);
                     html.push(_parentRowHtml(g, n, expanded));
-                    if (expanded) {
-                        const last = g.variants.length - 1;
-                        g.variants.forEach((v, ci) =>
-                            html.push(
-                                _rowHtml(v.orig, '', {
-                                    child: true,
-                                    childFirst: ci === 0,
-                                    childLast: ci === last,
-                                })
-                            )
-                        );
-                    }
+                    if (expanded) html.push(_childPanelHtml(g)); // bảng con riêng (drawer)
                 }
             }
             tbody().innerHTML = html.join('');
@@ -379,6 +426,10 @@
         STATE.products[idx] = newProduct;
         const tr = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
         if (!tr) return false;
+        // SP là biến thể CON đang hiện trong bảng-con (drawer expand) → KHÔNG swap kiểu
+        // dòng-chính (vỡ layout bảng con). Trả false để caller full reload (render lại
+        // panel đúng + cập nhật tổng ở dòng cha).
+        if (tr.closest('.w2p-child-drawer')) return false;
         const stt = (STATE.page - 1) * STATE.limit + idx + 1;
         // Parse new row HTML into a DOM node, then swap.
         const tmp = document.createElement('tbody');

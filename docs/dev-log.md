@@ -16,10 +16,10 @@ User: trang overview (landing Framer-style) hiệu ứng **nặng quá** → tha
 - **Marquee** chuyển sang CSS `@keyframes translateX(-50%)` (transform-only, pause on hover) thay GSAP tween. **Hero entrance** = CSS `ov-fade-up` stagger thay SplitText. Reveal vẫn IntersectionObserver (`[data-rise]`) — giữ nguyên. `prefers-reduced-motion` cập nhật cho hiệu ứng mới.
 - Verify browser (admin): 0 console error, gsap/lenis/splitText=undefined, aurora 0 span + animation none, 52 card render, scroll-reveal OK (40/52 + 4/4 pillar khi cuộn). Bump `?v=20260628lite`.
 
-### [web2/products] Kho SP — CHA bình thường, chỉ CON (expand) mới tách biệt
+### [web2/products] Kho SP — CON khi expand = BẢNG RIÊNG nhúng (tách hẳn khỏi bảng chính)
 
-User làm rõ: **dòng CHA để bình thường như SP khác**; CHỈ khi expand thì các **CON** mới cần tách biệt để nhìn rõ. → Bỏ toàn bộ tô khối ở dòng cha (nền/viền/thanh trái) + bỏ dòng đệm `.w2p-grp-gap`. Dòng cha giờ trắng như SP thường (chỉ thêm chevron + mã cha + "N biến thể" ở nội dung). Dòng CON khi expand: nền tím nhạt + thanh trái tím + ↳ thụt lề 22px + viền bracket trên/dưới (con đầu/cuối) gom khối con. Bump `render/css=p7`.
-(Trước đó p6 tô cả nhóm thành 1 khối — hiểu sai ý, đã revert.)
+User: con (HCAO3GHI…) nhìn GIỐNG SP standalone (HCMMXC3) → khó phân biệt; muốn expand ra con **tách biệt hẳn**, "có thể làm bảng riêng". → Khi expand, các CON render thành **1 BẢNG RIÊNG nhúng** trong 1 ô `colspan=12` (drawer `.w2p-child-drawer`): rãnh nền tím + thanh trái tím đậm 6px + thụt 46px; header "🌿 N biến thể con của <tên>"; bảng con `.w2p-child-table` = card trắng viền tím + bo góc + shadow, có thead riêng (Ảnh/Mã/Biến thể-Tồn/Giá mua/Giá bán/Địa danh/Trạng thái/Thao tác). Mỗi con đủ checkbox + nút Sửa/In/Tạm dừng/Lịch sử/Xóa (dùng chung helper `_statusBadgeHtml`/`_rowActionsHtml` tách từ `_rowHtml`). Dòng CHA vẫn bình thường. `_updateRowInPlace` guard: con trong drawer → full reload (tránh vỡ bảng con). Bump `render/css=p8`.
+(p6 tô cả nhóm = sai; p7 con tách kiểu dòng nhạt vẫn lẫn; p8 = bảng riêng rõ hẳn.)
 
 ## 2026-06-27
 
