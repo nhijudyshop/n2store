@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét QR đơn vị (mobile): resolve → định tuyến kệ STT → gán đơn. Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét QR đơn vị (mobile): resolve → HIỂN THỊ STT giỏ đã gán + đơn chờ (gán TỰ ĐỘNG ở luồng giỏ, KHÔNG nút Gán). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md
 (function () {
     'use strict';
 
@@ -198,7 +198,7 @@
                             <div class="o-name">${esc(o.customerName || 'Khách lẻ')}</div>
                             <div class="o-sub">${esc(o.customerPhone || '')}${o.orderCode ? ' · ' + esc(o.orderCode) : ''} · đặt ${o.orderedQty}${o.assignedQty ? ' · đã có ' + o.assignedQty : ''}</div>
                         </div>
-                        ${done ? '<span class="chip green">đủ</span>' : `<button class="o-act" data-assign="${o.orderId}">Gán</button>`}
+                        ${done ? '<span class="chip green">đủ</span>' : `<span class="chip amber">còn ${o.remaining}</span>`}
                     </div>`;
                   })
                   .join('')
@@ -227,16 +227,8 @@
 
         // wire reprint (in lại đúng 1 tem đơn vị này)
         $('#reprintBtn')?.addEventListener('click', () => reprintUnit(u, p));
-
-        // wire assign buttons
-        $('#result')
-            .querySelectorAll('[data-assign]')
-            .forEach((btn) => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    doAssign(u, Number(btn.dataset.assign), btn);
-                });
-            });
+        // KHÔNG còn nút "Gán" — unit tự gán STT giỏ khi kéo/thêm SP vào giỏ hàng
+        // (auto-assign ở luồng giỏ). Trang quét chỉ HIỂN THỊ STT đã gán + đơn chờ.
     }
 
     // ── In lại 1 tem đơn vị ────────────────────────────────────────
@@ -287,33 +279,6 @@
                       .join('')
                 : '<div class="muted" style="padding:8px">Chưa có lịch sử</div>';
         } catch (_) {}
-    }
-
-    // ── Assign ─────────────────────────────────────────────────────
-    async function doAssign(unit, orderId, btn) {
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = '…';
-        }
-        try {
-            const data = await api('/assign', {
-                method: 'POST',
-                body: JSON.stringify({ unitId: unit.id, orderId, userName: userName() }),
-            });
-            const stt = data.stt;
-            toast('✓ Bỏ vào kệ STT ' + stt, 'ok');
-            if (data.fulfillment?.complete) {
-                setTimeout(() => toast('🎉 Kệ ' + stt + ' ĐỦ HÀNG — đóng gói!', 'ok'), 1400);
-            }
-            // refresh hiển thị
-            resolve({ id: unit.id });
-        } catch (e) {
-            toast('Lỗi gán: ' + (e.message || ''), 'err');
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Gán';
-            }
-        }
     }
 
     // ── Scanner ────────────────────────────────────────────────────
@@ -399,7 +364,7 @@
         });
     }
 
-    // ── SSE realtime: đơn vị đổi (máy khác gán) → refresh ──────────
+    // ── SSE realtime: đơn vị đổi (auto-gán giỏ / reprint máy khác) → refresh ──
     function initSse() {
         try {
             if (window.Web2SSE?.subscribe) {

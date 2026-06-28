@@ -127,8 +127,9 @@
     }
 
     // Open print barcode dialog for a single product (by code).
-    // Uses dedicated Web2ProductsPrint module — no WEB2 API, pure local render.
-    function printBarcode(code) {
+    // PER-UNIT (logic mới): gắn mã đơn vị + QR đã mint (in LẠI đúng tem từng món) như
+    // bulk print. SP chưa có unit → hành vi cũ (lặp mã SP). Clone để không bẩn cache.
+    async function printBarcode(code) {
         if (!window.Web2ProductsPrint?.open) {
             notify('Print module chưa load, refresh trang', 'error');
             return;
@@ -138,7 +139,9 @@
             notify('Không tìm thấy sản phẩm', 'error');
             return;
         }
-        window.Web2ProductsPrint.open([p]);
+        const item = { ...p };
+        if (W._attachUnitsForPrint) await W._attachUnitsForPrint([item]);
+        window.Web2ProductsPrint.open([item]);
     }
 
     // Export to shared namespace.

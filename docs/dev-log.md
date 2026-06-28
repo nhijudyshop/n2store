@@ -2,6 +2,15 @@
 
 ## 2026-06-28
 
+### [web2-products + unit-scan] Per-unit cho nút In tem + bỏ nút Gán thủ công (gán giờ tự động)
+
+**Files:** `web2/products/js/web2-products-render.js` (+`_attachUnitsForPrint`, `_bulkPrint` async), `web2/products/js/web2-products-actions.js` (printBarcode per-unit), `web2/unit-scan/js/unit-scan.js` (bỏ doAssign + nút Gán), HTML cache-bust (products render `ii`/actions `20260628a`, unit-scan `e`).
+
+- **Task 2 — In tem per-unit**: nút "In tem (N)" bulk + per-row printer cũ gọi `Web2ProductsPrint.open` KHÔNG có `units` → in mã SP lặp lại (logic cũ). Thêm `_attachUnitsForPrint` (READ-ONLY fetch `/by-product/:code` → gắn `units`+QR, KHÔNG mint mới ở Kho), clone tránh bẩn cache. SP chưa có unit → fallback hành vi cũ. **Verified live**: KHOTEST → 3 units (001/002/003) gắn vào, qty→3.
+- **Task 3 — bỏ nút Gán**: unit-scan xóa `doAssign` + nút "Gán" + wiring (việc gán giờ TỰ ĐỘNG ở luồng giỏ — xem Task 4). Trang quét chỉ HIỂN THỊ STT giỏ đã gán + đơn chờ + lịch sử. **Verified live**: `?u=1`→KHOTEST-001, 0 nút Gán, reprint còn, 0 error.
+
+**Status:** ✅ Task 2 + 3 done + verified. (Task 4 auto-gán theo giỏ — đang làm.)
+
 ### [so-order] Audit toàn bộ (4 agent, từng tab/modal) → fix 2 HIGH thật, loại 1 false-positive
 
 **Files:** `so-order/js/so-order-receive.js`, `so-order/js/so-order-toolbar.js`, `so-order/index.html` (cache-bust receive+toolbar `?v=20260628b`).

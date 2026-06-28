@@ -370,7 +370,51 @@
         _updateBulkBar();
     }
 
-    function _bulkPrint() {
+    // PER-UNIT (logic mới 2026-06-28): gắn mã đơn vị (qr1..qrN) + QR đã mint cho các
+    // SP sắp in. READ-ONLY — Kho SP chỉ IN LẠI tem đã sinh lúc nhận hàng (KHÔNG mint
+    // mới ở đây — không có ngữ cảnh đợt). SP chưa có unit → giữ hành vi cũ (lặp mã SP).
+    // Mutate trên BẢN CLONE do caller truyền (đừng bẩn cache).
+    async function _attachUnitsForPrint(products) {
+        const base =
+            window.API_CONFIG?.WORKER_URL ||
+            window.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev';
+        let token = '';
+        try {
+            token = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || '';
+        } catch (_) {
+            /* no token */
+        }
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { 'x-web2-token': token } : {}),
+        };
+        await Promise.all(
+            (products || []).map(async (p) => {
+                if (!p.code) return;
+                try {
+                    const r = await fetch(
+                        base + '/api/web2-product-units/by-product/' + encodeURIComponent(p.code),
+                        { headers }
+                    );
+                    const d = await r.json().catch(() => ({}));
+                    const units = (d.units || []).map((u) => ({
+                        unitCode: u.unitCode,
+                        qrUrl: location.origin + '/web2/unit-scan/?u=' + u.id,
+                    }));
+                    if (units.length) {
+                        p.units = units;
+                        p.quantity = units.length;
+                    }
+                } catch (_) {
+                    /* fetch lỗi → SP này in theo hành vi cũ (lặp mã SP) */
+                }
+            })
+        );
+        return products;
+    }
+
+    async function _bulkPrint() {
         if (!STATE.selectedCodes.size) {
             notify('Chưa chọn SP nào để in', 'warning');
             return;
@@ -380,15 +424,13 @@
             return;
         }
         // Gather products — selectedCodes có thể ở trang khác nên fallback qua
-        // Web2ProductsCache trước, rồi STATE.products.
+        // Web2ProductsCache trước, rồi STATE.products. CLONE để gắn units không bẩn cache.
         const cache = window.Web2ProductsCache;
         const collected = [];
         const missing = [];
         for (const code of STATE.selectedCodes) {
-            const fromCache = cache?.findByCode?.(code);
-            const fromState = STATE.products.find((p) => p.code === code);
-            const p = fromCache || fromState;
-            if (p) collected.push(p);
+            const p = cache?.findByCode?.(code) || STATE.products.find((x) => x.code === code);
+            if (p) collected.push({ ...p });
             else missing.push(code);
         }
         if (!collected.length) {
@@ -398,6 +440,8 @@
         if (missing.length) {
             console.warn('[web2-products] bulk print missing codes:', missing);
         }
+        // Gắn mã đơn vị + QR đã mint → in LẠI đúng tem từng món (quét ra đúng đơn/STT).
+        await _attachUnitsForPrint(collected);
         window.Web2ProductsPrint.open(collected);
     }
 
@@ -708,6 +752,7 @@
     W._selectAllVisible = _selectAllVisible;
     W._clearSelection = _clearSelection;
     W._bulkPrint = _bulkPrint;
+    W._attachUnitsForPrint = _attachUnitsForPrint; // dùng chung cho printBarcode per-row
     W._updateRowInPlace = _updateRowInPlace;
     W._updateRowsBatch = _updateRowsBatch;
     W.renderPagination = renderPagination;
