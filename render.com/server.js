@@ -943,6 +943,12 @@ const web2SoOrderRoutes = require('./routes/web2-so-order');
 web2SoOrderRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2-so-order', web2SoOrderRoutes);
 
+// WEB2.0 (2026-06-28): kho ảnh NCC theo đợt cho Sổ Order — BYTEA trong web2Db
+// (KHÔNG nhét base64 vào doc). Topic SSE 'web2:so-order-images'.
+const web2SoOrderImagesRoutes = require('./routes/web2-so-order-images');
+web2SoOrderImagesRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-so-order-images', web2SoOrderImagesRoutes);
+
 // WEB2.0 — Báo cáo kho: mua vào (Sổ Order) vs bán ra (PBH) theo SP + NCC. Read-only, no SSE.
 const web2WarehouseReportRoutes = require('./routes/web2-warehouse-report');
 app.use('/api/web2-warehouse-report', web2WarehouseReportRoutes);
