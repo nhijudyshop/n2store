@@ -3,19 +3,19 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8f37cff` — feat(so-order): Dien ngau nhien bom nhieu data hon - LOAI bien the (Ao/Quan/Dam/Vay/Giay/Dep) tu ProductTypesCache + 12 NCC + 2-6 dong; reset-flow wipe target
-**Last updated**: 2026-06-28 21:43:04 +07
-**Latest session**: [`RESUME:20260628-214304-8f37cff`](../20260628-214304-8f37cff.md)
-**Summary**: feat(so-order): Dien ngau nhien bom nhieu data hon - LOAI bien the (Ao/Quan/Dam/Vay/Giay/Dep) tu ProductTypesCache + ...
+**Latest commit**: `b1505d2` — feat(agent-tooling): ponytail lazy-senior-dev YAGNI mode (always-on)
+**Last updated**: 2026-06-28 22:00:48 +07
+**Latest session**: [`RESUME:20260628-220048-b1505d2`](../20260628-220048-b1505d2.md)
+**Summary**: feat(agent-tooling): ponytail lazy-senior-dev YAGNI mode (always-on)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
+- [`.claude/`](./.claude.md) — 18 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
-- [`.claude/`](./.claude.md) — updated 2026-06-28 21:07
+- [`.claude/`](./.claude.md) — updated 2026-06-28 22:00
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
 - [`_root/`](./_root.md) — updated 2026-06-27 08:51
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 21:43
+- [`docs/`](./docs.md) — updated 2026-06-28 22:00
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
