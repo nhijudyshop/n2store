@@ -2,7 +2,9 @@
 
 ## 2026-06-28
 
-### [ai-hub][shared] Ẩn nút nổi ✨ trợ lý AI trên trang ai-hub (chính nó là trợ lý rồi)
+### [so-order] Hardening: picker KHÔNG auto-đặt tên cho dòng đã CHỌN SP (matchedCode)
+
+User báo bug: chọn SP cha từ suggest → Lưu Nháp → dòng cha tên bị "A". **Repro trên code hiện tại (browser, port riêng): KHÔNG tái hiện** — modal + storage + bảng đều "ÁO SƠ MI LỤA" (3 con Beo/Ghi/Đỏ, head "ÁO SƠ MI LỤA · 3 biến thể · HCAO5BEO"). "A" có thể do JS cũ bị cache (version churn p9→q khi 2 agent sửa song song). **Hardening**: guard auto-name của Web2VariantPicker onChange thêm `!row.matchedCode` → dòng đã chọn SP có sẵn (từ suggest, mọi dòng cha-con) KHÔNG bị picker re-mount ghi đè tên thành tên auto/cụt; chỉ auto-name SP gõ tay mới. Bump `so-order-modal-core.js=r`. (Khuyến nghị user hard-refresh Cmd+Shift+R.)
 
 **Files:** `web2/shared/web2-ai-assistant.js`, `web2/shared/web2-sidebar.js`.
 

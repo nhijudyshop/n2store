@@ -264,7 +264,14 @@
                     // ô Tên. CÓ THỂ SỬA: chỉ điền khi ô tên đang trống hoặc bằng tên
                     // auto trước đó (user chưa gõ tay / chưa chọn SP từ gợi ý).
                     const curName = (row.productName || '').trim();
-                    if (name && (curName === '' || curName === (row._autoName || ''))) {
+                    // KHÔNG auto-đặt tên cho dòng đã CHỌN SP có sẵn (có matchedCode) —
+                    // giữ TÊN SP thật (cha/con) user chọn từ suggest, tránh picker ghi
+                    // đè thành tên auto/cụt khi re-mount. Chỉ auto-name SP gõ tay mới.
+                    if (
+                        name &&
+                        !row.matchedCode &&
+                        (curName === '' || curName === (row._autoName || ''))
+                    ) {
                         row.productName = name;
                         row._autoName = name;
                         const nameInput = document.querySelector(
