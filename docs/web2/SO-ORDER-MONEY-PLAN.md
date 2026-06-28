@@ -34,7 +34,7 @@
 
 ## Stages
 
-- [ ] **S1 — Data model (blob)**: thêm `sh.expenses:[{id,label,amount,note,createdAt}]` vào shipment; APIs storage: `addExpense/updateExpense/deleteExpense/getShipmentExpenseTotal`; `_migrateTab` backfill `expenses=[]`. (Payments KHÔNG lưu blob — ở ledger.)
+- [x] **S1 — Data model (blob)** ✅ 2026-06-28: thêm `sh.expenses:[{id,label,amount,note,createdAt}]` + APIs `addExpense/updateExpense/deleteExpense/getShipmentExpenseTotal` (so-order-storage.js, additive + lazy default; storage bumped `?v=20260628v`). Chưa có consumer UI (S3/S4 sẽ dùng).
 - [ ] **S2 — Tab Đợt cấp 2**: state `activeBatchId` per-device (như activeTabId); render dải tab đợt (đợt = nhóm shipment theo batch, mới nhất đầu, "Tất cả" cuối) dưới tab địa danh; lọc `renderTableBody` theo đợt đang chọn. Sort + "Tất cả".
 - [ ] **S3 — Stat cards**: thay `.so-totals` bằng dải 5 card (KG/HĐ/CP/TT/CÒN LẠI) theo đợt đang chọn; aggregator mới `getBatchTotals(batch)` (HĐ+KG từ adjust, CP từ expenses, TT từ ledger cache). CÒN LẠI màu đỏ nếu >0.
 - [ ] **S4 — CP UI**: danh sách dòng chi phí trong modal "Sửa lô" cạnh per-order meta (#soPerOrderMetaWrap) + dòng tóm tắt CP ở shipment header. Inline add/edit/delete (Web2NumberInput cho amount).
