@@ -2,6 +2,12 @@
 
 ## 2026-06-28
 
+### [web2/system] Tab "Gợi ý AI" — quản lý toàn bộ gợi ý + accessor của widget AI theo từng trang
+
+**Files:** `web2/system/js/system-ai-suggestions.js` (MỚI), `web2/system/{index.html, js/system-app.js}`.
+
+User: thêm tất cả gợi ý AI widget vào trang system để quản lý. Tab thứ 6 "✨ Gợi ý AI" đọc `window.Web2AiPageRegistry.PAGES` (+ GENERIC) → liệt kê per-trang: route, model, **accessor dữ liệu** (expr + desc), **câu gợi ý** (label + prompt collapsible), note nguồn data. Summary: số trang có gợi ý, tổng câu gợi ý, số trang có/không accessor. Có ô tìm kiếm (route/nội dung gợi ý/accessor). `VALID_TABS` thêm `ai` + lazy-init `SystemAiSuggestions.start()`. Load `web2-ai-page-registry.js` trên trang (sidebar autoload + load thêm cho chắc).
+
 ### [sepay-invoices] Push snapshot từ máy IP nhà (SePay Cloudflare chặn scrape IP server)
 
 **Files:** `render.com/routes/web2-sepay-invoices.js`, `scripts/sepay-push.js` (MỚI), `web2/system/js/system-services.js`.
