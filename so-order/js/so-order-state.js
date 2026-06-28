@@ -97,4 +97,24 @@
         } catch (e) {}
         return h;
     };
+
+    // 2026-06-28: CHỈ ADMIN dùng được Thanh toán + Cài đặt tab + Quản lý ảnh.
+    // Nhân viên thường vẫn tạo đơn / nhận hàng (+ dùng kho ảnh admin đã set).
+    SO._isAdmin = function _isAdmin() {
+        try {
+            var u =
+                (window.Web2Auth && window.Web2Auth.getStored && window.Web2Auth.getStored()) ||
+                null;
+            u = u && u.user;
+            if (u && (u.role === 'admin' || u.isAdmin === true)) return true;
+            var ui = window.Web2UserInfo && window.Web2UserInfo.get && window.Web2UserInfo.get();
+            if (ui && (ui.role === 'admin' || ui.isAdmin === true)) return true;
+            // Fallback: đọc trực tiếp web2_auth localStorage.
+            var raw = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            var ru = raw && raw.user;
+            return !!(ru && (ru.role === 'admin' || ru.isAdmin === true));
+        } catch (e) {
+            return false;
+        }
+    };
 })();

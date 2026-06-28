@@ -8,6 +8,10 @@
 
     // Tab settings modal — currency + rate
     SO.openTabSettingsModal = function openTabSettingsModal(forNew) {
+        if (SO._isAdmin && !SO._isAdmin()) {
+            SO.notify('Chỉ admin được cài đặt tab', 'warning');
+            return;
+        }
         const form = document.getElementById('soTabSettingsForm');
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
         if (forNew) {

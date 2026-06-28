@@ -48,9 +48,19 @@
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
         const lbl = document.getElementById('soActiveTabLabel');
         if (lbl) lbl.textContent = tab.label;
-        // Nút "Quản lý ảnh" chỉ hiện khi tab bật imageManager (Cài đặt tab).
+        // 2026-06-28: gate admin — Thanh toán CK + Cài đặt tab (+ thêm tab) + Quản lý
+        // ảnh CHỈ admin thấy/dùng. NV thường vẫn tạo đơn / nhận hàng.
+        const isAdmin = !SO._isAdmin || SO._isAdmin();
+        const gate = (id, show) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = show ? '' : 'none';
+        };
+        gate('soStatPayBtn', isAdmin);
+        gate('soTabSettingsBtn', isAdmin);
+        gate('soAddTabBtn', isAdmin);
+        // Nút "Quản lý ảnh" chỉ hiện khi tab bật imageManager VÀ là admin.
         const imgBtn = document.getElementById('soImageMgrBtn');
-        if (imgBtn) imgBtn.hidden = !tab.imageManager;
+        if (imgBtn) imgBtn.hidden = !(tab.imageManager && isAdmin);
     };
 
     // ------ ĐỢT (batch) — tab cấp 2 dưới địa danh (2026-06-28) ------

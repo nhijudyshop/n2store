@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [so-order/web2-so-order-images] Quản lý ảnh NCC theo đợt (BYTEA web2Db) + admin-only
+
+**Files:** BE `render.com/routes/web2-so-order-images.js` (MỚI) + `server.js` mount; FE `so-order/js/so-order-image-manager.js` (MỚI), `so-order-state.js` (`_isAdmin`), `so-order-render.js` (nút Quản lý ảnh + admin gate), `so-order-modal-image.js` (nút "chọn ảnh từ kho NCC" + gallery wire), `so-order-modal-core.js`/`so-order-modal-open.js` (auto ảnh hóa đơn khi nhập NCC), `so-order-payments.js`/`so-order-settings.js` (admin guard), `so-order-app.js` (wire), `so-order/index.html` (nút + modal + script + bump -ab), `so-order/css/so-order.css`.
+
+User: (1) Cài đặt tab bật "Quản lý ảnh" → nút mở modal; (2) modal nhập ảnh, **TÁCH 2 khu vực dán: ảnh hóa đơn + ảnh SP** (không bắt buộc hóa đơn dán trước); ảnh hóa đơn auto đổ vào NCC khi tạo đơn, ảnh SP hiện gallery cho chọn (nhiều lần); (3) **CHỈ admin** thấy/dùng thanh toán + cài đặt tab + quản lý ảnh.
+
+- **Backend** (Render web2Db, KHÔNG Neon): bảng `web2_so_order_images` (BYTEA) keyed (tab_id, batch, ncc, kind invoice|product). Routes `/api/web2-so-order-images`: GET /list, GET /by-ncc, GET /img/:id (public immutable), POST / (invoice=replace), DELETE /:id, DELETE /ncc. SSE `web2:so-order-images`. Lưu BYTEA tránh phình doc so-order (108+ NCC × nhiều ảnh).
+- **Quản lý ảnh modal**: đợt tabs (+Đợt mới) · tìm NCC · card mỗi NCC = **2 khu vực tách bạch** (HÓA ĐƠN viền vàng/1 ảnh · SP viền xanh/nhiều ảnh), dán Ctrl+V/kéo thả (Web2Effects nén) → upload ngay; xoá ảnh/NCC; realtime SSE.
+- **Create-order**: nhập NCC + tab.imageManager → auto ảnh hóa đơn (chọn 1 lần, chỉ khi trống) + nút "chọn ảnh từ kho NCC" trên ô ảnh SP → gallery NCC (chọn nhiều lần). NV thường vẫn tạo đơn + dùng kho ảnh admin set.
+- **Admin-only** (`SO._isAdmin` đọc web2 role): ẩn + guard nút Thanh toán CK, Cài đặt tab, +Thêm tab, Quản lý ảnh.
+- **Verify**: BE upload/list/by-ncc/delete OK (curl + browser, đã cleanup test); manager 2 khu vực rõ; admin gate (admin thấy hết, non-admin ẩn + open no-op).
+
 ### [so-order] Cài đặt tab: chế độ thanh toán (đợt | theo từng NCC)
 
 **Files:** `so-order/js/so-order-storage.js` (paymentMode + imageManager per-tab: \_migrateTab backfill, addTab, updateTab), `so-order-settings.js` (populate + submit), `so-order-render.js` (`getNccBatchTotals`), `so-order-payments.js` (openPaymentModal branch supplier mode + `_nccSummaryCards`), `web2/shared/web2-supplier-pay.js` (`onNccChange` + `setAmount`/`setHistory`), `so-order/index.html` (controls Cài đặt tab + bump z/b), `so-order/css/so-order.css` (`.so-field-check`).

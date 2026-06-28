@@ -3798,16 +3798,42 @@ td.so-vp-editing {
 }
 .so-imc-sects {
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 220px 1fr;
     gap: 12px;
 }
+/* 2026-06-28: 2 KHU VỰC tách bạch — Ảnh hóa đơn (trái, viền vàng) vs Ảnh SP
+   (phải, viền xanh). Độc lập: dán bên nào trước cũng được (không bắt buộc hóa
+   đơn dán đầu tiên). */
+.so-imc-sect {
+    border: 1px solid #e6ebf2;
+    border-radius: 10px;
+    padding: 9px 10px 10px;
+    background: #fcfdff;
+}
+.so-imc-sect:first-child {
+    border-color: #fde0b0;
+    background: #fffdf6;
+}
+.so-imc-sect-prod {
+    border-color: #cfe1ff;
+    background: #f7faff;
+}
 .so-imc-sect-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #64748b;
-    margin-bottom: 6px;
+    margin-bottom: 7px;
+}
+.so-imc-sect:first-child .so-imc-sect-label {
+    color: #b45309;
+}
+.so-imc-sect-prod .so-imc-sect-label {
+    color: #0058da;
 }
 .so-imc-sect-label span {
     color: #94a3b8;

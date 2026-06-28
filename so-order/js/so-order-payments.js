@@ -178,6 +178,10 @@
     };
 
     SO.openPaymentModal = function openPaymentModal() {
+        if (SO._isAdmin && !SO._isAdmin()) {
+            SO.notify('Chỉ admin được thanh toán', 'warning');
+            return;
+        }
         if (!window.Web2SupplierPay) {
             SO.notify('Module thanh toán chưa load — refresh trang', 'error');
             return;
