@@ -71,14 +71,17 @@
             if (el) el.addEventListener('input', SO.updateModalGrandTotals);
         });
 
-        // Generic close handlers
+        // Generic close handlers. Đóng bằng backdrop/✕ → ẩn luôn 2 float panel
+        // (suggest/variant) treo ở <body>, tránh dropdown lơ lửng sau khi modal
+        // đóng (chỉ submit path gọi hideModal→_hideFloatPanels; path này thì không).
         document.querySelectorAll('[data-so-close]').forEach((el) => {
             el.addEventListener('click', () => {
                 el.closest('.so-modal, .so-lightbox')?.setAttribute('hidden', '');
+                SO._hideFloatPanels?.();
             });
         });
 
-        // ESC closes any open modal
+        // ESC closes any open modal (+ ẩn float panel orphan như trên)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document
@@ -86,6 +89,7 @@
                     .forEach((m) => {
                         m.hidden = true;
                     });
+                SO._hideFloatPanels?.();
             }
         });
     };

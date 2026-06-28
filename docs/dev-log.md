@@ -2,6 +2,20 @@
 
 ## 2026-06-28
 
+### [so-order] Audit toàn bộ (4 agent, từng tab/modal) → fix 2 HIGH thật, loại 1 false-positive
+
+**Files:** `so-order/js/so-order-receive.js`, `so-order/js/so-order-toolbar.js`, `so-order/index.html` (cache-bust receive+toolbar `?v=20260628b`).
+
+Audit 27 file/9.3k dòng bằng 4 agent song song (storage-sync / tabs-render / create-modal / action-modal). Tự verify từng finding (không tin agent mù).
+
+- **FIX HIGH #1 — receive→mint bypass** (`so-order-receive.js` confirmReceiveFromModal): path NHẬN HÀNG chính gọi `openBarcodePrintModal` KHÔNG qua `_attachUnitCodes` → tem in TỰ ĐỘNG thiếu QR per-unit (hệ thống QR build session trước CHỈ chạy ở nút phụ "In tem"). Fix: thêm `await SO._attachUnitCodes(printableItems)` + mang `shipmentId/supplier/quantity` vào printableItems → mint idempotent theo (code, shipmentId) khớp path "In tem". **Verified live**: mint KHOTEST-001/002/003 + QR; gọi lần 2 cùng key → cùng serial (không nhân đôi).
+- **FIX HIGH #2 — orphan dropdown** (`so-order-toolbar.js`): đóng modal bằng backdrop/✕/ESC set `hidden` trực tiếp, KHÔNG qua `hideModal()` → `_hideFloatPanels()` không chạy → dropdown suggest/variant (portal `<body>`) treo lơ lửng. Fix: gọi `SO._hideFloatPanels?.()` ở cả 2 handler. **Verified live**: panel visible→ESC→ẩn, →close-click→ẩn.
+- **FALSE POSITIVE loại bỏ**: "nút Nhận hàng còn active khi partial_received" — ĐÚNG THIẾT KẾ (partial còn nhận tiếp phần dư; "Đã nhận" chỉ khi `received` đủ).
+- **Regression check fix sync hôm nay**: A1/A2 (adopt-empty + pushSync, SSE version0) KHÔNG phải regression — pre-existing sync semantics; pushSync sau adopt-empty chỉ đẩy default RỖNG (không mang data thật về). Fix server-authoritative an toàn (E2E đã chứng minh).
+- **Còn lại (report, chưa fix — chờ user ưu tiên)**: admin gate client-side (image-manager/payments endpoint dùng requireWeb2AuthSoft); import status "Đã nhận" → row kẹt không xoá/sửa; getBatchTotals đếm cả dòng trống; thiếu body scroll-lock create-modal; validation qty 0/âm (product-decision). Console 0 error.
+
+**Status:** ✅ 2 HIGH fixed + verified.
+
 ### [so-order] Fix footgun local-first: server-authoritative (wipe DB → reload ra RỖNG, hết "data đẩy ngược lại")
 
 **Files:** `so-order/js/so-order-storage-sync.js`, `so-order/js/so-order-storage.js`, `so-order/index.html` (cache-bust `?v=20260628b`).

@@ -749,6 +749,12 @@
                             ...serverRow,
                             variant: it.variant,
                             qtyReceived: receivedMap.get(it.key),
+                            // PER-UNIT (2026-06-28): mang shipmentId/supplier/quantity để
+                            // _attachUnitCodes mint mã đơn vị + QR idempotent theo
+                            // (code, shipmentId) — KHỚP path "In tem" (không nhân đôi serial).
+                            shipmentId: it.shipmentId,
+                            supplier: it.supplier,
+                            quantity: receivedMap.get(it.key),
                             price: temPrice,
                             sellPriceVnd: temPrice,
                         };
@@ -762,6 +768,10 @@
                         uniqSuppliers.length === 1
                             ? uniqSuppliers[0]
                             : `${uniqSuppliers.length} NCC`;
+                    // Mint mã đơn vị + QR cho tem in TỰ ĐỘNG (trước đây path này bỏ qua
+                    // _attachUnitCodes → tem không có QR per-unit; chỉ nút "In tem" phụ mới
+                    // mint). Best-effort: lỗi mint không chặn in (đã bọc try/catch ngoài).
+                    await SO._attachUnitCodes(printableItems);
                     SO.openBarcodePrintModal(printableItems, supplierLabel);
                 }
             } catch (printErr) {
