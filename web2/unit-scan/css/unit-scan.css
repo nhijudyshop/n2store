@@ -116,12 +116,13 @@ body {
     aspect-ratio: 16 / 9;
     max-height: 26vh;
 }
-#scanHost,
-#scanHost video {
+/* #scanHost được Web2BarcodeScanner gắn class .w2bc (flex column) + tự dựng
+   video/overlay bên trong. CHỈ set kích thước — TUYỆT ĐỐI KHÔNG set `display`
+   ở đây: selector id (#scanHost, đặc thù 1,0,0) sẽ ĐÈ `.w2bc{display:flex}`
+   (0,1,0) → mất flex → .w2bc-stage{flex:1} sập 0px → video 0px → CAMERA ĐEN. */
+#scanHost {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    display: block;
 }
 .scan-hint {
     position: absolute;

@@ -356,7 +356,7 @@
         // Đen thui im lặng (không 'ready' sau 2.5s) → cũng hiện nút bật tay.
         setTimeout(() => {
             if (!camReady) showCamRetry();
-        }, 2500);
+        }, 5000);
     }
     function showCamRetry(msg) {
         const host = $('#scanHost');
