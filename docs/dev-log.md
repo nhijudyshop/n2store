@@ -2,9 +2,10 @@
 
 ## 2026-06-28
 
-### [web2/products] Kho SP — khối SP cha-con tách biệt rõ trong bảng
+### [web2/products] Kho SP — CHA bình thường, chỉ CON (expand) mới tách biệt
 
-User: "giao diện table tách biệt để nhìn cho rõ". Mỗi nhóm cha-con giờ là 1 **KHỐI** riêng: nền tím chung (cha + con), thanh trái tím đậm 5px chạy suốt, viền bracket trên/dưới/phải, + **dòng đệm trắng** (`.w2p-grp-gap`) tách khối khỏi SP đứng trên/dưới. `renderRows` chèn GAP trước (nếu chưa có) + sau mỗi nhóm ≥2 biến thể; standalone vẫn dòng trắng thường. Bump `render/css=p6`.
+User làm rõ: **dòng CHA để bình thường như SP khác**; CHỈ khi expand thì các **CON** mới cần tách biệt để nhìn rõ. → Bỏ toàn bộ tô khối ở dòng cha (nền/viền/thanh trái) + bỏ dòng đệm `.w2p-grp-gap`. Dòng cha giờ trắng như SP thường (chỉ thêm chevron + mã cha + "N biến thể" ở nội dung). Dòng CON khi expand: nền tím nhạt + thanh trái tím + ↳ thụt lề 22px + viền bracket trên/dưới (con đầu/cuối) gom khối con. Bump `render/css=p7`.
+(Trước đó p6 tô cả nhóm thành 1 khối — hiểu sai ý, đã revert.)
 
 ## 2026-06-27
 
