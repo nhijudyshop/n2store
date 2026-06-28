@@ -10,10 +10,12 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = `${WORKER}/api/services-overview`;
 
-    // Limits per DB (used for usage bar calc). Cả 2 đều Render Postgres Basic 1GB.
+    // Limits per DB (usage bar calc). "basic_1gb" = 1GB RAM; DISK thật = 15 GB (verify Render API
+    // /v1/postgres diskSizeGB=15, 2026-06-28). Trước đây hardcode 1GB → báo 101.9% sai (thật ~7%).
+    const DB_DISK_BYTES = 15 * 1024 * 1024 * 1024; // 15 GB disk Render
     const DB_LIMITS = {
-        chatDb: { bytes: 1024 * 1024 * 1024, label: '1 GB (Render PG Basic)' },
-        web2Db: { bytes: 1024 * 1024 * 1024, label: '1 GB (Render PG Basic)' },
+        chatDb: { bytes: DB_DISK_BYTES, label: '15 GB disk (Render PG Basic, 1GB RAM)' },
+        web2Db: { bytes: DB_DISK_BYTES, label: '15 GB disk (Render PG Basic, 1GB RAM)' },
     };
 
     const REFRESH_MS = 60000;
@@ -449,7 +451,7 @@
                 ${t.tableBytes != null ? `<div class="sd-kv"><span class="sd-kv-k">Data (không index)</span><span class="sd-kv-v">${escapeHtml(t.tablePretty || fmtBytes(t.tableBytes))}</span></div>` : ''}
                 ${t.indexBytes != null ? `<div class="sd-kv"><span class="sd-kv-k">Index</span><span class="sd-kv-v">${escapeHtml(t.indexPretty || fmtBytes(t.indexBytes))}</span></div>` : ''}
                 ${t.rowCount && t.totalBytes ? `<div class="sd-kv"><span class="sd-kv-k">Bytes/dòng (TB)</span><span class="sd-kv-v">${fmtBytes(t.totalBytes / t.rowCount)}</span></div>` : ''}
-                <div class="sd-kv"><span class="sd-kv-k">% của DB (1GB)</span><span class="sd-kv-v">${pct.toFixed(2)}%</span></div>
+                <div class="sd-kv"><span class="sd-kv-k">% của DB (15GB)</span><span class="sd-kv-v">${pct.toFixed(2)}%</span></div>
             </div>`;
         openModal(`Bảng: ${tableName}`, body);
     }
