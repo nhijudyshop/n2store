@@ -1595,3 +1595,167 @@ body.sd-modal-open {
 .sd-modal-table tbody tr[data-table]:hover {
     background: var(--web2-table-hover, #f1f5f9);
 }
+
+/* ───────────────────────────────────────────────────────────
+   Sổ tay SSE (registry) — web2/system?tab=sse → #ssRegistry
+   Topic → publisher → subscriber → gap → luật "đừng sửa hỏng".
+   ─────────────────────────────────────────────────────────── */
+.ssr-wrap {
+    margin: 0 0 18px;
+    border: 1px solid var(--web2-border, #e5e7eb);
+    border-radius: 12px;
+    background: var(--web2-bg-light, #fff);
+    padding: 14px 16px;
+}
+.ssr-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.ssr-head h3 {
+    margin: 0;
+    font-size: 15px;
+    color: var(--web2-text, #111827);
+}
+.ssr-updated {
+    font-size: 11.5px;
+    color: var(--web2-text-faded, #9ca3af);
+}
+.ssr-note {
+    margin: 6px 0 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--web2-text-3, #6b7280);
+}
+.ssr-rules {
+    border: 1px solid var(--web2-border, #e5e7eb);
+    border-radius: 8px;
+    background: var(--web2-bg-cell-head, #f8fafc);
+    padding: 6px 12px;
+    margin-bottom: 14px;
+}
+.ssr-rules > summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--web2-text-2, #374151);
+    padding: 4px 0;
+}
+.ssr-rules ul,
+.ssr-topic-body ul {
+    margin: 6px 0 8px;
+    padding-left: 18px;
+}
+.ssr-rules li {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--web2-text-2, #374151);
+    margin-bottom: 5px;
+}
+.ssr-topics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ssr-topic {
+    border: 1px solid var(--web2-border, #e5e7eb);
+    border-radius: 9px;
+    overflow: hidden;
+}
+.ssr-topic.has-gap {
+    border-color: #fca5a5;
+}
+.ssr-topic > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 9px 12px;
+    background: var(--web2-bg-cell-head, #f8fafc);
+}
+.ssr-topic > summary::-webkit-details-marker {
+    display: none;
+}
+.ssr-topic-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--web2-primary, #0068ff);
+    background: rgba(0, 104, 255, 0.08);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.ssr-topic-purpose {
+    font-size: 12px;
+    color: var(--web2-text-3, #6b7280);
+    flex: 1 1 200px;
+}
+.ssr-gap-pill {
+    font-size: 11px;
+    font-weight: 700;
+    color: #b91c1c;
+    background: #fee2e2;
+    padding: 1px 8px;
+    border-radius: 999px;
+}
+.ssr-topic-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 4px 18px;
+    padding: 10px 14px 4px;
+}
+.ssr-topic-body h5 {
+    margin: 6px 0 2px;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--web2-text-faded, #9ca3af);
+}
+.ssr-topic-body code {
+    font-size: 11px;
+    color: var(--web2-text-2, #374151);
+    word-break: break-all;
+}
+.ssr-where {
+    font-size: 11px;
+    color: var(--web2-text-faded, #9ca3af);
+}
+.ssr-muted {
+    color: var(--web2-text-faded, #9ca3af);
+    font-size: 11px;
+}
+.ssr-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: #e5e7eb;
+    color: #374151;
+}
+.ssr-badge.ok {
+    background: #dcfce7;
+    color: #166534;
+}
+.ssr-badge.warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+.ssr-col-gap li {
+    color: #b45309;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.ssr-col-rule li {
+    color: #b91c1c;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.ssr-loading {
+    padding: 14px;
+    font-size: 12.5px;
+    color: var(--web2-text-3, #6b7280);
+}

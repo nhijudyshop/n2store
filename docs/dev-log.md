@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [web2/system + so-order SSE] Sổ tay SSE trong tab + fix 4 gap subscribe web2:so-order
+
+**Files:** `web2/system/data/web2-sse-registry.json` (MỚI), `web2/system/js/system-sse-registry.js` (MỚI), `web2/system/{index.html, js/system-sse.js, css/system.css}`, `web2/supplier-debt/js/supplier-debt-app.js`, `web2/purchase-refund/js/purchase-refund-app.js`, `live-chat/js/pancake/inventory-panel-actions.js`, `web2/dashboard/index.html`.
+
+User: sau audit/debug SSE → ghi thứ quan trọng vào `web2/system?tab=sse` để sau này khỏi sửa nhầm/hỏng SSE.
+
+- **Sổ tay SSE** (registry tĩnh) render trong tab SSE: topic → publisher (file:line emit sau commit) → subscriber (trang live-update) → gap → luật "đừng sửa hỏng". Nguồn curated `data/web2-sse-registry.json` (8 topic + 10 luật chung). Render `system-sse-registry.js` → `#ssRegistry`, gọi trong `SystemSSE.start()`. CSS `.ssr-*` trong system.css. Verify Playwright: 8 card + 10 rule + 2 gap pill, body publisher/subscriber/đừng-sửa-hỏng OK.
+- **Fix 4 GAP** (audit luồng so-order): các trang đọc data Sổ Order nhưng chưa subscribe `web2:so-order` → thêm subscribe + debounce reload: **supplier-debt** (công nợ NCC derive từ rows so-order), **purchase-refund** (picker Section A gom theo lô), **live-chat inventory-panel** (tab NCC từ so-order), **dashboard** (KPI Sổ Order, trước chỉ poll 60s).
+- **Phát hiện (chưa fix, ghi vào sổ tay):** `activeTabId` (tab địa danh đang xem) nằm TRONG state đồng bộ `web2_so_order` → chuyển tab ở máy A làm máy B cũng nhảy tab. Nên tách per-device localStorage (chờ user quyết).
+
 ### [so-order] FIX: in tem sau khi nhận hàng ra giá 0
 
 **Files:** `so-order/js/so-order-receive.js`, `so-order/js/so-order-barcode.js`, `so-order/index.html` (bump `?v=20260628t`).

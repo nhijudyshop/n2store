@@ -276,6 +276,10 @@
         global.Web2SSE.subscribe('web2:native-orders', _scheduleRefresh);
         // SP update → reload list
         global.Web2SSE.subscribe('web2:products', _scheduleRefresh);
+        // 2026-06-28: tab NCC trong panel lấy từ Sổ Order (loadTabsFromSoOrder) →
+        // subscribe web2:so-order để tab NCC mới/đổi tên/xoá tự cập nhật (refresh()
+        // đã reload tabs từ so-order). Trước đây chỉ web2:cart/native-orders/products.
+        global.Web2SSE.subscribe('web2:so-order', _scheduleRefresh);
     }
 
     async function refresh() {

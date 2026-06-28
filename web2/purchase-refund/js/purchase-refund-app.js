@@ -22,6 +22,18 @@
             clearTimeout(setupSSE._t);
             setupSSE._t = setTimeout(() => loadList(), 600);
         });
+        // 2026-06-28: picker Section A đọc SP đã nhận từ Sổ Order (web2_so_order) gom
+        // theo lô → phải subscribe web2:so-order (+ web2:products khi nhận hàng đổi
+        // tồn) để picker tự cập nhật, không cần bấm "Đồng bộ"/reload tay.
+        const reloadSource = () => {
+            clearTimeout(setupSSE._ts);
+            setupSSE._ts = setTimeout(() => {
+                loadSourceItems();
+                loadList();
+            }, 600);
+        };
+        STATE.sseUnsubSrc = window.Web2SSE.subscribe('web2:so-order', reloadSource);
+        STATE.sseUnsubSrc2 = window.Web2SSE.subscribe('web2:products', reloadSource);
     }
 
     function wireSourceList() {

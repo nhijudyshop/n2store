@@ -358,6 +358,8 @@
         _started = true;
         const app = $('ssApp');
         if (app) app.style.display = '';
+        // Sổ tay SSE (registry tĩnh) — render 1 lần khi mở tab (đừng sửa hỏng doc).
+        window.SystemSSERegistry?.render?.();
         setConn('', 'Đang kết nối…');
         // First-load skeleton cho danh sách topic (overwrite bởi renderTopics/poll-error).
         if (!_topicsHadData && window.Web2Skeleton) {

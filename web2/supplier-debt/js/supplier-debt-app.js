@@ -255,6 +255,10 @@
                 scheduleReload('web2:fast-sale-orders')
             )
         );
+        // 2026-06-28: nợ NCC được DERIVE từ rows Sổ Order (web2_so_order) — sửa Sổ
+        // Order thuần (đổi qty/giá/nhận hàng) chỉ bắn web2:so-order, không chắc đổi
+        // web2:products → phải subscribe web2:so-order để công nợ live-update.
+        _sseUnsubs.push(window.Web2SSE.subscribe('web2:so-order', scheduleReload('web2:so-order')));
     }
 
     if (document.readyState === 'loading') {

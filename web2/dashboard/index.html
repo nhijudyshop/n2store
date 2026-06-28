@@ -414,6 +414,10 @@
                         };
                         Web2SSE.subscribe('web2:kpi-dashboard', reloadDebounced);
                         Web2SSE.subscribe('web2:fast-sale-orders', reloadDebounced);
+                        // 2026-06-28: widget pipeline Sổ Order đọc web2_so_order
+                        // (dashboard-kpi.js) nhưng trước chỉ poll 60s — subscribe
+                        // web2:so-order để KPI Sổ Order cập nhật khi sổ đổi.
+                        Web2SSE.subscribe('web2:so-order', reloadDebounced);
                     }
                     setInterval(load, 60000);
                 });
