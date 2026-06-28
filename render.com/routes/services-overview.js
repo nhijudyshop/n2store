@@ -136,7 +136,7 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: null,
         paidLimit: {
-            storage: '1 GB',
+            storage: '15 GB disk (1GB RAM, Render API diskSizeGB=15)',
             tier: 'Basic $19/mo · Pro 4GB $55 · Pro+ 8GB $95',
             uptime: 'Always-on — KHÔNG hết hạn, KHÔNG sleep',
         },
@@ -155,7 +155,7 @@ const SERVICES_INVENTORY = [
         currency: 'USD',
         freeTier: null,
         paidLimit: {
-            storage: '1 GB',
+            storage: '15 GB disk (1GB RAM, Render API diskSizeGB=15)',
             tier: 'Basic $19/mo · upgrade nếu vượt',
             uptime: 'Always-on — KHÔNG sleep',
         },
