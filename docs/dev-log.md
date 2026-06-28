@@ -2,6 +2,20 @@
 
 ## 2026-06-28
 
+### [web2/products + so-order + live] Vòng đời SP: nhận hàng → bán → HẾT HÀNG (mất hiệu lực)
+
+**Files BE:** `render.com/routes/{web2-products,native-orders,fast-sale-orders,web2-returns,purchase-refund}.js`. **FE:** `web2/products/{index.html,js/web2-products-{state,filters,render}.js,js/web2-product-detail.js}`, `web2/live-control/js/live-control.js`, `web2/live-tv/js/live-tv.js`, `so-order/js/so-order-modal-suggest.js`.
+
+**Logic mới (user chốt):** SP nhận hàng (confirm-purchase) → có tồn (DANG_BAN). Bán hết tồn (stock→0, pending=0) → **status `HET_HANG` + is_active=false ("mất hiệu lực")**: tự ẩn khỏi Kho SP (filter mặc định "Đang bán") + bảng live, **CHỈ còn trong gợi ý Số Order** để nhập lại nhanh. Re-import (upsert-pending) → reactivate. (3 quyết định AskUserQuestion: status riêng + tự ẩn · ẩn cả Kho+live · SP huỷ-khỏi-đơn-chưa-nhận VẪN xoá hẳn như cũ.)
+
+**Trigger (mọi path tồn về 0):** sell native-orders + fast-sale (decrement), refund NCC (purchase-refund), huỷ thu về (returns). Un-retire (tồn lại): huỷ PBH restock, duyệt thu về, đảo refund, adjust-stock, re-import. Backfill idempotent (migration 081) + self-heal 2 chiều lúc boot cho path chưa inline-patch.
+
+**INVARIANT manual-pause (airtight, adversarial-review fix):** mọi retire CHỈ tác động khi `is_active=true`; mọi un-retire CHỈ khi `status='HET_HANG'` → SP user tự "Tạm dừng" KHÔNG bao giờ bị auto đổi HET_HANG / auto bật lại. `_recomputeParent` + badge CHA cũng có HET_HANG.
+
+**FE:** Kho SP filter 3 trạng thái (Đang bán mặc định / Hết hàng / Tất cả); badge HẾT HÀNG (Kho + detail + parent); bảng live lọc `isActive!==false`; gợi ý Số Order đánh dấu "hết hàng · nhập lại" (Web2ProductsCache vẫn load cả inactive). Cache-bust `20260628hh`.
+
+Verified: throwaway local PG (mọi transition + manual-pause preserved + idempotent) + adversarial review workflow (4 lỗi → fix hết). Status: ✅ FE đẩy GH Pages; BE deploy web2-api.
+
 ### [ai-widget] Redesign UI xanh Zalo + fix im lặng khi data quá lớn (live comments)
 
 **File:** `web2/shared/web2-ai-assistant.js` (+ bump version sidebar).
