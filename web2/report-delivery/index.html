@@ -379,6 +379,7 @@
                         if (!r.ok) throw new Error(`HTTP ${r.status}`);
                         const data = await r.json();
                         if (!data.success) throw new Error(data.error || 'Lỗi');
+                        window.Web2ReportDeliveryData = data; // expose full cho widget AI (Web2AiPageRegistry)
                         // innerHTML= overwrites any first-load skeleton in each container
                         renderKpi(data.totals || {});
                         renderGroupTable(data.byGroup || []);

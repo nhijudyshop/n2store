@@ -1091,7 +1091,13 @@
         {
             match: '/web2/report-delivery/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2ReportDeliveryData',
+                    desc: 'FULL payload báo cáo giao hàng theo khoảng ngày đang chọn: tổng quan + gom theo nhóm + theo hãng VC. Đầy đủ hơn DOM (DOM chỉ render bảng đã tổng hợp). Accessor CHÍNH để phân tích hiệu suất giao, COD, đơn ẩn.',
+                    shape: '{ success:boolean, totals:{ orderCount:number, amountTotal:number, codTotal:number, scannedCount:number, hiddenCount:number }, byGroup:Array<{ groupName:string, orderCount:number, amountTotal:number, codTotal:number, scannedCount:number, hiddenCount:number }>, byCarrier:Array<{ carrierName:string, orderCount:number, amountTotal:number, codTotal:number }> }',
+                },
+            ],
             suggestions: [
                 {
                     label: '🚚 Shipper nào ôm nhiều đơn nhất',
