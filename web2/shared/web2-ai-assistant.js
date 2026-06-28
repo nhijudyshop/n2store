@@ -358,10 +358,25 @@
     //  - Lớn → TÓM TẮT THỐNG KÊ (tổng/min/max/đếm theo trạng thái + đếm bất thường) +
     //    MẪU dòng "có vấn đề" (số âm / nhiều ô trống), thay vì cắt cụt 30 dòng đầu.
     // → AI thấy bức tranh TOÀN BẢNG dù DB lớn, không phụ thuộc số dòng.
+    let _ctxOversize = null; // {label,count} khi có accessor QUÁ LỚN (chỉ gửi được thống kê)
+    const HUGE_ROWS = 2000; // > ngưỡng này: KHÔNG stringify toàn bộ (chậm/RangeError) → tóm tắt ngay
     function encodeArray(arr, label, desc, budget) {
         const N = arr.length;
         if (!N) return `${label}: 0 bản ghi.`;
-        const raw = JSON.stringify(arr);
+        // Mảng QUÁ LỚN (vd comment livestream chục nghìn dòng) → stringify toàn bộ có thể ném
+        // RangeError "Invalid string length" / treo → pageContext crash → AI không trả lời.
+        // Bỏ qua raw, tóm tắt thống kê ngay + đánh dấu oversize để báo người dùng.
+        if (N > HUGE_ROWS) {
+            _ctxOversize = { label: label.replace(/\s*\[shape:.*$/, ''), count: N };
+            return summarizeDataset(arr, label, desc, budget);
+        }
+        let raw;
+        try {
+            raw = JSON.stringify(arr);
+        } catch {
+            _ctxOversize = { label: label.replace(/\s*\[shape:.*$/, ''), count: N };
+            return summarizeDataset(arr, label, desc, budget);
+        }
         if (raw.length <= budget) {
             return `${label} (${N} bản ghi — ĐẦY ĐỦ) — ${(desc || '').slice(0, 150)}:\n${raw}`;
         }
@@ -475,6 +490,7 @@
     }
 
     function pageContext() {
+        _ctxOversize = null; // reset mỗi lần gom context
         const parts = [];
         const title = (
             document.querySelector('h1, .aih-title, .page-title')?.innerText ||
@@ -584,6 +600,29 @@
     }
 
     function systemPrompt() {
+        // pageContext có thể lỗi với data bất thường → KHÔNG để nó giết AI reply (degrade gracefully).
+        let ctx;
+        try {
+            ctx = pageContext(); // gọi TRƯỚC để set _ctxOversize (side-effect)
+        } catch (e) {
+            _ctxOversize = null;
+            ctx =
+                'TRANG: ' +
+                location.pathname +
+                '\n(Không đọc được dữ liệu trang: ' +
+                (e.message || 'lỗi') +
+                ')';
+        }
+        const oversize = _ctxOversize
+            ? '\n\n⚠ DỮ LIỆU "' +
+              _ctxOversize.label +
+              '" có ' +
+              _ctxOversize.count.toLocaleString('vi-VN') +
+              ' bản ghi — QUÁ LỚN nên CHỈ gửi được THỐNG KÊ tổng hợp, KHÔNG có nội dung chi tiết từng dòng. ' +
+              'Nếu câu hỏi cần đọc/đếm nội dung CHI TIẾT từng dòng (vd nội dung text từng comment) mà phần thống kê ' +
+              'KHÔNG trả lời được → CHỈ trả lời đúng câu: "Dữ liệu quá lớn nên AI phân tích không nổi — bạn liên hệ ' +
+              'admin nâng ngưỡng AI nếu thật sự cần." Tuyệt đối KHÔNG bịa.'
+            : '';
         return (
             'Bạn là TRỢ LÝ AI hỗ trợ nhân viên hệ thống quản lý bán hàng Web 2.0 (shop thời trang nữ N2Store). ' +
             'Người dùng đang xem 1 trang; bên dưới là DỮ LIỆU của trang đó. ' +
@@ -593,8 +632,10 @@
             'chỉ vì cộng các dòng nhìn thấy — chỉ dùng khối DỮ LIỆU ĐẦY ĐỦ để tính tổng. ' +
             'Khi rà soát phép tính: tự cộng/trừ lại, chỉ rõ dòng sai và số đúng. ' +
             'Trả lời tiếng Việt, NGẮN GỌN, đi thẳng vấn đề, gạch đầu dòng khi liệt kê. ' +
-            'Nếu dữ liệu không đủ để kết luận, nói rõ thiếu gì.\n\n===== DỮ LIỆU TRANG =====\n' +
-            pageContext()
+            'Nếu dữ liệu không đủ để kết luận, nói rõ thiếu gì.' +
+            oversize +
+            '\n\n===== DỮ LIỆU TRANG =====\n' +
+            ctx
         );
     }
 
