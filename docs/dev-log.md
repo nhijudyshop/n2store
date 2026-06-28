@@ -2,6 +2,12 @@
 
 ## 2026-06-28
 
+### [ai-hub][shared] Ẩn nút nổi ✨ trợ lý AI trên trang ai-hub (chính nó là trợ lý rồi)
+
+**Files:** `web2/shared/web2-ai-assistant.js`, `web2/shared/web2-sidebar.js`.
+
+User: trang `web2/ai-hub` KHÔNG cần widget AI nổi (vì cả trang đã là khung Trợ lý AI). Thêm `ai-hub` vào điều kiện early-return của `Web2AiAssistant.mount()` (`/\/web2\/(login|ai-hub)\//`) — khớp pattern HIDE_RE sẵn có. Bump inject version widget trong sidebar `20260628a` (cache refresh production). Các trang khác giữ nguyên nút nổi.
+
 ### [ai-hub] Trợ lý AI: icon SVG sạch cho nút đính ảnh/prompt/gửi + chốt fix busy (scoped !important)
 
 **Files:** `web2/shared/web2-gemini-chat.js`, `web2/ai-hub/index.html`.

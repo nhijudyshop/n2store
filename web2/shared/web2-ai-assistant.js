@@ -1179,7 +1179,9 @@
     function mount() {
         cfg = loadCfg();
         if (!cfg.enabled) return;
-        if (/\/web2\/login\//.test(location.pathname) || HIDE_RE.test(location.pathname)) return;
+        // Trang ai-hub CHÍNH LÀ trợ lý AI (khung chat đầy đủ) → nút nổi ✨ thừa, ẩn đi.
+        if (/\/web2\/(login|ai-hub)\//.test(location.pathname) || HIDE_RE.test(location.pathname))
+            return;
         ensureUi();
         applyEnabledState();
     }
