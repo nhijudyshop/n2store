@@ -38,6 +38,14 @@
                             </button>
                             <button
                                 class="aih-tab"
+                                data-tab="gemini"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                <i data-lucide="sparkles"></i> Gemini Free
+                            </button>
+                            <button
+                                class="aih-tab"
                                 data-tab="image"
                                 role="tab"
                                 aria-selected="false"
@@ -257,6 +265,18 @@
                     </section>
 
                     <!-- ════════ GHÉP ĐỒ / THỬ ĐỒ ════════ -->
+                    <!-- ════════ GEMINI FREE (chat qua COOKIE — sidecar gemini-tryon /chat) ════════ -->
+                    <!-- Mount module shared Web2GeminiChat (web2/shared/web2-gemini-chat.js).
+                         Chat TEXT bằng tài khoản Gemini cookie của shop (FREE), multi-turn, xem hội thoại.
+                         Khác tab "Chat" (chat qua API-key backend). -->
+                    <section class="aih-pane" data-pane="gemini" hidden>
+                        <div
+                            id="aihGeminiMount"
+                            class="aih-mount"
+                            style="height: 72vh; min-height: 460px"
+                        ></div>
+                    </section>
+
                     <!-- Mount điểm cho module shared Web2Tryon (web2/shared/web2-tryon.js) —
                          1 NGUỒN dùng chung với widget ✨. KHÔNG dựng lại UI ở đây. -->
                     <section class="aih-pane" data-pane="tryon" hidden>
@@ -296,6 +316,9 @@
         <!-- Bộ cài máy shop (.bat 1-click) dùng chung — cho nút "Tải bộ cài Gemini" trong tab Ghép đồ. -->
         <script src="../shared/web2-pos-installer.js?v=20260627b"></script>
         <script src="../shared/web2-tryon.js?v=20260627k"></script>
+        <!-- Chat Gemini qua COOKIE (sidecar gemini-tryon /chat) — module shared + thin wrapper. -->
+        <script src="../shared/web2-gemini-chat.js?v=20260628a"></script>
+        <script src="./js/ai-gemini-chat.js?v=20260628a"></script>
         <script src="./js/ai-image.js?v=20260627gen2"></script>
         <script src="./js/ai-tryon.js?v=20260625a"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
