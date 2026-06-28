@@ -2,6 +2,20 @@
 
 ## 2026-06-28
 
+### [web2/overview] Trang giới thiệu NHẸ & MƯỢT — gỡ GSAP/Lenis, hiệu ứng thuần CSS
+
+**Files:** `web2/overview/{index.html,overview.css,overview.js}`.
+
+User: trang overview (landing Framer-style) hiệu ứng **nặng quá** → tham chiếu phong cách nhẹ/mượt của `web2/system?tab=services` để tinh chỉnh, vẫn đẹp hiện đại.
+
+- **Gỡ toàn bộ motion stack CDN**: GSAP + ScrollTrigger + SplitText + Lenis (4 script ~150KB+). Page giờ chỉ còn 3 script (web2-auth, lucide, overview.js) thay vì 8. JS bỏ `gsapFlourishes()` + `initLenis()`; anchor-scroll dùng native `window.scrollTo({behavior:smooth})` + offset nav.
+- **Lenis smooth-scroll bỏ** → native scroll (Lenis hijack rAF mỗi frame = thủ phạm "nặng" chính).
+- **Aurora**: 3 blob `46vmax` × `filter:blur(55px)` animate vô hạn → thay bằng **radial-gradient tĩnh vẽ 1 lần** (fixed layer, không animation/blur) → chi phí scroll ~0, vẫn giữ wash màu Framer.
+- **Grain**: bỏ `mix-blend-mode:multiply` (ép recomposite mỗi frame), giữ texture tĩnh opacity 0.04.
+- **Nav**: bỏ `backdrop-filter:blur(14px)` (vi phạm MODAL-ANTI-LAG) → nền trắng translucent đặc hơn (0.9 / scrolled 0.97).
+- **Marquee** chuyển sang CSS `@keyframes translateX(-50%)` (transform-only, pause on hover) thay GSAP tween. **Hero entrance** = CSS `ov-fade-up` stagger thay SplitText. Reveal vẫn IntersectionObserver (`[data-rise]`) — giữ nguyên. `prefers-reduced-motion` cập nhật cho hiệu ứng mới.
+- Verify browser (admin): 0 console error, gsap/lenis/splitText=undefined, aurora 0 span + animation none, 52 card render, scroll-reveal OK (40/52 + 4/4 pillar khi cuộn). Bump `?v=20260628lite`.
+
 ### [web2/products] Kho SP — CHA bình thường, chỉ CON (expand) mới tách biệt
 
 User làm rõ: **dòng CHA để bình thường như SP khác**; CHỈ khi expand thì các **CON** mới cần tách biệt để nhìn rõ. → Bỏ toàn bộ tô khối ở dòng cha (nền/viền/thanh trái) + bỏ dòng đệm `.w2p-grp-gap`. Dòng cha giờ trắng như SP thường (chỉ thêm chevron + mã cha + "N biến thể" ở nội dung). Dòng CON khi expand: nền tím nhạt + thanh trái tím + ↳ thụt lề 22px + viền bracket trên/dưới (con đầu/cuối) gom khối con. Bump `render/css=p7`.

@@ -73,15 +73,6 @@ body {
     text-rendering: optimizeLegibility;
 }
 
-/* Lenis smooth-scroll hooks */
-html.lenis,
-html.lenis body {
-    height: auto;
-}
-.lenis.lenis-smooth {
-    scroll-behavior: auto !important;
-}
-
 h1,
 h2,
 h3 {
@@ -114,7 +105,7 @@ a {
     background-clip: text;
     color: transparent;
 }
-/* Keep gradient visible after SplitText wraps chars in nested <div>s */
+/* Keep the gradient on any nested wrapper inside gradient text. */
 .ov-hero-title .ov-grad-text *,
 .ov-grad-text .char {
     background-image: var(--ov-grad);
@@ -129,66 +120,23 @@ a {
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    opacity: 0.035;
-    mix-blend-mode: multiply;
+    opacity: 0.04;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* Static soft colour wash — three radial-gradients painted ONCE into a fixed
+   layer. No filter:blur, no per-frame animation → essentially zero scroll cost
+   (the old version was 3×55px-blurred 46vmax blobs animating forever = the main
+   source of jank). Keeps the Framer-ish atmosphere for free. */
 .ov-aurora {
     position: fixed;
-    inset: -20vmax;
+    inset: 0;
     z-index: 0;
     pointer-events: none;
-    opacity: 0.55;
-}
-/* Blur on EACH blob (own GPU layer, cached) — NOT on parent, else blur
-   recomputes every frame as children drift. Big scroll-smoothness win. */
-.ov-aurora span {
-    position: absolute;
-    display: block;
-    border-radius: 50%;
-    filter: blur(55px);
-    will-change: transform;
-    transform: translateZ(0);
-}
-.ov-aurora .a1 {
-    width: 46vmax;
-    height: 46vmax;
-    left: -6vmax;
-    top: -8vmax;
-    background: radial-gradient(circle at 30% 30%, #4d8bff, transparent 62%);
-    animation: ov-drift1 26s var(--ov-ease) infinite alternate;
-}
-.ov-aurora .a2 {
-    width: 40vmax;
-    height: 40vmax;
-    right: -8vmax;
-    top: -4vmax;
-    background: radial-gradient(circle at 50% 50%, #b06bff, transparent 60%);
-    animation: ov-drift2 32s var(--ov-ease) infinite alternate;
-}
-.ov-aurora .a3 {
-    width: 38vmax;
-    height: 38vmax;
-    left: 30%;
-    top: 18vmax;
-    background: radial-gradient(circle at 50% 50%, #ff7ac6, transparent 62%);
-    animation: ov-drift3 38s var(--ov-ease) infinite alternate;
-}
-@keyframes ov-drift1 {
-    to {
-        transform: translate3d(8vmax, 6vmax, 0) scale(1.15);
-    }
-}
-@keyframes ov-drift2 {
-    to {
-        transform: translate3d(-7vmax, 9vmax, 0) scale(1.1);
-    }
-}
-@keyframes ov-drift3 {
-    to {
-        transform: translate3d(5vmax, -7vmax, 0) scale(1.2);
-    }
+    background:
+        radial-gradient(46vmax 46vmax at 6% -8%, rgba(77, 139, 255, 0.22), transparent 60%),
+        radial-gradient(42vmax 42vmax at 99% -4%, rgba(176, 107, 255, 0.18), transparent 60%),
+        radial-gradient(40vmax 40vmax at 64% 20%, rgba(255, 122, 198, 0.12), transparent 64%);
 }
 
 /* ---------- Nav ---------- */
@@ -208,17 +156,15 @@ a {
     gap: 18px;
     padding: 10px 12px 10px 18px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(231, 235, 243, 0.9);
     box-shadow: var(--ov-shadow-sm);
-    backdrop-filter: blur(14px) saturate(1.4);
-    -webkit-backdrop-filter: blur(14px) saturate(1.4);
     transition:
         box-shadow 0.4s var(--ov-ease),
         background 0.4s var(--ov-ease);
 }
 .ov-nav.is-scrolled .ov-nav-inner {
-    background: rgba(255, 255, 255, 0.86);
+    background: rgba(255, 255, 255, 0.97);
     box-shadow: var(--ov-shadow);
 }
 .ov-brand {
@@ -370,6 +316,36 @@ a {
     padding-top: 120px;
     padding-bottom: 60px;
 }
+/* Hero entrance — pure CSS, staggered (replaces GSAP timeline + SplitText). */
+@keyframes ov-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.ov-hero-title,
+.ov-hero [data-hero-fade] {
+    animation: ov-fade-up 0.7s var(--ov-ease-out) both;
+}
+.ov-hero .ov-eyebrow {
+    animation-delay: 0.05s;
+}
+.ov-hero-title {
+    animation-delay: 0.12s;
+}
+.ov-hero .ov-hero-lead {
+    animation-delay: 0.2s;
+}
+.ov-hero .ov-hero-cta {
+    animation-delay: 0.28s;
+}
+.ov-hero .ov-stats {
+    animation-delay: 0.36s;
+}
 .ov-eyebrow {
     display: inline-flex;
     align-items: center;
@@ -495,6 +471,17 @@ a {
     gap: 0;
     width: max-content;
     will-change: transform;
+    animation: ov-marquee 36s linear infinite;
+}
+/* Track holds the label set twice → -50% loops seamlessly. transform-only,
+   compositor-friendly (was a GSAP tween). */
+@keyframes ov-marquee {
+    to {
+        transform: translateX(-50%);
+    }
+}
+.ov-marquee:hover .ov-marquee-track {
+    animation-play-state: paused;
 }
 .ov-marquee-track span {
     display: inline-flex;
@@ -944,12 +931,15 @@ a {
 
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
-    .ov-aurora span,
     .ov-eyebrow .pulse,
     .ov-scrollcue .bar,
-    .ov-marquee-track {
+    .ov-marquee-track,
+    .ov-hero-title,
+    .ov-hero [data-hero-fade] {
         animation: none !important;
     }
+    .ov-hero-title,
+    .ov-hero [data-hero-fade],
     [data-rise] {
         opacity: 1 !important;
         transform: none !important;

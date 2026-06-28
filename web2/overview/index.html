@@ -17,17 +17,15 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="./overview.css?v=20260627fr3" />
+        <link rel="stylesheet" href="./overview.css?v=20260628lite" />
 
         <!-- Auth guard + base-URL config (must run before page logic) -->
         <script src="../shared/web2-auth.js?v=20260627ovr"></script>
     </head>
     <body>
-        <!-- Atmosphere -->
+        <!-- Atmosphere (static, painted once — no animation/blur) -->
         <div class="ov-grain" aria-hidden="true"></div>
-        <div class="ov-aurora" aria-hidden="true">
-            <span class="a1"></span><span class="a2"></span><span class="a3"></span>
-        </div>
+        <div class="ov-aurora" aria-hidden="true"></div>
 
         <!-- Floating glass nav -->
         <header class="ov-nav" id="ovNav">
@@ -206,14 +204,8 @@
 
         <!-- Icons -->
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-        <!-- Framer-style motion stack (CDN, only this page). GSAP free incl. ScrollTrigger/SplitText. -->
-        <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
-        <script
-            defer
-            src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollTrigger.min.js"
-        ></script>
-        <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js"></script>
-        <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.3.25/dist/lenis.min.js"></script>
-        <script defer src="./overview.js?v=20260627fr4"></script>
+        <!-- Light motion: pure CSS entrance + CSS marquee + IntersectionObserver reveal.
+             No GSAP / ScrollTrigger / SplitText / Lenis (removed 2026-06-28 — heavy/jank). -->
+        <script defer src="./overview.js?v=20260628lite"></script>
     </body>
 </html>

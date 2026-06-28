@@ -2,9 +2,11 @@
 //
 // Trang giới thiệu toàn bộ Web 2.0 = landing page sau khi đăng nhập (login → overview).
 // Nguồn module = catalog CHÍNH XÁC theo sidebar (web2-sidebar.js NAV), KHÔNG dùng
-// modules-manifest.js (đã stale). Hiệu ứng: GSAP + ScrollTrigger + SplitText + Lenis
-// (CDN, chỉ trang này). Mọi animation degrade an toàn nếu CDN lỗi (IntersectionObserver
-// lo phần reveal). Tôn trọng prefers-reduced-motion.
+// modules-manifest.js (đã stale).
+// Hiệu ứng = NHẸ & MƯỢT: thuần CSS (entrance hero, marquee, reveal qua
+// IntersectionObserver) + count-up rAF + magnetic buttons. KHÔNG còn GSAP/
+// ScrollTrigger/SplitText/Lenis (gây nặng/jank — đã gỡ 2026-06-28). Native scroll.
+// Tôn trọng prefers-reduced-motion.
 
 (function () {
     'use strict';
@@ -522,7 +524,7 @@
         }
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
-        // smooth anchor scroll (works with Lenis if present)
+        // smooth anchor scroll — native, with offset for the floating nav.
         Array.prototype.forEach.call(document.querySelectorAll('a[data-scroll]'), function (a) {
             a.addEventListener('click', function (e) {
                 var id = a.getAttribute('href');
@@ -530,88 +532,12 @@
                     var t = document.querySelector(id);
                     if (t) {
                         e.preventDefault();
-                        if (window.__ovLenis && window.__ovLenis.scrollTo)
-                            window.__ovLenis.scrollTo(t, { offset: -80 });
-                        else t.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' });
+                        var top = t.getBoundingClientRect().top + window.pageYOffset - 80;
+                        window.scrollTo({ top: top, behavior: REDUCED ? 'auto' : 'smooth' });
                     }
                 }
             });
         });
-    }
-
-    // ----- GSAP-powered flourishes (optional, degrade gracefully) -----
-    function gsapFlourishes() {
-        var gsap = window.gsap;
-        if (!gsap || REDUCED) {
-            // ensure hero title is fully visible without GSAP
-            return;
-        }
-        var ScrollTrigger = window.ScrollTrigger;
-        if (ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
-        var SplitText = window.SplitText;
-        if (window.ScrollTrigger) gsap.registerPlugin(window.ScrollTrigger);
-
-        // Hero headline kinetic reveal
-        var title = document.querySelector('.ov-hero-title');
-        if (title && SplitText) {
-            try {
-                gsap.registerPlugin(SplitText);
-                var split = new SplitText(title, { type: 'words,chars' });
-                gsap.from(split.chars, {
-                    yPercent: 120,
-                    opacity: 0,
-                    duration: 0.8,
-                    ease: 'power3.out',
-                    stagger: 0.012,
-                    delay: 0.15,
-                });
-            } catch (e) {
-                /* leave title as-is */
-            }
-        }
-
-        // Hero block fade-in
-        gsap.from('[data-hero-fade]', {
-            y: 24,
-            opacity: 0,
-            duration: 0.9,
-            ease: 'power3.out',
-            stagger: 0.12,
-            delay: 0.35,
-        });
-
-        // (Aurora parallax removed — scrubbing a blurred fixed layer every
-        // scroll frame caused jank. CSS drift on per-blob GPU layers is enough.)
-
-        // Marquee infinite loop
-        var track = document.querySelector('.ov-marquee-track');
-        if (track) {
-            gsap.to(track, { xPercent: -50, duration: 26, ease: 'none', repeat: -1 });
-        }
-    }
-
-    // ----- Lenis smooth scroll -----
-    function initLenis() {
-        if (REDUCED || !window.Lenis) return;
-        try {
-            var lenis = new window.Lenis({ duration: 1.1, smoothWheel: true });
-            window.__ovLenis = lenis;
-            if (window.gsap && window.ScrollTrigger) {
-                lenis.on('scroll', window.ScrollTrigger.update);
-                window.gsap.ticker.add(function (t) {
-                    lenis.raf(t * 1000);
-                });
-                window.gsap.ticker.lagSmoothing(0);
-            } else {
-                var raf = function (time) {
-                    lenis.raf(time);
-                    requestAnimationFrame(raf);
-                };
-                requestAnimationFrame(raf);
-            }
-        } catch (e) {
-            /* native scroll fallback */
-        }
     }
 
     // ----- boot -----
@@ -624,11 +550,6 @@
         countUp();
         magnetic();
         navState();
-        // run GSAP/Lenis after a tick so CDN scripts (defer) are ready
-        requestAnimationFrame(function () {
-            gsapFlourishes();
-            initLenis();
-        });
     }
 
     if (document.readyState === 'loading') {
