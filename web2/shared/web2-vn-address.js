@@ -26,7 +26,12 @@
     if (window.Web2VnAddress) return;
 
     const DATA_VERSION = '2tier-34p-3321w'; // bump khi regen vn-units.json (cache-bust)
-    const SCRIPT_SRC = (document.currentScript && document.currentScript.src) || '';
+    // currentScript khi IIFE chạy; fallback quét <script> theo tên file (đúng ở mọi
+    // độ sâu trang + base path, vd github.io/n2store/ vs nhijudy.store/).
+    const SCRIPT_SRC =
+        (document.currentScript && document.currentScript.src) ||
+        (document.querySelector('script[src*="web2-vn-address"]') || {}).src ||
+        '';
 
     // ─── State ──────────────────────────────────────────────────────────
     let _loadPromise = null;
@@ -287,11 +292,19 @@
             if (wardEl) wardEl.removeEventListener('change', onWardChange);
         }
 
-        return { getValue, setValue, refresh, destroy };
+        return { getValue, setValue, refresh, destroy, isReady };
+    }
+
+    // Dataset đã load xong chưa — consumer PHẢI gate ghi city/ward vào DB theo cờ
+    // này. Lúc đang tải, getValue() trả {''} (placeholder) → KHÔNG được ghi đè
+    // city/ward thật (đã có) bằng rỗng (bug data-loss).
+    function isReady() {
+        return !!_data;
     }
 
     window.Web2VnAddress = {
         load,
+        isReady,
         getProvinces,
         getWards,
         findProvince,

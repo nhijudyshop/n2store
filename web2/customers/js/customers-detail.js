@@ -14,6 +14,10 @@
     const NS = (window.__wcApp = window.__wcApp || {});
     const { state, $, esc, notify, normPhone } = NS;
 
+    // Warm dataset Tỉnh/TP→Phường/Xã sớm → khi mở/lưu modal đã load xong (tránh
+    // cửa sổ "đang tải" làm collectForm ghi đè ward/city rỗng).
+    if (window.Web2VnAddress?.load) window.Web2VnAddress.load().catch(() => {});
+
     // ─── SĐT phụ trong modal ────────────────────────────────────────────
     function renderAltPhones() {
         const list = $('#wcAltPhoneList');
@@ -185,6 +189,9 @@
 
     function collectForm() {
         const v = (id) => $('#' + id).value.trim();
+        // Gate city/ward: lúc dataset Web2VnAddress chưa load xong, 2 <select> hiện
+        // placeholder '' → KHÔNG ghi đè ward/city thật bằng rỗng (giữ giá trị cũ).
+        const vnReady = window.Web2VnAddress?.isReady?.() ?? false;
         const tags = v('wcfTags')
             ? v('wcfTags')
                   .split(',')
@@ -200,9 +207,9 @@
             status: v('wcfStatus'),
             tier: v('wcfTier'),
             address: v('wcfAddress'),
-            ward: v('wcfWard'),
+            ward: vnReady ? v('wcfWard') : state.editing?.ward || '',
             district: v('wcfDistrict'),
-            city: v('wcfCity'),
+            city: vnReady ? v('wcfCity') : state.editing?.city || '',
             carrier: v('wcfCarrier'),
             note: v('wcfNote'),
             fbId: v('wcfFbId'),

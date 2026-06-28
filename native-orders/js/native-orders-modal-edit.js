@@ -5,6 +5,10 @@
     'use strict';
     const NO = (window.NativeOrders = window.NativeOrders || {});
 
+    // Warm dataset Tỉnh/TP→Phường/Xã sớm để khi mở/save modal là đã load xong
+    // (mount đồng bộ, không có cửa sổ "đang tải" gây ghi đè rỗng — xem saveEdit).
+    if (window.Web2VnAddress?.load) window.Web2VnAddress.load().catch(() => {});
+
     // ---------- Modal (edit) ----------
     // Working copy of current order's lines while modal is open.
     NO.EDIT_LINES = [];
@@ -333,8 +337,12 @@
         };
 
         // Tỉnh/TP + Phường/Xã (Web2VnAddress, 2 cấp) → cột city_*/ward_* đã có
-        // sẵn ở native_orders + PATCH allow-list. Chỉ gửi khi picker đã mount.
-        const vnAddr = NO._vnAddr?.getValue?.() || null;
+        // sẵn ở native_orders + PATCH allow-list. CHỈ ghi khi dataset đã LOAD XONG
+        // (isReady): lúc đang tải getValue() trả {''} placeholder → backend chỉ bỏ
+        // qua `undefined` (không bỏ '' / null) nên sẽ ghi đè RỖNG lên city/ward thật
+        // → mất data. Chưa ready → bỏ qua, để PATCH giữ nguyên cột cũ.
+        const vnReady = window.Web2VnAddress?.isReady?.() ?? false;
+        const vnAddr = vnReady && NO._vnAddr?.getValue ? NO._vnAddr.getValue() : null;
         if (vnAddr) {
             fields.cityCode = vnAddr.provinceCode || null;
             fields.cityName = vnAddr.provinceName || '';
