@@ -8,7 +8,8 @@
             name="description"
             content="Web 2.0 — nền tảng vận hành nội bộ: bán hàng, mua hàng, kho, ví, khách hàng, Facebook, AI, realtime."
         />
-        <title>Web 2.0 — Nền tảng vận hành nội bộ</title>
+        <title>n2shop · Web 2.0 — Nền tảng vận hành nội bộ</title>
+        <link rel="icon" type="image/svg+xml" href="../shared/web2-logo.svg" />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,7 +18,7 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="./overview.css?v=20260628nav" />
+        <link rel="stylesheet" href="./overview.css?v=20260628logo" />
 
         <!-- Auth guard + base-URL config (must run before page logic) -->
         <script src="../shared/web2-auth.js?v=20260627ovr"></script>
@@ -32,9 +33,19 @@
         <!-- Floating glass nav -->
         <header class="ov-nav" id="ovNav">
             <nav class="ov-nav-inner" aria-label="Điều hướng chính">
-                <a class="ov-brand" href="#top"
-                    ><span class="ov-brand-dot" aria-hidden="true"></span> Web 2.0</a
-                >
+                <a class="ov-brand" href="#top">
+                    <img
+                        class="ov-brand-mark"
+                        src="../shared/web2-logo.svg"
+                        alt="n2shop"
+                        width="32"
+                        height="32"
+                    />
+                    <span class="ov-brand-word">
+                        <span class="ov-brand-name">n2shop</span>
+                        <span class="ov-brand-tag">Web 2.0</span>
+                    </span>
+                </a>
                 <div class="ov-nav-account">
                     <span id="ovAccount"></span>
                     <!-- Single CTA → trang ĐẦU TIÊN user có quyền (href + nhãn set bởi JS theo role) -->

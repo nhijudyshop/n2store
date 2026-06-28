@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [web2/overview + shared] Logo riêng n2shop Web 2.0 (mark "N" gradient + wordmark)
+
+**Files:** `web2/shared/web2-logo.svg` (mới), `web2/overview/{index.html,overview.css}`.
+
+User: tạo logo riêng cho n2shop Web 2.0.
+
+- **Logo mark** = SVG dùng chung `web2/shared/web2-logo.svg`: squircle gradient signature (#0068ff→#6d5cff→#c026d3) + sheen + monogram **"N"** trắng (2 thân + đường chéo translucent tạo chiều sâu) + **node dot** trắng/xanh (accent "realtime/2.0"). Font-independent (path), tái dùng được mọi nơi + làm favicon.
+- **Nav overview**: thay placeholder `.ov-brand-dot '2.0'` bằng `<img>` mark + wordmark 2 dòng: **n2shop** (Space Grotesk bold) + tag **WEB 2.0** (xanh, uppercase letterspaced). Set `<link rel=icon>` = logo SVG; title → "n2shop · Web 2.0".
+- Verify browser: mark load OK (SVG 150px render), wordmark "n2shop"/"Web 2.0", 0 console error. Zoom 280px xác nhận N + node sắc nét. Bump `?v=20260628logo`.
+- Chưa áp logo cho sidebar/login (40+ trang) — chờ user duyệt rollout.
+
 ### [ai-hub] GỘP 4 tab → 1 "Trợ lý AI": chat + tạo ảnh + ghép đồ + ghép mặt, chip chế độ, máy Bo
 
 **Files:** `web2/shared/web2-gemini-client.js` (MỚI — nguồn duy nhất gọi sidecar), `web2/shared/web2-gemini-chat.js` (rewrite thành trợ lý hợp nhất), `web2/ai-hub/{index.html, js/ai-hub.js}`.

@@ -170,31 +170,36 @@ a {
 .ov-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 700;
-    font-size: 1.05rem;
-    letter-spacing: -0.01em;
+    gap: 11px;
     white-space: nowrap;
 }
-.ov-brand-dot {
-    width: 26px;
-    height: 26px;
+.ov-brand-mark {
+    width: 32px;
+    height: 32px;
     border-radius: 9px;
-    background: var(--ov-grad);
-    box-shadow: var(--ov-shadow-blue);
-    position: relative;
     flex-shrink: 0;
+    display: block;
+    box-shadow: var(--ov-shadow-blue);
 }
-.ov-brand-dot::after {
-    content: '2.0';
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    font-size: 9px;
+.ov-brand-word {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+.ov-brand-name {
+    font-family: 'Space Grotesk', sans-serif;
     font-weight: 700;
-    color: #fff;
+    font-size: 1.08rem;
+    letter-spacing: -0.02em;
+    color: var(--ov-ink);
+}
+.ov-brand-tag {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ov-blue);
+    margin-top: 3px;
 }
 .ov-nav-links {
     display: flex;
