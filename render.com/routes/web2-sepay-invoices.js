@@ -64,9 +64,11 @@ function buildQr(id, amountVnd) {
     );
 }
 
+let _lastLoginDebug = null;
 async function _login(jar, email, pass) {
     const r1 = await fetch(`${BASE}/login`, { headers: { 'User-Agent': UA } });
     jar.add(r1.headers.getSetCookie?.());
+    const c1cnt = (r1.headers.getSetCookie?.() || []).length;
     const csrf1 = csrfFrom(await r1.text());
     const r2 = await fetch(`${BASE}/login/do_login`, {
         method: 'POST',
@@ -81,10 +83,22 @@ async function _login(jar, email, pass) {
         body: new URLSearchParams({ csrf_main: csrf1, email, password: pass }).toString(),
     });
     jar.add(r2.headers.getSetCookie?.());
+    const txt = await r2.text();
     let ok = false;
     try {
-        ok = JSON.parse(await r2.text())?.status === true;
+        ok = JSON.parse(txt)?.status === true;
     } catch (_) {}
+    // debug: KHÔNG lộ creds, chỉ độ dài + status flow.
+    _lastLoginDebug = {
+        loginStatus: r1.status,
+        csrf1Found: !!csrf1,
+        cookiesAfterLogin: c1cnt,
+        doLoginStatus: r2.status,
+        doLoginResp: txt.slice(0, 200),
+        emailLen: (email || '').length,
+        passLen: (pass || '').length,
+        ok,
+    };
     return ok;
 }
 
@@ -169,6 +183,12 @@ router.get('/', async (req, res) => {
             error: 'Chưa cấu hình SEPAY_LOGIN_EMAIL / SEPAY_LOGIN_PASSWORD trên Render.',
             configured: false,
         });
+    if (req.query.debug === '1') {
+        try {
+            await _fetchInvoices(email, pass);
+        } catch (_) {}
+        return res.json({ debug: _lastLoginDebug });
+    }
     const fresh = req.query.fresh === '1';
     if (!fresh && _cache.data && Date.now() - _cache.at < CACHE_MS) {
         return res.json({ ..._cache.data, cached: true });
