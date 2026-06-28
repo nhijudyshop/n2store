@@ -279,6 +279,7 @@
     }
 
     window.RfApp = {
+        STATE, // expose FULL dataset cho widget AI (Web2AiPageRegistry) — không chỉ DOM phân trang
         detail,
         openHistory,
         approve: (n) => changeState(n, 'approve', 'Duyệt'),

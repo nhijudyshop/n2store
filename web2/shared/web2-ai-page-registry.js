@@ -591,7 +591,28 @@
         {
             match: '/web2/fastsaleorder-delivery/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.DlvApp?.STATE?.orders || []',
+                    desc: 'FULL danh sách phiếu giao hàng đã nạp của trang/bộ lọc hiện tại (server-side phân trang, mặc định limit 200) đã áp lọc trạng thái + tìm kiếm. Đầy đủ hơn DOM. Mỗi phần tử là 1 phiếu giao kèm khách hàng, hãng VC, tracking, COD, phí giao, trạng thái + lịch sử state. Accessor CHÍNH để phân tích.',
+                    shape: "Array<{ id:number, number:string, fso:{ id:number|null, number:string }, dateDelivery:string, partner:{ name:string, phone:string, address:string }, carrier:{ name:string, trackingRef:string|null }, totalQuantity:number, cashOnDelivery:number, deliveryFee:number, state:string /*'pending'|'shipping'|'delivered'|'returned'|'cancel'*/, stateHistory:Array<{from,to,at}> }>",
+                },
+                {
+                    expr: 'window.DlvApp?.STATE?.total || 0',
+                    desc: 'Tổng số phiếu giao TOÀN BẢNG (đã lọc, bỏ qua phân trang) — biết quy mô dataset.',
+                    shape: 'number',
+                },
+                {
+                    expr: 'window.DlvApp?.STATE?.state || ""',
+                    desc: "Bộ lọc trạng thái đang áp ('pending'|'shipping'|'delivered'|'returned'|'cancel'|'' = tất cả).",
+                    shape: 'string',
+                },
+                {
+                    expr: 'window.DlvApp?.STATE?.search || ""',
+                    desc: 'Từ khoá tìm kiếm hiện tại (rỗng nếu không lọc).',
+                    shape: 'string',
+                },
+            ],
             suggestions: [
                 {
                     label: '📦 Đơn chờ giao lâu',

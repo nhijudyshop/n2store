@@ -271,6 +271,7 @@
     }
 
     window.DlvApp = {
+        STATE, // expose FULL dataset cho widget AI (Web2AiPageRegistry) — không chỉ DOM phân trang
         detail,
         openHistory,
         ship: (n) => changeState(n, 'ship', 'Bắt đầu giao'),

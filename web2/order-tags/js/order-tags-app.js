@@ -31,6 +31,8 @@
         triggerById: new Map(),
         editingCode: null,
     };
+    // Expose FULL dataset cho widget AI (Web2AiPageRegistry) — không chỉ DOM phân trang.
+    window.Web2OrderTagsApp = { STATE };
 
     // ---------- helpers ----------
     function $(id) {

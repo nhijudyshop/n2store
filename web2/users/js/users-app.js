@@ -28,6 +28,8 @@
         permsDraft: null, // { [slug]: [actions] }
         filters: { search: '', includeInactive: false },
     };
+    // Expose FULL dataset cho widget AI (Web2AiPageRegistry) — không chỉ DOM phân trang.
+    window.Web2UsersApp = { STATE };
 
     // ---------- helpers ----------
     function escapeHtml(s) {
