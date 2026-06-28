@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [ai-hub][gemini-tryon] Tab "Gemini Free" — CHAT với Gemini qua COOKIE (multi-turn, xem hội thoại)
+
+**Files:** `gemini-tryon/app.py` (ChatReq + `_run_chat` + `POST /chat`), `web2/shared/web2-gemini-chat.js` (mới — module shared `Web2GeminiChat`), `web2/ai-hub/js/ai-gemini-chat.js` (mới — thin wrapper), `web2/ai-hub/{index.html, js/ai-hub.js}`.
+
+User: "(1) muốn coi luôn đoạn hội thoại + nói chuyện với gemini; (2) tương tự chatgpt" → chọn **Build chat qua COOKIE (acc shop)** + ChatGPT dùng model free trong ai-hub.
+
+- **Backend sidecar** (`app.py`): thêm endpoint `POST /chat` + `_run_chat(message, metadata, account, images)` — chat **multi-turn** qua `gemini_webapi` `start_chat(metadata=[cid,rid,rcid])` → `send_message`. Trả `{ok,text,images,metadata,account}` để FE giữ ngữ cảnh + tiếp đúng account. Tiếp tục hội thoại (có metadata) → KHÔNG xoay account (break); hội thoại mới → xoay tua/round-robin. TEXT chat ỔN ĐỊNH (khác image-gen flaky). py_compile OK.
+- **Module shared** `Web2GeminiChat.mount(container)`: UI chat 2 cột (danh sách cuộc + khung chat), tự dò máy (localhost:8131 → registry `engine=gemini-tryon`, pick `readyCount>0`), lưu hội thoại localStorage (`web2_gemini_cookie_chats`), markdown nhẹ an toàn, multi-turn giữ `metadata`+`account`. Báo rõ khi máy offline / **bản cũ chưa có /chat (404)** → hướng dẫn chạy lại bộ cài [4] Gemini.
+- **ai-hub**: tab mới "✨ Gemini Free" (sau tab Chat) mount `Web2GeminiChat` vào `#aihGeminiMount` (lazy onShow), wire `switchTab`/`init`. Tách hẳn tab "Chat" (chat qua API-key backend).
+- **Verify browser** (admin, localhost): tab xuất hiện đúng vị trí `[chat,gemini,image,tryon,html,keys]`, click → mount sạch (.gch + composer + new-btn), **0 console error**, discover thấy máy shop `DESKTOP-OB24MTL` ONLINE (6 account ready). Round-trip chat tạm 404 vì **máy shop đang chạy app.py CŨ chưa có /chat** (curl confirm `{"detail":"Not Found"}`) → cần user cài lại sidecar bản mới trên máy shop.
+
 ### [web2/overview] Trang giới thiệu NHẸ & MƯỢT — gỡ GSAP/Lenis, hiệu ứng thuần CSS
 
 **Files:** `web2/overview/{index.html,overview.css,overview.js}`.
