@@ -86,6 +86,7 @@
     }
 
     function render(data) {
+        window.Web2FbInsightsData = data; // expose full cho widget AI (Web2AiPageRegistry)
         const posts = data.posts || [];
         const withEng = data.hasEngagement;
         const totLike = posts.reduce((s, p) => s + (p.likes || 0), 0);

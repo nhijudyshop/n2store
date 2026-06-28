@@ -947,7 +947,13 @@
         {
             match: '/web2/fb-insights/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2FbInsightsData',
+                    desc: 'FULL dữ liệu insights bài viết Facebook của page đang chọn (mảng posts kèm tương tác). Accessor CHÍNH để xếp hạng bài theo engagement, tìm bài hiệu quả/kém.',
+                    shape: '{ posts:Array<{ id, message:string, created_time:string, reactions:number, comments:number, shares:number, ... }>, hasEngagement:boolean }',
+                },
+            ],
             suggestions: [
                 {
                     label: '⏰ Khung giờ đăng tốt nhất',
@@ -1012,6 +1018,11 @@
             match: '/web2/dashboard/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
             accessors: [
+                {
+                    expr: 'window.Web2DashboardData',
+                    desc: 'FULL payload dashboard gần nhất (raw từ API, đầy đủ hơn số liệu vẽ trên thẻ/biểu đồ): doanh thu hôm nay/kỳ, PBH theo trạng thái + xong/chờ đóng, Sổ Order đợt/SP chưa nhận, tồn thấp, ví âm, PBH gần đây. Accessor CHÍNH — ưu tiên đọc cái này.',
+                    shape: '{ success:boolean, revenue_today:number, pbh_by_state:object, pbh_done_today:number, pbh_pending_pack:number, recent_pbh:Array<object>, so_open_shipments:number, so_unreceived_products:number, so_unreceived_shipments:number, stock_low_count:number, wallet_overdraft:number }',
+                },
                 {
                     expr: "(()=>{const c=window.Chart?.getChart?.('chartRevenue');if(!c)return null;const ds=c.data?.datasets?.[0]?.data||[];return (c.data?.labels||[]).map((date,i)=>({date,amount:ds[i]??0}));})()",
                     desc: 'Doanh thu 7 ngày gần nhất (mảng {date, amount}). Dữ liệu này vẽ trên <canvas> nên KHÔNG đọc được qua DOM innerText — chỉ lấy được qua Chart.getChart.',
@@ -1474,7 +1485,13 @@
         {
             match: '/web2/notifications/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2NotificationsData || []',
+                    desc: 'FULL danh sách thông báo đã nạp (không giới hạn DOM). Accessor CHÍNH để gom theo loại/mức độ, tìm thông báo chưa đọc, sự kiện gần đây.',
+                    shape: 'Array<{ id, title:string, body:string, severity:string /*info|warning|error|success*/, created_at:string, read_at:string|null, url:string|null }>',
+                },
+            ],
             suggestions: [
                 {
                     label: '🔴 Cảnh báo nguy cấp',
