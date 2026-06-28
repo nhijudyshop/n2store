@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d546c2e` — auto: session update
-**Last updated**: 2026-06-28 08:41:50 +07
-**Latest session**: [`RESUME:20260628-084150-d546c2e`](../20260628-084150-d546c2e.md)
-**Summary**: auto: session update
+**Latest commit**: `212b682` — fix(web2/products): CHA bình thường, chỉ CON (expand) mới tách biệt
+**Last updated**: 2026-06-28 08:43:18 +07
+**Latest session**: [`RESUME:20260628-084318-212b682`](../20260628-084318-212b682.md)
+**Summary**: fix(web2/products): CHA bình thường, chỉ CON (expand) mới tách biệt
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 08:41
+- [`docs/`](./docs.md) — updated 2026-06-28 08:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
