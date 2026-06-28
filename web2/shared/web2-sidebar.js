@@ -216,6 +216,10 @@
                     our: '../web2/reconcile/index.html',
                 },
                 {
+                    label: 'Quét tem đóng gói 📱',
+                    our: '../web2/unit-scan/index.html',
+                },
+                {
                     label: 'Trả hàng',
                     our: '../web2/fastsaleorder-refund/index.html',
                 },
