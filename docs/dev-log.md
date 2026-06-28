@@ -2,6 +2,14 @@
 
 ## 2026-06-28
 
+### [ai-hub] Trợ lý AI: icon SVG sạch cho nút đính ảnh/prompt/gửi + chốt fix busy (scoped !important)
+
+**Files:** `web2/shared/web2-gemini-chat.js`, `web2/ai-hub/index.html`.
+
+- User: nút 🖼️/📋 (emoji) lạc lõng → thay **icon SVG lucide-style** (image / list / arrow-up) cho 3 nút đính ảnh + prompt mẫu + gửi; `.gch-iconbtn`/`.gch-send` thêm `display:grid;place-items:center` căn giữa.
+- "Đang xử lý ảnh…" vẫn hiện ở máy user = web2-image-paste.js bản **cache cũ** (sidebar autoload ?v cũ) → thêm **scoped `!important`** `.gch-attach .w2ip-busy[hidden]{display:none!important}` trong CSS module chat → ẩn chắc chắn bất kể version cache. (Fix shared ở web2-image-paste.js vẫn giữ cho trang khác.)
+- Bump web2-gemini-chat.js?v=20260628e.
+
 ### [web2/shared] Logo đẹp hơn + áp vào sidebar menu (mọi trang Web 2.0)
 
 **Files:** `web2/shared/web2-logo.svg`, `web2/shared/web2-sidebar.js`, `web2/overview/index.html`.

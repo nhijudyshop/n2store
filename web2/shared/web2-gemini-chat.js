@@ -117,13 +117,15 @@
 .gch-mode.on{background:#6366f1;color:#fff;border-color:#6366f1}
 .gch-composer{border-top:1px solid #e2e8f0;padding:10px;display:flex;flex-direction:column;gap:8px}
 .gch-attach{margin:0}
+/* belt-suspenders: ẩn "Đang xử lý ảnh…" khi idle dù web2-image-paste.js bản cache cũ (author display:flex đè [hidden]) */
+.gch-attach .w2ip-busy[hidden]{display:none!important}
 .gch-input-row{display:flex;gap:8px;align-items:flex-end}
-.gch-iconbtn{width:42px;height:42px;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#64748b;font-size:17px;cursor:pointer;flex:0 0 auto;transition:background .12s,color .12s}
+.gch-iconbtn{width:42px;height:42px;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#64748b;cursor:pointer;flex:0 0 auto;display:grid;place-items:center;transition:background .12s,color .12s}
 .gch-iconbtn:hover{background:#f1f5f9;color:#6366f1}
 .gch-iconbtn.on{background:#eef2ff;color:#6366f1;border-color:#c7d2fe}
 .gch-ta{flex:1;resize:none;min-height:42px;max-height:160px;border:1px solid #cbd5e1;border-radius:11px;padding:10px 12px;font:inherit;font-size:.9rem;outline:none}
 .gch-ta:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.14)}
-.gch-send{width:42px;height:42px;border:0;border-radius:11px;background:#6366f1;color:#fff;font-size:18px;cursor:pointer;flex:0 0 auto}
+.gch-send{width:42px;height:42px;border:0;border-radius:11px;background:#6366f1;color:#fff;cursor:pointer;flex:0 0 auto;display:grid;place-items:center}
 .gch-send:disabled{opacity:.5;cursor:not-allowed}
 .gch-warn{margin:10px 14px;padding:9px 11px;border-radius:9px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:.78rem;line-height:1.45}
 @media(max-width:760px){.gch{grid-template-columns:1fr}.gch-side{display:none}}`;
@@ -159,10 +161,10 @@
                     <div class="gch-modes">${modeChips}</div>
                     <div class="gch-attach" hidden></div>
                     <div class="gch-input-row">
-                        <button type="button" class="gch-iconbtn gch-attach-btn" title="Đính ảnh">🖼️</button>
-                        <button type="button" class="gch-iconbtn gch-preset-btn" title="Prompt mẫu có sẵn">📋</button>
+                        <button type="button" class="gch-iconbtn gch-attach-btn" title="Đính ảnh"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></button>
+                        <button type="button" class="gch-iconbtn gch-preset-btn" title="Prompt mẫu có sẵn"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button>
                         <textarea class="gch-ta" rows="1"></textarea>
-                        <button type="button" class="gch-send">↑</button>
+                        <button type="button" class="gch-send" title="Gửi"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
                     </div>
                 </div>
             </div>`;
