@@ -179,49 +179,8 @@
         </div>
 
         <!-- Payment modal -->
-        <div class="sd-modal" id="sdPayModal" hidden>
-            <div class="sd-modal-backdrop" data-sd-modal-close></div>
-            <div class="sd-modal-panel sd-modal-panel-narrow">
-                <header class="sd-modal-head">
-                    <h2>Thanh toán NCC: <span id="sdPaySupplier">—</span></h2>
-                    <button class="sd-modal-close" type="button" data-sd-modal-close>
-                        <i data-lucide="x"></i>
-                    </button>
-                </header>
-                <div class="sd-modal-body">
-                    <div class="sd-pay-summary" id="sdPaySummary"></div>
-                    <label class="sd-form-field">
-                        <span>Ngày thanh toán <em>*</em></span>
-                        <input id="sdPayDate" type="date" />
-                    </label>
-                    <label class="sd-form-field">
-                        <span>Số tiền (VND) <em>*</em></span>
-                        <input
-                            id="sdPayAmount"
-                            type="text"
-                            inputmode="numeric"
-                            data-w2num
-                            placeholder="VD: 40.000.000"
-                        />
-                    </label>
-                    <label class="sd-form-field">
-                        <span>Ghi chú</span>
-                        <input
-                            id="sdPayNote"
-                            type="text"
-                            placeholder="VD: Chuyển khoản đợt 1, tiền mặt …"
-                            maxlength="200"
-                        />
-                    </label>
-                </div>
-                <footer class="sd-modal-foot">
-                    <button class="btn btn-secondary" type="button" data-sd-modal-close>Hủy</button>
-                    <button class="btn btn-primary" id="sdPayConfirmBtn" type="button">
-                        <i data-lucide="check"></i> Lưu thanh toán
-                    </button>
-                </footer>
-            </div>
-        </div>
+        <!-- Modal Thanh toán NCC = dùng CHUNG Web2SupplierPay (web2/shared), markup
+             tự tạo trong <body> bởi component — KHÔNG còn #sdPayModal ở đây. -->
 
         <!-- Create NCC modal -->
         <div class="sd-modal" id="sdCreateNccModal" hidden>
@@ -278,6 +237,8 @@
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../shared/web2-number-input.js?v=20260626a"></script>
+        <!-- Modal Thanh toán NCC dùng CHUNG (so-order + supplier-debt) -->
+        <script src="../shared/web2-supplier-pay.js?v=20260628a"></script>
         <script src="../shared/web2-sidebar.js?v=20260627adm"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-so-order-reader.js?v=20260613a"></script>
@@ -285,7 +246,7 @@
         <script src="js/supplier-debt-state.js?v=20260618w3"></script>
         <script src="js/supplier-debt-api.js?v=20260618w3"></script>
         <script src="js/supplier-debt-render.js?v=20260623w3"></script>
-        <script src="js/supplier-debt-actions.js?v=20260618w3"></script>
+        <script src="js/supplier-debt-actions.js?v=20260628y"></script>
         <script src="js/supplier-debt-filters.js?v=20260618w3"></script>
         <script src="js/supplier-debt-app.js?v=20260618w3"></script>
         <script>

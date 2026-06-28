@@ -224,64 +224,13 @@
         SW.renderList();
     }
 
-    // ---------- Payment modal ----------
-    function openPayModal() {
-        document.getElementById('swPaySupplier').textContent = SW.activeSupplier;
-        if (window.Web2NumberInput)
-            Web2NumberInput.setValue(document.getElementById('swPayAmount'), 0);
-        else document.getElementById('swPayAmount').value = 0;
-        document.getElementById('swPayNote').value = '';
-        const pm = document.getElementById('swPayModal');
-        // HIGH-3 FIX: idempotency key per modal-open (chống ghi đôi thanh toán).
-        pm.dataset.txid = 'tx-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        pm.hidden = false;
-        // Task 7: autofocus + select so typing replaces the prefilled 0
-        setTimeout(() => {
-            const el = document.getElementById('swPayAmount');
-            el?.focus();
-            el?.select();
-        }, 30);
-    }
-
-    async function confirmPay() {
-        const btn = document.getElementById('swPayConfirmBtn');
-        if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
-        const amount =
-            (window.Web2NumberInput
-                ? Web2NumberInput.getValue(document.getElementById('swPayAmount'))
-                : Number(document.getElementById('swPayAmount').value)) || 0;
-        const note = document.getElementById('swPayNote').value || '';
-        if (amount <= 0) {
-            notify('Số tiền phải > 0', 'warning');
-            return;
-        }
-        if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
-        try {
-            // ĐỢT E: money op — await server, lỗi → toast, KHÔNG ghi local lệch.
-            await window.SupplierWalletStorage.addTransaction(SW.walletState, SW.activeSupplier, {
-                type: 'payment',
-                amount,
-                note: note || 'Thanh toán',
-                // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
-                txId: document.getElementById('swPayModal').dataset.txid || undefined,
-                performedBy: SW._swBy(), // audit: ai ghi thanh toán
-            });
-            notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${SW.activeSupplier}`, 'success');
-            document.getElementById('swPayModal').hidden = true;
-            SW.renderList();
-            SW.openDetail(SW.activeSupplier);
-        } catch (e) {
-            notify(`Ghi thanh toán thất bại: ${e.message}`, 'error');
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    }
+    // 2026-06-28: BỎ Payment modal ở Ví NCC. Thanh toán NCC giờ CHỈ làm ở Sổ Order
+    // (theo đợt) + Công nợ NCC (theo NCC) qua modal CHUNG Web2SupplierPay. Ví NCC chỉ
+    // còn xem ví + Trả hàng. (Bút toán payment do nơi khác ghi vẫn HIỆN trong lịch sử.)
 
     SW.openReturnModal = openReturnModal;
     SW.recalcReturnTotal = recalcReturnTotal;
     SW.confirmReturn = confirmReturn;
     SW.openCreateModal = openCreateModal;
     SW.confirmCreate = confirmCreate;
-    SW.openPayModal = openPayModal;
-    SW.confirmPay = confirmPay;
 })();

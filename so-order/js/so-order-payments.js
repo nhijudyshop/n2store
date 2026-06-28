@@ -158,22 +158,30 @@
         return d?.tx || null;
     };
 
-    // ------ Modal Thanh toán CK theo đợt ------
+    // ------ Modal Thanh toán CK theo đợt → dùng CHUNG Web2SupplierPay (2026-06-28) ------
+    // Component shared lo UI (NCC picker tab-strip + tìm kiếm + summary + history);
+    // so-order truyền context đợt + slot Chi phí (extraHtml) + onSubmit ghi ledger.
 
-    function _todayVN() {
-        try {
-            return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(
-                new Date()
-            );
-        } catch {
-            return new Date().toISOString().slice(0, 10);
-        }
-    }
-
-    // Ngữ cảnh đợt lúc mở modal (txId idempotent sinh tại đây — chống double-click).
-    SO._payState = { batchKey: null, tabId: null, txId: null };
+    // Markup slot Chi phí đợt (dùng class so-order.css sẵn có — modal ở cùng page).
+    SO._payExpensesHtml = function _payExpensesHtml() {
+        return `<div class="so-expenses-wrap so-pay-expenses-wrap" id="soPayExpensesWrap">
+            <div class="so-expenses-head">
+                <i data-lucide="receipt"></i> Chi phí đợt
+                <span class="so-expenses-hint">(ship nội địa, phí gom, thuế… — cộng vào CÒN LẠI)</span>
+                <span class="so-expenses-total" id="soPayExpTotal"></span>
+            </div>
+            <div id="soPayExpList" class="so-expenses-list"></div>
+            <button type="button" class="btn btn-secondary so-expenses-add" id="soPayExpAddBtn">
+                <i data-lucide="plus-circle"></i> Thêm chi phí
+            </button>
+        </div>`;
+    };
 
     SO.openPaymentModal = function openPaymentModal() {
+        if (!window.Web2SupplierPay) {
+            SO.notify('Module thanh toán chưa load — refresh trang', 'error');
+            return;
+        }
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
         const ALL = window.SoOrderStorage.ALL_BATCH;
         const batchKey = SO.activeBatchKey();
@@ -182,64 +190,63 @@
             SO.notify('Đợt chưa có lô nào để thanh toán', 'warning');
             return;
         }
-        const t = SO.getBatchTotals(shipments);
-        const set = (id, v) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = v;
-        };
-        const batchLabel = batchKey === ALL ? 'Tất cả đợt' : SO.batchLabelOf(batchKey);
-        set('soPayTitle', `Thanh toán CK — ${batchLabel} · ${tab.label}`);
-        set('soPaySumPayable', SO.fmtVnd(t.payableVnd));
-        set('soPaySumPaid', SO.fmtVnd(t.paidVnd));
-        set('soPaySumRemain', SO.fmtVnd(t.remainingVnd));
-
         const suppliers = SO.suppliersInActiveBatch();
-        const sel = document.getElementById('soPaySupplier');
-        if (sel) {
-            sel.innerHTML = suppliers
-                .map((s) => `<option value="${SO.escapeHtml(s)}">${SO.escapeHtml(s)}</option>`)
-                .join('');
-        }
-        const saveBtn = document.getElementById('soPaySaveBtn');
-        if (saveBtn) saveBtn.disabled = !suppliers.length;
         if (!suppliers.length) {
             SO.notify('Đợt chưa có NCC (chưa có SP) — thêm SP trước khi thanh toán', 'warning');
+            return;
         }
-
-        const dateEl = document.getElementById('soPayDate');
-        if (dateEl) dateEl.value = _todayVN();
-        const amtEl = document.getElementById('soPayAmount');
-        const defAmt = Math.max(0, Math.round(t.remainingVnd));
-        if (amtEl) {
-            if (window.Web2NumberInput) Web2NumberInput.setValue(amtEl, defAmt);
-            else amtEl.value = defAmt;
-        }
-        const noteEl = document.getElementById('soPayNote');
-        if (noteEl) noteEl.value = '';
-
-        SO._payState = {
-            batchKey,
-            tabId: tab.id,
-            txId: 'so-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-        };
-        SO._renderPayHistory();
-        SO._renderPayExpenses();
-        SO.showModal('soPaymentModal');
-        if (window.Web2NumberInput)
-            Web2NumberInput.attachAll(document.getElementById('soPaymentModal'));
+        const t = SO.getBatchTotals(shipments);
+        const batchLabel = batchKey === ALL ? 'Tất cả đợt' : SO.batchLabelOf(batchKey);
+        SO._payState = { batchKey, tabId: tab.id };
+        window.Web2SupplierPay.open({
+            title: `Thanh toán CK — ${batchLabel} · ${tab.label}`,
+            summary: SO._paySummaryCards(t),
+            ncc: { mode: 'picker', suppliers, selected: suppliers[0] },
+            amountVnd: Math.max(0, Math.round(t.remainingVnd)),
+            notePlaceholder: 'Vd: CK Vietcombank…',
+            extraHtml: SO._payExpensesHtml(),
+            onMount: (root) => SO._mountPayExpenses(root),
+            history: SO.paymentsForActiveBatch().map((p) => ({
+                ts: p.ts,
+                supplier: p.supplier,
+                amountVnd: p.amount,
+                moveName: p.moveName,
+            })),
+            historyHead: 'Lịch sử thanh toán đợt',
+            onSubmit: async ({ supplier, amountVnd, date, note, txId }) => {
+                const sh = SO._shipmentForSupplierInBatch(supplier);
+                if (!sh) throw new Error('Không tìm thấy lô để gắn thanh toán');
+                await SO.recordSoPayment({
+                    supplier,
+                    amountVnd,
+                    date,
+                    note,
+                    shipmentId: sh.id,
+                    batchKey: window.SoOrderStorage.batchKeyOf(sh),
+                    tabId: tab.id,
+                    txId,
+                });
+                await SO.loadPayments();
+                SO.renderAll();
+                SO.notify(
+                    `Đã ghi thanh toán CK ${SO.fmtVnd(amountVnd)} cho ${supplier}`,
+                    'success'
+                );
+            },
+        });
     };
 
-    // ------ Chi phí (CP) đợt — sửa NGAY trong modal Thanh toán (2026-06-28) ------
-    // CP gắn per-shipment (sh.expenses). Modal đợt: gộp expenses MỌI lô của đợt
-    // (mỗi dòng giữ shipmentId riêng để sửa/xoá đúng lô); dòng MỚI gắn vào lô ĐẦU
-    // của đợt. Cùng storage API với modal Sửa lô → 1 nguồn dữ liệu.
-    SO._payExpTab = function _payExpTab() {
-        return window.SoOrderStorage.getActiveTab(SO.state);
+    SO._paySummaryCards = function _paySummaryCards(t) {
+        return [
+            { label: 'Phải trả (HĐ+CP)', value: SO.fmtVnd(t.payableVnd) },
+            { label: 'Đã trả', value: SO.fmtVnd(t.paidVnd) },
+            { label: 'Còn lại', value: SO.fmtVnd(t.remainingVnd), tone: 'danger' },
+        ];
     };
-    SO._payExpAddTargetId = function _payExpAddTargetId() {
-        const sh = SO.shipmentsInActiveBatch()[0];
-        return sh ? sh.id : null;
-    };
+
+    // ------ Chi phí (CP) đợt — sửa NGAY trong modal Thanh toán ------
+    // CP gắn per-shipment (sh.expenses). Gộp expenses MỌI lô của đợt (mỗi dòng giữ
+    // shipmentId riêng); dòng MỚI gắn lô ĐẦU của đợt. Cùng storage API với Sửa lô.
     SO._payExpRows = function _payExpRows() {
         const out = [];
         for (const sh of SO.shipmentsInActiveBatch()) {
@@ -260,13 +267,14 @@
             </button>
         </div>`;
     };
-    SO._renderPayExpenses = function _renderPayExpenses() {
-        const list = document.getElementById('soPayExpList');
+    SO._renderPayExpenses = function _renderPayExpenses(root) {
+        const scope = root || document;
+        const list = scope.querySelector('#soPayExpList');
         if (!list) return;
-        const cur = SO._payExpTab().currency || 'VND';
+        const cur = window.SoOrderStorage.getActiveTab(SO.state).currency || 'VND';
         const rows = SO._payExpRows();
         list.innerHTML = rows.map((r) => SO._payExpRowHtml(r.shipmentId, r.exp, cur)).join('');
-        const totalEl = document.getElementById('soPayExpTotal');
+        const totalEl = scope.querySelector('#soPayExpTotal');
         if (totalEl) {
             const total = rows.reduce((s, r) => s + (Number(r.exp.amount) || 0), 0);
             totalEl.textContent = total ? 'Tổng CP: ' + SO.fmtCurrency(total, cur) : '';
@@ -274,106 +282,76 @@
         if (window.Web2NumberInput) Web2NumberInput.attachAll(list);
         if (window.lucide?.createIcons) window.lucide.createIcons();
     };
-    // Sau khi CP đổi: cập nhật summary (CÒN LẠI) + stat cards nền + đẩy sync.
+    // Sau khi CP đổi: cập nhật summary modal (CÒN LẠI) + stat cards nền + sync.
     SO._afterPayExpenseChange = function _afterPayExpenseChange() {
         SO.pushSync();
-        SO._refreshPayModalLive(); // summary payable/remain + history
+        const t = SO.getBatchTotals(SO.shipmentsInActiveBatch());
+        if (window.Web2SupplierPay?.setSummary) Web2SupplierPay.setSummary(SO._paySummaryCards(t));
         SO.renderFooterTotals(); // stat cards sau modal
     };
-
-    SO._renderPayHistory = function _renderPayHistory() {
-        const host = document.getElementById('soPayHistory');
-        if (!host) return;
-        const pays = SO.paymentsForActiveBatch();
-        if (!pays.length) {
-            host.innerHTML = '<div class="so-pay-empty">Chưa có thanh toán nào cho đợt này.</div>';
-            return;
-        }
-        host.innerHTML = pays
-            .map((p) => {
-                const d = p.ts
-                    ? new Intl.DateTimeFormat('vi-VN', {
-                          timeZone: 'Asia/Ho_Chi_Minh',
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                      }).format(new Date(p.ts))
-                    : '';
-                return `<div class="so-pay-hist-row">
-                    <span class="so-pay-hist-date">${SO.escapeHtml(d)}</span>
-                    <span class="so-pay-hist-ncc" title="${SO.escapeHtml(p.supplier)}">${SO.escapeHtml(p.supplier)}</span>
-                    <span class="so-pay-hist-amt">${SO.escapeHtml(SO.fmtVnd(p.amount))}</span>
-                    <span class="so-pay-hist-move">${SO.escapeHtml(p.moveName || '')}</span>
-                </div>`;
-            })
-            .join('');
-    };
-
-    // SSE đến lúc modal mở → cập nhật summary + history (KHÔNG đụng input đang gõ).
-    SO._refreshPayModalLive = function _refreshPayModalLive() {
-        const modal = document.getElementById('soPaymentModal');
-        if (!modal || modal.hidden) return;
-        const t = SO.getBatchTotals(SO.shipmentsInActiveBatch());
-        const set = (id, v) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = v;
-        };
-        set('soPaySumPayable', SO.fmtVnd(t.payableVnd));
-        set('soPaySumPaid', SO.fmtVnd(t.paidVnd));
-        set('soPaySumRemain', SO.fmtVnd(t.remainingVnd));
-        SO._renderPayHistory();
-    };
-
-    SO._submitPayment = async function _submitPayment() {
-        const saveBtn = document.getElementById('soPaySaveBtn');
-        const supplier = document.getElementById('soPaySupplier')?.value || '';
-        const amtEl = document.getElementById('soPayAmount');
-        const dateEl = document.getElementById('soPayDate');
-        const noteEl = document.getElementById('soPayNote');
-        const amountVnd = window.Web2NumberInput
-            ? Web2NumberInput.getValue(amtEl)
-            : Number(amtEl?.value) || 0;
-        if (!supplier) {
-            SO.notify('Chọn NCC để thanh toán', 'warning');
-            return;
-        }
-        if (!amountVnd || amountVnd <= 0) {
-            SO.notify('Nhập số tiền hợp lệ', 'warning');
-            return;
-        }
-        const { tabId, txId } = SO._payState;
-        const sh = SO._shipmentForSupplierInBatch(supplier);
-        if (!sh) {
-            SO.notify('Không tìm thấy lô để gắn thanh toán', 'error');
-            return;
-        }
-        // ref.batch = batch THẬT của lô được gắn (kể cả đang xem "Tất cả").
-        const refBatch = window.SoOrderStorage.batchKeyOf(sh);
-        // Money op (rule 8 ngoại lệ): GIỮ await + loading + rollback toast.
-        const orig = saveBtn.innerHTML;
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<span class="so-confirm-spinner"></span> Đang lưu...';
-        try {
-            await SO.recordSoPayment({
-                supplier,
-                amountVnd,
-                date: dateEl?.value,
-                note: noteEl?.value,
-                shipmentId: sh.id,
-                batchKey: refBatch,
-                tabId,
-                txId,
+    // Wire slot Chi phí trong modal shared — bind MỚI mỗi lần mở (markup re-inject).
+    SO._mountPayExpenses = function _mountPayExpenses(root) {
+        SO._renderPayExpenses(root);
+        const addBtn = root.querySelector('#soPayExpAddBtn');
+        const list = root.querySelector('#soPayExpList');
+        const tabId = () => window.SoOrderStorage.getActiveTab(SO.state).id;
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                const sh = SO.shipmentsInActiveBatch()[0];
+                if (!sh) {
+                    SO.notify('Đợt chưa có lô để thêm chi phí', 'warning');
+                    return;
+                }
+                window.SoOrderStorage.addExpense(SO.state, tabId(), sh.id, {
+                    label: '',
+                    amount: 0,
+                    note: '',
+                });
+                SO._renderPayExpenses(root);
+                SO._afterPayExpenseChange();
+                const rows = list.querySelectorAll('.so-exp-row');
+                rows[rows.length - 1]?.querySelector('[data-exp-field="label"]')?.focus();
             });
-            await SO.loadPayments();
-            SO.renderAll();
-            SO.notify(`Đã ghi thanh toán CK ${SO.fmtVnd(amountVnd)} cho ${supplier}`, 'success');
-            SO.hideModal('soPaymentModal');
-        } catch (e) {
-            SO.notify('Lỗi thanh toán: ' + (e?.message || e), 'error');
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = orig;
-            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+        if (list) {
+            list.addEventListener('change', (e) => {
+                const field = e.target?.dataset?.expField;
+                if (!field) return;
+                const row = e.target.closest('.so-exp-row');
+                const expId = row?.dataset?.expId;
+                const shipmentId = row?.dataset?.expShip;
+                if (!expId || !shipmentId) return;
+                let val = e.target.value;
+                if (field === 'amount')
+                    val = window.Web2NumberInput
+                        ? Web2NumberInput.getValue(e.target)
+                        : Number(val) || 0;
+                window.SoOrderStorage.updateExpense(SO.state, tabId(), shipmentId, expId, {
+                    [field]: val,
+                });
+                if (field === 'amount') {
+                    const cur = window.SoOrderStorage.getActiveTab(SO.state).currency || 'VND';
+                    const total = SO._payExpRows().reduce(
+                        (s, r) => s + (Number(r.exp.amount) || 0),
+                        0
+                    );
+                    const totalEl = root.querySelector('#soPayExpTotal');
+                    if (totalEl)
+                        totalEl.textContent = total ? 'Tổng CP: ' + SO.fmtCurrency(total, cur) : '';
+                }
+                SO._afterPayExpenseChange();
+            });
+            list.addEventListener('click', (e) => {
+                const del = e.target.closest('[data-exp-del]');
+                if (!del) return;
+                const row = del.closest('.so-exp-row');
+                const expId = row?.dataset?.expId;
+                const shipmentId = row?.dataset?.expShip;
+                if (!expId || !shipmentId) return;
+                window.SoOrderStorage.deleteExpense(SO.state, tabId(), shipmentId, expId);
+                SO._renderPayExpenses(root);
+                SO._afterPayExpenseChange();
+            });
         }
     };
 
@@ -383,80 +361,6 @@
             payBtn.__payBound = true;
             payBtn.addEventListener('click', SO.openPaymentModal);
         }
-        const saveBtn = document.getElementById('soPaySaveBtn');
-        if (saveBtn && !saveBtn.__payBound) {
-            saveBtn.__payBound = true;
-            saveBtn.addEventListener('click', SO._submitPayment);
-        }
-        // Chi phí đợt inline trong modal Thanh toán — add / edit / delete.
-        const expAddBtn = document.getElementById('soPayExpAddBtn');
-        if (expAddBtn && !expAddBtn.__payBound) {
-            expAddBtn.__payBound = true;
-            expAddBtn.addEventListener('click', () => {
-                const tab = SO._payExpTab();
-                const shipmentId = SO._payExpAddTargetId();
-                if (!shipmentId) {
-                    SO.notify('Đợt chưa có lô để thêm chi phí', 'warning');
-                    return;
-                }
-                window.SoOrderStorage.addExpense(SO.state, tab.id, shipmentId, {
-                    label: '',
-                    amount: 0,
-                    note: '',
-                });
-                SO._renderPayExpenses();
-                SO._afterPayExpenseChange();
-                const rows = document.querySelectorAll('#soPayExpList .so-exp-row');
-                const last = rows[rows.length - 1]?.querySelector('[data-exp-field="label"]');
-                if (last) last.focus();
-            });
-        }
-        const expList = document.getElementById('soPayExpList');
-        if (expList && !expList.__payBound) {
-            expList.__payBound = true;
-            expList.addEventListener('change', (e) => {
-                const field = e.target?.dataset?.expField;
-                if (!field) return;
-                const row = e.target.closest('.so-exp-row');
-                const expId = row?.dataset?.expId;
-                const shipmentId = row?.dataset?.expShip;
-                if (!expId || !shipmentId) return;
-                const tab = SO._payExpTab();
-                let val = e.target.value;
-                if (field === 'amount') {
-                    val = window.Web2NumberInput
-                        ? Web2NumberInput.getValue(e.target)
-                        : Number(val) || 0;
-                }
-                window.SoOrderStorage.updateExpense(SO.state, tab.id, shipmentId, expId, {
-                    [field]: val,
-                });
-                if (field === 'amount') {
-                    // cập nhật tổng CP + CÒN LẠI; KHÔNG rebuild list (giữ focus).
-                    const cur = tab.currency || 'VND';
-                    const total = SO._payExpRows().reduce(
-                        (s, r) => s + (Number(r.exp.amount) || 0),
-                        0
-                    );
-                    const totalEl = document.getElementById('soPayExpTotal');
-                    if (totalEl)
-                        totalEl.textContent = total ? 'Tổng CP: ' + SO.fmtCurrency(total, cur) : '';
-                }
-                SO._afterPayExpenseChange();
-            });
-            expList.addEventListener('click', (e) => {
-                const del = e.target.closest('[data-exp-del]');
-                if (!del) return;
-                const row = del.closest('.so-exp-row');
-                const expId = row?.dataset?.expId;
-                const shipmentId = row?.dataset?.expShip;
-                if (!expId || !shipmentId) return;
-                const tab = SO._payExpTab();
-                window.SoOrderStorage.deleteExpense(SO.state, tab.id, shipmentId, expId);
-                SO._renderPayExpenses();
-                SO._afterPayExpenseChange();
-            });
-        }
         // SSE — TT đồng bộ realtime (ledger NCC đổi / máy khác thanh toán).
         if (window.Web2SSE && !SO._paySseBound) {
             SO._paySseBound = true;
@@ -464,7 +368,13 @@
             window.Web2SSE.subscribe('web2:supplier-wallet', () => {
                 clearTimeout(timer);
                 timer = setTimeout(() => {
-                    SO.loadPayments().then(() => SO._refreshPayModalLive());
+                    SO.loadPayments().then(() => {
+                        // Modal mở → cập nhật summary live (CÒN LẠI sau khi NCC khác trả).
+                        if (window.Web2SupplierPay?.isOpen?.()) {
+                            const tt = SO.getBatchTotals(SO.shipmentsInActiveBatch());
+                            Web2SupplierPay.setSummary(SO._paySummaryCards(tt));
+                        }
+                    });
                 }, 500);
             });
         }

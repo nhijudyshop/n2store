@@ -126,7 +126,8 @@
             });
         });
         document.getElementById('sdNoteConfirmBtn')?.addEventListener('click', SD.confirmNote);
-        document.getElementById('sdPayConfirmBtn')?.addEventListener('click', SD.confirmPay);
+        // 2026-06-28: modal Thanh toán đã chuyển sang Web2SupplierPay (shared) — không
+        // còn #sdPayModal / sdPayConfirmBtn ở trang này.
         // Enter-to-submit: trigger primary button of the currently open modal.
         // Skip when focus is in a <textarea> or when isComposing (IME input).
         document.addEventListener('keydown', (e) => {

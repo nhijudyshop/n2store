@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [shared/so-order/supplier-debt/supplier-wallet] Modal Thanh toán NCC dùng CHUNG (Web2SupplierPay)
+
+**Files:** `web2/shared/web2-supplier-pay.js` (MỚI, component + style tự inject), `so-order/js/so-order-payments.js` (openPaymentModal → Web2SupplierPay + Chi phí qua extraHtml/onMount; gỡ modal-specific cũ) + `so-order/index.html` (gỡ #soPaymentModal, load shared, bump payments `?v=y`), `web2/supplier-debt/js/supplier-debt-actions.js` (openPayModal → shared, gỡ confirmPay) + `supplier-debt-app.js` (gỡ binding) + `index.html` (gỡ #sdPayModal, load shared, bump), `web2/supplier-wallet/js/supplier-wallet-actions.js` (gỡ openPayModal/confirmPay) + `supplier-wallet-app.js` (gỡ binding swPayBtn/swPayConfirmBtn) + `index.html` (gỡ nút "Ghi thanh toán" + #swPayModal).
+
+User: (1) NCC trong modal thanh toán = tab ngang có mũi tên + tìm kiếm + sắp xếp A→Z; (2) supplier-debt thanh toán dùng CHUNG như so-order; (3) bỏ thanh toán ở Ví NCC. → Tách **1 module chung NCC** (CLAUDE.md: ≥2 nơi → shared).
+
+- **Web2SupplierPay.open(cfg)**: summary cards · NCC picker (mode `picker` = tab-strip horizontal scroll + ô tìm kiếm normalize tiếng Việt + mũi tên ‹›, sort A→Z; mode `fixed` = NCC cố định) · ngày/số tiền (Web2NumberInput)/ghi chú · slot `extraHtml`+`onMount` (so-order nhét Chi phí đợt) · lịch sử · onSubmit (money op await+loading+rollback). API phụ: `setSummary` (CP đổi → CÒN LẠI live), `getSelectedSupplier`, `isOpen`, `close`.
+- **so-order**: picker nhiều NCC của đợt + Chi phí đợt (gắn lô đầu) + lịch sử đợt; onSubmit → recordSoPayment (ref đợt).
+- **supplier-debt**: NCC cố định (1 hàng) + summary Tổng mua/Đã thanh toán/Còn nợ + lịch sử NCC; onSubmit → SD.recordPayment.
+- **supplier-wallet**: bỏ nút "Ghi thanh toán" + modal + openPayModal/confirmPay (chỉ còn xem ví + Trả hàng; payment do nơi khác ghi vẫn hiện trong lịch sử).
+- **Verify** browser 3 trang: so-order picker A→Z (QUẢNG CHÂU/XƯỞNG MAY B/XƯỞNG SỈ A) + search "quang"→1 pill + chọn đổi payload NCC + Chi phí 700→CÒN LẠI live + submit payload đúng; supplier-debt fixed NCC + nhãn nợ + default=ending + submit gọi recordPayment; supplier-wallet 0 nút pay, 0 console error.
+
 ### [so-order] Modal Thanh toán CK: thêm Chi phí đợt inline + rộng modal
 
 **Files:** `so-order/js/so-order-payments.js` (đợt-level expense editor: `_payExpRows/_renderPayExpenses/_payExpRowHtml/_afterPayExpenseChange` + wire add/edit/delete trong wirePaymentPanel), `so-order/index.html` (markup `#soPayExpensesWrap` + panel `so-pay-panel` thay `so-modal-panel-narrow` + bump `payments?v=x`, `css?v=x`), `so-order/css/so-order.css` (`.so-pay-panel` rộng 680px).

@@ -41,9 +41,8 @@
             });
         });
         document.getElementById('swReturnBtn').addEventListener('click', SW.openReturnModal);
-        document.getElementById('swPayBtn').addEventListener('click', SW.openPayModal);
         document.getElementById('swReturnConfirmBtn').addEventListener('click', SW.confirmReturn);
-        document.getElementById('swPayConfirmBtn').addEventListener('click', SW.confirmPay);
+        // 2026-06-28: swPayBtn / swPayConfirmBtn đã bỏ (thanh toán không còn ở Ví NCC).
         // Return modal interactions
         const returnBody = document.getElementById('swReturnBody');
         returnBody.addEventListener('change', (e) => {
@@ -75,14 +74,12 @@
                     .querySelectorAll('.sw-modal:not([hidden])')
                     .forEach((m) => (m.hidden = true));
             }
-            // Task 6: Enter-to-submit for swPayModal and swReturnModal.
+            // Task 6: Enter-to-submit for swReturnModal (swPayModal đã bỏ 2026-06-28).
             // swCreateModal already handles Enter on its own input.
             // Skip when isComposing (IME) or focus is in a <textarea>.
             if (e.key !== 'Enter' || e.isComposing) return;
             if (e.target.tagName === 'TEXTAREA') return;
-            const openModal = document.querySelector(
-                '#swPayModal:not([hidden]), #swReturnModal:not([hidden])'
-            );
+            const openModal = document.querySelector('#swReturnModal:not([hidden])');
             if (!openModal) return;
             e.preventDefault();
             openModal.querySelector('.btn-primary')?.click();
