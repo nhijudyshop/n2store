@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [agent-tooling] Tích hợp stitch-skills + agent-reach (CHỈ agent tooling, KHÔNG đụng app)
+
+**Files:** MỚI `.claude/skills/stitch-*` (14 skill vendored + `stitch-skills-meta/{LICENSE,SOURCE_COMMIT.txt}`), `docs/agent-tooling/STITCH-AND-AGENT-REACH.md`. Ngoài repo: `~/.local/bin/{agent-reach,yt-dlp,mcporter}`, `~/.agent-reach/`, `~/.mcporter/mcporter.json`, `~/.claude/skills/agent-reach/`.
+
+User: đọc `web2/system?tab=services` + tích hợp [google-labs-code/stitch-skills](https://github.com/google-labs-code/stitch-skills) (Apache-2.0) + [Panniantong/agent-reach](https://github.com/Panniantong/agent-reach) (MIT). Cả 2 là **agent skill/CLI** (mở rộng năng lực Claude Code), KHÔNG phải thư viện web → user chọn hướng **"cả hai chỉ cài làm agent tooling"**. **Không** route/trang/DB Web 2.0/1.0 nào thay đổi.
+
+- **stitch-skills (14 skill)** vendored `.claude/skills/stitch-<base>/` (giữ verbatim, prefix `stitch-`; id=tên folder, frontmatter `name:` giữ `stitch::...`) → hiện ngay trong skill list. ⚠️ Đa số cần **Stitch MCP + tài khoản Google** mới chạy thật (chưa setup); nhóm extract/taste/enhance/shadcn dùng được ngay.
+- **agent-reach v1.5.0** cài pipx **ngoài workspace** (đúng boundary repo). Core install: **6/13 kênh ✅** — GitHub, YouTube (yt-dlp+JS runtime), RSS, **Exa search (free, no key)**, Web/Jina, Bilibili. V2EX ⚠️403 (cần proxy); 6 kênh còn lại cần cookie/credential user. Verify: doctor live-probe 6/13 + Jina fetch example.com OK + Exa MCP trả tool schema OK.
+- **Caveat đã xử lý**: `mcporter config add` ghi rác `n2store/config/` → xoá, chuyển system config `~/.mcporter/`; `npm -g` EACCES (`~/.npm` root-owned) → né bằng `--cache+--prefix ~/.local` không sudo; SSL fail → chạy Install Certificates. PATH `~/.local/bin` đã được pipx thêm vào `~/.zshrc`+`~/.zprofile` (shell zsh mới tự có). Chi tiết: `docs/agent-tooling/STITCH-AND-AGENT-REACH.md`.
+
 ### [web2/shared/web2-vn-address + customers + native-orders] Bộ chọn Tỉnh/TP → Phường/Xã (tích hợp vietnamese-provinces-database)
 
 **Files:** MỚI `web2/shared/web2-vn-address.js` (`Web2VnAddress`), `web2/shared/data/vn-units.json` (143KB, dataset 2 cấp), `scripts/gen-vn-address-data.js` (generator); customers `web2/customers/index.html` (Tỉnh/TP+Phường/Xã `<input>`→`<select>`, district giữ free-text) + `js/customers-detail.js` (mount/destroy) + load script; native-orders `js/native-orders-modal-edit.js` (2 select editCity/editWard + persist cityName/wardName/cityCode/wardCode qua PATCH có sẵn + detect giao hàng trên địa chỉ ĐẦY ĐỦ) + `index.html` load script; registry `web2/system/data/web2-third-parties.json` (+1 entry, summary 70→71) + regen docs.
