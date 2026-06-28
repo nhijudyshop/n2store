@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [ai-widget] Audit registry: 12 trang thiếu data → expose state lên window + thêm accessor
+
+**Files:** `web2/shared/web2-ai-page-registry.js` + 12 page JS (dlv-app, rf-app, order-tags-app, users-app, kpi-dashboard, report-warehouse, report-delivery, dashboard, notifications, fb-insights, report-revenue, web2-audit-log).
+
+User: review gợi ý từng trang của widget AI nổi (Web2AiAssistant) → có đủ data phân tích chưa?
+
+- **Audit (workflow 15 agent đọc JS thật)**: 34 entry registry — 18 trang ĐỦ accessor; **16 trang có suggestions nhưng 0 accessor** → AI chỉ đọc DOM phân trang/thiếu. Nguyên nhân: STATE bị đóng trong IIFE closure, không expose lên window.
+- **Fix 12 trang có data** (3 đợt): expose state lên window + thêm accessor full-dataset vào registry:
+    - `DlvApp.STATE`/`RfApp.STATE` (PBH giao/hoàn), `Web2OrderTagsApp.STATE`, `Web2UsersApp.STATE`, `Web2KpiData`(=STATE+lastKpi), `Web2WarehouseReport`(getter lastData/view/region), `Web2ReportDeliveryData`, `Web2DashboardData`, `Web2NotificationsData`, `Web2FbInsightsData`, `Web2ReportRevenueData.summary`, `Web2AuditLogData`.
+- **4 trang để trống có chủ đích** (không có dataset phân tích): `fb-ads-stats`, `ck-dashboard`, `overview`(landing), `payment-confirm`(redirect).
+- **Pattern**: trang dùng IIFE → state private; muốn widget AI đọc FULL data, expose `window.<Global> = STATE` (ref live, mutate in-place) hoặc getter nếu là `let` reassign; rồi thêm accessor `{expr, desc, shape}` vào registry. Shape verify từ code thật.
+
 ### [web2/live-control + live-tv] Fix SP "ghost" khi xoá kho / Số Order
 
 **Files:** `render.com/routes/web2-campaign-products.js`, `web2/live-control/js/live-control.js`, `web2/live-tv/js/live-tv.js`, 2 index.html (cache-bust).
