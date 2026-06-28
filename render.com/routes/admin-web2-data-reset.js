@@ -32,10 +32,41 @@ const PRODUCT_TABLES = [
     'web2_products',
     'web2_variants',
     'web2_product_history',
+    'web2_product_units', // per-unit (mã đơn vị + QR)
+    'web2_product_unit_events',
     'native_orders',
     'web2_cart_history',
     'fast_sale_orders',
     'refunds',
+];
+
+// [2026-06-28] target='reset-flow' — wipe ĐÚNG 9 domain luồng mua→bán→kho user yêu cầu:
+//   Sổ Order · Kho SP (+per-unit) · Đơn Web · PBH · Đối soát đóng gói · Công nợ NCC ·
+//   Ví NCC · purchase-refund (ghi vào supplier_ledger) · CK dashboard.
+// GIỮ NGUYÊN: web2_variants, web2_users, web2_customers, web2_records (cấu hình + hồ sơ).
+// KHÔNG CASCADE (TRUNCATE nhiều bảng 1 lệnh tự xử FK giữa chúng); backup trước khi xoá.
+const RESET_FLOW_TABLES = [
+    // Sổ Order (mua từ NCC) + ảnh đợt
+    'web2_so_order',
+    'web2_so_order_images',
+    // Kho SP + per-unit (mã đơn vị + QR + lịch sử)
+    'web2_products',
+    'web2_product_history',
+    'web2_product_units',
+    'web2_product_unit_events',
+    // Đơn Web + giỏ
+    'native_orders',
+    'web2_cart_history',
+    // PBH
+    'fast_sale_orders',
+    // Đối soát đóng gói
+    'pbh_fulfillment_logs',
+    // NCC: công nợ + ví (ledger giao dịch + meta số dư)
+    'web2_supplier_ledger',
+    'web2_supplier_meta',
+    // CK dashboard
+    'web2_payment_signals',
+    'web2_customer_intents',
 ];
 
 // Module Theo dõi nhập hàng (supplier-debt/aging/360). FK: shipments+order_bookings
@@ -105,6 +136,7 @@ function pickTables(target) {
     if (target === 'inventory') return INVENTORY_TABLES;
     if (target === 'web2-all') return WEB2_ALL_TABLES;
     if (target === 'ck') return CK_TABLES;
+    if (target === 'reset-flow') return RESET_FLOW_TABLES;
     return PRODUCT_TABLES;
 }
 // Backward-compat: GET /status vẫn report product tables.
@@ -169,7 +201,9 @@ router.post('/web2-data-reset', async (req, res) => {
         });
     }
 
-    const target = ['inventory', 'web2-all', 'ck'].includes(body.target) ? body.target : 'products';
+    const target = ['inventory', 'web2-all', 'ck', 'reset-flow'].includes(body.target)
+        ? body.target
+        : 'products';
     const tables = pickTables(target);
     const tag = tsTag();
     const steps = [];
