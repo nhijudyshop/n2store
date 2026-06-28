@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `56631c6` — fix(so-order): dialog xoá vĩnh viễn thùng rác hiện cảnh báo (body→message)
-**Last updated**: 2026-06-28 15:21:08 +07
-**Latest session**: [`RESUME:20260628-152108-56631c6`](../20260628-152108-56631c6.md)
-**Summary**: fix(so-order): dialog xoá vĩnh viễn thùng rác hiện cảnh báo (body→message)
+**Latest commit**: `d769dda` — feat(so-order): bỏ 3 nút toolbar Nhập/Tải mẫu/Tạo data ngẫu nhiên (giữ Điền ngẫu nhiên trong modal)
+**Last updated**: 2026-06-28 15:53:48 +07
+**Latest session**: [`RESUME:20260628-155348-d769dda`](../20260628-155348-d769dda.md)
+**Summary**: feat(so-order): bỏ 3 nút toolbar Nhập/Tải mẫu/Tạo data ngẫu nhiên (giữ Điền ngẫu nhiên trong mo...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 5 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 8 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 15:21
+- [`docs/`](./docs.md) — updated 2026-06-28 15:53
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -67,7 +67,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-28 15:21
+- [`so-order/`](./so-order.md) — updated 2026-06-28 15:53
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
