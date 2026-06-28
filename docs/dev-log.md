@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [so-order] Feature tiền/chi phí/thanh toán — DESIGN LOCKED + Stage 1 (data layer)
+
+**Files:** `docs/web2/SO-ORDER-MONEY-PLAN.md` (MỚI, tracker), `so-order/js/so-order-storage.js` (+expense APIs), `so-order/index.html` (bump storage `?v=20260628v`).
+
+User yêu cầu (4 phần): (1) nhập Chi phí + bố cục với Ghi chú CP, (2) tab Đợt (Tất cả cuối, mới nhất đầu), (3) stat cards TỔNG KG/HĐ/CP/TT/CÒN LẠI, (4) THANH TOÁN CK theo đợt — liên quan module NCC. Đã research (workflow 2 agent) + chốt 4 quyết định (xem PLAN doc):
+
+- **Đợt = tab cấp 2** dưới địa danh (giữ tiền tệ); **CÒN LẠI = (HĐ+CP)−TT**; **THANH TOÁN CK → ghi `web2_supplier_ledger`** (type=payment + ref đợt, mỗi TT gắn 1 NCC); **Chi phí = danh sách dòng**.
+- **Stage 1 (xong)**: thêm `sh.expenses[{id,label,amount,note,createdAt}]` + storage APIs `addExpense/updateExpense/deleteExpense/getShipmentExpenseTotal` (additive, lazy default — chưa có consumer UI).
+- **Còn lại (S2-S6)**: tab Đợt cấp 2 · stat cards · CP UI trong Sửa lô · THANH TOÁN CK modal→ledger · verify. Chi tiết + file:line nguồn trong [docs/web2/SO-ORDER-MONEY-PLAN.md](web2/SO-ORDER-MONEY-PLAN.md).
+
 ### [so-order] FIX bug CRITICAL cold-start delete + HIGH dòng "nhận 1 phần" sửa/xóa được
 
 **Files:** `so-order/js/so-order-delete.js`, `so-order-modal-open.js`, `so-order-shipment.js`, `so-order-render-cells.js`, `so-order-render.js`, `so-order/index.html` (bump `?v=20260628u`).

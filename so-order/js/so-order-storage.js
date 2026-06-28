@@ -601,6 +601,55 @@
             return { discount, shipping, weightKg, caseCount, contractAmount };
         },
 
+        // ------ CHI PHÍ (expenses) per LÔ/ĐỢT — 2026-06-28 ------
+        // sh.expenses = [{id, label, amount, note, createdAt}] — đơn vị tiền theo
+        // currency tab (caller convert VND khi cần). Khác 'Ghi chú CP' (text per-row):
+        // đây là CÁC KHOẢN chi phí của cả đợt (ship nội địa, phí gom, thuế…).
+        addExpense(state, tabId, shipmentId, { label, amount, note } = {}) {
+            const tab = state.tabs.find((t) => t.id === tabId);
+            const sh = tab?.shipments.find((s) => s.id === shipmentId);
+            if (!sh) return null;
+            if (!Array.isArray(sh.expenses)) sh.expenses = [];
+            const exp = {
+                id: _mkId(),
+                label: (label || '').trim(),
+                amount: Number(amount) || 0,
+                note: (note || '').trim(),
+                createdAt: Date.now(),
+            };
+            sh.expenses.push(exp);
+            _write(state);
+            return exp;
+        },
+
+        updateExpense(state, tabId, shipmentId, expenseId, patch = {}) {
+            const tab = state.tabs.find((t) => t.id === tabId);
+            const sh = tab?.shipments.find((s) => s.id === shipmentId);
+            const exp = sh?.expenses?.find((e) => e.id === expenseId);
+            if (!exp) return false;
+            if (patch.label !== undefined) exp.label = String(patch.label).trim();
+            if (patch.amount !== undefined) exp.amount = Number(patch.amount) || 0;
+            if (patch.note !== undefined) exp.note = String(patch.note).trim();
+            _write(state);
+            return true;
+        },
+
+        deleteExpense(state, tabId, shipmentId, expenseId) {
+            const tab = state.tabs.find((t) => t.id === tabId);
+            const sh = tab?.shipments.find((s) => s.id === shipmentId);
+            if (!sh || !Array.isArray(sh.expenses)) return false;
+            const before = sh.expenses.length;
+            sh.expenses = sh.expenses.filter((e) => e.id !== expenseId);
+            if (sh.expenses.length === before) return false;
+            _write(state);
+            return true;
+        },
+
+        // Tổng chi phí 1 lô (đơn vị currency tab). Caller convert VND nếu cần.
+        getShipmentExpenseTotal(sh) {
+            return (sh?.expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        },
+
         deleteShipment(state, tabId, shipmentId) {
             const tab = state.tabs.find((t) => t.id === tabId);
             if (!tab) return false;
