@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [so-order] Fix footgun local-first: server-authoritative (wipe DB → reload ra RỖNG, hết "data đẩy ngược lại")
+
+**Files:** `so-order/js/so-order-storage-sync.js`, `so-order/js/so-order-storage.js`, `so-order/index.html` (cache-bust `?v=20260628b`).
+
+User: wipe DB Web 2.0 nhưng so-order reload vẫn còn data. Root cause: **so-order local-first** — IDB/localStorage là nguồn-sự-thật, Postgres chỉ là mirror; server rỗng → app GIỮ local rồi `pushSync()` đẩy ngược lên (re-populate). Audit toàn bộ pages tìm cùng footgun: **so-order là DUY NHẤT** — supplier-wallet (tx server per-tx, adopt `{wallets:{}}` rỗng; `totalPurchased` derive từ so-order), purchase-refund (chỉ đọc so_order_storage), cham-cong (SWR cache), Web2SmartCache (SWR) đều server-first/derive → tự sạch khi so-order sạch.
+
+- **Fix (user chọn "Server làm chủ")**: chỉ sửa tầng lưu, **app 9.3k dòng KHÔNG đụng**. `Sync.init`: server trả `empty` + đã từng sync (`soOrder_syncedVersion_v1 > 0`, persist per-device) ⇒ server bị WIPE ⇒ adopt default rỗng (set cache+IDB=default, version=0). Phân biệt với "máy mới / data offline chưa đẩy" (syncedVersion=0 → GIỮ local, không mất việc offline). `null` (offline) → giữ local. Persist syncedVersion ở 3 nơi sync OK (init adopt / pullOnce / push success+409). Expose `_internal.defaultState`.
+- **Test E2E browser** (wipe-sticks): seed v7 (HÀ NỘI 2 lô/4 dòng) → wipe reset-flow (web2_so_order=0) → reload → `HÀ NỘI:0lo, totalRows:0` ✅ 4 dòng cũ biến mất; 30 console msg / **0 error**.
+
+**Status:** ✅ Done + verified.
+
 ### [agent-tooling] Ponytail (lazy senior dev / YAGNI) — cài ALWAYS-ON
 
 **Files:** MỚI `.claude/skills/ponytail{,-review,-audit,-debt,-gain,-help}` (6 skill), `.claude/hooks/ponytail-*` (3 hook + deps + LICENSE/AGENTS/SOURCE_COMMIT), `docs/agent-tooling/PONYTAIL.md`; SỬA `.claude/settings.json` (+SessionStart entry, +SubagentStart, +UserPromptSubmit).

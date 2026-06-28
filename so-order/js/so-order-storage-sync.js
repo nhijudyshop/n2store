@@ -39,6 +39,29 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const PUSH_DEBOUNCE_MS = 400;
 
+    // 2026-06-28 (server-authoritative): phiên-bản đã-sync gần nhất, persist
+    // PER-DEVICE. Phân biệt 2 trường hợp khi server trả RỖNG:
+    //   • syncedVersion > 0 → máy này TỪNG sync, giờ server rỗng ⇒ server bị WIPE
+    //     sau đó ⇒ BỎ local theo server (hết footgun "xoá DB nhưng local đẩy lại").
+    //   • syncedVersion == 0 → máy mới / data tạo offline chưa kịp đẩy ⇒ GIỮ local
+    //     (không mất việc offline).
+    // KHÔNG đồng bộ sang máy khác (mỗi máy nhớ version nó đã thấy).
+    const SYNCED_VERSION_KEY = 'soOrder_syncedVersion_v1';
+    function _readSyncedVersion() {
+        try {
+            return Number(localStorage.getItem(SYNCED_VERSION_KEY)) || 0;
+        } catch {
+            return 0;
+        }
+    }
+    function _persistSyncedVersion(v) {
+        try {
+            localStorage.setItem(SYNCED_VERSION_KEY, String(Number(v) || 0));
+        } catch {
+            /* localStorage không khả dụng — bỏ qua */
+        }
+    }
+
     function _soAuthHeaders(extra) {
         const h = { 'Content-Type': 'application/json', ...(extra || {}) };
         try {
@@ -66,14 +89,28 @@
             try {
                 const loaded = await this._loadFromServer();
                 if (loaded && !loaded.empty) {
+                    // Server có data = NGUỒN CHUẨN (server authoritative).
                     _internal.setCachedState(loaded.data);
                     const store = _getStore();
                     if (store) await store.set(loaded.data);
                     this._localLastUpdated = loaded.lastUpdated || 0;
                     this._localVersion = loaded.version || 0;
+                    _persistSyncedVersion(this._localVersion);
+                } else if (loaded && loaded.empty && _readSyncedVersion() > 0) {
+                    // SERVER AUTHORITATIVE: server RỖNG nhưng máy này TỪNG sync (>0) ⇒
+                    // server đã bị WIPE ⇒ bỏ local theo server (reset về mặc định) →
+                    // app load lại + renderAll() ra rỗng. KHÔNG đẩy local cũ ngược lên.
+                    // syncedVersion==0 (máy mới / offline chưa đẩy) → KHÔNG vào đây,
+                    // GIỮ local.
+                    const def = _internal.defaultState();
+                    _internal.setCachedState(def);
+                    const store = _getStore();
+                    if (store) await store.set(def);
+                    this._localVersion = 0;
+                    this._localLastUpdated = 0;
+                    _persistSyncedVersion(0);
                 }
-                // C8-cleanup (2026-06-13): bỏ migration Firestore (đã migrate xong;
-                // server Postgres là nguồn chuẩn). Server rỗng → dùng state mặc định.
+                // loaded === null → server không reachable (offline) → GIỮ local (fallback).
                 this._subscribeSSE();
                 return true;
             } catch (e) {
@@ -139,6 +176,7 @@
             }
             this._localVersion = loaded.version || 0;
             this._localLastUpdated = loaded.lastUpdated || 0;
+            _persistSyncedVersion(this._localVersion);
             _internal.setCachedState(loaded.data);
             const store = _getStore();
             if (store) await store.set(loaded.data);
@@ -175,12 +213,14 @@
                 if (j && j.success) {
                     this._localVersion = j.version || this._localVersion + 1;
                     this._localLastUpdated = j.lastUpdated || Date.now();
+                    _persistSyncedVersion(this._localVersion);
                 } else if (r.status === 409 && j && j.conflict && j.server) {
                     // Máy khác vừa ghi giữa chừng → cập nhật version + báo conflict
                     // (giữ behavior cũ: user chọn refresh / giữ chỉnh sửa). Lần push
                     // kế tiếp dùng version mới → thắng (last-writer sau khi user biết).
                     this._localVersion = j.server.version || this._localVersion;
                     this._localLastUpdated = j.server.lastUpdated || this._localLastUpdated;
+                    _persistSyncedVersion(this._localVersion);
                     // audit r7: KHÔI PHỤC _pendingState — trước đây edit của user bị
                     // null ở đầu hàm rồi DROP luôn ở nhánh 409 → mất trắng (pullOnce
                     // tab-focus sau đó đè SO.state vì _pushTimer=null). Giữ lại để
