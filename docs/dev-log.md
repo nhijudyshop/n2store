@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [agent-tooling] Ponytail (lazy senior dev / YAGNI) — cài ALWAYS-ON
+
+**Files:** MỚI `.claude/skills/ponytail{,-review,-audit,-debt,-gain,-help}` (6 skill), `.claude/hooks/ponytail-*` (3 hook + deps + LICENSE/AGENTS/SOURCE_COMMIT), `docs/agent-tooling/PONYTAIL.md`; SỬA `.claude/settings.json` (+SessionStart entry, +SubagentStart, +UserPromptSubmit).
+
+User gửi repo [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) (MIT, v4.8.3) → agent tooling (giống stitch). Hỏi chế độ → user chọn **always-on**.
+
+- **Always-on qua 3 hook** wire vào `.claude/settings.json` (path tuyệt đối, manual install không có `${CLAUDE_PLUGIN_ROOT}`): SessionStart→`ponytail-activate.js` (tiêm ruleset YAGNI mỗi session), SubagentStart→`ponytail-subagent.js`, UserPromptSubmit→`ponytail-mode-tracker.js` (toggle `/ponytail lite|full|ultra|off`, mặc định full). Hook đặt ở `.claude/hooks/` (sibling `.claude/skills/`) nên `../skills/ponytail/SKILL.md` resolve thẳng skill invocable → zero-dup.
+- **6 skill invocable** `.claude/skills/ponytail*` (review diff / audit repo / debt ledger comment `ponytail:` / gain scoreboard / help).
+- **State ngoài repo** (no pollution): flag `~/.claude/.ponytail-active`, config `~/.config/ponytail/`.
+- **Verify**: `ponytail-activate.js` emit "PONYTAIL MODE ACTIVE — level: full" + full ladder; flag=full; `/ponytail ultra`→ultra→reset full OK; settings.json valid JSON. Chi tiết: `docs/agent-tooling/PONYTAIL.md`.
+
 ### [so-order] "Điền ngẫu nhiên" bơm nhiều data hơn (NCC + LOẠI biến thể + nhiều dòng)
 
 **Files:** `so-order/js/so-order-modal-random.js`.
