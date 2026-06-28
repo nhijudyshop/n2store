@@ -252,6 +252,34 @@ body {
     height: 13px;
 }
 
+.reprint-btn {
+    margin-top: 12px;
+    width: 100%;
+    height: 40px;
+    border: 1.5px solid var(--c-line);
+    border-radius: 12px;
+    background: var(--c-surface);
+    color: var(--c-primary-d);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition:
+        transform 0.12s ease,
+        background 0.12s ease;
+}
+.reprint-btn:active {
+    transform: scale(0.98);
+    background: var(--c-bg);
+}
+.reprint-btn i {
+    width: 16px;
+    height: 16px;
+}
+
 /* ── STT hero ("Bỏ vào kệ") ─────────────────────────── */
 .stt-hero {
     margin-top: 12px;

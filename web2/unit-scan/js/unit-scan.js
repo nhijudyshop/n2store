@@ -152,7 +152,7 @@
             : `<div class="prod-img" style="display:grid;place-items:center"><i data-lucide="package"></i></div>`;
 
         // STT hero: đã gán → "đã ở kệ"; chưa → gợi ý đơn đầu còn thiếu
-        const suggested = orders.find((o) => o.remaining > 0) || orders[0] || null;
+        const suggested = orders.find((o) => o.remaining > 0) || null;
         let hero = '';
         if (u.status === 'ASSIGNED' && u.orderStt != null) {
             hero = `<div class="stt-hero done">
@@ -166,6 +166,8 @@
                 <div class="num">${esc(suggested.stt)}</div>
                 <div class="sub">${esc(suggested.customerName || 'Đơn ' + (suggested.orderCode || ''))}${suggested.remaining ? ' · còn thiếu ' + suggested.remaining : ''}</div>
             </div>`;
+        } else if (orders.length) {
+            hero = `<div class="stt-hero done"><div class="lbl">Tất cả đơn đã đủ</div><div class="sub" style="margin-top:6px">Món này DƯ — để IN_STOCK</div></div>`;
         } else {
             hero = `<div class="stt-hero"><div class="lbl">Chưa có đơn nào cần SP này</div><div class="sub" style="margin-top:6px">Để IN_STOCK — chờ khách đặt</div></div>`;
         }
@@ -211,6 +213,7 @@
                     </div>
                 </div>
                 <div class="chips">${chips}</div>
+                <button class="reprint-btn" id="reprintBtn"><i data-lucide="printer"></i> In lại tem này</button>
                 ${hero}
             </div>
             <div class="sec-title">Đơn đang chờ SP này (${orders.length})</div>
@@ -219,6 +222,9 @@
             <div class="card" style="padding:8px 14px"><div class="hist" id="hist"><div class="muted" style="padding:8px">Đang tải…</div></div></div>
         `;
         icons();
+
+        // wire reprint (in lại đúng 1 tem đơn vị này)
+        $('#reprintBtn')?.addEventListener('click', () => reprintUnit(u, p));
 
         // wire assign buttons
         $('#result')
@@ -229,6 +235,36 @@
                     doAssign(u, Number(btn.dataset.assign), btn);
                 });
             });
+    }
+
+    // ── In lại 1 tem đơn vị ────────────────────────────────────────
+    // Tái dùng Web2ProductsPrint (cùng modal/giấy/máy in tem Kho SP). Mã + QR
+    // GIỮ NGUYÊN (id cố định) → tem in lại quét vẫn ra đúng món/đơn. print_count++.
+    function reprintUnit(u, p) {
+        if (!window.Web2ProductsPrint?.open) {
+            toast('Module in chưa tải xong — mở trên máy có máy in tem', 'err');
+            return;
+        }
+        const qrUrl = location.origin + '/web2/unit-scan/?u=' + u.id;
+        window.Web2ProductsPrint.open([
+            {
+                code: (p && p.code) || u.productCode,
+                name: (p && p.name) || u.productCode,
+                price: (p && p.price) || 0,
+                variant: '',
+                quantity: 1,
+                units: [{ unitCode: u.unitCode, qrUrl }],
+            },
+        ]);
+        // print_count++ + refresh (best-effort)
+        api('/reprint', {
+            method: 'POST',
+            body: JSON.stringify({ unitIds: [u.id], userName: userName() }),
+        })
+            .then(() => {
+                if (current?.unit?.id === u.id) resolve({ id: u.id });
+            })
+            .catch(() => {});
     }
 
     async function loadEvents(unitId) {
