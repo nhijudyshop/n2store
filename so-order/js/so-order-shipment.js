@@ -93,7 +93,7 @@
         const r0 = sh.rows[0] || {};
         form.elements.supplier.value = r0.supplier || ''; // fallback cho SP thiếu NCC
         form.elements.note.value = r0.note || '';
-        form.elements.costNote.value = r0.costNote || '';
+        if (form.elements.costNote) form.elements.costNote.value = r0.costNote || ''; // ô đã bỏ
         // Load rows vào modal. rowsOverride filter rows đã nhận trước khi
         // vào modal — guarantee user không thấy/sửa được rows received.
         const rowsToLoad = rowsOverride || sh.rows;
@@ -135,6 +135,8 @@
         // 2026-06-17: Sửa lô gồm nhiều ĐƠN → meta (KG/Kiện/HĐ/Giảm/Ship) theo
         // TỪNG NCC/đơn = cụm riêng. Render clusters + ẩn ô meta chung của form.
         SO._renderPerOrderMeta(sh, tab);
+        // 2026-06-28: danh sách CHI PHÍ (CP) của đợt — inline add/edit/delete.
+        SO._renderShipmentExpenses(sh, tab);
         SO.showModal('soOrderModal');
         SO._bindModalScrollCloseDropdowns();
         SO._ensureSupplierCacheSubscription();
@@ -222,5 +224,119 @@
             };
         });
         return out;
+    };
+
+    // ------ CHI PHÍ (CP) của ĐỢT — UI inline trong modal Sửa lô (2026-06-28) ------
+    // sh.expenses = [{id,label,amount,note,createdAt}] theo currency tab. Inline
+    // add/edit/delete → lưu NGAY (pushSync) + cập nhật stat cards (CP/CÒN LẠI) +
+    // header summary. KHÁC "Ghi chú CP" (text per-SP). Chỉ hiện khi edit-shipment.
+
+    // Lô + tab đang sửa (từ editingTabId/editingShipmentId set bởi openShipmentEditAllRows).
+    SO._curEditShipment = function _curEditShipment() {
+        const state = SO.state;
+        const tab =
+            (state.tabs || []).find((t) => t.id === SO.editingTabId) ||
+            window.SoOrderStorage.getActiveTab(state);
+        const sh = (tab?.shipments || []).find((s) => s.id === SO.editingShipmentId);
+        return { tab, sh };
+    };
+
+    SO._expenseRowHtml = function _expenseRowHtml(e, cur) {
+        return `<div class="so-exp-row" data-exp-id="${SO.escapeHtml(e.id)}">
+            <input class="so-input-v2 so-exp-label" data-exp-field="label" value="${SO.escapeHtml(e.label || '')}" placeholder="Tên chi phí (Ship nội địa, phí gom, thuế…)" />
+            <div class="so-exp-amount-wrap">
+                <input class="so-input-v2 so-input-num so-exp-amount" data-exp-field="amount" inputmode="decimal" data-w2num="decimal" value="${Number(e.amount) || 0}" />
+                <span class="so-exp-cur">${SO.escapeHtml(cur)}</span>
+            </div>
+            <input class="so-input-v2 so-exp-note" data-exp-field="note" value="${SO.escapeHtml(e.note || '')}" placeholder="Ghi chú…" />
+            <button type="button" class="so-exp-del" data-exp-del title="Xoá chi phí">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>`;
+    };
+
+    SO._renderExpensesTotal = function _renderExpensesTotal(sh, tab) {
+        const el = document.getElementById('soExpensesTotal');
+        if (!el) return;
+        const total = window.SoOrderStorage.getShipmentExpenseTotal(sh);
+        el.textContent = total ? 'Tổng CP: ' + SO.fmtCurrency(total, tab.currency || 'VND') : '';
+    };
+
+    SO._renderShipmentExpenses = function _renderShipmentExpenses(sh, tab) {
+        const wrap = document.getElementById('soExpensesWrap');
+        const list = document.getElementById('soExpensesList');
+        if (!wrap || !list) return;
+        if (SO.modalMode !== 'edit-shipment' || !sh) {
+            wrap.hidden = true;
+            list.innerHTML = '';
+            return;
+        }
+        wrap.hidden = false;
+        const cur = tab.currency || 'VND';
+        list.innerHTML = (sh.expenses || []).map((e) => SO._expenseRowHtml(e, cur)).join('');
+        SO._renderExpensesTotal(sh, tab);
+        if (window.Web2NumberInput) Web2NumberInput.attachAll(list);
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    };
+
+    // Bind 1 lần (markup modal tĩnh) — add / edit / delete chi phí inline.
+    SO.wireExpensesEditor = function wireExpensesEditor() {
+        const addBtn = document.getElementById('soExpensesAddBtn');
+        const list = document.getElementById('soExpensesList');
+        if (addBtn && !addBtn.__expBound) {
+            addBtn.__expBound = true;
+            addBtn.addEventListener('click', () => {
+                const { tab, sh } = SO._curEditShipment();
+                if (!sh) return;
+                window.SoOrderStorage.addExpense(SO.state, tab.id, sh.id, {
+                    label: '',
+                    amount: 0,
+                    note: '',
+                });
+                SO.pushSync();
+                SO._renderShipmentExpenses(sh, tab);
+                SO.renderAll(); // stat cards (CP/CÒN LẠI) + header summary
+                const rows = document.querySelectorAll('#soExpensesList .so-exp-row');
+                const lastLabel = rows[rows.length - 1]?.querySelector('[data-exp-field="label"]');
+                if (lastLabel) lastLabel.focus();
+            });
+        }
+        if (list && !list.__expBound) {
+            list.__expBound = true;
+            list.addEventListener('change', (e) => {
+                const field = e.target?.dataset?.expField;
+                if (!field) return;
+                const expId = e.target.closest('.so-exp-row')?.dataset?.expId;
+                if (!expId) return;
+                const { tab, sh } = SO._curEditShipment();
+                if (!sh) return;
+                let val = e.target.value;
+                if (field === 'amount') {
+                    val = window.Web2NumberInput
+                        ? Web2NumberInput.getValue(e.target)
+                        : Number(val) || 0;
+                }
+                window.SoOrderStorage.updateExpense(SO.state, tab.id, sh.id, expId, {
+                    [field]: val,
+                });
+                SO.pushSync();
+                if (field === 'amount') {
+                    SO._renderExpensesTotal(sh, tab); // KHÔNG rebuild list (giữ focus)
+                    SO.renderAll();
+                }
+            });
+            list.addEventListener('click', (e) => {
+                const del = e.target.closest('[data-exp-del]');
+                if (!del) return;
+                const expId = del.closest('.so-exp-row')?.dataset?.expId;
+                if (!expId) return;
+                const { tab, sh } = SO._curEditShipment();
+                if (!sh) return;
+                window.SoOrderStorage.deleteExpense(SO.state, tab.id, sh.id, expId);
+                SO.pushSync();
+                SO._renderShipmentExpenses(sh, tab);
+                SO.renderAll();
+            });
+        }
     };
 })();

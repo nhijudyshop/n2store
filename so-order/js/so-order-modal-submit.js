@@ -34,7 +34,9 @@
         const sharedFields = {
             supplier: form.elements.supplier.value.trim(),
             note: form.elements.note.value.trim(),
-            costNote: form.elements.costNote.value.trim(),
+            // 2026-06-28: BỎ ô "Ghi chú CP" — costNote không còn nhập ở modal (thay
+            // bằng "Chi phí đợt"). Giữ key rỗng để addRow/updateRow không phá data cũ.
+            costNote: form.elements.costNote ? form.elements.costNote.value.trim() : '',
         };
         // Auto-create NCC vào Ví NCC nếu tên chưa có. Fire-and-forget — không
         // chặn submit, lỗi Firestore chỉ console.warn (vẫn lưu row bình thường).

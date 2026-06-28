@@ -25,7 +25,9 @@
         { key: 'productImage', label: 'Ảnh SP' },
         { key: 'invoiceImage', label: 'Ảnh Hóa Đơn' },
         { key: 'note', label: 'Ghi Chú' },
-        { key: 'costNote', label: 'Ghi Chú CP' },
+        // 2026-06-28: BỎ cột "Ghi Chú CP" (costNote per-SP) — thay bằng feature
+        // "Chi phí đợt" (expenses, mỗi dòng có amount + note riêng) trong modal Sửa
+        // lô. Data costNote cũ giữ nguyên trên row (không xoá) nhưng không render.
         { key: 'status', label: 'Trạng Thái' },
         // Cột "Thao Tác" (sửa/xoá per-row) đã bỏ 2026-06-16 — trùng chức năng với
         // các nút trên header lô (✏️ sửa lô / 🗑️ xoá lô / ➕ thêm dòng) + sửa ô

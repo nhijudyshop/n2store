@@ -2,6 +2,21 @@
 
 ## 2026-06-28
 
+### [so-order] Money feature S2→S5 (Tab Đợt · Stat cards · Chi phí · Thanh toán CK) + 2 tweak UI
+
+**Files:** `so-order/js/so-order-storage.js` (per-device batch view-state + `batchKeyOf`), `so-order-render.js` (batchGroups/renderBatchStrip + lọc bảng/footer theo đợt + getBatchTotals + renderStatCards + chip CP header), `so-order-shipment.js` (expense UI inline + wireExpensesEditor), `so-order-modal-core.js` (toggle `#soExpensesWrap`), `so-order-payments.js` (MỚI — ledger NCC POST/load + modal Thanh toán CK + SSE), `so-order-app.js` (wire expenses/payment + deeplink reset batch), `so-order-state.js` (BỎ cột costNote), `so-order-modal-submit.js`/`so-order-modal-open.js` (guard costNote đã bỏ), `so-order/index.html` (markup dải Đợt + stat strip TRÊN bảng + modal Thanh toán + bỏ ô Ghi chú CP + bump `?v=20260628w`), `so-order/css/so-order.css`.
+
+Hoàn tất 4/4 phần money-plan (DESIGN LOCKED 27/06) — chi tiết stage [docs/web2/SO-ORDER-MONEY-PLAN.md](web2/SO-ORDER-MONEY-PLAN.md):
+
+- **S2 Tab Đợt cấp 2**: dải `#soBatchStrip` dưới tab địa danh, đợt = nhóm shipment theo `batch` (mới nhất đầu, "Tất cả" cuối, ẩn khi <2 đợt). `activeBatch` per-device per-tab (localStorage `soOrder_activeBatch_v1`). Chọn đợt → lọc bảng + stat + thanh toán.
+- **S3 Stat cards**: 5 card KG/HĐ/CP/TT/CÒN LẠI theo đợt (thay footer cũ). HĐ/CP currency tab + ≈VND; CÒN LẠI=(HĐ+CP)−TT quy VND, đỏ nếu >0.
+- **S4 CP UI**: "Chi phí đợt" inline trong modal Sửa lô ({label,amount,note}, add/edit/delete lưu ngay) + chip CP header lô.
+- **S5 Thanh toán CK**: modal theo đợt → POST `web2_supplier_ledger` (type=payment, ref đợt+NCC, idempotent, money-op await) → Ví/Công nợ NCC trừ realtime; `loadPayments` đọc /state→TT; SSE `web2:supplier-wallet`.
+- **Tweak 1 (user)**: chuyển stat cards LÊN TRÊN bảng (dưới dải Đợt) — thấy ngay không phải cuộn.
+- **Tweak 2 (user)**: BỎ cột "Ghi Chú CP" (costNote per-SP) + ô nhập trong modal — thay bằng feature Chi phí đợt (có note riêng). Data costNote cũ giữ nguyên (không render, không xoá).
+
+**Verify:** browser-test (web2 login từ secret) — S2/S3 data thật (3 lô HÀ NỘI Đợt 9/8/3, filter+stat khớp); S4/S5 fake state (writes stubbed, ZERO prod): expense CRUD→CP/chip/stat live, payment modal populate/validate/submit→payload `{ncc,amt,batch,ship,tab}` đúng + TT/CÒN LẠI update. Sửa lô data thật mở 0 console error sau khi bỏ costNote.
+
 ### [so-order] Bỏ 3 nút toolbar: Nhập / Tải mẫu / Tạo data ngẫu nhiên
 
 **Files:** `so-order/index.html` (gỡ markup 3 nút + bump toolbar `?v=20260628v`), `so-order/js/so-order-toolbar.js` (gỡ 3 handler).

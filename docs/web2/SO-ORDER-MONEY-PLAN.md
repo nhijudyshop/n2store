@@ -35,11 +35,11 @@
 ## Stages
 
 - [x] **S1 — Data model (blob)** ✅ 2026-06-28: thêm `sh.expenses:[{id,label,amount,note,createdAt}]` + APIs `addExpense/updateExpense/deleteExpense/getShipmentExpenseTotal` (so-order-storage.js, additive + lazy default; storage bumped `?v=20260628v`). Chưa có consumer UI (S3/S4 sẽ dùng).
-- [ ] **S2 — Tab Đợt cấp 2**: state `activeBatchId` per-device (như activeTabId); render dải tab đợt (đợt = nhóm shipment theo batch, mới nhất đầu, "Tất cả" cuối) dưới tab địa danh; lọc `renderTableBody` theo đợt đang chọn. Sort + "Tất cả".
-- [ ] **S3 — Stat cards**: thay `.so-totals` bằng dải 5 card (KG/HĐ/CP/TT/CÒN LẠI) theo đợt đang chọn; aggregator mới `getBatchTotals(batch)` (HĐ+KG từ adjust, CP từ expenses, TT từ ledger cache). CÒN LẠI màu đỏ nếu >0.
-- [ ] **S4 — CP UI**: danh sách dòng chi phí trong modal "Sửa lô" cạnh per-order meta (#soPerOrderMetaWrap) + dòng tóm tắt CP ở shipment header. Inline add/edit/delete (Web2NumberInput cho amount).
-- [ ] **S5 — THANH TOÁN CK**: panel/modal "Thanh toán CK" theo đợt (date + amount + note + chọn NCC nếu >1). POST ledger qua recordPayment (await + loading + rollback toast — money op exception). Đọc lại /state lọc ref→TỔNG TT. Subscribe `web2:supplier-wallet` refresh. Audit log.
-- [ ] **S6 — Verify**: browser-test full (tạo đợt, thêm CP, thanh toán CK → kiểm Ví/Công nợ NCC trừ đúng, stat cards khớp, cross-page).
+- [x] **S2 — Tab Đợt cấp 2** ✅ 2026-06-28: per-device per-tab `activeBatch` (map localStorage `soOrder_activeBatch_v1`, sentinel `ALL_BATCH`) trong storage; `batchGroups/activeBatchKey/shipmentsInActiveBatch/renderBatchStrip` trong render.js; dải `#soBatchStrip` (đợt = nhóm shipment theo `batch`, mới nhất đầu, "Tất cả" cuối, **ẩn khi <2 đợt**). `renderTableBody`+footer lọc theo đợt. Deep-link NCC tự reset về "Tất cả".
+- [x] **S3 — Stat cards** ✅ 2026-06-28: thay `.so-totals` bằng dải 5 card `#soStatStrip` (KG/HĐ/CP/TT/CÒN LẠI) + aggregator `getBatchTotals(shipments)`. HĐ/CP theo currency tab + ≈VND sub; TT+CÒN LẠI quy VND. CÒN LẠI đỏ (`is-debt`) nếu >0, xanh (`is-clear`) nếu ≤0. **Vị trí: TRÊN bảng** (dưới dải Đợt) theo yêu cầu user.
+- [x] **S4 — CP UI** ✅ 2026-06-28: section `#soExpensesWrap` trong modal Sửa lô (inline add/edit/delete, Web2NumberInput amount) + chip tóm tắt CP trên shipment header. Hàm ở so-order-shipment.js. **BỎ cột "Ghi Chú CP" (costNote per-SP)** — thay bằng feature này (theo yêu cầu user; data costNote cũ giữ nguyên, không render).
+- [x] **S5 — THANH TOÁN CK** ✅ 2026-06-28: module `so-order-payments.js` (POST ledger `/api/web2-supplier-wallet/tx` type=payment, `ref={source:'so-order',tabId,batch,shipmentId,ncc}`, idempotent txId, money-op await+loading+rollback) + modal `#soPaymentModal` (summary, chọn NCC, default = remaining, lịch sử). `loadPayments` đọc /state → `_paymentsByShipment` (TỔNG TT); subscribe `web2:supplier-wallet` SSE refresh.
+- [x] **S6 — Verify** ✅ 2026-06-28: browser-test (web2 login từ secret) — S2/S3 trên data thật (3 lô HÀ NỘI: Đợt 9/8/3, filter + stat khớp) + S4/S5 trên fake state (writes stubbed, zero prod): expense add/edit/delete → CP/header chip/stat live; payment modal populate/validate/submit → payload `{ncc,amt,batch,ship,tab}` đúng, TT+CÒN LẠI update. Cross-page (Công nợ NCC) đảm bảo by-construction (cùng endpoint `/tx` như supplier-debt recordPayment).
 
 ## Gotchas
 

@@ -114,7 +114,7 @@
             }
             form.elements.supplier.value = r.supplier || '';
             form.elements.note.value = r.note || '';
-            form.elements.costNote.value = r.costNote || '';
+            if (form.elements.costNote) form.elements.costNote.value = r.costNote || ''; // ô đã bỏ
             SO.modalRows = [
                 SO._newModalRow({
                     productName: r.productName || '',

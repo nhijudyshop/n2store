@@ -50,6 +50,94 @@
         if (lbl) lbl.textContent = tab.label;
     };
 
+    // ------ ĐỢT (batch) — tab cấp 2 dưới địa danh (2026-06-28) ------
+    // Đợt = nhóm các LÔ (shipment) cùng `batch`. 1 đợt có thể gồm nhiều lô (nhiều
+    // ngày giao). activeBatch per-device per-tab; mặc định = ALL (xem tất cả).
+    SO.batchKeyOf = function batchKeyOf(sh) {
+        return window.SoOrderStorage.batchKeyOf(sh);
+    };
+    SO.batchLabelOf = function batchLabelOf(key) {
+        if (key === window.SoOrderStorage.ALL_BATCH) return 'Tất cả';
+        return key === '' ? 'Chưa đặt đợt' : 'Đợt ' + key;
+    };
+    // Các đợt của tab địa danh đang xem — đợt MỚI NHẤT (theo ngày lô lớn nhất) ở đầu.
+    SO.batchGroups = function batchGroups() {
+        const tab = window.SoOrderStorage.getActiveTab(SO.state);
+        const map = new Map(); // key → { key, maxDate, count }
+        for (const sh of tab.shipments || []) {
+            const k = SO.batchKeyOf(sh);
+            const d = String(sh.date || '');
+            const g = map.get(k);
+            if (g) {
+                g.count++;
+                if (d > g.maxDate) g.maxDate = d;
+            } else {
+                map.set(k, { key: k, maxDate: d, count: 1 });
+            }
+        }
+        return [...map.values()].sort(
+            (a, b) =>
+                String(b.maxDate).localeCompare(String(a.maxDate)) ||
+                String(b.key).localeCompare(String(a.key))
+        );
+    };
+    // Đợt đang chọn (đã validate còn tồn tại trong tab; nếu không → ALL).
+    SO.activeBatchKey = function activeBatchKey() {
+        const tab = window.SoOrderStorage.getActiveTab(SO.state);
+        const ALL = window.SoOrderStorage.ALL_BATCH;
+        const key = window.SoOrderStorage.getActiveBatch(tab.id);
+        if (key === ALL) return ALL;
+        const exists = (tab.shipments || []).some((sh) => SO.batchKeyOf(sh) === key);
+        return exists ? key : ALL;
+    };
+    // Các lô thuộc đợt đang chọn (ALL → toàn bộ lô của tab).
+    SO.shipmentsInActiveBatch = function shipmentsInActiveBatch() {
+        const tab = window.SoOrderStorage.getActiveTab(SO.state);
+        const ALL = window.SoOrderStorage.ALL_BATCH;
+        const all = tab.shipments || [];
+        const key = SO.activeBatchKey();
+        if (key === ALL) return all;
+        return all.filter((sh) => SO.batchKeyOf(sh) === key);
+    };
+    SO.renderBatchStrip = function renderBatchStrip() {
+        const wrap = document.getElementById('soBatchStripWrap');
+        const strip = document.getElementById('soBatchStrip');
+        if (!wrap || !strip) return;
+        const groups = SO.batchGroups();
+        // Chỉ hiện dải khi có ≥2 đợt (grouping mới có nghĩa). <2 → ẩn, xem tất cả.
+        if (groups.length < 2) {
+            wrap.hidden = true;
+            strip.innerHTML = '';
+            return;
+        }
+        wrap.hidden = false;
+        const ALL = window.SoOrderStorage.ALL_BATCH;
+        const active = SO.activeBatchKey();
+        // Keys/labels/counts song song → tránh nhúng batchKey thô (có thể là sentinel
+        // hoặc ký tự lạ) vào attribute. Pill click đọc index → keys[i].
+        const total = groups.reduce((s, g) => s + g.count, 0);
+        const keys = [...groups.map((g) => g.key), ALL];
+        const labels = [...groups.map((g) => SO.batchLabelOf(g.key)), 'Tất cả'];
+        const counts = [...groups.map((g) => g.count), total];
+        strip.innerHTML = keys
+            .map((k, i) => {
+                const isActive = k === active ? 'is-active' : '';
+                return `<button class="so-batch-pill ${isActive}" data-batch-idx="${i}" type="button">
+                    <span>${SO.escapeHtml(labels[i])}</span>
+                    <span class="so-batch-pill-count">${counts[i]}</span>
+                </button>`;
+            })
+            .join('');
+        strip.querySelectorAll('.so-batch-pill').forEach((el) => {
+            el.addEventListener('click', () => {
+                const i = Number(el.dataset.batchIdx);
+                const tab = window.SoOrderStorage.getActiveTab(SO.state);
+                window.SoOrderStorage.setActiveBatch(tab.id, keys[i]);
+                SO.renderAll();
+            });
+        });
+    };
+
     SO.renderTableHead = function renderTableHead() {
         // Column header row no longer lives in the global <thead> — each
         // shipment renders its own header row inside its expand area,
@@ -77,7 +165,8 @@
         const empty = document.getElementById('soEmptyState');
         if (!tbody) return;
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
-        const shipments = tab.shipments || [];
+        // Lọc theo đợt (batch) đang chọn — ALL → toàn bộ lô của tab.
+        const shipments = SO.shipmentsInActiveBatch();
         if (!shipments.length) {
             tbody.innerHTML = '';
             empty.hidden = false;
@@ -579,6 +668,12 @@
                         if (ship) parts.push(`Ship ${SO.fmtCurrency(ship, tab.currency || 'VND')}`);
                         return `<span class="so-shipment-sep">|</span><span class="so-shipment-meta so-shipment-adjust">${SO.escapeHtml(parts.join(' · '))}</span>`;
                     })()}
+                    ${(() => {
+                        // 2026-06-28: tóm tắt CHI PHÍ (CP) của lô — hiện khi > 0.
+                        const cp = window.SoOrderStorage.getShipmentExpenseTotal(sh);
+                        if (!cp) return '';
+                        return `<span class="so-shipment-sep">|</span><span class="so-shipment-meta so-shipment-cp" title="Tổng chi phí đợt — sửa trong modal Sửa lô"><i data-lucide="receipt"></i> CP ${SO.escapeHtml(SO.fmtCurrency(cp, tab.currency || 'VND'))}</span>`;
+                    })()}
                     <span class="so-shipment-spacer"></span>
                     ${(() => {
                         // P1 2026-05-30: nếu mọi row hợp lệ đã received → disable
@@ -790,44 +885,83 @@
         );
     };
 
+    // TT (đã thanh toán CK) — cache Map<shipmentId, vndPaid>, nạp bởi S5 từ ledger
+    // NCC (/state lọc ref.shipmentId). Mặc định null → TT = 0 cho tới khi S5 wire.
+    SO._paymentsByShipment = null;
+
+    // Aggregator stat cards theo ĐỢT: KG / HĐ / CP / TT / CÒN LẠI. Tiền HĐ+CP theo
+    // currency tab; TT + CÒN LẠI quy về VND (ledger canonical VND). CÒN LẠI =
+    // (HĐ + CP) − TT (quy VND).
+    SO.getBatchTotals = function getBatchTotals(shipments) {
+        const tab = window.SoOrderStorage.getActiveTab(SO.state);
+        const St = window.SoOrderStorage;
+        let weightKg = 0;
+        let contractAmount = 0;
+        let expense = 0;
+        let qty = 0;
+        let rowCount = 0;
+        for (const sh of shipments) {
+            const adj = St.getShipmentAdjustTotals(sh);
+            weightKg += adj.weightKg;
+            contractAmount += adj.contractAmount;
+            expense += St.getShipmentExpenseTotal(sh);
+            for (const r of sh.rows || []) qty += Number(r.qty) || 0;
+            rowCount += (sh.rows || []).length;
+        }
+        const contractVnd = SO.toVnd(contractAmount, tab);
+        const expenseVnd = SO.toVnd(expense, tab);
+        let paidVnd = 0;
+        if (SO._paymentsByShipment) {
+            for (const sh of shipments) paidVnd += Number(SO._paymentsByShipment.get(sh.id)) || 0;
+        }
+        const payableVnd = contractVnd + expenseVnd;
+        const remainingVnd = payableVnd - paidVnd;
+        return {
+            weightKg,
+            contractAmount,
+            contractVnd,
+            expense,
+            expenseVnd,
+            paidVnd,
+            payableVnd,
+            remainingVnd,
+            qty,
+            rowCount,
+        };
+    };
+
+    // Stat cards (KG/HĐ/CP/TT/CÒN LẠI) theo đợt — thay footer totals cũ. Giữ tên
+    // renderFooterTotals (renderAll + bulk-edit gọi) để tránh churn.
     SO.renderFooterTotals = function renderFooterTotals() {
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
-        // Flatten rows across all shipments for tab-wide totals
-        const allRows = (tab.shipments || []).flatMap((s) => s.rows);
-        const totalQty = allRows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-        // Tổng tiền footer = Σ(SL × GIÁ NHẬP) — đơn MUA NCC tính theo giá nhập, KHỚP
-        // modal updateModalTotals (so-order-modal-core:456-458). Trước dùng sellPrice
-        // → footer phồng theo giá bán, lệch tổng tiền thật (audit r3 CRITICAL 2026-06-21).
-        const subtotalVnd = allRows.reduce(
-            (s, r) => s + SO.toVnd(Number(r.costPrice) || 0, tab) * (Number(r.qty) || 0),
-            0
-        );
-        // 2026-06-16: footer giảm giá / phí ship = TỔNG các ĐƠN (orderAdjustments)
-        // qua mọi lô của tab, quy đổi VND (toVnd theo tab.rate). DERIVED — readonly,
-        // không nhập tay (đã bỏ `tab.footer` thủ công).
-        let footDiscVnd = 0;
-        let footShipVnd = 0;
-        for (const s of tab.shipments || []) {
-            const t = window.SoOrderStorage.getShipmentAdjustTotals(s);
-            footDiscVnd += SO.toVnd(t.discount, tab);
-            footShipVnd += SO.toVnd(t.shipping, tab);
+        const cur = tab.currency || 'VND';
+        const shipments = SO.shipmentsInActiveBatch();
+        const t = SO.getBatchTotals(shipments);
+        const set = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        set('soStatKg', t.weightKg.toLocaleString('vi-VN') + ' KG');
+        set('soStatHd', SO.fmtCurrency(t.contractAmount, cur));
+        set('soStatHdSub', cur === 'VND' ? '' : '≈ ' + SO.fmtVnd(t.contractVnd));
+        set('soStatCp', SO.fmtCurrency(t.expense, cur));
+        set('soStatCpSub', cur === 'VND' ? '' : '≈ ' + SO.fmtVnd(t.expenseVnd));
+        set('soStatTt', SO.fmtVnd(t.paidVnd));
+        set('soStatRemain', SO.fmtVnd(t.remainingVnd));
+        const remainCard = document.getElementById('soStatRemainCard');
+        if (remainCard) {
+            // CÒN LẠI > 0 = còn phải trả (đỏ); <= 0 = đã trả đủ/dư (xanh).
+            remainCard.classList.toggle('is-debt', t.remainingVnd > 0);
+            remainCard.classList.toggle('is-clear', t.remainingVnd <= 0);
         }
-        const grandTotal = subtotalVnd - footDiscVnd + footShipVnd;
-
-        document.getElementById('soFootTotalQty').textContent = totalQty.toLocaleString('vi-VN');
-        document.getElementById('soFootDiscount').value = Math.round(footDiscVnd);
-        document.getElementById('soFootShipping').value = Math.round(footShipVnd);
-        document.getElementById('soFootGrandTotal').textContent = SO.fmtVnd(grandTotal);
-
-        // Topbar counter — show row count + shipment count
-        const shipCount = (tab.shipments || []).length;
-        document.getElementById('soTotalRows').textContent =
-            `${shipCount} lô · ${allRows.length} dòng`;
-        document.getElementById('soTotalQty').textContent = `SL: ${totalQty}`;
+        // Topbar counters (theo đợt đang chọn)
+        set('soTotalRows', `${shipments.length} lô · ${t.rowCount} dòng`);
+        set('soTotalQty', `SL: ${t.qty}`);
     };
 
     SO.renderAll = function renderAll() {
         SO.renderTabStrip();
+        SO.renderBatchStrip();
         SO.renderTableHead();
         SO.renderTableBody();
         SO.renderFooterTotals();

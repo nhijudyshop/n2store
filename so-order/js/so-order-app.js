@@ -88,6 +88,18 @@
                     owningSh.collapsed = false;
                     changed = true;
                 }
+                // Deep-link tới NCC: bỏ lọc đợt (về "Tất cả") để dòng không bị ẩn.
+                if (
+                    target &&
+                    window.SoOrderStorage.getActiveBatch(SO.state.activeTabId) !==
+                        window.SoOrderStorage.ALL_BATCH
+                ) {
+                    window.SoOrderStorage.setActiveBatch(
+                        SO.state.activeTabId,
+                        window.SoOrderStorage.ALL_BATCH
+                    );
+                    changed = true;
+                }
                 if (changed) {
                     window.SoOrderStorage.save(SO.state);
                     SO.renderAll();
@@ -118,6 +130,8 @@
         SO.wireInlineImageModal();
         SO.wireModalTotals();
         SO.wireFooterInputs();
+        if (SO.wireExpensesEditor) SO.wireExpensesEditor(); // CP inline (Sửa lô)
+        if (SO.wirePaymentPanel) SO.wirePaymentPanel(); // Thanh toán CK (đợt)
         if (window.lucide?.createIcons) window.lucide.createIcons();
 
         // Web2ProductsCache — bật suggestion + badge cho modal tạo đơn.

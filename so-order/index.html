@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260628s" />
         <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260628s" />
         <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260628s" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260628s" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260628w" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
         <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260628s" />
 
@@ -106,6 +106,57 @@
                     </div>
                 </section>
 
+                <!-- Đợt (batch) sub-tab strip — cấp 2 dưới địa danh. Tự ẩn khi <2 đợt.
+                     Chọn đợt → lọc bảng + stat cards + thanh toán theo đợt đó. -->
+                <section class="so-batch-strip-wrap" id="soBatchStripWrap" hidden>
+                    <span class="so-batch-strip-label"> <i data-lucide="layers"></i> Đợt </span>
+                    <div class="so-batch-strip" id="soBatchStrip">
+                        <!-- Batch pills injected by JS -->
+                    </div>
+                </section>
+
+                <!-- Stat cards theo ĐỢT đang chọn (2026-06-28) — đặt TRÊN bảng (dưới
+                     dải Đợt) để tóm tắt tiền/đợt nhìn thấy ngay không phải cuộn.
+                     KG · HĐ · CP · ĐÃ TT · CÒN LẠI. CÒN LẠI = (HĐ + CP) − TT (quy VND). -->
+                <section class="so-stat-strip" id="soStatStrip">
+                    <div class="so-stat-card" data-stat="kg">
+                        <span class="so-stat-label"><i data-lucide="weight"></i> Tổng KG</span>
+                        <span class="so-stat-value" id="soStatKg">0 KG</span>
+                    </div>
+                    <div class="so-stat-card" data-stat="hd">
+                        <span class="so-stat-label"><i data-lucide="file-text"></i> Tổng HĐ</span>
+                        <span class="so-stat-value" id="soStatHd">0₫</span>
+                        <span class="so-stat-sub" id="soStatHdSub"></span>
+                    </div>
+                    <div class="so-stat-card" data-stat="cp">
+                        <span class="so-stat-label"><i data-lucide="receipt"></i> Tổng CP</span>
+                        <span class="so-stat-value" id="soStatCp">0₫</span>
+                        <span class="so-stat-sub" id="soStatCpSub"></span>
+                    </div>
+                    <div class="so-stat-card" data-stat="tt">
+                        <span class="so-stat-label"
+                            ><i data-lucide="banknote"></i> Đã thanh toán</span
+                        >
+                        <span class="so-stat-value" id="soStatTt">0₫</span>
+                    </div>
+                    <div
+                        class="so-stat-card so-stat-card-remain is-clear"
+                        data-stat="remain"
+                        id="soStatRemainCard"
+                    >
+                        <span class="so-stat-label"><i data-lucide="wallet"></i> Còn lại</span>
+                        <span class="so-stat-value" id="soStatRemain">0₫</span>
+                        <button
+                            type="button"
+                            class="so-stat-pay-btn"
+                            id="soStatPayBtn"
+                            title="Thanh toán chuyển khoản cho đợt này"
+                        >
+                            <i data-lucide="banknote"></i> Thanh toán CK
+                        </button>
+                    </div>
+                </section>
+
                 <!-- Table -->
                 <section class="so-table-wrap">
                     <div class="so-edit-table-hint" id="soEditTableHint" aria-live="polite">
@@ -130,48 +181,6 @@
                         <p class="so-empty-hint">
                             Bấm <strong>Tạo Đơn Hàng</strong> để thêm dòng đầu tiên.
                         </p>
-                    </div>
-                </section>
-
-                <!-- Footer totals -->
-                <section class="so-totals">
-                    <div class="so-total-pill">
-                        <span class="so-total-label">Tổng SL:</span>
-                        <span class="so-total-value" id="soFootTotalQty">0</span>
-                    </div>
-                    <!-- 2026-06-16: Giảm Giá / Phí Ship = TỔNG các đơn trong ngày giao
-                         (tự tính, readonly). Nhập discount/ship ở modal tạo/sửa đơn. -->
-                    <div class="so-total-pill so-total-pill-input">
-                        <label for="soFootDiscount" class="so-total-label">Giảm Giá (VNĐ):</label>
-                        <input
-                            type="number"
-                            id="soFootDiscount"
-                            min="0"
-                            step="1000"
-                            value="0"
-                            class="so-total-input"
-                            readonly
-                            tabindex="-1"
-                            title="Tổng giảm giá của các đơn trong ngày giao (tự tính)"
-                        />
-                    </div>
-                    <div class="so-total-pill so-total-pill-input">
-                        <label for="soFootShipping" class="so-total-label">Phí Ship (VNĐ):</label>
-                        <input
-                            type="number"
-                            id="soFootShipping"
-                            min="0"
-                            step="1000"
-                            value="0"
-                            class="so-total-input"
-                            readonly
-                            tabindex="-1"
-                            title="Tổng phí ship của các đơn trong ngày giao (tự tính)"
-                        />
-                    </div>
-                    <div class="so-total-pill so-total-pill-strong">
-                        <span class="so-total-label">Tổng tiền (VNĐ):</span>
-                        <span class="so-total-value" id="soFootGrandTotal">0₫</span>
                     </div>
                 </section>
             </main>
@@ -303,23 +312,15 @@
                         </div>
                     </div>
 
-                    <!-- Row 2: Note / Cost Note / Status -->
+                    <!-- Row 2: Note / Discount / Ship.  2026-06-28: BỎ ô "Ghi chú CP"
+                         (costNote per-SP) — thay bằng feature "Chi phí đợt" (modal Sửa lô). -->
                     <div class="so-form-row-note">
-                        <div class="so-form-cell" style="flex: 2 1 320px">
+                        <div class="so-form-cell" style="flex: 3 1 420px">
                             <label class="so-form-label">Ghi chú</label>
                             <input
                                 type="text"
                                 name="note"
                                 placeholder="Ghi chú thêm cho đơn hàng..."
-                                class="so-input-v2"
-                            />
-                        </div>
-                        <div class="so-form-cell" style="flex: 2 1 280px">
-                            <label class="so-form-label">Ghi chú CP (nội bộ)</label>
-                            <input
-                                type="text"
-                                name="costNote"
-                                placeholder="Ghi chú chi phí, nội bộ..."
                                 class="so-input-v2"
                             />
                         </div>
@@ -363,6 +364,31 @@
                             >
                         </div>
                         <div id="soPerOrderMetaList" class="so-perorder-meta-list"></div>
+                    </div>
+
+                    <!-- 2026-06-28: Chi phí (CP) của ĐỢT — danh sách dòng
+                         {label, amount, note} (ship nội địa / phí gom / thuế…).
+                         Inline add/edit/delete, lưu ngay. Tính vào CÒN LẠI. Chỉ
+                         hiện khi Sửa lô. KHÁC "Ghi chú CP" (text per-SP). -->
+                    <div class="so-expenses-wrap" id="soExpensesWrap" hidden>
+                        <div class="so-expenses-head">
+                            <i data-lucide="receipt"></i>
+                            Chi phí đợt
+                            <span class="so-expenses-hint"
+                                >(ship nội địa, phí gom, thuế… — cộng vào CÒN LẠI)</span
+                            >
+                            <span class="so-expenses-total" id="soExpensesTotal"></span>
+                        </div>
+                        <div id="soExpensesList" class="so-expenses-list">
+                            <!-- expense rows injected -->
+                        </div>
+                        <button
+                            type="button"
+                            class="btn btn-secondary so-expenses-add"
+                            id="soExpensesAddBtn"
+                        >
+                            <i data-lucide="plus-circle"></i> Thêm chi phí
+                        </button>
                     </div>
 
                     <!-- Product table — multi-row, rows injected dynamically -->
@@ -604,6 +630,76 @@
             </div>
         </div>
 
+        <!-- Thanh toán CK theo ĐỢT (2026-06-28) — POST ledger NCC, money op await -->
+        <div class="so-modal" id="soPaymentModal" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <div class="so-modal-panel so-modal-panel-narrow">
+                <header class="so-modal-head">
+                    <h2 id="soPayTitle">Thanh toán CK</h2>
+                    <button class="so-modal-close" type="button" data-so-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="so-modal-body">
+                    <div class="so-pay-summary">
+                        <div class="so-pay-sum-item">
+                            <span>Phải trả (HĐ+CP)</span>
+                            <strong id="soPaySumPayable">0₫</strong>
+                        </div>
+                        <div class="so-pay-sum-item">
+                            <span>Đã trả</span>
+                            <strong id="soPaySumPaid">0₫</strong>
+                        </div>
+                        <div class="so-pay-sum-item so-pay-sum-remain">
+                            <span>Còn lại</span>
+                            <strong id="soPaySumRemain">0₫</strong>
+                        </div>
+                    </div>
+                    <label class="so-field" id="soPaySupplierField">
+                        <span>Nhà cung cấp (trừ nợ NCC này)</span>
+                        <select id="soPaySupplier" class="so-input-v2"></select>
+                    </label>
+                    <label class="so-field">
+                        <span>Ngày thanh toán</span>
+                        <input type="date" id="soPayDate" class="so-input-v2" />
+                    </label>
+                    <label class="so-field">
+                        <span>Số tiền (VNĐ)</span>
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            data-w2num="decimal"
+                            id="soPayAmount"
+                            class="so-input-v2 so-input-num"
+                            value="0"
+                        />
+                    </label>
+                    <label class="so-field">
+                        <span>Ghi chú</span>
+                        <input
+                            type="text"
+                            id="soPayNote"
+                            class="so-input-v2"
+                            placeholder="Vd: CK Vietcombank…"
+                        />
+                    </label>
+                    <div class="so-pay-history-wrap">
+                        <div class="so-pay-history-head">Lịch sử thanh toán đợt</div>
+                        <div id="soPayHistory" class="so-pay-history">
+                            <!-- payment history injected -->
+                        </div>
+                    </div>
+                </div>
+                <footer class="so-modal-foot">
+                    <span class="so-modal-foot-spacer"></span>
+                    <button class="btn btn-secondary" type="button" data-so-close>Hủy</button>
+                    <button class="btn btn-primary" type="button" id="soPaySaveBtn">
+                        <i data-lucide="banknote"></i> Lưu thanh toán
+                    </button>
+                </footer>
+            </div>
+        </div>
+
         <script src="../web2/shared/web2-auth.js?v=20260628s"></script>
         <script src="../web2/shared/web2-optimistic.js?v=20260628s"></script>
         <script src="../web2/shared/web2-number-input.js?v=20260628s"></script>
@@ -648,20 +744,20 @@
         <script src="../web2/shared/web2-import.js?v=20260628s"></script>
         <!-- so-order-storage.js (962 dòng) tách MOVE-only thành 2 module <800 dòng:
              storage (data layer) → storage-sync (Sync sub-system). Data TRƯỚC sync. -->
-        <script src="js/so-order-storage.js?v=20260628v"></script>
+        <script src="js/so-order-storage.js?v=20260628w"></script>
         <script src="js/so-order-storage-sync.js?v=20260628s"></script>
         <!-- so-order-app.js (5931 dòng) đã tách thành nhiều module nhỏ <800 dòng
              (MOVE-only, namespace window.SoOrder). Load theo thứ tự phụ thuộc;
              app (orchestrator) LAST. -->
-        <script src="js/so-order-state.js?v=20260628s"></script>
+        <script src="js/so-order-state.js?v=20260628w"></script>
         <script src="js/so-order-format.js?v=20260628s"></script>
-        <script src="js/so-order-render.js?v=20260628u"></script>
+        <script src="js/so-order-render.js?v=20260628w"></script>
         <script src="js/so-order-render-cells.js?v=20260628u"></script>
         <script src="js/so-order-inline-edit.js?v=20260628s"></script>
         <script src="js/so-order-bulk-edit.js?v=20260628s"></script>
-        <script src="js/so-order-modal-core.js?v=20260628s"></script>
-        <script src="js/so-order-modal-open.js?v=20260628u"></script>
-        <script src="js/so-order-modal-submit.js?v=20260628s"></script>
+        <script src="js/so-order-modal-core.js?v=20260628w"></script>
+        <script src="js/so-order-modal-open.js?v=20260628w"></script>
+        <script src="js/so-order-modal-submit.js?v=20260628w"></script>
         <script src="js/so-order-modal-suggest.js?v=20260628hh"></script>
         <script src="js/so-order-modal-image.js?v=20260628s"></script>
         <script src="js/so-order-modal-random.js?v=20260628s"></script>
@@ -669,12 +765,14 @@
         <script src="js/so-order-barcode.js?v=20260628t"></script>
         <script src="js/so-order-kho-sync.js?v=20260628s"></script>
         <script src="js/so-order-delete.js?v=20260628u"></script>
-        <script src="js/so-order-shipment.js?v=20260628u"></script>
+        <script src="js/so-order-shipment.js?v=20260628w"></script>
+        <!-- Thanh toán CK theo đợt (S5 money-plan) — POST ledger NCC + SSE -->
+        <script src="js/so-order-payments.js?v=20260628w"></script>
         <script src="js/so-order-settings.js?v=20260628s"></script>
         <script src="js/so-order-import.js?v=20260628s"></script>
         <script src="js/so-order-image-modal.js?v=20260628s"></script>
         <script src="js/so-order-confirm.js?v=20260628s"></script>
         <script src="js/so-order-toolbar.js?v=20260628v"></script>
-        <script src="js/so-order-app.js?v=20260628u"></script>
+        <script src="js/so-order-app.js?v=20260628w"></script>
     </body>
 </html>

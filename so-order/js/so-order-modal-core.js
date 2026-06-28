@@ -194,12 +194,17 @@
         // đây — chạy mỗi render; nội dung cụm render 1 lần ở _renderPerOrderMeta.)
         const pmWrap = document.getElementById('soPerOrderMetaWrap');
         if (pmWrap) pmWrap.hidden = !isEditShip;
+        // 2026-06-28: section Chi phí (CP) — chỉ hiện khi Sửa lô.
+        const expWrap = document.getElementById('soExpensesWrap');
+        if (expWrap) expWrap.hidden = !isEditShip;
         document
             .querySelectorAll('#soOrderForm [data-single-meta]')
             .forEach((el) => (el.style.display = isEditShip ? 'none' : ''));
         if (!isEditShip) {
             const pmList = document.getElementById('soPerOrderMetaList');
             if (pmList) pmList.innerHTML = '';
+            const expList = document.getElementById('soExpensesList');
+            if (expList) expList.innerHTML = '';
         }
         tbody.innerHTML = SO.modalRows
             .map((r, i) => SO.modalRowHtml(r, i, SO.modalRows.length))
