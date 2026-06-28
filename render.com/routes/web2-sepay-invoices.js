@@ -15,7 +15,22 @@ const express = require('express');
 const router = express.Router();
 
 const BASE = 'https://my.sepay.vn';
-const UA = 'Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/120 Safari/537.36';
+const UA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+// Header trình duyệt đầy đủ — datacenter IP (Render) bị Cloudflare WAF của SePay chặn 403 nếu thiếu.
+const BROWSER_HEADERS = {
+    'User-Agent': UA,
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Sec-Ch-Ua': '"Chromium";v="126", "Google Chrome";v="126", "Not.A/Brand";v="24"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"macOS"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
+    'Upgrade-Insecure-Requests': '1',
+};
 const CACHE_MS = 10 * 60 * 1000;
 let _cache = { at: 0, data: null };
 
@@ -66,7 +81,7 @@ function buildQr(id, amountVnd) {
 
 let _lastLoginDebug = null;
 async function _login(jar, email, pass) {
-    const r1 = await fetch(`${BASE}/login`, { headers: { 'User-Agent': UA } });
+    const r1 = await fetch(`${BASE}/login`, { headers: BROWSER_HEADERS });
     jar.add(r1.headers.getSetCookie?.());
     const c1cnt = (r1.headers.getSetCookie?.() || []).length;
     const csrf1 = csrfFrom(await r1.text());
@@ -74,10 +89,12 @@ async function _login(jar, email, pass) {
         method: 'POST',
         redirect: 'manual',
         headers: {
-            'User-Agent': UA,
+            ...BROWSER_HEADERS,
             'Content-Type': 'application/x-www-form-urlencoded',
             Cookie: jar.str(),
             Referer: `${BASE}/login`,
+            Origin: BASE,
+            'Sec-Fetch-Mode': 'cors',
             'X-Requested-With': 'XMLHttpRequest',
         },
         body: new URLSearchParams({ csrf_main: csrf1, email, password: pass }).toString(),
@@ -108,7 +125,7 @@ async function _fetchInvoices(email, pass) {
         throw new Error('SePay login thất bại (sai email/password?)');
     // GET /invoices → csrf cho ajax
     const rI = await fetch(`${BASE}/invoices`, {
-        headers: { 'User-Agent': UA, Cookie: jar.str() },
+        headers: { ...BROWSER_HEADERS, Cookie: jar.str(), Referer: `${BASE}/` },
     });
     jar.add(rI.headers.getSetCookie?.());
     const csrf2 = csrfFrom(await rI.text());
@@ -125,8 +142,10 @@ async function _fetchInvoices(email, pass) {
     const rA = await fetch(`${BASE}/index.php/invoices/ajax_invoices_list`, {
         method: 'POST',
         headers: {
-            'User-Agent': UA,
+            ...BROWSER_HEADERS,
             Cookie: jar.str(),
+            Origin: BASE,
+            'Sec-Fetch-Mode': 'cors',
             'X-Requested-With': 'XMLHttpRequest',
             'Content-Type': 'application/x-www-form-urlencoded',
             Referer: `${BASE}/invoices`,
