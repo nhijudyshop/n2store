@@ -46,8 +46,18 @@
                 </div>
             </div>
             <div class="field-row">
-                <label>Địa chỉ</label>
-                <input id="editAddress" value="${NO.escapeHtml(o.address || '')}" placeholder="Địa chỉ giao hàng">
+                <label>Địa chỉ <span style="font-weight:400;color:#9aa1ab;font-size:12px;">(số nhà, đường)</span></label>
+                <input id="editAddress" value="${NO.escapeHtml(o.address || '')}" placeholder="Số nhà, tên đường…" ${isLocked ? 'disabled' : ''}>
+            </div>
+            <div class="field-row-grid">
+                <div class="field-row">
+                    <label>Tỉnh/TP</label>
+                    <select id="editCity" ${isLocked ? 'disabled' : ''}></select>
+                </div>
+                <div class="field-row">
+                    <label>Phường/Xã</label>
+                    <select id="editWard" ${isLocked ? 'disabled' : ''}></select>
+                </div>
             </div>
             ${NO._renderCommentReadonlyBlock(o)}
             <div class="field-row">
@@ -141,6 +151,18 @@
             NO.searchPickerProducts(pickerInput.value.trim());
         });
         document.addEventListener('click', NO._pickerOutsideClick);
+
+        // Tỉnh/TP + Phường/Xã = dropdown phụ thuộc (Web2VnAddress, 2 cấp). Giữ
+        // giá trị legacy không khớp dataset. Destroy controller cũ trước khi mount.
+        if (NO._vnAddr?.destroy) NO._vnAddr.destroy();
+        if (window.Web2VnAddress) {
+            NO._vnAddr = window.Web2VnAddress.mount({
+                provinceEl: '#editCity',
+                wardEl: '#editWard',
+                province: o.cityName || o.cityCode || '',
+                ward: o.wardName || o.wardCode || '',
+            });
+        }
 
         NO.modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
@@ -310,11 +332,29 @@
             sourcePage: editorInfo.sourcePage || 'native-orders',
         };
 
-        // Đổi địa chỉ → tự nhận lại phương thức giao hàng (trừ khi đã chỉnh tay).
-        const addrChanged = (editingOrder.address || '') !== fields.address;
+        // Tỉnh/TP + Phường/Xã (Web2VnAddress, 2 cấp) → cột city_*/ward_* đã có
+        // sẵn ở native_orders + PATCH allow-list. Chỉ gửi khi picker đã mount.
+        const vnAddr = NO._vnAddr?.getValue?.() || null;
+        if (vnAddr) {
+            fields.cityCode = vnAddr.provinceCode || null;
+            fields.cityName = vnAddr.provinceName || '';
+            fields.wardCode = vnAddr.wardCode || null;
+            fields.wardName = vnAddr.wardName || '';
+        }
+
+        // Đổi địa chỉ / Tỉnh/TP / Phường/Xã → tự nhận lại phương thức giao hàng
+        // (trừ khi đã chỉnh tay). Detect trên địa chỉ ĐẦY ĐỦ (đường + Phường + Tỉnh)
+        // vì city/ward giờ tách khỏi ô địa chỉ.
+        const newCityName = vnAddr ? fields.cityName : editingOrder.cityName || '';
+        const newWardName = vnAddr ? fields.wardName : editingOrder.wardName || '';
+        const fullAddr = [fields.address, newWardName, newCityName].filter(Boolean).join(', ');
+        const addrChanged =
+            (editingOrder.address || '') !== fields.address ||
+            (editingOrder.cityName || '') !== newCityName ||
+            (editingOrder.wardName || '') !== newWardName;
         let reDetected = null;
         if (addrChanged && !editingOrder.deliveryMethodManual) {
-            reDetected = NO._detectDelivery(fields.address);
+            reDetected = NO._detectDelivery(fullAddr);
             if (reDetected) {
                 fields.deliveryMethod = reDetected.value;
                 fields.deliveryMethodLabel = reDetected.label;
@@ -330,6 +370,14 @@
             address: fields.address,
             userNote: fields.userNote,
             status: fields.status,
+            ...(vnAddr
+                ? {
+                      cityCode: fields.cityCode,
+                      cityName: fields.cityName,
+                      wardCode: fields.wardCode,
+                      wardName: fields.wardName,
+                  }
+                : {}),
             ...(reDetected
                 ? {
                       deliveryMethod: reDetected.value,
