@@ -304,12 +304,12 @@ router.get('/resolve', async (req, res) => {
 async function _openOrdersForProduct(pool, productCode) {
     const rows = (
         await pool.query(
-            `SELECT id, order_code, customer_name, phone, campaign_stt, display_stt,
+            `SELECT id, code AS order_code, customer_name, phone, campaign_stt, display_stt,
                     live_campaign_id, live_campaign_name, status, products
              FROM native_orders
              WHERE status NOT IN ('cancelled')
                AND EXISTS (
-                 SELECT 1 FROM jsonb_array_elements(COALESCE(products,'[]'::jsonb)) e
+                 SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(products)='array' THEN products ELSE '[]'::jsonb END) e
                  WHERE COALESCE(e->>'productCode', e->>'code') = $1
                )
              ORDER BY campaign_stt ASC NULLS LAST, created_at ASC
@@ -478,7 +478,7 @@ router.post('/assign', requireWeb2AuthSoft, async (req, res) => {
         }
         const order = (
             await client.query(
-                `SELECT id, order_code, customer_name, phone, campaign_stt, display_stt, products
+                `SELECT id, code AS order_code, customer_name, phone, campaign_stt, display_stt, products
                  FROM native_orders WHERE id = $1`,
                 [orderId]
             )
