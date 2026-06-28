@@ -194,6 +194,12 @@
         if (state.campaignId == null) return;
         try {
             var items = await window.Web2Campaign.listProducts(state.campaignId);
+            // Lọc GHOST: SP đã xoá khỏi kho còn sót cp row (missing=true → name null).
+            // Màn TV KHÔNG gửi sync nên không tự dọn DB; lọc client để ghost không
+            // hiện. Board (live-control) sync sẽ hard-delete cp mồ côi cho mọi tab.
+            items = items.filter(function (it) {
+                return it && !it.missing;
+            });
             state.codes = new Set(
                 items.map(function (i) {
                     return i.code;

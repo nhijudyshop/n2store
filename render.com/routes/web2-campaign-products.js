@@ -198,9 +198,30 @@ async function autoSyncPending(pool, campaignId) {
             `SELECT 1 FROM web2_live_parent_campaigns WHERE id = $1 LIMIT 1`,
             [campaignId]
         );
-        if (!camp.rows.length) return 0;
+        if (!camp.rows.length) return { added: 0, purged: 0 };
     } catch (e) {
         /* bảng parent chưa tồn tại / lỗi tạm → fail-open */
+    }
+    // SELF-HEAL GHOST (2026-06-28): SP đã bị xoá khỏi KHO (web2_products) — qua nút
+    // ✕ Xoá ở Kho SP HOẶC xoá row bên Số Order (adjust-pending ghost-cleanup khi
+    // pending→0) — để lại cp row MỒ CÔI: LEFT JOIN web2_products → name=null →
+    // "ghost" vẫn hiện trên board/TV (missing:true). Mọi product_code hợp lệ đều
+    // được add từ nguồn web2_products (picker hoặc autoSync), nên thiếu HẲN ở kho =
+    // SP thật sự đã xoá → hard-delete cp row (KHÔNG tombstone: SP không còn tồn tại,
+    // tái tạo cùng mã sau này sẽ auto-add lại sạch). NOT EXISTS = NULL-safe + index.
+    let purged = 0;
+    try {
+        const del = await pool.query(
+            `DELETE FROM web2_campaign_products cp
+              WHERE cp.campaign_id = $1
+                AND NOT EXISTS (
+                    SELECT 1 FROM web2_products p WHERE p.code = cp.product_code
+                )`,
+            [campaignId]
+        );
+        purged = del.rowCount | 0;
+    } catch (e) {
+        console.warn('[WEB2-CAMPAIGN-PRODUCTS] orphan purge failed:', e.message);
     }
     // LIMIT bound worst-case (CHO_MUA là working-set nhỏ, nhưng phòng tích tụ):
     // chỉ auto-add tối đa 300 SP chờ hàng mới nhất / lần. Đủ cho 1 phiên live.
@@ -212,14 +233,14 @@ async function autoSyncPending(pool, campaignId) {
          ORDER BY updated_at DESC NULLS LAST, code
          LIMIT 300`
     );
-    if (!pend.rows.length) return 0;
+    if (!pend.rows.length) return { added: 0, purged };
     const ex = await pool.query(
         `SELECT product_code FROM web2_campaign_products WHERE campaign_id = $1`,
         [campaignId]
     );
     const existing = new Set(ex.rows.map((r) => r.product_code));
     const toAdd = pend.rows.map((r) => r.code).filter((c) => c && !existing.has(c));
-    if (!toAdd.length) return 0;
+    if (!toAdd.length) return { added: 0, purged };
     const minR = await pool.query(
         `SELECT COALESCE(MIN(sort), 0)::int AS m
            FROM web2_campaign_products WHERE campaign_id = $1 AND removed = false`,
@@ -239,7 +260,7 @@ async function autoSyncPending(pool, campaignId) {
         );
         if (ins.rows.length) added += 1;
     }
-    return added;
+    return { added, purged };
 }
 
 // GET /?campaignId=X[&sync=1] — list SP của 1 chiến dịch, JOIN kho (LEFT để giữ
@@ -257,11 +278,13 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         // Auto-add SP chờ hàng (chỉ khi sync=1 → live-control). Broadcast nếu có
         // thêm để TV + tab khác refresh. KHÔNG throw (best-effort) → list vẫn chạy.
         if (req.query.sync === '1') {
-            const added = await autoSyncPending(pool, campaignId).catch((e) => {
+            const sync = await autoSyncPending(pool, campaignId).catch((e) => {
                 console.warn('[WEB2-CAMPAIGN-PRODUCTS] autoSync failed:', e.message);
-                return 0;
+                return { added: 0, purged: 0 };
             });
-            if (added > 0) _notify('auto-add', campaignId);
+            // Broadcast khi có thêm SP chờ hàng MỚI hoặc dọn ghost (SP xoá khỏi kho)
+            // → TV + tab khác refresh realtime, không kẹt ghost tới khi F5.
+            if ((sync.added | 0) > 0 || (sync.purged | 0) > 0) _notify('auto-add', campaignId);
         }
         const r = await pool.query(
             `SELECT cp.product_code, cp.sort, cp.pinned, cp.added_at,

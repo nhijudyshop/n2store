@@ -146,6 +146,13 @@
             // sync:true → server auto-add SP chờ hàng (Sổ Order) lên board, mới
             // nhất trên đầu; SP đã ✕ xoá (tombstone) KHÔNG tự thêm lại.
             var items = await window.Web2Campaign.listProducts(state.campaignId, { sync: true });
+            // Lọc GHOST: SP đã xoá khỏi kho (web2_products) còn sót cp row →
+            // missing=true (name null). Backend autoSync hard-delete cp mồ côi ngay
+            // lần sync này, nhưng lọc client để KHÔNG nháy 1 frame ghost trước khi
+            // DB dọn xong, đồng thời phòng path không gửi sync (màn TV).
+            items = items.filter(function (it) {
+                return it && !it.missing;
+            });
             state.addedCodes = new Set(items.map((i) => i.code));
             // by:'parent' — gom SP CHA–CON thành 1 card nhiều biến thể (Migration 070):
             // parent_code khi có (chuẩn nhất), fallback name+supplier+region. Vd ÁO SƠ MI
