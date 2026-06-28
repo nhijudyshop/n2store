@@ -639,12 +639,33 @@
                     prompt: 'Đếm số phiếu giao theo từng trạng thái (Chờ giao, Đang giao, Đã giao, Bị trả, Đã hủy) đang hiển thị và tính tổng số lượng SP. Đưa ra bức tranh nhanh về tình hình giao hàng hôm nay.',
                 },
             ],
-            note: 'KHÔNG có global trên window giữ full dataset. Toàn bộ data nằm trong biến module-private `const STATE = { orders, total, page, limit:200, state, search }` bên trong IIFE của dlv-app.js — không expose ra window. `window.DlvApp` chỉ export METHODS (detail, openHistory, ship, deliver, return_, cancel, goPage), KHÔNG có accessor trả về mảng/object data. Vì vậy dataAccessors=[] và widget phải dựa vào DOM bảng (`#dlvTbody` trong `#dlvTable`). Lưu ý: bảng đã render đầy đủ các dòng của trang hiện tại (server-side pagination, limit=200/trang) — KHÔNG ảo hóa, nên `main.innerText`/DOM table phản ánh đủ d',
+            note: 'ĐÃ expose `window.DlvApp.STATE` (2026-06-28) → accessor `window.DlvApp.STATE.orders` trả FULL dataset phiếu giao của trang/bộ lọc hiện tại (server-side phân trang limit=200), đầy đủ hơn DOM. STATE = { orders, total, page, limit:200, state, search } (ref live, mutate in-place khi load). `window.DlvApp` còn export METHODS (detail, openHistory, ship, deliver, return_, cancel, goPage). Shape mỗi phiếu verify từ render.com/routes/delivery-invoices.js mapRow(). Ưu tiên accessor STATE.orders thay vì DOM.',
         },
         {
             match: '/web2/fastsaleorder-refund/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.RfApp?.STATE?.orders || []',
+                    desc: 'FULL danh sách phiếu trả/hoàn đã nạp của trang/bộ lọc hiện tại (server-side phân trang limit 200) đã áp lọc trạng thái + tìm kiếm. Đầy đủ hơn DOM. Accessor CHÍNH để phân tích tiền hoàn, phiếu tồn, so sánh hình thức hoàn.',
+                    shape: "Array<{ number:string /*mã phiếu trả vd RF20260628-001*/, state:'draft'|'approved'|'completed'|'cancel', displayStt:string|null, fso:{ number:string /*mã PBH gốc*/ }, partner:{ name:string, phone:string }, refundMode:'cash'|'wallet'|'exchange', totalQuantity:number, amountRefund:number /*VND*/, dateRefund:string, reason:string|null, stateHistory:Array<{from,to,by,at}> }>",
+                },
+                {
+                    expr: 'window.RfApp?.STATE?.total || 0',
+                    desc: 'Tổng số phiếu trả TOÀN BẢNG (đã lọc, bỏ qua phân trang).',
+                    shape: 'number',
+                },
+                {
+                    expr: 'window.RfApp?.STATE?.state || ""',
+                    desc: "Bộ lọc trạng thái đang áp ('draft'|'approved'|'completed'|'cancel'|'' = tất cả).",
+                    shape: 'string',
+                },
+                {
+                    expr: 'window.RfApp?.STATE?.search || ""',
+                    desc: 'Từ khoá tìm kiếm hiện tại.',
+                    shape: 'string',
+                },
+            ],
             suggestions: [
                 {
                     label: '💸 Tổng tiền hoàn',
@@ -1176,7 +1197,18 @@
         {
             match: '/web2/order-tags/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2OrderTagsApp?.STATE?.records || []',
+                    desc: 'FULL danh sách TAG đơn đã cấu hình (records) — không giới hạn DOM. Mỗi record là 1 tag + trigger gắn. Accessor CHÍNH để rà soát tag trùng/thiếu/không hoạt động.',
+                    shape: 'Array<{ code:string, name:string, trigger:string /*id trigger*/, color:string /*hex*/, icon:string|null, priority:number, isActive:boolean }>',
+                },
+                {
+                    expr: 'window.Web2OrderTagsApp?.STATE?.triggers || []',
+                    desc: 'Danh sách định nghĩa TRIGGER (điều kiện auto-gắn tag) — để hiểu mỗi tag kích hoạt khi nào.',
+                    shape: "Array<{ id:string, label:string, group:string /*vd 'Thanh toán'/'Tồn kho'*/, desc:string }>",
+                },
+            ],
             suggestions: [
                 {
                     label: '🔍 Trigger chưa dùng',
@@ -1468,7 +1500,23 @@
         {
             match: '/web2/users/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2UsersApp?.STATE?.users || []',
+                    desc: 'FULL danh sách người dùng (đã áp filter search/includeInactive) — không giới hạn DOM. Accessor CHÍNH để rà soát tài khoản, vai trò, user vô hiệu, lần đăng nhập cuối.',
+                    shape: "Array<{ id:number, username:string, displayName:string, email:string, phone:string, role:'admin'|'manager'|'staff'|'viewer', isActive:boolean, lastLoginAt:string|number|null }>",
+                },
+                {
+                    expr: 'window.Web2UsersApp?.STATE?.pages || []',
+                    desc: 'Danh mục TRANG + hành động phân quyền (slug, label, group, actions) — để phân tích ma trận quyền.',
+                    shape: "Array<{ slug:string, label:string, group:string|null, actions:string[] /*['view','create','edit','delete']*/ }>",
+                },
+                {
+                    expr: 'window.Web2UsersApp?.STATE?.actionLabels || {}',
+                    desc: 'Map nhãn hành động (key→tên tiếng Việt) để diễn giải quyền.',
+                    shape: "{ [actionKey:string]: string /*vd { view:'Xem trang', create:'Tạo mới', edit:'Chỉnh sửa', delete:'Xoá' }*/ }",
+                },
+            ],
             suggestions: [
                 {
                     label: '🔑 User chưa đặt mật khẩu',
