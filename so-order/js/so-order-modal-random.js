@@ -15,28 +15,106 @@
     // invoiceGroupId, sync Kho SP, auto-create NCC) để giống thao tác tay 100%.
     // =====================================================================
     SO._RAND = {
-        products: [
-            'ÁO THUN TRƠN',
-            'ÁO SƠ MI LỤA',
-            'QUẦN JEAN ỐNG RỘNG',
-            'VÁY HOA NHÍ',
-            'ÁO KHOÁC DÙ',
-            'CHÂN VÁY XẾP LY',
-            'SET ÁO DÀI CÁCH TÂN',
-            'ÁO HOODIE NỈ',
-            'QUẦN SHORT KAKI',
-            'ĐẦM MAXI ĐI BIỂN',
-            'ÁO BLAZER',
-            'QUẦN TÂY CẠP CAO',
-        ],
+        // SP gom theo LOẠI (category) → khi random chọn loại nào thì tên SP khớp loại đó
+        // (vd loại "Váy" → "VÁY HOA NHÍ"). Key normalize không dấu (xem _pickProductForType).
+        productsByType: {
+            ao: [
+                'ÁO THUN TRƠN',
+                'ÁO SƠ MI LỤA',
+                'ÁO KHOÁC DÙ',
+                'ÁO HOODIE NỈ',
+                'ÁO BLAZER',
+                'ÁO CROPTOP GÂN',
+                'ÁO POLO BASIC',
+            ],
+            quan: [
+                'QUẦN JEAN ỐNG RỘNG',
+                'QUẦN SHORT KAKI',
+                'QUẦN TÂY CẠP CAO',
+                'QUẦN BAGGY VẢI',
+                'QUẦN CULOTTE',
+                'QUẦN JOGGER NỈ',
+            ],
+            dam: [
+                'ĐẦM MAXI ĐI BIỂN',
+                'ĐẦM BODY DỰ TIỆC',
+                'ĐẦM SUÔNG CÔNG SỞ',
+                'ĐẦM BABYDOLL',
+                'ĐẦM 2 DÂY LỤA',
+            ],
+            vay: [
+                'VÁY HOA NHÍ',
+                'CHÂN VÁY XẾP LY',
+                'VÁY CHỮ A',
+                'VÁY BÚT CHÌ',
+                'VÁY JEAN LƯNG CAO',
+            ],
+            giay: [
+                'GIÀY CAO GÓT 5P',
+                'GIÀY SNEAKER TRẮNG',
+                'GIÀY SANDAL ĐẾ XUỒNG',
+                'GIÀY LƯỜI DA',
+                'GIÀY BÚP BÊ',
+            ],
+            dep: ['DÉP QUAI NGANG', 'DÉP LÊ NHUNG', 'DÉP XỎ NGÓN', 'DÉP SỤ ĐẾ CAO', 'DÉP KẸP DA'],
+            tlqd: ['TLQD HOẠ TIẾT', 'TLQD TRƠN BASIC'],
+            tdqd: ['TDQD KẺ SỌC', 'TDQD GÂN TĂM'],
+        },
+        // Fallback tên SP khi không khớp loại nào (loại lạ do user tự thêm).
+        productsGeneric: ['SET ÁO DÀI CÁCH TÂN', 'BỘ ĐỒ MẶC NHÀ', 'NÓN BẢO HIỂM', 'TÚI XÁCH NỮ'],
+        // Loại fallback khi Web2ProductTypesCache chưa load (khớp UI Áo/Quần/Đầm/Váy/Giày/Dép).
+        typesFallback: ['Áo', 'Quần', 'Đầm', 'Váy', 'Giày', 'Dép'],
         // Fallback khi Kho Biến Thể chưa load. Ưu tiên lấy biến thể THẬT từ
         // Web2VariantsCache (xem _variantPools) để data random LUÔN dùng màu/size
         // đã đăng ký → mã SP encode đủ màu/size, không sinh "Xanh Navy" lạ.
-        colors: ['Trắng', 'Đen', 'Đỏ', 'Be', 'Hồng', 'Vàng', 'Xám'],
-        sizes: ['S', 'M', 'L', 'XL', 'Freesize'],
+        colors: ['Trắng', 'Đen', 'Đỏ', 'Be', 'Hồng', 'Vàng', 'Xám', 'Xanh Navy', 'Nâu', 'Kem'],
+        sizes: ['S', 'M', 'L', 'XL', 'Freesize', '36', '37', '38', '39'],
         // NCC (nhà cung cấp) — KHÔNG dùng HÀ NỘI/HƯƠNG CHÂU (đó là ĐỊA DANH/tab Sổ
         // Order → field region, KHÔNG phải NCC). Tránh nhầm địa danh thành NCC.
-        suppliers: ['XƯỞNG SỈ A', 'KHO TÂN BÌNH', 'QUẢNG CHÂU', 'XƯỞNG MAY B'],
+        suppliers: [
+            'XƯỞNG SỈ A',
+            'KHO TÂN BÌNH',
+            'QUẢNG CHÂU',
+            'XƯỞNG MAY B',
+            'XƯỞNG GÒ VẤP',
+            'SỈ THỜI TRANG MIN',
+            'KHO QUẢNG NGÃI',
+            'XƯỞNG ĐẦM HOA',
+            'TỔNG KHO BÌNH TÂN',
+            'NGUỒN SỈ HÀ ĐÔNG',
+            'XƯỞNG GIÀY DÉP HƯNG',
+            'KHO PHỤ KIỆN ROSE',
+        ],
+    };
+    // Lấy danh sách LOẠI (category) từ Web2ProductTypesCache (user cấu hình ở web2/product-types).
+    // Rỗng → fallback Áo/Quần/Đầm/Váy/Giày/Dép.
+    SO._typePool = function _typePool() {
+        try {
+            const names = (window.Web2ProductTypesCache?.getAll?.() || [])
+                .map((t) => t.name || t.label || t.value)
+                .filter(Boolean);
+            if (names.length) return names;
+        } catch (_) {}
+        return SO._RAND.typesFallback;
+    };
+    // Normalize loại → key trong productsByType (bỏ dấu, lấy chữ đầu hợp lệ).
+    SO._typeKey = function _typeKey(type) {
+        const s = String(type || '')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/gi, 'd')
+            .toLowerCase()
+            .trim();
+        for (const k of ['ao', 'quan', 'dam', 'vay', 'giay', 'dep', 'tlqd', 'tdqd']) {
+            if (s.startsWith(k) || s.includes(' ' + k)) return k;
+        }
+        return null;
+    };
+    // Chọn tên SP khớp loại; loại lạ → tên generic.
+    SO._pickProductForType = function _pickProductForType(type) {
+        const k = SO._typeKey(type);
+        const list = (k && SO._RAND.productsByType[k]) || SO._RAND.productsGeneric;
+        return SO._rPick(list);
     };
     // Lấy pool màu/size từ Kho Biến Thể THẬT (group "Màu" / "Size"|"Cỡ"). Đảm bảo
     // mọi biến thể random đều có trong cache → findByValueExact khớp → mã encode đủ
@@ -77,8 +155,10 @@
         let sell = cost * (1.5 + Math.random());
         sell = isVnd ? Math.round(sell / 1000) * 1000 : Math.round(sell);
         const pools = SO._variantPools();
+        const type = SO._rPick(SO._typePool()); // loại ngẫu nhiên (Áo/Quần/Đầm/Váy/Giày/Dép…)
         return SO._newModalRow({
-            productName: SO._rPick(SO._RAND.products),
+            productName: SO._pickProductForType(type), // tên SP khớp loại
+            category: type, // set LOẠI → chip biến thể được chọn sẵn
             variant: `${SO._rPick(pools.colors)} / ${SO._rPick(pools.sizes)}`,
             qty: SO._rInt(1, 50),
             costPrice: cost,
@@ -112,7 +192,7 @@
         // fill khác seed → ảnh khác. Set TRƯỚC khi tạo rows để rows kế thừa (cấp ĐƠN).
         const imgBatch = Date.now().toString(36);
         SO.modalInvoiceImage = SO._rImg(`so-inv-${imgBatch}`, 600, 400);
-        SO.modalRows = Array.from({ length: SO._rInt(1, 4) }, (_, i) =>
+        SO.modalRows = Array.from({ length: SO._rInt(2, 6) }, (_, i) =>
             SO._randomRow(isVnd, `${imgBatch}-r${i}`)
         );
         SO.renderModalRows();

@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [so-order] "Điền ngẫu nhiên" bơm nhiều data hơn (NCC + LOẠI biến thể + nhiều dòng)
+
+**Files:** `so-order/js/so-order-modal-random.js`.
+
+User: nút "Điền ngẫu nhiên" điền thêm dữ liệu (NCC, theo kiểu biến thể mới Áo/Quần/Đầm/Váy/Giày/Dép).
+
+- `_randomRow` chọn **LOẠI ngẫu nhiên** từ `Web2ProductTypesCache.getAll()` (fallback Áo/Quần/Đầm/Váy/Giày/Dép) → set `row.category` → chip loại tự chọn sẵn (picker pre-select từ category). Tên SP khớp loại qua `productsByType` + `_typeKey`/`_pickProductForType` (normalize không dấu).
+- NCC: 4 → **12** tên; colors/sizes phong phú hơn (+ size số 36-39 cho giày dép); số dòng 1-4 → **2-6**.
+- Dùng để **tạo lại data sau wipe DB beta** (target reset-flow). Wipe đã chạy: 14 bảng → 0, backup `20260628_213316_e854`.
+
 ### [agent-tooling] Tích hợp stitch-skills + agent-reach (CHỈ agent tooling, KHÔNG đụng app)
 
 **Files:** MỚI `.claude/skills/stitch-*` (14 skill vendored + `stitch-skills-meta/{LICENSE,SOURCE_COMMIT.txt}`), `docs/agent-tooling/STITCH-AND-AGENT-REACH.md`. Ngoài repo: `~/.local/bin/{agent-reach,yt-dlp,mcporter}`, `~/.agent-reach/`, `~/.mcporter/mcporter.json`, `~/.claude/skills/agent-reach/`.
