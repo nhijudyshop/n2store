@@ -134,9 +134,19 @@
         g('wcfStatus').value = row?.status || 'Normal';
         g('wcfTier').value = row?.tier || '';
         g('wcfAddress').value = row?.address || '';
-        g('wcfWard').value = row?.ward || '';
         g('wcfDistrict').value = row?.district || '';
-        g('wcfCity').value = row?.city || '';
+        // Tỉnh/TP + Phường/Xã = dropdown phụ thuộc (Web2VnAddress, dữ liệu 2 cấp
+        // Tỉnh/TP → Phường/Xã). Giữ giá trị legacy không khớp dataset. Destroy
+        // controller cũ trước khi mount lại (modal dùng chung 2 <select>).
+        if (NS._vnAddr?.destroy) NS._vnAddr.destroy();
+        if (window.Web2VnAddress) {
+            NS._vnAddr = window.Web2VnAddress.mount({
+                provinceEl: '#wcfCity',
+                wardEl: '#wcfWard',
+                province: row?.city || '',
+                ward: row?.ward || '',
+            });
+        }
         g('wcfCarrier').value = row?.carrier || '';
         g('wcfNote').value = row?.note || '';
         g('wcfFbId').value = row?.fbId || '';
