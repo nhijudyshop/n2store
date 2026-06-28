@@ -21,18 +21,22 @@
         // rows đã nhận → không cho mở modal. Nếu có rows draft/ordered →
         // mở modal nhưng chỉ load rows editable (received rows giữ nguyên
         // trong storage, bảo vệ qua _finalizeShipmentSubmit toDelete loop).
-        const editableRows = (sh.rows || []).filter((r) => r.status !== 'received');
+        // 2026-06-28: loại CẢ 'partial_received' (nhận 1 phần) — dòng này đã có tồn
+        // Kho + nợ NCC cho phần đã nhận; cho sửa qty/xoá trong modal Sửa lô sẽ lệch
+        // tồn/nợ (trước đây chỉ loại 'received' → dòng partial lọt vào sửa được).
+        const isLocked = (r) => r.status === 'received' || r.status === 'partial_received';
+        const editableRows = (sh.rows || []).filter((r) => !isLocked(r));
         const skippedCount = (sh.rows || []).length - editableRows.length;
         if (!editableRows.length) {
             SO.notify(
-                'Tất cả SP trong lô đã nhận — không sửa được. Xoá lô nếu muốn dọn.',
+                'Tất cả SP trong lô đã nhận / nhận 1 phần — không sửa được. Xoá lô nếu muốn dọn.',
                 'warning'
             );
             return;
         }
         if (skippedCount > 0) {
             SO.notify(
-                `Bỏ qua ${skippedCount} SP đã nhận khỏi modal (giữ nguyên trong lô).`,
+                `Bỏ qua ${skippedCount} SP đã nhận / nhận 1 phần khỏi modal (giữ nguyên trong lô).`,
                 'info'
             );
         }

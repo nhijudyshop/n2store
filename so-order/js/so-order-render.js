@@ -640,7 +640,9 @@
         const sid = SO.escapeHtml(shipmentId);
         // Row đã nhận hàng → ép read-only ngay cả khi bulk edit mode bật.
         // Khoá toàn bộ field, hiển thị visual `is-locked` để user biết.
-        const edit = SO.editTableMode && r.status !== 'received';
+        // 2026-06-28: khoá cả 'partial_received' (đã có tồn/nợ cho phần đã nhận).
+        const isRowLocked = r.status === 'received' || r.status === 'partial_received';
+        const edit = SO.editTableMode && !isRowLocked;
         // Mã SP từ Kho (nếu đã sync) — hiện nhỏ dưới tên SP ở chế độ xem.
         const khoCode = SO._lookupKhoCode(r);
         const khoCodeHtml = khoCode
@@ -759,7 +761,7 @@
             status: SO.statusCell(r.status, { rid, sid }),
             actions: SO.actionsCell(r.id, shipmentId, r.status),
         };
-        const lockedClass = r.status === 'received' ? ' is-locked' : '';
+        const lockedClass = isRowLocked ? ' is-locked' : '';
         // Nền xen kẽ theo NHÓM NCC (đơn): nhóm lẻ thêm .so-grp-alt (CSS tô nhạt).
         const grpAltClass = meta?.nccParity === 1 ? ' so-grp-alt' : '';
         // SP cha nhiều biến thể: class gom khối (đầu/tiếp/cuối nhóm) cho CSS bracket.

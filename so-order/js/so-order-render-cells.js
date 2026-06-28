@@ -26,7 +26,9 @@
         const tr = document.querySelector(
             `#soTableBody tr.so-data-row[data-row-id="${CSS.escape(rowId)}"][data-shipment-id="${CSS.escape(shipmentId)}"]`
         );
-        return tr?.dataset?.rowStatus === 'received';
+        const st = tr?.dataset?.rowStatus;
+        // 2026-06-28: khoá cả 'partial_received' (nhận 1 phần đã có tồn/nợ).
+        return st === 'received' || st === 'partial_received';
     };
 
     // Tạo HTML <td> chứa input/select khi whole-table edit mode bật.
@@ -95,9 +97,9 @@
         // 2026-05-30: status='received' (Đã nhận) → khoá row, thay nút sửa/xoá
         // bằng icon lock. User muốn sửa lại phải dùng flow "trả hàng" hoặc
         // revert status từ UI khác.
-        if (status === 'received') {
+        if (status === 'received' || status === 'partial_received') {
             return `<td class="so-cell-actions so-cell-actions-locked">
-                <span class="so-action-btn so-action-locked" title="Đã nhận hàng — không thể chỉnh sửa">
+                <span class="so-action-btn so-action-locked" title="Đã nhận / nhận 1 phần — không thể chỉnh sửa">
                     <i data-lucide="lock"></i>
                 </span>
             </td>`;

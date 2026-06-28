@@ -71,8 +71,8 @@
         if (rowId && shipmentId) {
             const sh = tab.shipments.find((s) => s.id === shipmentId);
             const r = sh?.rows.find((x) => x.id === rowId);
-            if (r?.status === 'received') {
-                SO.notify('Dòng "Đã nhận" — không chỉnh sửa được', 'warning');
+            if (r?.status === 'received' || r?.status === 'partial_received') {
+                SO.notify('Dòng đã nhận / nhận 1 phần — không chỉnh sửa được', 'warning');
                 return;
             }
         }

@@ -35,8 +35,11 @@
         const sh = tab.shipments.find((s) => s.id === shipmentId);
         const r = sh?.rows.find((x) => x.id === rowId);
         if (!r) return;
-        if (r.status === 'received') {
-            SO.notify('Dòng "Đã nhận" — không xóa được', 'warning');
+        // 2026-06-28: chặn cả 'partial_received' — dòng nhận 1 phần đã có tồn Kho +
+        // nợ NCC cho phần đã nhận; xóa sẽ mồ côi tồn/nợ (chỉ 'received' bị chặn trước
+        // đây là thiếu). Muốn bỏ phần còn lại → dùng luồng nhận hàng, không xóa dòng.
+        if (r.status === 'received' || r.status === 'partial_received') {
+            SO.notify('Dòng đã nhận / nhận 1 phần — không xóa được', 'warning');
             return;
         }
         const btn = document.querySelector(
@@ -55,7 +58,9 @@
                 // P1 2026-05-30: timeout 1.2s → bỏ qua check, dùng confirm
                 // generic. User feedback "kiểm tra tồn kho quá lâu".
                 const ctrl = SO.soConfirmOpen({
-                    ..._buildRowDeleteConfirm(null),
+                    // FIX 2026-06-28: phải SO._build... (hàm gán trên SO, không phải
+                    // local) — trước đây gọi trần → ReferenceError khi cache Kho lạnh.
+                    ...SO._buildRowDeleteConfirm(null),
                     loading: true,
                     loadingText: 'Đang kiểm tra tồn kho...',
                 });
@@ -65,7 +70,7 @@
                     if (resolved || ctrl.closed) return;
                     resolved = true;
                     ctrl.update({
-                        ..._buildRowDeleteConfirm(stockCheck),
+                        ...SO._buildRowDeleteConfirm(stockCheck),
                         loading: false,
                     });
                 };
@@ -145,7 +150,7 @@
             } else {
                 // Cold start fallback — timeout 1.2s để không treo lâu.
                 const ctrl = SO.soConfirmOpen({
-                    ..._buildShipmentDeleteConfirm(null, n),
+                    ...SO._buildShipmentDeleteConfirm(null, n),
                     loading: true,
                     loadingText: 'Đang kiểm tra tồn kho...',
                 });
@@ -154,7 +159,7 @@
                     if (resolved || ctrl.closed) return;
                     resolved = true;
                     ctrl.update({
-                        ..._buildShipmentDeleteConfirm(stockCheck, n),
+                        ...SO._buildShipmentDeleteConfirm(stockCheck, n),
                         loading: false,
                     });
                 };

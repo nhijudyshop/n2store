@@ -2,6 +2,14 @@
 
 ## 2026-06-28
 
+### [so-order] FIX bug CRITICAL cold-start delete + HIGH dòng "nhận 1 phần" sửa/xóa được
+
+**Files:** `so-order/js/so-order-delete.js`, `so-order-modal-open.js`, `so-order-shipment.js`, `so-order-render-cells.js`, `so-order-render.js`, `so-order/index.html` (bump `?v=20260628u`).
+
+- **CRITICAL cold-start**: nhánh cache-lạnh trong `deleteRow`/`deleteShipment` gọi `_buildRowDeleteConfirm(...)`/`_buildShipmentDeleteConfirm(...)` TRẦN (hàm gán trên `SO.`, không phải local) → `ReferenceError` khi xóa lúc cache Kho chưa sẵn sàng. Fix: thêm `SO.` (4 chỗ). Fast-path đã đúng nên bug bị che khi cache nóng.
+- **HIGH partial_received sửa/xóa được**: trước chỉ chặn `'received'`. Dòng "nhận 1 phần" đã có tồn Kho + nợ NCC cho phần đã nhận → sửa qty/xóa làm lệch tồn/nợ. Fix khoá `partial_received` ở: `deleteRow` guard, `openOrderModal` single-edit guard, `openShipmentModal` editableRows (Sửa lô loại nó), `_isRowLocked` (inline dblclick), bulk-edit `edit` + `lockedClass` + `actionsCell`.
+- Verify LIVE: tạo đơn → nhận 1 phần 1 dòng → dòng đó `is-locked` + `_isRowLocked()=true` + Sửa lô chỉ load 2 dòng draft (loại dòng partial). Page 0 console error.
+
 ### [so-order] FIX: dialog "Xoá vĩnh viễn?" (purge thùng rác) trống phần cảnh báo
 
 **Files:** `so-order/js/so-order-delete.js`, `so-order/index.html` (bump delete.js `?v=20260628u`).
