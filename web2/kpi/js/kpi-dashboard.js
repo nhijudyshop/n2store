@@ -18,7 +18,10 @@
         currentCampaignId: '',
         currentCampaignName: '',
         view: 'kpi',
+        lastKpi: null, // dữ liệu KPI nạp gần nhất (rows + unassigned + rate) cho widget AI
     };
+    // Expose FULL dataset cho widget AI (Web2AiPageRegistry) — không chỉ DOM bảng leaderboard.
+    window.Web2KpiData = STATE;
 
     function $(sel) {
         return document.querySelector(sel);
@@ -94,6 +97,7 @@
     }
 
     function renderLeaderboard(data) {
+        STATE.lastKpi = data; // lưu cho widget AI đọc full (rows/unassigned/rate)
         const root = $('#kpiContent');
         if (!STATE.currentCampaignId) {
             root.innerHTML = `<div class="kpi-empty"><i data-lucide="filter"></i><p>Chọn chiến dịch để xem KPI.</p></div>`;

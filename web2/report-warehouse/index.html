@@ -388,6 +388,18 @@
                 let currentRegion = ''; // '' = tất cả địa danh
                 let lastData = null; // toàn bộ payload gần nhất (để đổi view/search/CSV không cần fetch lại)
                 let sortKey = null;
+                // Expose FULL dataset cho widget AI (Web2AiPageRegistry) — getter vì let reassign.
+                window.Web2WarehouseReport = {
+                    get lastData() {
+                        return lastData;
+                    },
+                    get currentView() {
+                        return currentView;
+                    },
+                    get currentRegion() {
+                        return currentRegion;
+                    },
+                };
                 let sortDir = -1; // -1 desc, 1 asc
                 let _loadSeq = 0;
                 let _abort = null;

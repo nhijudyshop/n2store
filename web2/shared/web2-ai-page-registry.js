@@ -420,7 +420,23 @@
         {
             match: '/web2/kpi/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2KpiData?.lastKpi?.rows || []',
+                    desc: 'FULL bảng KPI nhân viên của chiến dịch đang chọn (mỗi dòng = 1 NV: dự báo vs thực tế SL/tiền). Accessor CHÍNH để xếp hạng, tính hoàn thành, tìm NV vượt/hụt chỉ tiêu.',
+                    shape: 'Array<{ beneficiary_user_id, beneficiary_name:string, forecast_qty:number, forecast_amount:number, actual_qty:number, actual_amount:number }>',
+                },
+                {
+                    expr: 'window.Web2KpiData?.lastKpi',
+                    desc: 'Cả gói KPI gần nhất kèm phần CHƯA gán (unassignedForecast/unassignedActual), viewer scope, rate/SP. Dùng để tính tổng + phần chưa phân bổ.',
+                    shape: '{ rows:Array<KpiRow>, unassignedForecast:number, unassignedActual:number, viewer:{scope:string}, rate:number /*tiền/SP*/ }',
+                },
+                {
+                    expr: 'window.Web2KpiData?.campaigns || []',
+                    desc: 'Danh sách chiến dịch để biết đang xem KPI chiến dịch nào (currentCampaignId/Name).',
+                    shape: 'Array<{ id, name, ... }>',
+                },
+            ],
             suggestions: [
                 {
                     label: '🏆 Ai KPI thấp nhất',
@@ -1139,7 +1155,23 @@
         {
             match: '/web2/report-warehouse/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2WarehouseReport?.lastData',
+                    desc: 'FULL payload báo cáo kho gần nhất (toàn bộ địa danh/NCC/SP, không phụ thuộc view/search DOM đang chọn). Accessor CHÍNH để phân tích tồn/mua/bán/chờ toàn kho theo nhiều chiều.',
+                    shape: '{ success:boolean, regions:Array<{region:string, supplierCount:number, productCount:number, buyQty:number, buyAmount:number, pendingQty:number, pendingAmount:number, sellQty:number, sellAmount:number}>, suppliers:Array<{supplier, region, ...}>, products:Array<{...}>, totals:{ buyQty, buyAmount, pendingQty, pendingAmount, sellQty, sellAmount } }',
+                },
+                {
+                    expr: 'window.Web2WarehouseReport?.currentView',
+                    desc: "View đang xem ('region'|'ncc'|'product') — biết user đang gom theo chiều nào.",
+                    shape: "string ('region'|'ncc'|'product')",
+                },
+                {
+                    expr: 'window.Web2WarehouseReport?.currentRegion',
+                    desc: "Địa danh đang lọc ('' = tất cả).",
+                    shape: 'string',
+                },
+            ],
             suggestions: [
                 {
                     label: '📦 NCC tồn đọng chưa nhận',
