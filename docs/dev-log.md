@@ -2,6 +2,13 @@
 
 ## 2026-06-28
 
+### [ai-widget] Redesign UI xanh Zalo + fix im lặng khi data quá lớn (live comments)
+
+**File:** `web2/shared/web2-ai-assistant.js` (+ bump version sidebar).
+
+1. **Bug: hỏi về `window.LiveState.comments` không trả lời** — `pageContext()` gọi `JSON.stringify` toàn bộ mảng comment livestream khổng lồ (lại chạy 7× theo cascade model) → RangeError "Invalid string length"/treo → AI im lặng. Fix: `encodeArray` guard `HUGE_ROWS=2000` (tóm tắt thống kê ngay, KHÔNG stringify toàn bộ) + try/catch + try/catch bao `pageContext()`. Cờ `_ctxOversize` → systemPrompt chỉ dẫn AI: data quá lớn + câu hỏi cần nội dung chi tiết từng dòng → trả "Dữ liệu quá lớn nên AI phân tích không nổi — liên hệ admin nâng ngưỡng AI nếu thật sự cần." (theo yêu cầu user) thay vì im lặng.
+2. **Redesign UI**: đồng bộ theme project **xanh Zalo `#0068ff`** (thay tím `#6366f1/#8b5cf6` lệch theme). FAB bo góc 18px + glow, panel có **entrance animation**, header gradient nhạt, mode chips bo 11px, bubble user gradient + shadow, AI card hairline + shadow nhẹ, input/send focus xanh + hover nhấc, typing dots bounce. Giữ nguyên mọi class (JS không đổi).
+
 ### [ai-widget] Audit registry: 12 trang thiếu data → expose state lên window + thêm accessor
 
 **Files:** `web2/shared/web2-ai-page-registry.js` + 12 page JS (dlv-app, rf-app, order-tags-app, users-app, kpi-dashboard, report-warehouse, report-delivery, dashboard, notifications, fb-insights, report-revenue, web2-audit-log).
