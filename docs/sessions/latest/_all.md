@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d2a4f90` — feat(so-order): Quản lý ảnh NCC theo đợt (BYTEA web2Db) + create-order integration + admin-only
-**Last updated**: 2026-06-28 18:34:49 +07
-**Latest session**: [`RESUME:20260628-183449-d2a4f90`](../20260628-183449-d2a4f90.md)
-**Summary**: so-order: Quản lý ảnh NCC theo đợt (BYTEA web2Db) + chế độ TT đợt/NCC + admin-only
+**Latest commit**: `ef65bab` — auto: session update
+**Last updated**: 2026-06-28 18:39:42 +07
+**Latest session**: [`RESUME:20260628-183942-ef65bab`](../20260628-183942-ef65bab.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 7 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -67,7 +66,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-28 18:34
+- [`so-order/`](./so-order.md) — updated 2026-06-28 18:39
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
