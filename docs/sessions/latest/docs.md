@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260628-192722-d636b1e`
-**Session file**: [`./20260628-192722-d636b1e.md`](../20260628-192722-d636b1e.md)
-**Commit**: `d636b1e` — feat(web2-product-units): mã đơn vị + QR riêng/món + trang quét định tuyến kệ STT
-**Last updated**: 2026-06-28 19:27:22 +07
-**Summary**: feat(web2-product-units): mã đơn vị + QR riêng/món + trang quét định tuyến kệ STT
+**Latest session**: `RESUME:20260628-201946-c4679e2`
+**Session file**: [`./20260628-201946-c4679e2.md`](../20260628-201946-c4679e2.md)
+**Commit**: `c4679e2` — feat(clearance): Kho hàng rớt xả (derived/lazy, 0 cron) + aging tiers + reversible override
+**Last updated**: 2026-06-28 20:19:46 +07
+**Summary**: feat(clearance): Kho hàng rớt xả (derived/lazy, 0 cron) + aging tiers + reversible override
 
 ## Files changed in this commit (`docs/`)
 
@@ -16,11 +16,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `c4679e281` feat(clearance): Kho hàng rớt xả (derived/lazy, 0 cron) + aging tiers + reversible override _(2026-06-28)_
+- `0650095fb` chore(session): RESUME:20260628-194726-1da7e99 _(2026-06-28)_
+- `b830c6460` chore(session): RESUME:20260628-193532-52c4e45 _(2026-06-28)_
+- `bfdcf3851` chore(session): RESUME:20260628-192722-d636b1e _(2026-06-28)_
 - `d636b1ea7` feat(web2-product-units): mã đơn vị + QR riêng/món + trang quét định tuyến kệ STT _(2026-06-28)_
-- `8e3bf6137` chore(session): RESUME:20260628-183942-ef65bab _(2026-06-28)_
-- `969a11077` chore(session): RESUME:20260628-183449-d2a4f90 _(2026-06-28)_
-- `d2a4f9072` feat(so-order): Quản lý ảnh NCC theo đợt (BYTEA web2Db) + create-order integration + admin-only _(2026-06-28)_
-- `2bb360087` chore(session): RESUME:20260628-182617-6dfedec _(2026-06-28)_
 
 ---
 
@@ -28,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260628-192722-d636b1e` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260628-201946-c4679e2` cho Claude walk chain theo CLAUDE.md protocol.
