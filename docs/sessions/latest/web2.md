@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260628-211013-e035b86`
-**Session file**: [`./20260628-211013-e035b86.md`](../20260628-211013-e035b86.md)
-**Commit**: `e035b86` — docs(agent-tooling): stitch-skills + agent-reach integration (agent tooling only)
-**Last updated**: 2026-06-28 21:10:13 +07
-**Summary**: docs(agent-tooling): stitch-skills + agent-reach integration (agent tooling only)
+**Latest session**: `RESUME:20260628-212124-f3fe30c`
+**Session file**: [`./20260628-212124-f3fe30c.md`](../20260628-212124-f3fe30c.md)
+**Commit**: `f3fe30c` — fix(unit-scan): camera den moi trinh duyet - id #scanHost{display:block} de .w2bc{display:flex} cua scanner lam stage sap 0px; chi giu width/height; relax retry 2.5->5s; bump v20260628d
+**Last updated**: 2026-06-28 21:21:24 +07
+**Summary**: fix(unit-scan): camera den moi trinh duyet - id #scanHost{display:block} de .w2bc{display:flex} cua scanner lam stage...
 
 ## Files changed in this commit (`web2/`)
 
@@ -17,11 +17,11 @@
 
 ## Last 5 commits touching `web2/`
 
+- `f3fe30c5c` fix(unit-scan): camera den moi trinh duyet - id #scanHost{display:block} de .w2bc{display:flex} cua scanner lam stage sap 0px; chi giu width/height; relax retry 2.5->5s; bump v20260628d _(2026-06-28)_
 - `f50644a60` feat(permissions+scan): đăng ký phân quyền unit-scan + clearance; fix camera đen trên PWA _(2026-06-28)_
 - `81ef7612a` fix(web2-vn-address): gate ghi city/ward theo isReady() — chặn data-loss cửa sổ đang-tải _(2026-06-28)_
 - `ac6e7b042` auto: session update _(2026-06-28)_
 - `e2952425a` feat(web2-vn-address): bộ chọn Tỉnh/TP → Phường/Xã dùng chung (vietnamese-provinces-database, MIT) _(2026-06-28)_
-- `b3b021bbb` feat(sidebar): thêm 'Quét tem đóng gói' (web2/unit-scan) vào nhóm Bán Hàng _(2026-06-28)_
 
 ---
 
@@ -29,4 +29,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260628-211013-e035b86` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260628-212124-f3fe30c` cho Claude walk chain theo CLAUDE.md protocol.
