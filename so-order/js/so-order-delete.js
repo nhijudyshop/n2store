@@ -312,8 +312,10 @@
 
     SO.handleTrashPurge = async function handleTrashPurge(id) {
         const ok = await SO.soConfirm({
+            // FIX 2026-06-28: soConfirmOpen đọc `message`, không phải `body` → trước
+            // đây dialog purge trống phần cảnh báo (chỉ hiện title + nút).
             title: 'Xoá vĩnh viễn?',
-            body: 'Lô này sẽ bị xoá hoàn toàn, không thể khôi phục.',
+            message: 'Lô này sẽ bị xoá hoàn toàn, không thể khôi phục.',
             confirmText: 'Xoá vĩnh viễn',
             cancelText: 'Huỷ',
             danger: true,

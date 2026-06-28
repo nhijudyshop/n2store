@@ -2,6 +2,12 @@
 
 ## 2026-06-28
 
+### [so-order] FIX: dialog "Xoá vĩnh viễn?" (purge thùng rác) trống phần cảnh báo
+
+**Files:** `so-order/js/so-order-delete.js`, `so-order/index.html` (bump delete.js `?v=20260628u`).
+
+`handleTrashPurge` truyền `body:` nhưng `soConfirmOpen` đọc `message` (so-order-confirm.js:101) → dialog xoá-vĩnh-viễn chỉ hiện title + nút, KHÔNG hiện cảnh báo "không thể khôi phục". Fix: `body:` → `message:`. Verify LIVE: dialog giờ hiện "Lô này sẽ bị xoá hoàn toàn, không thể khôi phục."; purge xoá entry OK.
+
 ### [so-order] FIX: tab địa danh (activeTabId) thành PER-DEVICE (máy khác không nhảy tab)
 
 **Files:** `so-order/js/so-order-storage.js`, `so-order/js/so-order-render.js`, `so-order/js/so-order-app.js`, `so-order/index.html` (bump `?v=20260628u`).
