@@ -27,6 +27,34 @@
 
     // ---------- Render ----------
     //
+    // Badge trạng thái (CHỜ HÀNG / MUA 1 PHẦN / Đang bán / Tạm dừng) — 1 nguồn,
+    // dùng chung dòng thường + bảng con biến thể.
+    function _statusBadgeHtml(p) {
+        if (p.status === 'CHO_MUA') {
+            const pendingTxt = Number(p.pendingQty) > 0 ? ` (×${p.pendingQty})` : '';
+            return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
+        }
+        if (p.status === 'MUA_1_PHAN') {
+            const stock = Number(p.stock || 0);
+            const pend = Number(p.pendingQty || 0);
+            return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
+        }
+        return p.isActive
+            ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
+            : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
+    }
+    // Cụm nút thao tác 1 SP (sửa/in/tạm dừng/lịch sử/xóa) — dùng chung.
+    function _rowActionsHtml(p) {
+        const c = escapeHtml(escJs(p.code));
+        return (
+            `<button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${c}')"><i data-lucide="pencil"></i></button>` +
+            `<button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" aria-label="In tem mã vạch" onclick="Web2ProductsApp.printBarcode('${c}')"><i data-lucide="printer"></i>${Number(p.printCount) > 0 ? `<span class="print-count-num">${Number(p.printCount)}</span>` : ''}</button>` +
+            `<button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${c}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>` +
+            `<button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${c}')"><i data-lucide="history"></i></button>` +
+            `<button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${c}')"><i data-lucide="trash-2"></i></button>`
+        );
+    }
+
     // _rowHtml(p, n) — render 1 <tr> cho 1 product với index n.
     // Tách thành helper để dùng được cho cả full renderRows() và in-place
     // update (tránh giật bảng khi SSE event update).
@@ -83,41 +111,9 @@
                     <td class="price-cell price-sell"${sellAttr}>${fmtPrice(priceSell)}</td>
                     <td class="region-cell">${p.region ? `<span class="w2p-region-badge">${escapeHtml(p.region)}</span>` : '<span class="w2p-region-empty">—</span>'}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}"><div class="web2-note-cell">${escapeHtml(p.note || '—')}</div></td>
+                    <td>${_statusBadgeHtml(p)}</td>
                     <td>
-                        ${(() => {
-                            // Status ưu tiên hơn isActive:
-                            // - CHO_MUA → "CHỜ HÀNG" (chưa Mua hàng, stock=0).
-                            // - MUA_1_PHAN → "MUA 1 PHẦN" (P1 2026-05-29: nhận được 1 phần,
-                            //   còn pending). Hiển thị stock đang có + pending còn chờ.
-                            // - DANG_BAN + isActive → "Đang bán".
-                            // - !isActive → "Tạm dừng".
-                            if (p.status === 'CHO_MUA') {
-                                const pendingTxt =
-                                    Number(p.pendingQty) > 0 ? ` (×${p.pendingQty})` : '';
-                                return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
-                            }
-                            if (p.status === 'MUA_1_PHAN') {
-                                const stock = Number(p.stock || 0);
-                                const pend = Number(p.pendingQty || 0);
-                                return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
-                            }
-                            return p.isActive
-                                ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
-                                : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
-                        })()}
-                    </td>
-                    <td>
-                        <div class="row-actions">
-                            <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(escJs(p.code))}')"><i data-lucide="pencil"></i></button>
-                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" aria-label="In tem mã vạch" onclick="Web2ProductsApp.printBarcode('${escapeHtml(escJs(p.code))}')"><i data-lucide="printer"></i>${
-                                Number(p.printCount) > 0
-                                    ? `<span class="print-count-num">${Number(p.printCount)}</span>`
-                                    : ''
-                            }</button>
-                            <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(escJs(p.code))}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
-                            <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(escJs(p.code))}')"><i data-lucide="history"></i></button>
-                            <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(escJs(p.code))}')"><i data-lucide="trash-2"></i></button>
-                        </div>
+                        <div class="row-actions">${_rowActionsHtml(p)}</div>
                     </td>
                 </tr>`;
     }

@@ -241,6 +241,14 @@ class GenReq(BaseModel):
     secret: Optional[str] = None
 
 
+class ChatReq(BaseModel):
+    message: str = ""
+    metadata: Optional[List[str]] = None  # [cid, rid, rcid] để TIẾP TỤC hội thoại (multi-turn)
+    account: Optional[str] = None  # giữ nguyên account của hội thoại khi tiếp tục
+    images: List[str] = []  # ảnh đính kèm (hỏi về ảnh)
+    secret: Optional[str] = None
+
+
 class AccountReq(BaseModel):
     label: Optional[str] = None
     psid: str = ""
@@ -370,6 +378,84 @@ async def _run_gemini(prompt: str, image_dataurls: List[str], account: Optional[
     return {"ok": False, "error": "Tất cả account lỗi/hết lượt. " + last_err}
 
 
+async def _run_chat(message, metadata=None, account=None, image_dataurls=None) -> dict:
+    """CHAT multi-turn với Gemini qua cookie (TEXT ổn định, khác image-gen). metadata=[cid,rid,rcid]
+    để TIẾP TỤC hội thoại. Trả {text, images?, metadata, account} để FE giữ ngữ cảnh + hiện đoạn chat."""
+    message = (message or "").strip()
+    if not message:
+        return {"ok": False, "error": "Thiếu tin nhắn"}
+    # Tiếp tục hội thoại (có metadata) PHẢI cùng account đã tạo. Mới → account chỉ định / xoay tua.
+    if account:
+        pool = [a for a in _state["accounts"] if a.label == account and a.ready]
+    else:
+        pool = _ready_pool()
+    if not pool:
+        return {"ok": False, "error": "Không account Gemini sẵn sàng" + (f" ('{account}')" if account else "")}
+
+    with tempfile.TemporaryDirectory(prefix="gchat_") as tmp:
+        paths = []
+        for i, d in enumerate((image_dataurls or [])[:MAX_IMAGES]):
+            if not d:
+                continue
+            try:
+                p = os.path.join(tmp, f"in_{i}.png")
+                with open(p, "wb") as f:
+                    f.write(_decode_dataurl(d))
+                paths.append(p)
+            except Exception:  # noqa: BLE001
+                pass
+        start = _state["rr"] % len(pool)
+        _state["rr"] = (_state["rr"] + 1) % max(1, len(pool))
+        order = [pool[(start + i) % len(pool)] for i in range(len(pool))]
+        last_err = ""
+        async with _lock:
+            for acc in order:
+                try:
+                    kw = {"model": MODEL} if MODEL else {}
+                    chat = (
+                        acc.client.start_chat(metadata=metadata, **kw)
+                        if metadata
+                        else acc.client.start_chat(**kw)
+                    )
+                    skw = {"files": paths} if paths else {}
+                    resp = await asyncio.wait_for(
+                        chat.send_message(message, **skw), timeout=GEN_TIMEOUT
+                    )
+                    acc.uses += 1
+                    acc.last_error = ""
+                    text = (getattr(resp, "text", "") or "").strip()
+                    imgs = []
+                    for im in (getattr(resp, "images", None) or [])[:2]:
+                        try:
+                            fn = f"out_{len(imgs)}.png"
+                            await im.save(path=tmp, filename=fn, verbose=False)
+                            with open(os.path.join(tmp, fn), "rb") as f:
+                                imgs.append(
+                                    "data:image/png;base64," + base64.b64encode(f.read()).decode()
+                                )
+                        except Exception:  # noqa: BLE001
+                            pass
+                    return {
+                        "ok": True,
+                        "text": text,
+                        "images": imgs,
+                        "metadata": list(getattr(chat, "metadata", []) or []),
+                        "account": acc.label,
+                    }
+                except Exception as e:  # noqa: BLE001
+                    msg = str(e)
+                    last_err = f"[{acc.label}] " + msg[:200]
+                    acc.last_error = msg[:300]
+                    print(f"[chat] account '{acc.label}' lỗi: {msg[:160]}", flush=True)
+                    if _AUTH_RE.search(msg):
+                        acc.ready = False
+                        acc.error = msg[:200]
+                    if metadata:
+                        break  # tiếp tục hội thoại: chỉ đúng account đó, KHÔNG xoay sang acc khác
+                    continue
+        return {"ok": False, "error": "Chat lỗi. " + last_err}
+
+
 # ───────────────────────── endpoints ─────────────────────────
 @app.get("/health")
 async def health():
@@ -465,6 +551,15 @@ async def generate(req: GenReq):
     if not _check_secret(req.secret):
         return {"ok": False, "error": "Sai secret"}
     return await _run_gemini(req.prompt, [req.image] if req.image else [], account=req.account)
+
+
+@app.post("/chat")
+async def chat(req: ChatReq):
+    if not _check_secret(req.secret):
+        return {"ok": False, "error": "Sai secret"}
+    return await _run_chat(
+        req.message, metadata=req.metadata, account=req.account, image_dataurls=req.images
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
