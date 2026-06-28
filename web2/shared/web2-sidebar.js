@@ -327,6 +327,7 @@
             children: [
                 { label: 'Kho SP Web 2.0', our: '../web2/products/index.html' },
                 { label: 'Kho Biến Thể', our: '../web2/variants/index.html' },
+                { label: 'Kho rớt xả 🏷️', our: '../web2/clearance/index.html' },
             ],
         },
         {

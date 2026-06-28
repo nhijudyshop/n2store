@@ -146,6 +146,7 @@
         const u = data.unit;
         const p = data.product || {};
         const orders = data.orders || [];
+        const cl = data.clearance || {};
         const [stLbl, stCls] = STATUS_LABEL[u.status] || [u.status, ''];
         const img = p.imageUrl
             ? `<img class="prod-img" src="${esc(p.imageUrl)}" alt="" />`
@@ -181,6 +182,7 @@
                 : '',
             `<span class="chip ${stCls}"><i data-lucide="circle-dot"></i>${esc(stLbl)}</span>`,
             `<span class="chip"><i data-lucide="printer"></i>in ${u.printCount} lần</span>`,
+            cl.isClearance ? `<span class="chip amber"><i data-lucide="tag"></i>Rớt xả</span>` : '',
         ]
             .filter(Boolean)
             .join('');

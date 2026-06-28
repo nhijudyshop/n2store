@@ -91,8 +91,21 @@ async function ensureTables(pool) {
             created_at     BIGINT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_w2pue_unit ON web2_product_unit_events(unit_id, created_at DESC);
+
+        -- KHO RỚT XẢ (clearance): cờ override thủ công. NULL = AUTO (tính lúc đọc,
+        -- derived/lazy — KHÔNG cron); 'KEEP' = ép giữ kho chính; 'CLEARANCE' = ép xả.
+        ALTER TABLE web2_product_units ADD COLUMN IF NOT EXISTS clearance_state VARCHAR(12);
     `);
     _ensuredPools.add(pool);
+}
+
+// Kho rớt xả — config (derived, không cron). Aging tier theo ngày-từ-đơn-cuối.
+const CLEARANCE_GRACE_MS = 24 * 60 * 60 * 1000; // 1 ngày ân hạn sau khi hết nhu cầu
+const DAY_MS = 24 * 60 * 60 * 1000;
+function _clearanceTier(daysSince) {
+    if (daysSince >= 90) return 'THANH_LY'; // >90 ngày → thanh lý
+    if (daysSince >= 30) return 'XA_MANH'; // 30-90 → xả mạnh
+    return 'RUOT_XA'; // <30 → rớt xả thường
 }
 
 async function _logEvent(client, unit, event, extra = {}) {
@@ -139,6 +152,7 @@ function mapUnit(r) {
         orderStt: r.order_stt || null,
         customerName: r.customer_name || null,
         customerPhone: r.customer_phone || null,
+        clearanceState: r.clearance_state || null,
         createdAt: Number(r.created_at) || null,
         updatedAt: Number(r.updated_at) || null,
     };
@@ -269,7 +283,17 @@ router.get('/resolve', async (req, res) => {
 
         // Đơn ĐANG MỞ chứa product_code này (kệ STT để bỏ vào) — gợi ý FIFO
         const orders = await _openOrdersForProduct(pool, unit.productCode);
-        res.json({ success: true, unit, product, orders });
+        // Cờ rớt xả (badge): ép CLEARANCE, hoặc IN_STOCK + không đơn nào còn thiếu
+        // (ứng viên xả; ân hạn/tier chính xác tính ở trang /clearance).
+        const noOpenDemand = orders.length > 0 && !orders.some((o) => o.remaining > 0);
+        const clearance = {
+            state: unit.clearanceState || null,
+            isClearance:
+                unit.clearanceState === 'CLEARANCE' ||
+                (unit.status === 'IN_STOCK' && unit.clearanceState !== 'KEEP' && noOpenDemand),
+            manual: unit.clearanceState === 'CLEARANCE',
+        };
+        res.json({ success: true, unit, product, orders, clearance });
     } catch (e) {
         console.error('[WEB2-PRODUCT-UNITS] /resolve error:', e);
         res.status(500).json({ error: e.message });
@@ -574,6 +598,141 @@ router.post('/:id/status', requireWeb2AuthSoft, async (req, res) => {
         res.status(500).json({ error: e.message });
     } finally {
         client.release();
+    }
+});
+
+// =====================================================================
+// GET /clearance — KHO HÀNG RỚT XẢ (derived/lazy, KHÔNG cron).
+// Unit IN_STOCK + SP đã từng bán + KHÔNG còn đơn mở cần (trong ân hạn) +
+// đã qua 1 ngày → ứng viên xả. Cờ clearance_state ép KEEP/CLEARANCE.
+// Tier theo ngày-từ-đơn-cuối: <30 RỚT XẢ · 30-90 XẢ MẠNH · >90 THANH LÝ.
+// → group theo SP + summary giá-trị-kẹt mỗi tier (value-trapped).
+// =====================================================================
+router.get('/clearance', async (req, res) => {
+    const pool = _getDb(req);
+    try {
+        await ensureTables(pool);
+        const now = Date.now();
+        const graceBefore = now - CLEARANCE_GRACE_MS;
+        const rows = (
+            await pool.query(
+                `
+            WITH asg AS (
+                SELECT order_id, product_code, COUNT(*) AS n
+                FROM web2_product_units
+                WHERE order_id IS NOT NULL AND status IN ('ASSIGNED','PACKED','SHIPPED')
+                GROUP BY 1,2
+            ),
+            instock AS (
+                SELECT DISTINCT product_code FROM web2_product_units WHERE status='IN_STOCK'
+            ),
+            prod AS (
+                SELECT
+                    COALESCE(e->>'productCode', e->>'code') AS pcode,
+                    MAX(no.created_at) AS last_order_at,
+                    BOOL_OR(
+                        no.status <> 'cancelled'
+                        AND no.created_at > $1
+                        AND (CASE WHEN (e->>'quantity') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (e->>'quantity')::numeric
+                                  WHEN (e->>'qty') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (e->>'qty')::numeric
+                                  ELSE 0 END)
+                            > COALESCE((SELECT n FROM asg
+                                        WHERE asg.order_id = no.id
+                                          AND asg.product_code = COALESCE(e->>'productCode', e->>'code')), 0)
+                    ) AS open_recent
+                FROM native_orders no,
+                     jsonb_array_elements(CASE WHEN jsonb_typeof(no.products)='array' THEN no.products ELSE '[]'::jsonb END) e
+                WHERE COALESCE(e->>'productCode', e->>'code') IN (SELECT product_code FROM instock)
+                GROUP BY 1
+            )
+            SELECT u.*, COALESCE(pr.price,0) AS price, pr.name AS pname, pr.image_url AS pimg,
+                   prod.last_order_at
+            FROM web2_product_units u
+            LEFT JOIN prod ON prod.pcode = u.product_code
+            LEFT JOIN web2_products pr ON pr.code = u.product_code
+            WHERE u.status='IN_STOCK'
+              AND COALESCE(u.clearance_state,'') <> 'KEEP'
+              AND (
+                  u.clearance_state='CLEARANCE'
+                  OR (prod.pcode IS NOT NULL AND prod.last_order_at < $1 AND COALESCE(prod.open_recent,false)=false)
+              )
+            ORDER BY u.product_code, u.seq`,
+                [graceBefore]
+            )
+        ).rows;
+
+        const groups = {};
+        const tiers = {
+            RUOT_XA: { count: 0, value: 0 },
+            XA_MANH: { count: 0, value: 0 },
+            THANH_LY: { count: 0, value: 0 },
+        };
+        let totalValue = 0;
+        for (const r of rows) {
+            const price = Number(r.price) || 0;
+            const lastAt = Number(r.last_order_at) || Number(r.created_at) || now;
+            const days = Math.max(0, Math.floor((now - lastAt) / DAY_MS));
+            const tier = _clearanceTier(days);
+            const g =
+                groups[r.product_code] ||
+                (groups[r.product_code] = {
+                    productCode: r.product_code,
+                    name: r.pname || r.product_code,
+                    price,
+                    imageUrl: r.pimg || null,
+                    units: [],
+                });
+            g.units.push({
+                id: r.id,
+                unitCode: r.unit_code,
+                supplier: r.supplier || null,
+                shipmentId: r.shipment_id || null,
+                days,
+                tier,
+                manual: r.clearance_state === 'CLEARANCE',
+            });
+            tiers[tier].count++;
+            tiers[tier].value += price;
+            totalValue += price;
+        }
+        res.json({
+            success: true,
+            now,
+            graceMs: CLEARANCE_GRACE_MS,
+            totalCount: rows.length,
+            totalValue,
+            tiers,
+            groups: Object.values(groups),
+        });
+    } catch (e) {
+        console.error('[WEB2-PRODUCT-UNITS] /clearance error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /:id/clearance — ép cờ: { state: 'KEEP' | 'CLEARANCE' | 'AUTO' }
+//   KEEP = giữ kho chính (đưa ngược về); CLEARANCE = ép xả; AUTO/null = tính tự động.
+router.post('/:id/clearance', requireWeb2AuthSoft, async (req, res) => {
+    const pool = _getDb(req);
+    const id = Number(req.params.id);
+    let state = req.body?.state;
+    if (state === 'AUTO' || state === '' || state === undefined) state = null;
+    if (state != null && !['KEEP', 'CLEARANCE'].includes(state))
+        return res.status(400).json({ error: 'state phải KEEP | CLEARANCE | AUTO' });
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'id không hợp lệ' });
+    try {
+        await ensureTables(pool);
+        const r = (
+            await pool.query(
+                `UPDATE web2_product_units SET clearance_state=$2, updated_at=$3 WHERE id=$1 RETURNING *`,
+                [id, state, Date.now()]
+            )
+        ).rows[0];
+        if (!r) return res.status(404).json({ error: 'Không tìm thấy unit' });
+        _notify('clearance', { unitId: id, state });
+        res.json({ success: true, unit: mapUnit(r) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

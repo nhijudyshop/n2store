@@ -87,3 +87,29 @@ Cả 2 bảng `ensureTables()` idempotent mỗi boot trong [`render.com/routes/w
 - Trang `web2/products` hiện qr1..qrN của 1 SP (đã có API `/by-product/:code`, chưa gắn UI).
 - Trạng thái PACKED/SHIPPED hàng loạt theo kệ.
 - Test E2E sau deploy (route chạy trên web2-api Render — cần push để Render redeploy).
+
+---
+
+## 7. Kho hàng RỚT XẢ (clearance) — derived/lazy, KHÔNG cron (2026-06-28)
+
+Hàng dư sau chiến dịch (còn tồn, hết đơn cần) = "rớt xả". Tính **tự động lúc đọc** (derived) như lazy-expiration của Redis/CockroachDB — **không cron, không bảng kho riêng**.
+
+**Định nghĩa "rớt xả" (tính ở `GET /clearance`):** unit `IN_STOCK` + SP **đã từng bán** (có đơn) + **không còn đơn mở cần** (đơn không-cancelled, tạo trong ân hạn, `qty đặt > unit đã gán`) + đã qua **1 ngày** kể từ đơn cuối. ⇒ né "1 SP nhiều chiến dịch" (còn đơn mở ở bất kỳ chiến dịch nào thì chưa xả) + né hàng chưa từng bán.
+
+**Aging tier** theo ngày-từ-đơn-cuối: `<30` Rớt xả · `30–90` Xả mạnh · `>90` Thanh lý (chuẩn ngành dead-stock/slow-moving). Dashboard hiện **giá-trị-kẹt** (value-trapped) mỗi tier.
+
+**Override reversible** — cột `web2_product_units.clearance_state`: `NULL`=AUTO (tính tự động) · `'KEEP'`=ép giữ kho chính (đưa ngược) · `'CLEARANCE'`=ép xả. "Chuyển ngược về kho chính" = set `KEEP` (tức thì, không move data).
+
+| Method | Path             | Việc                                                          |
+| ------ | ---------------- | ------------------------------------------------------------- |
+| GET    | `/clearance`     | List unit rớt xả (group theo SP) + summary tier (count/value) |
+| POST   | `/:id/clearance` | `{state:'KEEP'\|'CLEARANCE'\|'AUTO'}` — override reversible   |
+
+- Resolve trả thêm `clearance:{state,isClearance,manual}` → trang quét hiện badge "Rớt xả".
+- Trang [`web2/clearance/`](../../web2/clearance/) (admin, group "Mua hàng" sidebar): summary + filter tier + group SP + nút "Giữ kho chính"/"Giữ cả SP". SSE `web2:product-units` auto-refresh.
+- **KHÔNG cron**: chỉ cần thêm push thông báo "tới giờ tự xả" thì mới cần cron (chưa làm).
+
+## 8. In lại tem (đã làm)
+
+- **1 tem** từ trang quét: nút "In lại tem này" (mã+QR giữ nguyên id → quét vẫn đúng) + `print_count++`.
+- **Kho SP**: nút "In lại tem" → [`Web2UnitReprint`](../../web2/shared/web2-unit-reprint.js) (shared): tìm SP → list unit qr1..qrN → chọn → in (reuse `Web2ProductsPrint`).

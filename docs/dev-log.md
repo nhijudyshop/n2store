@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [web2-product-units/web2/clearance] Kho hàng RỚT XẢ + In lại tem (per-unit) — derived/lazy 0 cron
+
+**Files:** BE `render.com/routes/web2-product-units.js` (+ cột `clearance_state`, `GET /clearance` derived, `POST /:id/clearance` override, resolve trả `clearance`); FE trang MỚI `web2/clearance/{index.html,css/clearance.css,js/clearance.js}` + sidebar `web2/shared/web2-sidebar.js` (mục "Kho rớt xả" group Mua hàng); In lại tem: `web2/shared/web2-unit-reprint.js` (MỚI) + Kho SP `web2/products/index.html`+`web2-products-app.js` (nút "In lại tem"); trang quét `web2/unit-scan/js/unit-scan.js` (badge "Rớt xả" + nút "In lại tem này") + `index.html` (load 5 file print) + `css`.
+
+User "Làm luôn kho rớt xả": hàng dư sau chiến dịch (còn tồn, hết đơn cần) = rớt xả.
+
+- **Kho rớt xả derived (KHÔNG cron)** — lazy như Redis/CockroachDB TTL: `GET /clearance` tính lúc đọc (unit IN_STOCK + SP đã bán + không đơn mở cần + qua 1 ngày). Aging tier `<30 Rớt xả · 30-90 Xả mạnh · >90 Thanh lý` (chuẩn dead-stock/slow-moving) + dashboard giá-trị-kẹt. Override reversible cột `clearance_state` (KEEP/CLEARANCE/AUTO) → "đưa về kho chính" tức thì. Né "1 SP nhiều chiến dịch" + né hàng chưa bán.
+- **Trang `web2/clearance/`**: summary 5 card + filter tier + group SP + nút "Giữ kho chính"/"Giữ cả SP"; SSE `web2:product-units` auto-refresh.
+- **In lại tem**: 1 tem (trang quét) + nhiều tem chọn (Kho SP `Web2UnitReprint`) — mã+QR giữ id, `print_count++`.
+- Verify: node --check OK; ⏳ E2E sau deploy.
+
 ### [web2-product-units/so-order/web2/unit-scan] Per-unit product code + QR tracking (mã đơn vị riêng/món + quét định tuyến kệ STT)
 
 **Files:** BE `render.com/routes/web2-product-units.js` (MỚI) + `server.js` (require + mount `/api/web2-product-units` + initializeNotifiers); FE in tem `web2/products/js/web2-products-print-modal.js` (item.units → per-unit label + qrText; preserve units), `web2-products-print-render.js` (QR lookup theo qrText); so-order `so-order/js/so-order-barcode.js` (`_attachUnitCodes` mint + qrUrl + reprint); trang quét MỚI `web2/unit-scan/{index.html, css/unit-scan.css, js/unit-scan.js, unit-scan.webmanifest}`; doc `docs/web2/PER-UNIT-QR-PLAN.md` (MỚI).

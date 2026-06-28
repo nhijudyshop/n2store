@@ -1,0 +1,266 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Kho rớt xả CSS. */
+.clr-main {
+    padding: 20px 28px;
+}
+.clr-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.clr-head h1 {
+    margin: 0;
+    font-size: 22px;
+    flex: 1;
+}
+.clr-refresh {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+.clr-refresh:active {
+    transform: scale(0.94);
+}
+.clr-refresh i {
+    width: 18px;
+    height: 18px;
+}
+.clr-sub {
+    color: #58666e;
+    margin: 4px 0 16px;
+    font-size: 13px;
+    max-width: 760px;
+}
+
+/* ── Summary strip ─────────────────────────────────── */
+.clr-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.clr-card {
+    background: #fff;
+    border: 1px solid #eef1f6;
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05);
+}
+.clr-card .lbl {
+    font-size: 12px;
+    font-weight: 700;
+    color: #5b6b7d;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.clr-card .val {
+    font-size: 24px;
+    font-weight: 900;
+    margin-top: 4px;
+    color: #16202c;
+}
+.clr-card .sub {
+    font-size: 12px;
+    color: #9aa7b6;
+    margin-top: 2px;
+}
+.clr-card.total .val {
+    color: #0052cc;
+}
+.clr-card.money .val {
+    color: #b45309;
+}
+
+/* ── Tier filter chips ─────────────────────────────── */
+.clr-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.clr-chip {
+    border: 1.5px solid #e7ebf1;
+    background: #fff;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #5b6b7d;
+}
+.clr-chip.on {
+    background: #0068ff;
+    border-color: #0068ff;
+    color: #fff;
+}
+
+/* ── Tier color tokens ─────────────────────────────── */
+.tier-RUOT_XA {
+    --tc: #d98a00;
+    --tcbg: #fff3da;
+}
+.tier-XA_MANH {
+    --tc: #ea580c;
+    --tcbg: #ffedd5;
+}
+.tier-THANH_LY {
+    --tc: #dc2626;
+    --tcbg: #fee2e2;
+}
+.tier-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: var(--tc);
+    background: var(--tcbg);
+}
+
+/* ── Group cards ───────────────────────────────────── */
+.clr-group {
+    background: #fff;
+    border: 1px solid #eef1f6;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+}
+.clr-ghead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.clr-gimg {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #eef1f6;
+    flex: 0 0 auto;
+}
+.clr-gmeta {
+    flex: 1;
+    min-width: 0;
+}
+.clr-gname {
+    font-weight: 800;
+    font-size: 15px;
+}
+.clr-gcode {
+    font-family: ui-monospace, monospace;
+    font-size: 12.5px;
+    color: #0052cc;
+    font-weight: 700;
+}
+.clr-gval {
+    text-align: right;
+    flex: 0 0 auto;
+}
+.clr-gval .n {
+    font-weight: 900;
+    font-size: 16px;
+    color: #b45309;
+}
+.clr-gval .c {
+    font-size: 12px;
+    color: #9aa7b6;
+}
+.clr-gkeep {
+    border: 1.5px solid #e7ebf1;
+    background: #fff;
+    border-radius: 9px;
+    padding: 6px 11px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #16a34a;
+}
+.clr-gkeep:active {
+    transform: scale(0.96);
+}
+.clr-units {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.clr-unit {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #e7ebf1;
+    border-radius: 9px;
+    padding: 5px 9px;
+    background: #fafbfc;
+}
+.clr-unit .uc {
+    font-family: ui-monospace, monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.clr-unit .meta {
+    font-size: 11px;
+    color: #9aa7b6;
+}
+.clr-unit .keep {
+    border: 0;
+    background: #eef1f6;
+    border-radius: 6px;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    color: #16a34a;
+}
+.clr-unit .keep i {
+    width: 13px;
+    height: 13px;
+}
+
+.clr-muted {
+    text-align: center;
+    color: #9aa7b6;
+    padding: 32px;
+    font-size: 14px;
+}
+.spin {
+    animation: clrspin 0.8s linear infinite;
+}
+@keyframes clrspin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+.clr-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    background: #16202c;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13.5px;
+    padding: 11px 18px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+        opacity 0.2s,
+        transform 0.2s;
+    z-index: 9999;
+}
+.clr-toast.show {
+    opacity: 1;
+    transform: none;
+}
+.clr-toast.ok {
+    background: #16a34a;
+}
+.clr-toast.err {
+    background: #dc2626;
+}

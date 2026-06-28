@@ -1,0 +1,43 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Kho hàng RỚT XẢ (derived/lazy, 0 cron). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Kho rớt xả - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260625anim" />
+        <link rel="stylesheet" href="../shared/web2-mobile.css?v=20260624a" />
+        <link rel="stylesheet" href="./css/clearance.css?v=20260628a" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main clr-main">
+                <div class="clr-head">
+                    <h1>Kho hàng rớt, xả 🏷️</h1>
+                    <button class="clr-refresh" id="clrRefresh" title="Làm mới">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                </div>
+                <p class="clr-sub">
+                    Hàng dư sau chiến dịch (còn tồn, không còn đơn cần). Tính
+                    <strong>tự động</strong>
+                    (derived, không cron) — qua 1 ngày kể từ hết nhu cầu. Tier theo tuổi tồn. Bấm
+                    <em>“Giữ kho chính”</em> để đưa ngược nếu nhầm.
+                </p>
+
+                <div class="clr-summary" id="clrSummary"></div>
+                <div class="clr-filters" id="clrFilters"></div>
+                <div id="clrList"><div class="clr-muted">Đang tải…</div></div>
+            </main>
+        </div>
+
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-sidebar.js?v=20260627adm"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
+        <script src="./js/clearance.js?v=20260628a"></script>
+    </body>
+</html>
