@@ -30,20 +30,8 @@
         document
             .getElementById('soCreateOrderBtn')
             .addEventListener('click', () => SO.openOrderModal(null));
-        document.getElementById('soGenRandomBtn')?.addEventListener('click', async () => {
-            const c = await Popup.prompt('Tạo bao nhiêu đơn ngẫu nhiên?', { defaultValue: '5' });
-            if (c === null) return;
-            SO.generateRandomOrders(parseInt(c, 10) || 0);
-        });
-        // Import dữ liệu CSV/JSON + tải file mẫu (NGUỒN CHUNG Web2Import).
-        document.getElementById('soImportBtn')?.addEventListener('click', () => {
-            if (!window.Web2Import) return SO.notify('Module nhập dữ liệu chưa load', 'error');
-            window.Web2Import.open(SO._soImportConfig());
-        });
-        document.getElementById('soSampleBtn')?.addEventListener('click', () => {
-            if (!window.Web2Import) return SO.notify('Module nhập dữ liệu chưa load', 'error');
-            window.Web2Import.downloadSample(SO._soImportConfig());
-        });
+        // 2026-06-28: BỎ 3 nút toolbar Nhập / Tải mẫu / Tạo data ngẫu nhiên (user
+        // yêu cầu). Handler tương ứng gỡ luôn. "Điền ngẫu nhiên" TRONG modal vẫn giữ.
         document
             .getElementById('soModalFillRandomBtn')
             ?.addEventListener('click', SO.fillModalRandom);

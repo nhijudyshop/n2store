@@ -2,6 +2,12 @@
 
 ## 2026-06-28
 
+### [so-order] Bỏ 3 nút toolbar: Nhập / Tải mẫu / Tạo data ngẫu nhiên
+
+**Files:** `so-order/index.html` (gỡ markup 3 nút + bump toolbar `?v=20260628v`), `so-order/js/so-order-toolbar.js` (gỡ 3 handler).
+
+User yêu cầu bỏ 3 nút `#soImportBtn` / `#soSampleBtn` / `#soGenRandomBtn`. Giữ "Điền ngẫu nhiên" TRONG modal (`#soModalFillRandomBtn` = SO.fillModalRandom). Module import/random vẫn load (harmless, fillModalRandom còn dùng). Verify: 3 nút biến mất, toolbar còn Cài đặt tab/Thùng rác/Tạo Đơn Hàng, 0 console error.
+
 ### [so-order] Feature tiền/chi phí/thanh toán — DESIGN LOCKED + Stage 1 (data layer)
 
 **Files:** `docs/web2/SO-ORDER-MONEY-PLAN.md` (MỚI, tracker), `so-order/js/so-order-storage.js` (+expense APIs), `so-order/index.html` (bump storage `?v=20260628v`).
