@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f3fe30c` — fix(unit-scan): camera den moi trinh duyet - id #scanHost{display:block} de .w2bc{display:flex} cua scanner lam stage sap 0px; chi giu width/height; relax retry 2.5->5s; bump v20260628d
-**Last updated**: 2026-06-28 21:21:24 +07
-**Latest session**: [`RESUME:20260628-212124-f3fe30c`](../20260628-212124-f3fe30c.md)
-**Summary**: fix(unit-scan): camera den moi trinh duyet - id #scanHost{display:block} de .w2bc{display:flex} cua scanner lam stage...
+**Latest commit**: `4aed2bd` — feat(admin-reset): target 'reset-flow' wipe ĐÚNG 9 domain luồng mua-ban-kho (so-order/products+units/native-orders/PBH/reconcile/supplier-debt+wallet/ck); + units vào PRODUCT_TABLES
+**Last updated**: 2026-06-28 21:33:18 +07
+**Latest session**: [`RESUME:20260628-213318-4aed2bd`](../20260628-213318-4aed2bd.md)
+**Summary**: feat(admin-reset): target 'reset-flow' wipe ĐÚNG 9 domain luồng mua-ban-kho (so-order/products+units/native-order...
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -59,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-28 21:07
+- [`render.com/`](./render.com.md) — updated 2026-06-28 21:33
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-28 20:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
