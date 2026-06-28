@@ -412,7 +412,8 @@
                     const h = await r.json();
                     (h.accounts || []).forEach((a) => {
                         const tag = a.ready ? (a.cooling ? ' · nghỉ' : '') : ' · lỗi';
-                        opts += `<option value="acc:${esc(a.label)}">👤 ${esc(a.label)} · ${a.uses || 0} ảnh${tag}</option>`;
+                        const icon = a.premium ? '⭐' : '👤'; // PREMIUM (trả phí) ưu tiên trước
+                        opts += `<option value="acc:${esc(a.label)}">${icon} ${esc(a.label)}${a.premium ? ' (trả phí)' : ''} · ${a.uses || 0} ảnh${tag}</option>`;
                     });
                 } catch (_) {}
             }
@@ -585,11 +586,16 @@
             );
         }
 
-        // Gọi máy Gemini FREE (sidecar gemini-tryon) — trả dataUrl ảnh. RETRY khi tunnel chập
-        // chờn (ERR_NETWORK_CHANGED / 502-504 / fetch fail tạm thời — hay xảy ra với cloudflared).
+        // FAIL-FAST cho đường FREE: cloudflared quick-tunnel GIẾT request ở ~100s → chờ lâu hơn
+        // vô ích (chỉ làm user đợi rồi mới fallback). Timeout 105s ≈ trần tunnel; KHÔNG retry khi
+        // TIMEOUT (retry = tốn thêm 105s vô ích) — chỉ retry lỗi transient NHANH (502-504 trả tức
+        // thì). Worst-case free ~105s (1 lần) thay vì ~722s (3×240s) → fallback Nano Banana nhanh.
+        const FREE_GEN_TIMEOUT_MS = 105000;
+        const FREE_MAX_ATTEMPTS = 2; // tối đa 2 lần, chỉ cho lỗi 502-504 (nhanh), không cho timeout
+        // Gọi máy Gemini FREE (sidecar gemini-tryon) — trả dataUrl ảnh.
         async function callGeminiMachine(promptText, images, account) {
             let lastErr;
-            for (let attempt = 0; attempt < 3; attempt++) {
+            for (let attempt = 0; attempt < FREE_MAX_ATTEMPTS; attempt++) {
                 try {
                     const r = await fetch(geminiUrl + '/tryon', {
                         method: 'POST',
@@ -599,7 +605,7 @@
                             images,
                             account: account || undefined,
                         }),
-                        signal: AbortSignal.timeout(240000), // ảnh gen có thể >120s (watchdog fix)
+                        signal: AbortSignal.timeout(FREE_GEN_TIMEOUT_MS),
                     });
                     if (r.status >= 502 && r.status <= 504) throw new Error('tunnel ' + r.status); // transient
                     const j = await r.json();
@@ -610,8 +616,11 @@
                     return j.dataUrl;
                 } catch (e) {
                     lastErr = e;
-                    if (e._final) throw e; // lỗi thật từ sidecar (vd hết account) → không retry, để fallback
-                    if (attempt < 2) await new Promise((r) => setTimeout(r, 700 * (attempt + 1))); // backoff rồi thử lại
+                    if (e._final) throw e; // lỗi thật từ sidecar (vd hết account) → fallback ngay
+                    // Timeout/abort = tunnel đã giết request → retry vô ích → fallback paid LUÔN.
+                    if (e.name === 'TimeoutError' || e.name === 'AbortError') throw e;
+                    if (attempt < FREE_MAX_ATTEMPTS - 1)
+                        await new Promise((r) => setTimeout(r, 600 * (attempt + 1))); // backoff cho 502-504
                 }
             }
             throw lastErr;

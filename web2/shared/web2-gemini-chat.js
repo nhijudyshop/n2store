@@ -117,7 +117,12 @@
 .gch-bub code{font-family:ui-monospace,Menlo,monospace;font-size:.85em}
 .gch-bub img{max-width:100%;border-radius:8px;margin-top:6px;display:block}
 .gch-typing{color:#94a3b8;font-size:.8rem;font-style:italic;padding:0 16px 6px}
-.gch-composer{border-top:1px solid #e2e8f0;padding:10px;display:flex;gap:8px;align-items:flex-end}
+.gch-composer{border-top:1px solid #e2e8f0;padding:10px;display:flex;flex-direction:column;gap:8px}
+.gch-input-row{display:flex;gap:8px;align-items:flex-end}
+.gch-attach-btn{width:42px;height:42px;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#64748b;font-size:17px;cursor:pointer;flex:0 0 auto;transition:background .12s,color .12s}
+.gch-attach-btn:hover{background:#f1f5f9;color:#6366f1}
+.gch-attach-btn.on{background:#eef2ff;color:#6366f1;border-color:#c7d2fe}
+.gch-attach{margin:0}
 .gch-ta{flex:1;resize:none;min-height:42px;max-height:160px;border:1px solid #cbd5e1;border-radius:11px;padding:10px 12px;font:inherit;font-size:.9rem;outline:none}
 .gch-ta:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.14)}
 .gch-send{width:42px;height:42px;border:0;border-radius:11px;background:#6366f1;color:#fff;font-size:18px;cursor:pointer;flex:0 0 auto}
@@ -147,8 +152,12 @@
                 <div class="gch-msgs"></div>
                 <div class="gch-typing" hidden>Gemini đang trả lời…</div>
                 <div class="gch-composer">
-                    <textarea class="gch-ta" rows="1" placeholder="Nhắn cho Gemini… (Enter gửi · Shift+Enter xuống dòng)"></textarea>
-                    <button type="button" class="gch-send">↑</button>
+                    <div class="gch-attach" hidden></div>
+                    <div class="gch-input-row">
+                        <button type="button" class="gch-attach-btn" title="Đính ảnh để hỏi Gemini">🖼️</button>
+                        <textarea class="gch-ta" rows="1" placeholder="Nhắn cho Gemini… (Enter gửi · Shift+Enter xuống dòng)"></textarea>
+                        <button type="button" class="gch-send">↑</button>
+                    </div>
                 </div>
             </div>`;
         container.innerHTML = '';
@@ -162,6 +171,35 @@
         const statusEl = $('.gch-status');
         const dotEl = $('.gch-dot');
         const warnEl = $('.gch-warn');
+        const attachEl = $('.gch-attach');
+        const attachBtn = $('.gch-attach-btn');
+
+        // ĐÍNH ẢNH hỏi Gemini — TÁI DÙNG module shared Web2ImagePaste (paste/kéo-thả/nén sẵn).
+        // Không có module → ẩn nút (degrade). Nút bật/tắt khu đính; có ảnh thì giữ hiện.
+        let imgCtrl = null;
+        if (global.Web2ImagePaste && global.Web2ImagePaste.mount) {
+            imgCtrl = global.Web2ImagePaste.mount(attachEl, {
+                multiple: true,
+                maxFiles: 4,
+                maxWidth: 1280,
+                maxHeight: 1280,
+                quality: 0.82,
+                compact: true,
+                hint: 'Dán (Ctrl+V) / kéo-thả / chọn ảnh để hỏi Gemini',
+            });
+            attachBtn.addEventListener('click', () => {
+                const show = attachEl.hidden;
+                attachEl.hidden = !show;
+                attachBtn.classList.toggle('on', show);
+            });
+        } else {
+            attachBtn.hidden = true;
+        }
+        function resetAttach() {
+            if (imgCtrl) imgCtrl.clear();
+            attachEl.hidden = true;
+            attachBtn.classList.remove('on');
+        }
 
         function cur() {
             return chats.find((c) => c.id === curId);
@@ -243,10 +281,13 @@
                 newChat();
                 c = cur();
             }
-            c.msgs.push({ role: 'user', text });
+            // Ảnh đính (nén sẵn dataURL) — gửi kèm + hiện trong bubble user. Reset composer ngay.
+            const imgs = imgCtrl ? imgCtrl.getDataUrls() : [];
+            c.msgs.push({ role: 'user', text, images: imgs.length ? imgs : undefined });
             if (c.msgs.length === 1) c.title = text.slice(0, 40);
             taEl.value = '';
             taEl.style.height = 'auto';
+            resetAttach();
             renderMsgs();
             renderList();
             saveChats(chats);
@@ -258,6 +299,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: text,
+                        images: imgs.length ? imgs : undefined,
                         metadata: c.metadata || undefined,
                         account: c.account || undefined,
                     }),

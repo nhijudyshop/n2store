@@ -84,7 +84,13 @@ _AUTH_RE = re.compile(r"auth|cookie|1psid|login|unauthor|invalid.*credential|sni
 class Account:
     """1 tài khoản Gemini = 1 cặp cookie + 1 GeminiClient riêng."""
 
-    def __init__(self, label: str, psid: Optional[str], psidts: Optional[str]):
+    def __init__(
+        self,
+        label: str,
+        psid: Optional[str],
+        psidts: Optional[str],
+        premium: Optional[bool] = None,
+    ):
         self.label = label
         self.psid = (psid or "").strip()
         self.psidts = (psidts or "").strip()
@@ -94,12 +100,19 @@ class Account:
         self.last_error = ""  # lỗi LẦN TẠO ẢNH gần nhất (để debug acc nào fail vì gì)
         self.cooldown_until = 0.0
         self.uses = 0
+        # PREMIUM = tài khoản Gemini Advanced TRẢ PHÍ (thuê bao tháng, quota cao, ổn định, KHÔNG
+        # tính phí theo lượt như Nano Banana API) → ƯU TIÊN xoay tua TRƯỚC. Nhận diện tường minh
+        # (premium=True) hoặc tự suy từ tên có chữ "premium". User xác nhận 2026-06-28.
+        self.premium = (
+            bool(premium) if premium is not None else ("premium" in (label or "").lower())
+        )
 
     def public(self) -> dict:
         now = time.time()
         return {
             "label": self.label,
             "ready": self.ready,
+            "premium": self.premium,
             "cooling": self.cooldown_until > now,
             "cooldownLeftSec": max(0, int(self.cooldown_until - now)),
             "uses": self.uses,
@@ -116,12 +129,19 @@ _lock = asyncio.Lock()
 def _load_account_configs() -> List[dict]:
     out, seen = [], set()
 
-    def add(label, psid, psidts):
+    def add(label, psid, psidts, premium=None):
         psid = (psid or "").strip()
         if not psid or psid in seen:
             return
         seen.add(psid)
-        out.append({"label": (label or f"acc{len(out) + 1}").strip(), "psid": psid, "psidts": (psidts or "").strip()})
+        out.append(
+            {
+                "label": (label or f"acc{len(out) + 1}").strip(),
+                "psid": psid,
+                "psidts": (psidts or "").strip(),
+                "premium": premium,
+            }
+        )
 
     # 1) accounts.json
     try:
@@ -129,7 +149,12 @@ def _load_account_configs() -> List[dict]:
             data = json.load(open(ACCOUNTS_FILE, encoding="utf-8"))
             rows = data if isinstance(data, list) else (data.get("accounts") or [])
             for a in rows:
-                add(a.get("label"), a.get("psid") or a.get("__Secure-1PSID"), a.get("psidts") or a.get("__Secure-1PSIDTS"))
+                add(
+                    a.get("label"),
+                    a.get("psid") or a.get("__Secure-1PSID"),
+                    a.get("psidts") or a.get("__Secure-1PSIDTS"),
+                    a.get("premium"),
+                )
     except Exception as e:  # noqa: BLE001
         print(f"⚠️  Đọc accounts.json lỗi: {e}")
     # 2) ENV GEMINI_1PSID_1..20
@@ -143,7 +168,7 @@ def _load_account_configs() -> List[dict]:
 def _persist_accounts():
     """Lưu accounts.json (chỉ account có psid thật — không lưu account browser-cookie3)."""
     rows = [
-        {"label": a.label, "psid": a.psid, "psidts": a.psidts}
+        {"label": a.label, "psid": a.psid, "psidts": a.psidts, "premium": a.premium}
         for a in _state["accounts"]
         if a.psid
     ]
@@ -177,7 +202,7 @@ async def _init_pool():
     cfgs = _load_account_configs()
     if cfgs:
         _state["cookie_source"] = "config"
-        accounts = [Account(c["label"], c["psid"], c["psidts"]) for c in cfgs]
+        accounts = [Account(c["label"], c["psid"], c["psidts"], c.get("premium")) for c in cfgs]
     else:
         # Không cấu hình account nào → thử browser-cookie3 (Chrome đã login) làm 1 account.
         _state["cookie_source"] = "browser"
@@ -253,6 +278,7 @@ class AccountReq(BaseModel):
     label: Optional[str] = None
     psid: str = ""
     psidts: Optional[str] = None
+    premium: Optional[bool] = None  # tài khoản trả phí → ưu tiên xoay tua trước
     secret: Optional[str] = None
 
 
@@ -308,6 +334,7 @@ async def _run_gemini(prompt: str, image_dataurls: List[str], account: Optional[
         start = _state["rr"] % len(pool)
         _state["rr"] = (_state["rr"] + 1) % max(1, len(pool))
         order = [pool[(start + i) % len(pool)] for i in range(len(pool))]
+        order.sort(key=lambda a: 0 if a.premium else 1)  # PREMIUM (trả phí) ưu tiên TRƯỚC
         last_err = ""
 
         async with _lock:
@@ -407,6 +434,7 @@ async def _run_chat(message, metadata=None, account=None, image_dataurls=None) -
         start = _state["rr"] % len(pool)
         _state["rr"] = (_state["rr"] + 1) % max(1, len(pool))
         order = [pool[(start + i) % len(pool)] for i in range(len(pool))]
+        order.sort(key=lambda a: 0 if a.premium else 1)  # PREMIUM (trả phí) ưu tiên TRƯỚC
         last_err = ""
         async with _lock:
             for acc in order:
@@ -518,7 +546,7 @@ async def add_account(req: AccountReq):
     if any(a.psid == psid for a in _state["accounts"]):
         return {"ok": False, "error": "Account (cookie) này đã có"}
     label = (req.label or f"acc{len(_state['accounts']) + 1}").strip()
-    acc = Account(label, psid, req.psidts)
+    acc = Account(label, psid, req.psidts, req.premium)
     await _safe_build(acc)
     _state["accounts"].append(acc)
     if _state["cookie_source"] == "browser":

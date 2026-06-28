@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [ai-hub][gemini-tryon] Đính ảnh chat Gemini + fallback paid nhanh + PREMIUM ưu tiên xoay tua
+
+**Files:** `web2/shared/web2-gemini-chat.js` (A), `web2/shared/web2-tryon.js` (B + dropdown marker), `gemini-tryon/app.py` (C), `web2/ai-hub/index.html`.
+
+3 việc user yêu cầu (A+B) + clarify (C):
+
+- **A — Đính ảnh hỏi Gemini trong tab chat**: composer thêm nút 🖼️ + khu đính ảnh **tái dùng module shared `Web2ImagePaste.mount`** (paste/kéo-thả/nén sẵn, KHÔNG hand-roll). `getDataUrls()` → gửi kèm `images` trong POST /chat (backend `_run_chat` đã nhận `image_dataurls` → `send_message(files=…)`). Ảnh hiện trong bubble user (renderMsgs render `m.images`), reset composer sau gửi. Degrade an toàn nếu thiếu module (ẩn nút). Load `web2-image-paste.js` vào ai-hub, bump `web2-gemini-chat.js?v=20260628b`.
+- **B — Fallback Nano Banana nhanh hơn ở Ghép đồ**: đường FREE trước đây timeout `240000ms × 3 retries ≈ 722s (12 phút)` mới fallback (vì retry cả khi timeout). Sửa `callGeminiMachine`: `FREE_GEN_TIMEOUT_MS=105000` (≈ trần cloudflared quick-tunnel ~100s — chờ lâu hơn vô ích) + `FREE_MAX_ATTEMPTS=2` + **KHÔNG retry khi TimeoutError/AbortError** (timeout = tunnel đã giết → retry tốn thêm 105s). Worst-case free ~105s thay vì ~722s. Lỗi transient nhanh (502-504, ERR_NETWORK_CHANGED=TypeError) vẫn retry 1 lần.
+- **C — PREMIUM (trả phí) ưu tiên xoay tua TRƯỚC** (user xác nhận: ổn định + quota cao + đã trả tháng, không tính phí/lượt như Nano Banana API): `Account.premium` (tự nhận diện tên chứa "premium" hoặc cờ tường minh trong accounts.json/POST). `public()` expose `premium` → `/health`. Sort `order` stable-sort premium lên đầu ở CẢ `_run_gemini` + `_run_chat`. Dropdown nguồn admin (`.w2t-src`) đánh dấu ⭐ (trả phí). py_compile OK.
+
+> Cần cài lại sidecar bản mới trên máy shop (bộ cài [4] Gemini) để có `/chat` + B/C có hiệu lực.
+
 ### [web2/shared] Module CHUNG SP cha-con `Web2ProductGroup` + Kho SP tham chiếu
 
 User: "tạo module riêng cho sản phẩm / SP con / SP cha → các trang liên quan SP tham chiếu vào dùng". → Tạo **`web2/shared/web2-product-group.js`** (`window.Web2ProductGroup`) + **`web2/shared/web2-product-group.css`** (class `w2pg-*`) làm 1 NGUỒN cho cha-con:
