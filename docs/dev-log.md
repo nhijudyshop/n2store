@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [so-order] Cài đặt tab: chế độ thanh toán (đợt | theo từng NCC)
+
+**Files:** `so-order/js/so-order-storage.js` (paymentMode + imageManager per-tab: \_migrateTab backfill, addTab, updateTab), `so-order-settings.js` (populate + submit), `so-order-render.js` (`getNccBatchTotals`), `so-order-payments.js` (openPaymentModal branch supplier mode + `_nccSummaryCards`), `web2/shared/web2-supplier-pay.js` (`onNccChange` + `setAmount`/`setHistory`), `so-order/index.html` (controls Cài đặt tab + bump z/b), `so-order/css/so-order.css` (`.so-field-check`).
+
+User: thêm vào Cài đặt tab chế độ "thanh toán đợt" hoặc "thanh toán theo từng NCC".
+
+- Tab setting `paymentMode` ('batch'|'supplier') + `imageManager` (bool, F2). Select + checkbox trong modal Cài đặt tab.
+- **batch** (mặc định): modal Thanh toán CK = summary đợt (HĐ+CP) + Chi phí đợt (như cũ).
+- **supplier**: `getNccBatchTotals(supplier)` = HĐ của NCC đó (Σ contractAmount đơn của NCC); **CP đợt-level KHÔNG tính per-NCC** (chỉ trả ở chế độ đợt). Đổi NCC trong picker → `onNccChange` recompute summary + số tiền + lịch sử NCC. KHÔNG có section Chi phí.
+- Verify: settings có select batch/supplier + checkbox; supplier-mode summary "Phải trả (HĐ)=3.5M" cho NCC A, switch sang NCC B → 1.75M, amount theo remaining.
+
 ### [shared/so-order/supplier-debt/supplier-wallet] Modal Thanh toán NCC dùng CHUNG (Web2SupplierPay)
 
 **Files:** `web2/shared/web2-supplier-pay.js` (MỚI, component + style tự inject), `so-order/js/so-order-payments.js` (openPaymentModal → Web2SupplierPay + Chi phí qua extraHtml/onMount; gỡ modal-specific cũ) + `so-order/index.html` (gỡ #soPaymentModal, load shared, bump payments `?v=y`), `web2/supplier-debt/js/supplier-debt-actions.js` (openPayModal → shared, gỡ confirmPay) + `supplier-debt-app.js` (gỡ binding) + `index.html` (gỡ #sdPayModal, load shared, bump), `web2/supplier-wallet/js/supplier-wallet-actions.js` (gỡ openPayModal/confirmPay) + `supplier-wallet-app.js` (gỡ binding swPayBtn/swPayConfirmBtn) + `index.html` (gỡ nút "Ghi thanh toán" + #swPayModal).

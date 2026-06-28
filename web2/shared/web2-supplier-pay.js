@@ -238,6 +238,7 @@
                 host.querySelectorAll('.w2pay-ncc-pill').forEach((x) =>
                     x.classList.toggle('is-active', x === p)
                 );
+                if (typeof _cfg?.onNccChange === 'function') _cfg.onNccChange(_selected);
             })
         );
         host.querySelectorAll('[data-w2pay-ncc-arrow]').forEach((a) =>
@@ -371,6 +372,17 @@
 
     W.setSummary = function setSummary(cards) {
         if (_root && !_root.hidden) _renderSummary(cards);
+    };
+    // Cập nhật số tiền (vd đổi NCC ở chế độ supplier → remaining của NCC mới).
+    W.setAmount = function setAmount(vnd) {
+        if (!_root || _root.hidden) return;
+        const el = _q('[data-w2pay-amount]');
+        const v = Math.max(0, Math.round(Number(vnd) || 0));
+        if (window.Web2NumberInput) window.Web2NumberInput.setValue(el, v);
+        else el.value = v;
+    };
+    W.setHistory = function setHistory(history) {
+        if (_root && !_root.hidden) _renderHistory(history || null);
     };
     W.getSelectedSupplier = function getSelectedSupplier() {
         return _selected;

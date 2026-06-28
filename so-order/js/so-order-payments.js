@@ -195,9 +195,61 @@
             SO.notify('Đợt chưa có NCC (chưa có SP) — thêm SP trước khi thanh toán', 'warning');
             return;
         }
-        const t = SO.getBatchTotals(shipments);
         const batchLabel = batchKey === ALL ? 'Tất cả đợt' : SO.batchLabelOf(batchKey);
         SO._payState = { batchKey, tabId: tab.id };
+        const onSubmit = async ({ supplier, amountVnd, date, note, txId }) => {
+            const sh = SO._shipmentForSupplierInBatch(supplier);
+            if (!sh) throw new Error('Không tìm thấy lô để gắn thanh toán');
+            await SO.recordSoPayment({
+                supplier,
+                amountVnd,
+                date,
+                note,
+                shipmentId: sh.id,
+                batchKey: window.SoOrderStorage.batchKeyOf(sh),
+                tabId: tab.id,
+                txId,
+            });
+            await SO.loadPayments();
+            SO.renderAll();
+            SO.notify(`Đã ghi thanh toán ${SO.fmtVnd(amountVnd)} cho ${supplier}`, 'success');
+        };
+
+        // Chế độ THEO TỪNG NCC: summary = HĐ của NCC đang chọn (CP đợt-level KHÔNG
+        // tính), recompute khi đổi NCC trong picker. KHÔNG có section Chi phí.
+        if (tab.paymentMode === 'supplier') {
+            const histFor = (ncc) =>
+                SO.paymentsForActiveBatch()
+                    .filter((p) => (p.supplier || '').trim() === (ncc || '').trim())
+                    .map((p) => ({
+                        ts: p.ts,
+                        supplier: p.supplier,
+                        amountVnd: p.amount,
+                        moveName: p.moveName,
+                    }));
+            const sel0 = suppliers[0];
+            const nt0 = SO.getNccBatchTotals(shipments, sel0);
+            window.Web2SupplierPay.open({
+                title: `Thanh toán theo NCC — ${batchLabel} · ${tab.label}`,
+                summary: SO._nccSummaryCards(nt0),
+                ncc: { mode: 'picker', suppliers, selected: sel0 },
+                amountVnd: Math.max(0, Math.round(nt0.remainingVnd)),
+                notePlaceholder: 'Vd: CK Vietcombank…',
+                history: histFor(sel0),
+                historyHead: 'Lịch sử thanh toán NCC (trong đợt)',
+                onNccChange: (ncc) => {
+                    const t2 = SO.getNccBatchTotals(SO.shipmentsInActiveBatch(), ncc);
+                    window.Web2SupplierPay.setSummary(SO._nccSummaryCards(t2));
+                    window.Web2SupplierPay.setAmount(Math.max(0, Math.round(t2.remainingVnd)));
+                    window.Web2SupplierPay.setHistory(histFor(ncc));
+                },
+                onSubmit,
+            });
+            return;
+        }
+
+        // Chế độ THEO ĐỢT (mặc định): summary đợt (HĐ+CP) + section Chi phí.
+        const t = SO.getBatchTotals(shipments);
         window.Web2SupplierPay.open({
             title: `Thanh toán CK — ${batchLabel} · ${tab.label}`,
             summary: SO._paySummaryCards(t),
@@ -213,26 +265,7 @@
                 moveName: p.moveName,
             })),
             historyHead: 'Lịch sử thanh toán đợt',
-            onSubmit: async ({ supplier, amountVnd, date, note, txId }) => {
-                const sh = SO._shipmentForSupplierInBatch(supplier);
-                if (!sh) throw new Error('Không tìm thấy lô để gắn thanh toán');
-                await SO.recordSoPayment({
-                    supplier,
-                    amountVnd,
-                    date,
-                    note,
-                    shipmentId: sh.id,
-                    batchKey: window.SoOrderStorage.batchKeyOf(sh),
-                    tabId: tab.id,
-                    txId,
-                });
-                await SO.loadPayments();
-                SO.renderAll();
-                SO.notify(
-                    `Đã ghi thanh toán CK ${SO.fmtVnd(amountVnd)} cho ${supplier}`,
-                    'success'
-                );
-            },
+            onSubmit,
         });
     };
 
@@ -241,6 +274,14 @@
             { label: 'Phải trả (HĐ+CP)', value: SO.fmtVnd(t.payableVnd) },
             { label: 'Đã trả', value: SO.fmtVnd(t.paidVnd) },
             { label: 'Còn lại', value: SO.fmtVnd(t.remainingVnd), tone: 'danger' },
+        ];
+    };
+
+    SO._nccSummaryCards = function _nccSummaryCards(nt) {
+        return [
+            { label: 'Phải trả (HĐ)', value: SO.fmtVnd(nt.payableVnd) },
+            { label: 'Đã trả', value: SO.fmtVnd(nt.paidVnd) },
+            { label: 'Còn lại', value: SO.fmtVnd(nt.remainingVnd), tone: 'danger' },
         ];
     };
 

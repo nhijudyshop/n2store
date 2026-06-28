@@ -34,6 +34,12 @@
             if (cb) cb.checked = !!flags[f.key];
         }
         SO._syncShipMetaAllCheckbox();
+        // 2026-06-28: chế độ thanh toán + bật Quản lý ảnh (per-tab).
+        if (form.elements.paymentMode)
+            form.elements.paymentMode.value =
+                !forNew && tab.paymentMode === 'supplier' ? 'supplier' : 'batch';
+        if (form.elements.imageManager)
+            form.elements.imageManager.checked = forNew ? false : !!tab.imageManager;
         SO.showModal('soTabSettingsModal');
         setTimeout(() => form.elements.label.focus(), 80);
     };
@@ -82,6 +88,8 @@
             shipMetaFields,
             // Giữ showShipMeta cho backward-compat = có ÍT NHẤT 1 field bật.
             showShipMeta: Object.values(shipMetaFields).some(Boolean),
+            paymentMode: form.elements.paymentMode?.value === 'supplier' ? 'supplier' : 'batch',
+            imageManager: !!form.elements.imageManager?.checked,
         };
         if (mode === 'create') {
             window.SoOrderStorage.addTab(SO.state, patch);

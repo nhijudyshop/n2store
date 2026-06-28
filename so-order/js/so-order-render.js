@@ -930,6 +930,51 @@
         };
     };
 
+    // Totals PER-NCC trong đợt (chế độ thanh toán 'supplier'). Phải trả = HĐ của
+    // NCC đó (Σ contractAmount các đơn của NCC); CP đợt-level KHÔNG tính per-NCC.
+    // Đã trả = Σ payments so-order tới NCC đó trong các lô của đợt.
+    SO.getNccBatchTotals = function getNccBatchTotals(shipments, supplier) {
+        const tab = window.SoOrderStorage.getActiveTab(SO.state);
+        const sup = (supplier || '').trim();
+        let contractAmount = 0;
+        let weightKg = 0;
+        let qty = 0;
+        for (const sh of shipments) {
+            const adj = sh.orderAdjustments || {};
+            const supGids = new Set();
+            for (const r of sh.rows || []) {
+                if ((r.supplier || '').trim() === sup) {
+                    supGids.add(r.invoiceGroupId || r.id);
+                    qty += Number(r.qty) || 0;
+                }
+            }
+            for (const gid of supGids) {
+                const a = adj[gid];
+                if (a) {
+                    contractAmount += Number(a.contractAmount) || 0;
+                    weightKg += Number(a.weightKg) || 0;
+                }
+            }
+        }
+        const contractVnd = SO.toVnd(contractAmount, tab);
+        const shipIds = new Set(shipments.map((s) => s.id));
+        let paidVnd = 0;
+        for (const p of SO._soPayments || []) {
+            if ((p.supplier || '').trim() === sup && shipIds.has(p.shipmentId))
+                paidVnd += Number(p.amount) || 0;
+        }
+        const payableVnd = contractVnd; // CP đợt-level — không tính per-NCC
+        return {
+            contractAmount,
+            contractVnd,
+            weightKg,
+            qty,
+            paidVnd,
+            payableVnd,
+            remainingVnd: payableVnd - paidVnd,
+        };
+    };
+
     // Stat cards (KG/HĐ/CP/TT/CÒN LẠI) theo đợt — thay footer totals cũ. Giữ tên
     // renderFooterTotals (renderAll + bulk-edit gọi) để tránh churn.
     SO.renderFooterTotals = function renderFooterTotals() {
