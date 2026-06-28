@@ -2,6 +2,18 @@
 
 ## 2026-06-28
 
+### [web2-product-units + native-orders] Auto-gán đơn vị theo GIỎ (thay nút Gán thủ công)
+
+**Files:** `render.com/routes/web2-product-units.js` (+`reconcileOrderUnits` + `POST /assign-auto` + export), `render.com/routes/native-orders.js` (hook create-manual + PATCH `/:code`).
+
+User: bỏ nút Gán — việc gán phải TỰ ĐỘNG khi kéo/thêm SP vào giỏ; unit 001..0xx tự nhận STT giỏ chứa nó; ưu tiên unit ÍT lịch sử bỏ-giỏ → seq nhỏ; quét ra lịch sử.
+
+- **`reconcileOrderUnits(pool, orderId)`** (backend, idempotent, 1 transaction): đọc giỏ (`native_orders.products`) → mỗi product line, so SL muốn (giỏ) vs đang gán cho đơn. THIẾU → gán thêm unit chọn theo `ORDER BY (đếm event ASSIGN) ASC, seq ASC` (LATERAL count + `FOR UPDATE OF u SKIP LOCKED` chống 2 giỏ giành trùng), loại unit đang gán đơn MỞ khác + unit của chính đơn (`order_id IS DISTINCT FROM`). DƯ/rời giỏ/huỷ → NHẢ (seq cao trước, giữ 001 ổn định) về IN_STOCK. Log event ASSIGN/UNASSIGN (= lịch sử). `_notify('assign-auto')` → SSE `web2:product-units`.
+- **Hook**: `create-manual` (sau commit) + `PATCH /:code` (khi `products`/`status` đổi) gọi `reconcileOrderUnits` fire-and-forget (`.catch`, không chặn response). Đơn huỷ (status cancelled) → giỏ rỗng → nhả hết. Unit của đơn huỷ tự available lại (availability check loại đơn cancelled).
+- Liên kết Task 3 (unit-scan bỏ nút Gán) — gán giờ chạy ở luồng giỏ này.
+
+**Status:** 🔄 Backend done, đang deploy web2-api để test live (/assign-auto + create-manual auto-reconcile).
+
 ### [web2-products + unit-scan] Per-unit cho nút In tem + bỏ nút Gán thủ công (gán giờ tự động)
 
 **Files:** `web2/products/js/web2-products-render.js` (+`_attachUnitsForPrint`, `_bulkPrint` async), `web2/products/js/web2-products-actions.js` (printBarcode per-unit), `web2/unit-scan/js/unit-scan.js` (bỏ doAssign + nút Gán), HTML cache-bust (products render `ii`/actions `20260628a`, unit-scan `e`).

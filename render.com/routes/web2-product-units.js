@@ -736,6 +736,154 @@ router.post('/:id/clearance', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
+// =====================================================================
+// AUTO-ASSIGN theo GIỎ (KHÔNG cần nút Gán). Khi SP vào giỏ (native_orders.products)
+// → mỗi món gán 1 đơn vị. Chọn unit ƯU TIÊN: ÍT lịch sử bỏ-giỏ (đếm event ASSIGN)
+// nhất → rồi seq (00x) NHỎ nhất. Idempotent + reconcile: thiếu → gán thêm; dư / rời
+// giỏ / đơn huỷ → NHẢ (UNASSIGN, seq cao nhả trước → giữ 001 ổn định). Quét unit ra
+// STT giỏ hiện tại + đầy đủ lịch sử (events). Best-effort — caller bọc try.
+// =====================================================================
+async function reconcileOrderUnits(pool, orderId) {
+    orderId = Number(orderId);
+    if (!pool || !Number.isInteger(orderId)) return { assigned: 0, unassigned: 0 };
+    await ensureTables(pool);
+    const client = await pool.connect();
+    let assigned = 0;
+    let unassigned = 0;
+    try {
+        await client.query('BEGIN');
+        const order = (
+            await client.query(
+                `SELECT id, code AS order_code, customer_name, phone, campaign_stt, display_stt,
+                        status, products
+                 FROM native_orders WHERE id=$1 FOR UPDATE`,
+                [orderId]
+            )
+        ).rows[0];
+        if (!order) {
+            await client.query('ROLLBACK');
+            return { assigned, unassigned };
+        }
+        const stt = order.campaign_stt != null ? order.campaign_stt : order.display_stt;
+        const cancelled = order.status === 'cancelled';
+        // cartMap: productCode -> qty (đơn huỷ → giỏ rỗng → nhả hết unit của đơn).
+        const cart = {};
+        if (!cancelled) {
+            for (const p of Array.isArray(order.products) ? order.products : []) {
+                const code = String(p.productCode || p.code || '').trim();
+                if (!code) continue;
+                cart[code] = (cart[code] || 0) + (Number(p.quantity || p.qty) || 0);
+            }
+        }
+        // Unit đang gán cho đơn này (group theo product_code).
+        const curByCode = {};
+        for (const u of (
+            await client.query(
+                `SELECT * FROM web2_product_units WHERE order_id=$1 AND status='ASSIGNED'
+                 ORDER BY product_code, seq`,
+                [orderId]
+            )
+        ).rows) {
+            (curByCode[u.product_code] = curByCode[u.product_code] || []).push(u);
+        }
+
+        for (const code of new Set([...Object.keys(cart), ...Object.keys(curByCode)])) {
+            const want = cart[code] || 0;
+            const have = (curByCode[code] || []).length;
+            if (have < want) {
+                // GÁN THÊM: chọn unit available (ít lịch sử ASSIGN → seq nhỏ). Available =
+                // chưa gán cho đơn MỞ nào khác (IN_STOCK / đơn cũ đã huỷ). SKIP LOCKED →
+                // 2 giỏ thêm cùng SP song song không giành trùng unit.
+                const pick = (
+                    await client.query(
+                        `SELECT u.* FROM web2_product_units u
+                         LEFT JOIN LATERAL (
+                            SELECT COUNT(*) AS hist FROM web2_product_unit_events e
+                             WHERE e.unit_id=u.id AND e.event='ASSIGN'
+                         ) h ON true
+                         WHERE u.product_code=$1 AND u.status IN ('IN_STOCK','ASSIGNED')
+                           AND u.order_id IS DISTINCT FROM $2
+                           AND NOT EXISTS (
+                             SELECT 1 FROM native_orders o
+                              WHERE o.id=u.order_id AND o.status NOT IN ('cancelled'))
+                         ORDER BY h.hist ASC, u.seq ASC
+                         LIMIT $3 FOR UPDATE OF u SKIP LOCKED`,
+                        [code, orderId, want - have]
+                    )
+                ).rows;
+                for (const u of pick) {
+                    const upd = (
+                        await client.query(
+                            `UPDATE web2_product_units SET status='ASSIGNED', order_id=$2,
+                                order_code=$3, order_stt=$4, customer_name=$5, customer_phone=$6,
+                                updated_at=$7 WHERE id=$1 RETURNING *`,
+                            [
+                                u.id,
+                                orderId,
+                                order.order_code,
+                                stt,
+                                order.customer_name || null,
+                                order.phone || null,
+                                Date.now(),
+                            ]
+                        )
+                    ).rows[0];
+                    await _logEvent(client, upd, 'ASSIGN', {
+                        order_id: orderId,
+                        order_code: order.order_code,
+                        order_stt: stt,
+                        customer_name: order.customer_name,
+                        customer_phone: order.phone,
+                        note: 'auto (giỏ)',
+                    });
+                    assigned++;
+                }
+            } else if (have > want) {
+                // NHẢ BỚT (giảm SL / rời giỏ / huỷ): nhả unit seq CAO trước → giữ 001 ổn định.
+                const extras = (curByCode[code] || [])
+                    .slice()
+                    .sort((a, b) => b.seq - a.seq)
+                    .slice(0, have - want);
+                for (const u of extras) {
+                    const upd = (
+                        await client.query(
+                            `UPDATE web2_product_units SET status='IN_STOCK', order_id=NULL,
+                                order_code=NULL, order_stt=NULL, customer_name=NULL,
+                                customer_phone=NULL, updated_at=$2 WHERE id=$1 RETURNING *`,
+                            [u.id, Date.now()]
+                        )
+                    ).rows[0];
+                    await _logEvent(client, upd, 'UNASSIGN', { note: 'auto (rời giỏ)' });
+                    unassigned++;
+                }
+            }
+        }
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.warn('[WEB2-PRODUCT-UNITS] reconcileOrderUnits failed:', e.message);
+    } finally {
+        client.release();
+    }
+    if (assigned || unassigned) _notify('assign-auto', { orderId, assigned, unassigned });
+    return { assigned, unassigned };
+}
+
+// POST /assign-auto { orderId } — reconcile đơn vị cho 1 đơn theo giỏ (manual/test;
+// luồng chính gọi reconcileOrderUnits trực tiếp từ native-orders sau khi lưu đơn).
+router.post('/assign-auto', requireWeb2AuthSoft, async (req, res) => {
+    const pool = _getDb(req);
+    const orderId = Number(req.body?.orderId);
+    if (!Number.isInteger(orderId)) return res.status(400).json({ error: 'Thiếu orderId' });
+    try {
+        const r = await reconcileOrderUnits(pool, orderId);
+        res.json({ success: true, ...r });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.initializeNotifiers = initializeNotifiers;
 router.ensureTables = ensureTables;
+router.reconcileOrderUnits = reconcileOrderUnits;
 module.exports = router;

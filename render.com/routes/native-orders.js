@@ -1285,6 +1285,14 @@ router.post('/create-manual', requireWeb2AuthSoft, async (req, res) => {
         const order = mapRowToOrder(insert.rows[0]);
         _notify('create-manual', order.code);
         _auditOrder(req, 'create', order.code, 'Tạo đơn (thủ công)');
+        // Auto-gán đơn vị (per-unit QR) theo giỏ — unit nhận STT đơn (ưu tiên ít lịch
+        // sử → seq nhỏ). Best-effort fire-and-forget; SSE web2:product-units cập nhật
+        // trang quét. Thay nút "Gán" thủ công.
+        try {
+            require('./web2-product-units')
+                .reconcileOrderUnits(pool, order.id)
+                .catch(() => {});
+        } catch (_) {}
         res.json({ success: true, order });
     } catch (error) {
         console.error('[NATIVE-ORDERS] POST /create-manual error:', error);
@@ -2066,6 +2074,16 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             order.code,
             body?.status ? 'Đổi trạng thái: ' + body.status : 'Sửa đơn'
         );
+
+        // Auto-gán/nhả đơn vị (per-unit QR) khi giỏ đổi (thêm/bớt SP) hoặc đổi trạng
+        // thái (huỷ → nhả hết). Best-effort fire-and-forget; reconcile idempotent theo SL.
+        if (Array.isArray(body.products) || body.status !== undefined) {
+            try {
+                require('./web2-product-units')
+                    .reconcileOrderUnits(pool, order.id)
+                    .catch(() => {});
+            } catch (_) {}
+        }
 
         // Sprint 1 KPI: diff productsBefore vs productsNew → emit forecast events.
         // Fire-and-forget — KPI lỗi không block response.
