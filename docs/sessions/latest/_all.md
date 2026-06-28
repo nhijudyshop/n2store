@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `30b4f6a` — fix(ai-hub): icon SVG sạch cho nút đính ảnh/prompt/gửi + chốt ẩn busy (scoped !important)
-**Last updated**: 2026-06-28 10:10:15 +07
-**Latest session**: [`RESUME:20260628-101015-30b4f6a`](../20260628-101015-30b4f6a.md)
-**Summary**: fix(ai-hub): icon SVG sạch cho nút đính ảnh/prompt/gửi + chốt ẩn busy (scoped !important)
+**Latest commit**: `259d9a2` — fix(ai-hub): ẩn nút nổi ✨ trợ lý AI trên trang ai-hub (đã là khung trợ lý)
+**Last updated**: 2026-06-28 10:15:33 +07
+**Latest session**: [`RESUME:20260628-101533-259d9a2`](../20260628-101533-259d9a2.md)
+**Summary**: fix(ai-hub): ẩn nút nổi ✨ trợ lý AI trên trang ai-hub (đã là khung trợ lý)
 
 ## Folders affected in this commit
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 10:10
+- [`docs/`](./docs.md) — updated 2026-06-28 10:15
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-28 10:10
+- [`web2/`](./web2.md) — updated 2026-06-28 10:15
