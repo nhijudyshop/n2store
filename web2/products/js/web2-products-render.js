@@ -121,26 +121,10 @@
     // Dòng CHA (P4 cha-con): gom SP cùng cha/cùng tên nhiều biến thể → 1 dòng tổng,
     // expand xem các CON. Cột Biến Thể liệt kê mọi biến thể + tổng tồn; Trạng thái
     // tính gộp. Checkbox chọn CHA = chọn tất cả CON. Hành động sửa/in nằm ở dòng CON.
-    // Mã CHA hiển thị: ưu tiên parent_code thật (Migration 070, mọi con cùng cha);
-    // SP phẳng cùng tên (chưa có parent_code) → tiền tố CHUNG dài nhất của các mã con
-    // (vd HCQUAN2JT2 + HCQUAN3SH29 → "HCQUAN"). Min 3 ký tự mới coi là mã cha.
-    function _commonPrefix(arr) {
-        if (!arr || !arr.length) return '';
-        let p = String(arr[0] || '');
-        for (const s of arr) {
-            const t = String(s || '');
-            let i = 0;
-            while (i < p.length && i < t.length && p[i] === t[i]) i++;
-            p = p.slice(0, i);
-            if (!p) break;
-        }
-        return p;
-    }
+    // Mã CHA hiển thị → dùng module CHUNG Web2ProductGroup.parentCode (parent_code
+    // thật / tiền tố chung mã con). Fallback rỗng nếu module chưa load.
     function _parentDisplayCode(g) {
-        const reals = g.variants.map((v) => v.orig && v.orig.parentCode).filter(Boolean);
-        if (reals.length === g.variants.length && new Set(reals).size === 1) return reals[0];
-        const lcp = _commonPrefix(g.variants.map((v) => v.code).filter(Boolean));
-        return lcp.length >= 3 ? lcp : '';
+        return (window.Web2ProductGroup && window.Web2ProductGroup.parentCode(g.variants)) || '';
     }
 
     function _parentRowHtml(g, n, expanded) {
@@ -202,25 +186,37 @@
                 </tr>`;
     }
 
-    // Bảng CON: khi expand 1 SP cha → render các biến thể con thành 1 BẢNG RIÊNG
-    // nhúng trong 1 ô colspan (drawer). Tách hẳn khỏi bảng chính → KHÔNG lẫn với SP
-    // thường. Mỗi con vẫn đủ nút Sửa/In/Tạm dừng/Lịch sử/Xóa + checkbox chọn.
+    // Bảng CON (khi expand): render các biến thể con thành 1 BẢNG RIÊNG nhúng (drawer)
+    // qua module CHUNG Web2ProductGroup.childPanelHtml — khung & style đồng nhất với
+    // các trang SP khác. Trang chỉ cấp CỘT riêng (colHeaders) + nội dung dòng con.
+    // Mỗi con vẫn đủ nút Sửa/In/Tạm dừng/Lịch sử/Xóa + checkbox chọn.
+    const _CHILD_COLS = [
+        '',
+        'Ảnh',
+        'Mã SP',
+        'Biến thể / Tồn',
+        'Giá mua',
+        'Giá bán',
+        'Địa danh',
+        'Trạng thái',
+        'Thao tác',
+    ];
     function _childRowHtml(p) {
         const code = escapeHtml(p.code);
         const imgSrc = safeImageUrl(p.imageUrl);
         const img = imgSrc
-            ? `<img class="w2pc-img" src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
-            : `<span class="w2pc-img w2pc-noimg"><i data-lucide="image"></i></span>`;
+            ? `<img class="w2pg-img" src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
+            : `<span class="w2pg-img w2pg-noimg"><i data-lucide="image"></i></span>`;
         const variantText = (p.variant || '').trim();
         const stock = p.stock ?? 0;
         const stockClass = stock === 0 ? 'zero' : stock < 5 ? 'low' : '';
         const checked = STATE.selectedCodes.has(p.code) ? ' checked' : '';
         const selClass = STATE.selectedCodes.has(p.code) ? ' is-selected' : '';
-        return `<tr class="w2pc-row${selClass}" data-code="${code}">
-            <td class="w2pc-sel"><input type="checkbox" class="w2p-checkbox" data-select-code="${code}"${checked} /></td>
-            <td class="w2pc-imgcell">${img}</td>
+        return `<tr class="w2pg-row${selClass}" data-code="${code}">
+            <td class="w2pg-sel"><input type="checkbox" class="w2p-checkbox" data-select-code="${code}"${checked} /></td>
+            <td class="w2pg-imgcell">${img}</td>
             <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(escJs(p.code))}')"><i data-lucide="tag"></i>${code}</span></td>
-            <td class="w2pc-variantcell"><div class="variant-stack">${
+            <td><div class="variant-stack">${
                 variantText
                     ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
                     : '<span class="variant-empty">—</span>'
@@ -233,31 +229,20 @@
         </tr>`;
     }
     function _childPanelHtml(g) {
-        const body = g.variants.map((v) => _childRowHtml(v.orig || {})).join('');
-        return `
-                <tr class="w2p-child-drawer" data-group-key="${escapeHtml(g.key)}">
-                    <td colspan="12">
-                        <div class="w2p-child-panel">
-                            <div class="w2p-child-panel-head"><i data-lucide="git-branch"></i>${g.variantCount} biến thể con của <strong>${escapeHtml(g.name)}</strong></div>
-                            <table class="w2p-child-table">
-                                <thead>
-                                    <tr>
-                                        <th class="w2pc-sel"></th>
-                                        <th>Ảnh</th>
-                                        <th>Mã SP</th>
-                                        <th>Biến thể / Tồn</th>
-                                        <th>Giá mua</th>
-                                        <th>Giá bán</th>
-                                        <th>Địa danh</th>
-                                        <th>Trạng thái</th>
-                                        <th>Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${body}</tbody>
-                            </table>
-                        </div>
-                    </td>
-                </tr>`;
+        const PG = window.Web2ProductGroup;
+        const rowsHtml = g.variants.map((v) => _childRowHtml(v.orig || {})).join('');
+        if (PG && PG.childPanelHtml) {
+            return PG.childPanelHtml({
+                key: g.key,
+                name: g.name,
+                count: g.variantCount,
+                colspan: 12,
+                colHeaders: _CHILD_COLS,
+                rowsHtml,
+            });
+        }
+        // Fallback (module chưa load) — render thô để không vỡ.
+        return `<tr class="w2pg-drawer"><td colspan="12"><table class="w2pg-table"><tbody>${rowsHtml}</tbody></table></td></tr>`;
     }
 
     function renderRows() {
@@ -429,7 +414,7 @@
         // SP là biến thể CON đang hiện trong bảng-con (drawer expand) → KHÔNG swap kiểu
         // dòng-chính (vỡ layout bảng con). Trả false để caller full reload (render lại
         // panel đúng + cập nhật tổng ở dòng cha).
-        if (tr.closest('.w2p-child-drawer')) return false;
+        if (tr.closest('.w2pg-drawer')) return false;
         const stt = (STATE.page - 1) * STATE.limit + idx + 1;
         // Parse new row HTML into a DOM node, then swap.
         const tmp = document.createElement('tbody');

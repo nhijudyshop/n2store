@@ -1,0 +1,96 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 shared. */
+/* =====================================================
+   Web2ProductGroup — style DÙNG CHUNG cho BẢNG CON (drawer) SP cha-con khi expand.
+   Dùng cùng web2/shared/web2-product-group.js. Mọi trang SP (Kho SP, Sổ Order, …)
+   load file này để bảng con biến thể TÁCH HẲN khỏi bảng chính, nhìn nhất quán.
+   ===================================================== */
+
+/* Ô drawer: rãnh nền tím + thanh trái tím đậm = "thuộc về dòng cha phía trên". */
+tr.w2pg-drawer > td {
+    padding: 0;
+    background: #efeafe;
+    box-shadow: inset 6px 0 0 #8b5cf6;
+}
+/* Panel thụt sâu từ trái → nằm dưới cha. */
+.w2pg-panel {
+    padding: 12px 18px 16px 46px;
+}
+.w2pg-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #6d28d9;
+    margin-bottom: 9px;
+}
+.w2pg-panel-head i {
+    width: 15px;
+    height: 15px;
+}
+.w2pg-panel-head strong {
+    color: #4c1d95;
+}
+
+/* Bảng con = card trắng viền tím, bo góc + shadow → rõ là 1 bảng RIÊNG. */
+.w2pg-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1.5px solid #c4b5fd;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.12);
+}
+.w2pg-table thead th {
+    background: #f5f3ff;
+    color: #6d28d9;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1.5px solid #e5ddfb;
+    white-space: nowrap;
+}
+.w2pg-table tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #f2eefc;
+    vertical-align: middle;
+}
+.w2pg-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+.w2pg-table tbody tr:hover td {
+    background: #faf9ff;
+}
+.w2pg-table tbody tr.is-selected td {
+    background: #f3f0ff;
+}
+
+/* Tiện ích ô trong bảng con (ảnh nhỏ, ô chọn) — trang dùng class này cho nhất quán. */
+.w2pg-sel {
+    width: 34px;
+}
+.w2pg-imgcell {
+    width: 56px;
+}
+.w2pg-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 7px;
+    object-fit: cover;
+    display: block;
+    background: #f1f5f9;
+}
+.w2pg-img.w2pg-noimg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+}
+.w2pg-img.w2pg-noimg i {
+    width: 18px;
+    height: 18px;
+}

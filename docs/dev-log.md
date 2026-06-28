@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [web2/shared] Module CHUNG SP cha-con `Web2ProductGroup` + Kho SP tham chiếu
+
+User: "tạo module riêng cho sản phẩm / SP con / SP cha → các trang liên quan SP tham chiếu vào dùng". → Tạo **`web2/shared/web2-product-group.js`** (`window.Web2ProductGroup`) + **`web2/shared/web2-product-group.css`** (class `w2pg-*`) làm 1 NGUỒN cho cha-con:
+
+- `group(products, opts)` → bọc `Web2VariantGroup.group(by:'parent')` (gom cha-con).
+- `commonPrefix(codes)` + `parentCode(variants)` → suy ra MÃ CHA (parent_code thật / tiền tố chung ≥3).
+- `childPanelHtml({key,name,count,colspan,colHeaders,rowsHtml})` → khung BẢNG CON (drawer) khi expand: rãnh tím + header "N biến thể con của <tên>" + `<table>` card. Trang tự cấp cột + nội dung dòng → khung/style đồng nhất.
+
+**Kho SP refactor**: bỏ local `_commonPrefix`/`_parentDisplayCode`/`_childPanelHtml` chrome + CSS panel → dùng `Web2ProductGroup`. Tách thêm `_statusBadgeHtml`/`_rowActionsHtml` (dùng chung dòng thường + dòng con). Class `w2pc-*`→`w2pg-*` (shared). Verify browser: expand vẫn ra bảng con đúng (mã cha HCAO, nút sửa/in/xóa OK). Bump `render/css=p9`. (Sổ Order sẽ tham chiếu cùng module — bước kế.)
+
 ### [ai-hub][gemini-tryon] Tab "Gemini Free" — CHAT với Gemini qua COOKIE (multi-turn, xem hội thoại)
 
 **Files:** `gemini-tryon/app.py` (ChatReq + `_run_chat` + `POST /chat`), `web2/shared/web2-gemini-chat.js` (mới — module shared `Web2GeminiChat`), `web2/ai-hub/js/ai-gemini-chat.js` (mới — thin wrapper), `web2/ai-hub/{index.html, js/ai-hub.js}`.
