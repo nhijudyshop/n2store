@@ -13,19 +13,31 @@
     const $ = W.$;
 
     // ---------- Filter ----------
+    // Dropdown #filterActive 3 trạng thái (logic mới 2026-06-28):
+    //   'true'     → Đang bán (activeOnly=true) — MẶC ĐỊNH, ẩn HẾT HÀNG + Tạm dừng
+    //   'het_hang' → chỉ SP HẾT HÀNG (statusFilter='HET_HANG') để xem/quản lý
+    //   'all'      → tất cả
+    function _parseActiveFilter(val) {
+        if (val === 'het_hang') return { activeOnly: false, statusFilter: 'HET_HANG' };
+        if (val === 'true') return { activeOnly: true, statusFilter: null };
+        return { activeOnly: false, statusFilter: null }; // 'all'
+    }
     function applyFilters() {
         STATE.search = $('#filterSearch').value.trim();
-        STATE.activeOnly = $('#filterActive').value === 'true';
+        const af = _parseActiveFilter($('#filterActive').value);
+        STATE.activeOnly = af.activeOnly;
+        STATE.statusFilter = af.statusFilter;
         STATE.limit = parseInt($('#filterLimit').value, 10) || 200;
         STATE.page = 1;
         W.load();
     }
     function clearFilters() {
         $('#filterSearch').value = '';
-        $('#filterActive').value = 'all';
+        $('#filterActive').value = 'true'; // mặc định "Đang bán" — ẩn hết hàng
         $('#filterLimit').value = '200';
         STATE.search = '';
-        STATE.activeOnly = false;
+        STATE.activeOnly = true;
+        STATE.statusFilter = null;
         STATE.limit = 200;
         STATE.page = 1;
         W.load();

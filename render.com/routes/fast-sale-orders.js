@@ -625,8 +625,19 @@ async function restockOrderLines(pool, orderRow) {
         const alreadyReturned = Number(returnedMap[code]) || 0;
         const restockQty = Math.max(0, totalQty - alreadyReturned);
         if (restockQty <= 0) continue;
+        // HỦY PBH → hoàn kho. Nếu SP đã bị đánh HẾT HÀNG do bán hết trước đó, có tồn
+        // lại → un-retire: status về DANG_BAN/MUA_1_PHAN + is_active=true (logic mới
+        // 2026-06-28). CHỈ đụng status='HET_HANG' → KHÔNG ghi đè SP user tự "Tạm dừng"
+        // (is_active=false nhưng status≠HET_HANG). CASE đọc giá trị TRƯỚC update.
         await pool.query(
-            `UPDATE web2_products SET stock = stock + $1, updated_at = $2 WHERE code = $3`,
+            `UPDATE web2_products
+                SET stock = stock + $1,
+                    status = CASE WHEN status = 'HET_HANG' AND stock + $1 > 0
+                                  THEN (CASE WHEN COALESCE(pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
+                                  ELSE status END,
+                    is_active = CASE WHEN status = 'HET_HANG' AND stock + $1 > 0 THEN true ELSE is_active END,
+                    updated_at = $2
+              WHERE code = $3`,
             [restockQty, now, code]
         );
         items.push({ code, qty: restockQty });
@@ -2016,9 +2027,17 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
                             const code = line.productCode;
                             const qty = Number(line.quantity) || 0;
                             if (!code || qty <= 0) continue;
+                            // BÁN HẾT → HẾT HÀNG (logic mới 2026-06-28): tồn về 0 +
+                            // hết hàng chờ → HET_HANG + is_active=false (tự ẩn Kho SP +
+                            // bảng live; còn ở gợi ý Số Order để nhập lại).
                             await client.query(
                                 `UPDATE web2_products
-                                 SET stock = GREATEST(0, stock - $1), updated_at = $2
+                                 SET stock = GREATEST(0, stock - $1),
+                                     status = CASE WHEN GREATEST(0, stock - $1) = 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                                   THEN 'HET_HANG' ELSE status END,
+                                     is_active = CASE WHEN GREATEST(0, stock - $1) = 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                                      THEN false ELSE is_active END,
+                                     updated_at = $2
                                  WHERE code = $3`,
                                 [qty, stockNow, code]
                             );

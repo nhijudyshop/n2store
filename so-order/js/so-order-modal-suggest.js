@@ -47,7 +47,13 @@
             const variantBadge = p.variant
                 ? `<span class="so-suggest-variant">${SO.escapeHtml(p.variant)}</span>`
                 : '';
-            return `<button type="button" class="so-suggest-item${isChild ? ' so-suggest-child' : ''}" data-suggest-code="${SO.escapeHtml(p.code)}" data-suggest-uid="${uid}">
+            // HẾT HÀNG (logic mới 2026-06-28): SP đã bán hết, ẩn khỏi Kho SP + bảng
+            // live nhưng VẪN gợi ý ở đây để nhập lại nhanh → badge nhắc "nhập lại".
+            const hetHang =
+                p.status === 'HET_HANG'
+                    ? `<span class="so-suggest-hethang" style="background:#f3f4f6;color:#6b7280;border-radius:5px;padding:0 5px;font-size:11px;font-weight:600;">hết hàng · nhập lại</span>`
+                    : '';
+            return `<button type="button" class="so-suggest-item${isChild ? ' so-suggest-child' : ''}${p.status === 'HET_HANG' ? ' so-suggest-retired' : ''}" data-suggest-code="${SO.escapeHtml(p.code)}" data-suggest-uid="${uid}">
                     <div class="so-suggest-img">${img}</div>
                     <div class="so-suggest-text">
                         <div class="so-suggest-name">${isChild ? '<span class="so-suggest-child-arrow">↳</span>' : ''}${SO.escapeHtml(p.name)}${variantBadge}</div>
@@ -55,6 +61,7 @@
                             <span class="so-suggest-code">${SO.escapeHtml(p.code)}</span>
                             <span class="so-suggest-stock">Tồn: ${p.stock ?? 0}</span>
                             <span class="so-suggest-price">${SO.fmtVnd(p.price || 0)}</span>
+                            ${hetHang}
                         </div>
                     </div>
                 </button>`;

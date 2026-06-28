@@ -340,8 +340,55 @@ async function ensureTables(pool) {
             END $$
         `);
 
+        // Migration 081 (AUTO-HEAL — KHÔNG gate): backfill trạng thái HẾT HÀNG
+        // (logic mới 2026-06-28). SP đã NHẬN HÀNG rồi BÁN HẾT (stock<=0, pending=0,
+        // status còn 'DANG_BAN') = hết hiệu lực → status='HET_HANG' + is_active=false.
+        // Tự ẩn khỏi Kho SP (filter activeOnly) + bảng live; CHỈ còn trong gợi ý Số
+        // Order để nhập lại nhanh. KHÔNG đụng SP đang chờ (CHO_MUA, pending>0) hay SP
+        // còn tồn. is_parent=false (dòng CHA do _recomputeParent tự suy). Idempotent
+        // (lần 2 no-op vì đã HET_HANG). Re-import (upsert-pending) reactivate lại.
+        const retR = await pool.query(
+            `
+            UPDATE web2_products
+               SET status = 'HET_HANG', is_active = false, updated_at = $1
+             WHERE status = 'DANG_BAN'
+               AND COALESCE(stock, 0) <= 0
+               AND COALESCE(pending_qty, 0) = 0
+               AND is_parent = false
+               AND is_active = true
+        `,
+            [Date.now()]
+        );
+        if (retR.rowCount > 0) {
+            console.log(
+                `[WEB2-PRODUCTS] Migration 081: retired ${retR.rowCount} sold-out products → HET_HANG`
+            );
+        }
+        // SELF-HEAL ngược (an toàn lưới): SP đang HET_HANG nhưng đã có tồn / có hàng
+        // chờ lại (do trả hàng KH/hoàn NCC restock ở path chưa inline-patch) → un-retire
+        // về trạng thái đúng + hiện lại. CHỈ đụng status='HET_HANG' (không chạm SP user
+        // tự "Tạm dừng"). Boot-time catch cho mọi path tồn-tăng không inline-patch.
+        const unretR = await pool.query(
+            `
+            UPDATE web2_products
+               SET status = CASE WHEN COALESCE(stock, 0) > 0
+                                 THEN (CASE WHEN COALESCE(pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
+                                 ELSE 'CHO_MUA' END,
+                   is_active = true, updated_at = $1
+             WHERE status = 'HET_HANG'
+               AND (COALESCE(stock, 0) > 0 OR COALESCE(pending_qty, 0) > 0)
+               AND is_parent = false
+        `,
+            [Date.now()]
+        );
+        if (unretR.rowCount > 0) {
+            console.log(
+                `[WEB2-PRODUCTS] Migration 081: un-retired ${unretR.rowCount} restocked products`
+            );
+        }
+
         _ensuredPools.add(pool);
-        console.log('[WEB2-PRODUCTS] Tables created/verified (+ migration 078, 080)');
+        console.log('[WEB2-PRODUCTS] Tables created/verified (+ migration 078, 080, 081)');
     } catch (error) {
         console.error('[WEB2-PRODUCTS] Table creation error:', error.message);
     }
@@ -425,12 +472,23 @@ async function _recomputeParent(pool, parentCode) {
             ]);
             return;
         }
-        const status = stock > 0 ? (pending > 0 ? 'MUA_1_PHAN' : 'DANG_BAN') : 'CHO_MUA';
+        // Trạng thái CHA suy từ tổng con: còn tồn → MUA_1_PHAN/DANG_BAN; hết tồn mà
+        // còn chờ → CHO_MUA; hết tồn + hết chờ → HET_HANG (logic mới 2026-06-28).
+        // is_active CHA = có tồn HOẶC có hàng đang chờ (hết sạch → tự ẩn như con).
+        const status =
+            stock > 0
+                ? pending > 0
+                    ? 'MUA_1_PHAN'
+                    : 'DANG_BAN'
+                : pending > 0
+                  ? 'CHO_MUA'
+                  : 'HET_HANG';
+        const active = stock > 0 || pending > 0;
         await pool.query(
             `UPDATE web2_products
-             SET stock = $2, pending_qty = $3, return_qty = $4, status = $5, updated_at = $6
+             SET stock = $2, pending_qty = $3, return_qty = $4, status = $5, is_active = $7, updated_at = $6
              WHERE code = $1 AND is_parent = true`,
-            [parentCode, stock, pending, ret, status, Date.now()]
+            [parentCode, stock, pending, ret, status, Date.now(), active]
         );
     } catch (e) {
         console.error('[WEB2-PRODUCTS] _recomputeParent error:', e.message);
@@ -477,7 +535,15 @@ router.get('/list', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const { search, activeOnly, page = 1, limit = 200, topLevel, parentCode } = req.query;
+        const {
+            search,
+            activeOnly,
+            status,
+            page = 1,
+            limit = 200,
+            topLevel,
+            parentCode,
+        } = req.query;
         const pageNum = Math.max(1, parseInt(page, 10));
         const limitNum = Math.min(1000, Math.max(1, parseInt(limit, 10)));
         const offset = (pageNum - 1) * limitNum;
@@ -486,6 +552,13 @@ router.get('/list', async (req, res) => {
         const params = [];
         if (activeOnly === 'true' || activeOnly === '1') {
             conds.push('is_active = true');
+        }
+        // Lọc theo trạng thái (vd status=HET_HANG cho filter "Hết hàng" ở Kho SP).
+        // Whitelist để tránh injection ngoài ý muốn (param đã parameterized nhưng giới
+        // hạn giá trị hợp lệ cho rõ ràng).
+        if (status && ['CHO_MUA', 'DANG_BAN', 'MUA_1_PHAN', 'HET_HANG'].includes(String(status))) {
+            params.push(String(status));
+            conds.push(`status = $${params.length}`);
         }
         // Migration 070 — Kho SP table: topLevel=1 chỉ trả CHA + standalone (ẩn con).
         // parentCode=X trả CON của 1 cha (lazy expand). Mặc định (không 2 cờ này)
@@ -1178,11 +1251,25 @@ router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
             // sub-select trong CTE) để tính applied vs requested delta — phát hiện
             // oversell theo MAGNITUDE thay vì chỉ "stock chạm 0".
             const r = await client.query(
+                // Giữ INVARIANT trạng thái (logic mới 2026-06-28): chỉnh tồn về 0 +
+                // hết chờ → HET_HANG + ẩn; chỉnh tồn LÊN cho SP đang HET_HANG → un-retire
+                // (DANG_BAN/MUA_1_PHAN + hiện lại). CHỈ đụng status='HET_HANG' khi un-retire
+                // → không ghi đè SP user tự "Tạm dừng". CASE đọc giá trị TRƯỚC update.
                 `WITH prev AS (
                      SELECT stock AS old_stock FROM web2_products WHERE code = $3
                  )
                  UPDATE web2_products p
-                 SET stock = GREATEST(0, p.stock + $1), updated_at = $2
+                 SET stock = GREATEST(0, p.stock + $1),
+                     status = CASE
+                                WHEN GREATEST(0, p.stock + $1) = 0 AND COALESCE(p.pending_qty, 0) = 0 AND p.is_active = true THEN 'HET_HANG'
+                                WHEN p.status = 'HET_HANG' AND GREATEST(0, p.stock + $1) > 0
+                                     THEN (CASE WHEN COALESCE(p.pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
+                                ELSE p.status END,
+                     is_active = CASE
+                                WHEN GREATEST(0, p.stock + $1) = 0 AND COALESCE(p.pending_qty, 0) = 0 AND p.is_active = true THEN false
+                                WHEN p.status = 'HET_HANG' AND GREATEST(0, p.stock + $1) > 0 THEN true
+                                ELSE p.is_active END,
+                     updated_at = $2
                  FROM prev
                  WHERE p.code = $3
                  RETURNING p.code, p.stock, prev.old_stock`,
@@ -1677,12 +1764,17 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                 const newRegion =
                     (row.region && String(row.region).trim()) ||
                     (it.region ? String(it.region).trim() : null);
+                // Re-import (nhập lại): CHỈ un-retire SP đã HẾT HÀNG (status='HET_HANG'
+                // → is_active=true để hiện lại). SP user tự "Tạm dừng" (is_active=false,
+                // status≠HET_HANG) GIỮ NGUYÊN pause — KHÔNG auto-bật lại (logic mới
+                // 2026-06-28, review-fix). CASE đọc status TRƯỚC update (Postgres).
                 const r2 = await client.query(
                     `UPDATE web2_products
                        SET pending_qty = $1,
                            status      = $2,
                            supplier    = $3,
                            region      = $4,
+                           is_active   = CASE WHEN status = 'HET_HANG' THEN true ELSE is_active END,
                            updated_at  = $5
                      WHERE code = $6
                      RETURNING *`,

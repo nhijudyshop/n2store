@@ -146,12 +146,14 @@
             // sync:true → server auto-add SP chờ hàng (Sổ Order) lên board, mới
             // nhất trên đầu; SP đã ✕ xoá (tombstone) KHÔNG tự thêm lại.
             var items = await window.Web2Campaign.listProducts(state.campaignId, { sync: true });
-            // Lọc GHOST: SP đã xoá khỏi kho (web2_products) còn sót cp row →
-            // missing=true (name null). Backend autoSync hard-delete cp mồ côi ngay
-            // lần sync này, nhưng lọc client để KHÔNG nháy 1 frame ghost trước khi
-            // DB dọn xong, đồng thời phòng path không gửi sync (màn TV).
+            // Lọc GHOST + HẾT HÀNG:
+            //  • missing=true → SP đã xoá khỏi kho còn sót cp row (autoSync hard-delete
+            //    ngay lần sync này; lọc client tránh nháy 1 frame ghost).
+            //  • isActive===false → SP đã HẾT HÀNG / Tạm dừng (logic mới 2026-06-28):
+            //    bán hết tự ẩn khỏi bảng live. Re-import (còn hàng lại) → isActive=true
+            //    → tự hiện lại (cp row KHÔNG bị xoá nên không cần thêm lại tay).
             items = items.filter(function (it) {
-                return it && !it.missing;
+                return it && !it.missing && it.isActive !== false;
             });
             state.addedCodes = new Set(items.map((i) => i.code));
             // by:'parent' — gom SP CHA–CON thành 1 card nhiều biến thể (Migration 070):

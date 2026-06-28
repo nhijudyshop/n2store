@@ -194,11 +194,11 @@
         if (state.campaignId == null) return;
         try {
             var items = await window.Web2Campaign.listProducts(state.campaignId);
-            // Lọc GHOST: SP đã xoá khỏi kho còn sót cp row (missing=true → name null).
-            // Màn TV KHÔNG gửi sync nên không tự dọn DB; lọc client để ghost không
-            // hiện. Board (live-control) sync sẽ hard-delete cp mồ côi cho mọi tab.
+            // Lọc GHOST (missing=true → SP xoá khỏi kho còn sót cp row) + HẾT HÀNG
+            // (isActive===false → bán hết tự ẩn, logic mới 2026-06-28). Màn TV KHÔNG
+            // gửi sync nên lọc client; board (live-control) sync sẽ dọn cp mồ côi.
             items = items.filter(function (it) {
-                return it && !it.missing;
+                return it && !it.missing && it.isActive !== false;
             });
             state.codes = new Set(
                 items.map(function (i) {

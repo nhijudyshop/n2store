@@ -27,7 +27,10 @@
         page: 1,
         limit: 200,
         search: '',
-        activeOnly: false, // 'all' (false) vs 'true' (active only)
+        // MẶC ĐỊNH "Đang bán" (logic mới 2026-06-28): activeOnly=true → ẩn SP HẾT
+        // HÀNG + Tạm dừng. Khớp <option value="true" selected> ở index.html.
+        activeOnly: true, // false='all' · true='active only' · statusFilter='HET_HANG'='hết hàng'
+        statusFilter: null, // null=không lọc status; 'HET_HANG' khi chọn filter "Hết hàng"
         loading: false,
         editingCode: null, // null = creating, string = editing
         usage: {}, // productCode → array of order entries (from /usage endpoint)

@@ -3033,9 +3033,18 @@ router.post('/merge-to-pbh', requireWeb2AuthSoft, async (req, res) => {
             const lc = line.productCode;
             const lq = Number(line.quantity) || 0;
             if (!lc || lq <= 0) continue;
+            // BÁN HẾT → HẾT HÀNG (logic mới 2026-06-28): sau khi trừ kho, nếu tồn về
+            // 0 và không còn hàng chờ → status='HET_HANG' + is_active=false (tự ẩn
+            // khỏi Kho SP + bảng live, chỉ còn ở gợi ý Số Order). CASE đánh giá theo
+            // giá trị TRƯỚC update (Postgres) nên lặp lại GREATEST(0, stock - $1).
             await client.query(
                 `UPDATE web2_products
-                 SET stock = GREATEST(0, stock - $1), updated_at = $2
+                 SET stock = GREATEST(0, stock - $1),
+                     status = CASE WHEN GREATEST(0, stock - $1) = 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                   THEN 'HET_HANG' ELSE status END,
+                     is_active = CASE WHEN GREATEST(0, stock - $1) = 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                      THEN false ELSE is_active END,
+                     updated_at = $2
                  WHERE code = $3`,
                 [lq, stockNow, lc]
             );

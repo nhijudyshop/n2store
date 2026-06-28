@@ -39,6 +39,11 @@
             const pend = Number(p.pendingQty || 0);
             return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
         }
+        // HẾT HÀNG (logic mới 2026-06-28): đã bán hết tồn → mất hiệu lực, tự ẩn khỏi
+        // Kho SP (filter mặc định) + bảng live; còn ở gợi ý Số Order để nhập lại.
+        if (p.status === 'HET_HANG') {
+            return `<span class="active-badge" style="background:#f3f4f6;color:#6b7280;border-color:#d1d5db;" title="Đã bán hết — nhập lại từ Số Order để bán tiếp"><i data-lucide="archive"></i>HẾT HÀNG</span>`;
+        }
         return p.isActive
             ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
             : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
@@ -662,6 +667,7 @@
             const resp = await window.Web2ProductsApi.list({
                 search: STATE.search || undefined,
                 activeOnly: STATE.activeOnly,
+                status: STATE.statusFilter || undefined, // 'HET_HANG' khi filter "Hết hàng"
                 page: STATE.page,
                 limit: STATE.limit,
             });

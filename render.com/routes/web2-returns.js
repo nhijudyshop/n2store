@@ -1210,10 +1210,18 @@ router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
                     for (const it of items) {
                         const qty = Number(it.quantity) || 0;
                         if (!it.productCode || qty <= 0) continue;
+                        // Duyệt "thu về" → +stock. Nếu SP đã HẾT HÀNG (bán hết trước
+                        // đó) nay có tồn lại → un-retire (logic mới 2026-06-28): status
+                        // DANG_BAN/MUA_1_PHAN + is_active=true. CHỈ đụng status='HET_HANG'
+                        // → không ghi đè SP user tự "Tạm dừng". CASE đọc giá trị TRƯỚC update.
                         await client.query(
                             `UPDATE web2_products
                              SET return_qty = GREATEST(0, return_qty - $1),
                                  stock = stock + $1,
+                                 status = CASE WHEN status = 'HET_HANG' AND stock + $1 > 0
+                                               THEN (CASE WHEN COALESCE(pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
+                                               ELSE status END,
+                                 is_active = CASE WHEN status = 'HET_HANG' AND stock + $1 > 0 THEN true ELSE is_active END,
                                  updated_at = $2
                              WHERE code = $3`,
                             [qty, now, it.productCode]
@@ -1331,8 +1339,18 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                         for (const it of items) {
                             const qty = Number(it.quantity) || 0;
                             if (!it.productCode || qty <= 0) continue;
+                            // Huỷ thu về → rút lại tồn đã cộng. Nếu SP ĐANG BÁN về 0 +
+                            // hết chờ → HET_HANG + ẩn (logic mới 2026-06-28). Guard
+                            // is_active=true → không đụng SP user tự "Tạm dừng".
                             await client.query(
-                                `UPDATE web2_products SET stock = GREATEST(0, stock - $1), updated_at = $2 WHERE code = $3`,
+                                `UPDATE web2_products
+                                 SET stock = GREATEST(0, stock - $1),
+                                     status = CASE WHEN GREATEST(0, stock - $1) = 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                                   THEN 'HET_HANG' ELSE status END,
+                                     is_active = CASE WHEN GREATEST(0, stock - $1) = 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                                      THEN false ELSE is_active END,
+                                     updated_at = $2
+                                 WHERE code = $3`,
                                 [qty, now, it.productCode]
                             );
                         }
