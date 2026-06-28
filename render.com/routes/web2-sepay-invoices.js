@@ -33,6 +33,7 @@ const BROWSER_HEADERS = {
 };
 const CACHE_MS = 10 * 60 * 1000;
 let _cache = { at: 0, data: null };
+let _pushed = { at: 0, data: null }; // snapshot đẩy từ máy IP nhà (SePay chặn IP Render)
 
 function csrfFrom(html) {
     const m =
@@ -121,8 +122,14 @@ async function _login(jar, email, pass) {
 
 async function _fetchInvoices(email, pass) {
     const jar = makeJar();
-    if (!(await _login(jar, email, pass)))
+    if (!(await _login(jar, email, pass))) {
+        if (_lastLoginDebug?.loginStatus === 403)
+            throw new Error(
+                'SePay chặn IP server Render (Cloudflare WAF 403). Cần chạy từ máy IP nhà ' +
+                    '(push snapshot qua POST /api/web2-sepay-invoices/push).'
+            );
         throw new Error('SePay login thất bại (sai email/password?)');
+    }
     // GET /invoices → csrf cho ajax
     const rI = await fetch(`${BASE}/invoices`, {
         headers: { ...BROWSER_HEADERS, Cookie: jar.str(), Referer: `${BASE}/` },
@@ -218,10 +225,33 @@ router.get('/', async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('[SEPAY-INVOICES]', e.message);
-        // còn cache cũ → trả kèm cảnh báo, không để trống
         if (_cache.data) return res.json({ ..._cache.data, cached: true, staleError: e.message });
+        // SePay chặn IP Render → dùng snapshot đẩy từ máy IP nhà (nếu có).
+        if (_pushed.data)
+            return res.json({
+                ..._pushed.data,
+                source: 'pushed',
+                pushedAt: _pushed.at,
+                staleError: e.message,
+            });
         res.status(502).json({ ok: false, error: e.message });
     }
+});
+
+// POST /api/web2-sepay-invoices/push — máy IP nhà (Mac cron / shop) scrape rồi đẩy snapshot lên
+// (SePay chặn IP datacenter Render). Body: { secret, invoices, summary }.
+router.post('/push', express.json({ limit: '256kb' }), (req, res) => {
+    const want = process.env.SEPAY_PUSH_SECRET;
+    if (!want || req.body?.secret !== want)
+        return res.status(403).json({ ok: false, error: 'Sai secret' });
+    const { invoices, summary } = req.body || {};
+    if (!Array.isArray(invoices))
+        return res.status(400).json({ ok: false, error: 'Thiếu invoices[]' });
+    _pushed = {
+        at: Date.now(),
+        data: { ok: true, fetchedAt: Date.now(), invoices, summary: summary || {} },
+    };
+    res.json({ ok: true, stored: invoices.length });
 });
 
 module.exports = router;
