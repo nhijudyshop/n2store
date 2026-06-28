@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b1505d2` — feat(agent-tooling): ponytail lazy-senior-dev YAGNI mode (always-on)
-**Last updated**: 2026-06-28 22:00:48 +07
-**Latest session**: [`RESUME:20260628-220048-b1505d2`](../20260628-220048-b1505d2.md)
-**Summary**: feat(agent-tooling): ponytail lazy-senior-dev YAGNI mode (always-on)
+**Latest commit**: `a56562d` — fix(so-order): server-authoritative sync — wipe DB sticks (kill local-first footgun)
+**Last updated**: 2026-06-28 22:25:55 +07
+**Latest session**: [`RESUME:20260628-222555-a56562d`](../20260628-222555-a56562d.md)
+**Summary**: so-order server-authoritative: wipe DB sticks, kill local-first footgun (verified E2E)
 
 ## Folders affected in this commit
 
-- [`.claude/`](./.claude.md) — 18 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 22:00
+- [`docs/`](./docs.md) — updated 2026-06-28 22:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -67,7 +67,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-28 21:43
+- [`so-order/`](./so-order.md) — updated 2026-06-28 22:25
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
