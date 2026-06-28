@@ -1140,7 +1140,13 @@
         {
             match: '/web2/report-revenue/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2ReportRevenueData?.summary',
+                    desc: 'Tổng quan doanh thu kỳ đang chọn (hôm nay/tổng/còn lại). Accessor CHÍNH cho con số doanh thu. Chi tiết biểu đồ 7 ngày + top khách + theo chiến dịch render ra BẢNG DOM (#... ) — widget đọc DOM bổ sung cho các phần đó.',
+                    shape: '{ success:boolean, revenue:{ today:number, total:number, residual:number /*còn lại/công nợ*/ }, ... }',
+                },
+            ],
             suggestions: [
                 {
                     label: '📉 Ngày doanh thu thấp',
@@ -1395,7 +1401,18 @@
         {
             match: '/web2/audit-log/',
             model: { provider: 'gemini', model: 'gemini-2.5-flash' },
-            accessors: [],
+            accessors: [
+                {
+                    expr: 'window.Web2AuditLogData?.items || []',
+                    desc: 'FULL nhật ký thao tác đã nạp (theo bộ lọc + phạm vi NV/admin hiện tại). Accessor CHÍNH để gom theo người dùng/hành động/trang, tìm thao tác bất thường, đếm tần suất.',
+                    shape: 'Array<{ created_at:string, user_id, user_name:string, action:string /*create|update|delete|…*/, entity:string /*bảng/đối tượng*/, entity_id, source_page:string, changes:object|null /*diff*/ }>',
+                },
+                {
+                    expr: 'window.Web2AuditLogData?.viewer',
+                    desc: "Phạm vi người xem ({ scope:'self'|'all', ... }) — NV chỉ thấy của mình, admin thấy hết.",
+                    shape: "{ scope:'self'|'all', user_id? }",
+                },
+            ],
             suggestions: [
                 {
                     label: '🕵️ Bất thường',

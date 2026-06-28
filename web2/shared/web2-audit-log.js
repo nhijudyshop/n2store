@@ -343,6 +343,8 @@
         applyScopeUi(host, d.viewer);
 
         const items = d.items || d.records || d.data || [];
+        // expose FULL nhật ký đã nạp cho widget AI (Web2AiPageRegistry) — không chỉ DOM bảng.
+        window.Web2AuditLogData = { items, viewer: d.viewer };
         if (!d.success || !items.length) {
             const msg = d.warning || 'Không có nhật ký khớp bộ lọc';
             body.innerHTML = `<tr><td colspan="${COLSPAN}" class="w2al-msg">${esc(msg)}</td></tr>`;

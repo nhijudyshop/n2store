@@ -358,6 +358,11 @@
                 const d = await r.json();
                 if (seq !== _loadSeq) return; // response cũ — bỏ qua
                 if (!d.success) throw new Error(d.error);
+                // expose tổng quan doanh thu cho widget AI (Web2AiPageRegistry). Các phần chi tiết
+                // (biểu đồ/top KH/chiến dịch) render ra bảng DOM — widget đọc DOM bổ sung.
+                window.Web2ReportRevenueData = Object.assign(window.Web2ReportRevenueData || {}, {
+                    summary: d,
+                });
                 // revenue.total = tổng đúng theo range days (month/week chỉ đúng cho 30/7 ngày)
                 $('#kpiGrid').innerHTML = `
                     <div class="kpi-card green">
