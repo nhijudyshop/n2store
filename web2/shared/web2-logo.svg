@@ -1,25 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="n2shop Web 2.0">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="n2shop Web 2.0">
   <!-- WEB2.0 brand mark — N monogram on signature gradient squircle. 1 nguồn dùng chung (nav, sidebar, favicon). -->
   <defs>
-    <linearGradient id="n2bg" x1="3" y1="2" x2="45" y2="46" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0068ff"/>
-      <stop offset=".5" stop-color="#6d5cff"/>
+    <linearGradient id="n2bg" x1="5" y1="3" x2="43" y2="45" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0a74ff"/>
+      <stop offset=".52" stop-color="#6d5cff"/>
       <stop offset="1" stop-color="#c026d3"/>
     </linearGradient>
-    <linearGradient id="n2sheen" x1="24" y1="0" x2="24" y2="28" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#fff" stop-opacity=".24"/>
+    <radialGradient id="n2hi" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(12 8) scale(40)">
+      <stop stop-color="#fff" stop-opacity=".5"/>
       <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
+    </radialGradient>
   </defs>
-  <rect width="48" height="48" rx="13" fill="url(#n2bg)"/>
-  <rect width="48" height="28" rx="13" fill="url(#n2sheen)"/>
-  <!-- N monogram (diagonal slightly translucent for layered depth) -->
+  <rect width="48" height="48" rx="13.5" fill="url(#n2bg)"/>
+  <rect width="48" height="48" rx="13.5" fill="url(#n2hi)"/>
+  <rect x=".75" y=".75" width="46.5" height="46.5" rx="12.75" stroke="#fff" stroke-opacity=".2" stroke-width="1.5"/>
+  <!-- N monogram (rounded stems + solid diagonal) -->
   <g fill="#fff">
-    <rect x="12.6" y="13" width="6.4" height="22" rx="1.7"/>
-    <rect x="29" y="13" width="6.4" height="22" rx="1.7"/>
-    <path d="M12.6 13h6.4L35.4 35H29z" fill-opacity=".9"/>
+    <rect x="14" y="14" width="5.7" height="20" rx="2.4"/>
+    <rect x="28.3" y="14" width="5.7" height="20" rx="2.4"/>
+    <path d="M14 14h5.7L34 34h-5.7z"/>
   </g>
-  <!-- realtime node (the "2.0 / luôn đồng bộ" accent) -->
-  <circle cx="35.8" cy="12.2" r="3.4" fill="#fff"/>
-  <circle cx="35.8" cy="12.2" r="1.6" fill="#0068ff"/>
+  <!-- realtime spark (the "luôn đồng bộ / 2.0" accent) -->
+  <circle cx="36.4" cy="11.6" r="3.2" fill="#fff"/>
 </svg>

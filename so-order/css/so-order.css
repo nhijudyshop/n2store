@@ -2581,6 +2581,48 @@ select.so-input-v2 {
     vertical-align: middle;
 }
 
+/* ── Mục CHA trong suggest (thêm tất cả biến thể con) — nổi bật + ưu tiên trên ── */
+.so-suggest-item.so-suggest-parent {
+    background: #f4f1ff;
+    border: 1px solid #ddd6fe;
+    margin-bottom: 2px;
+}
+.so-suggest-item.so-suggest-parent:hover {
+    background: #ece5fe;
+}
+.so-suggest-parent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    font-size: 10.5px;
+    font-weight: 700;
+    vertical-align: middle;
+}
+.so-suggest-parent-badge i {
+    width: 11px;
+    height: 11px;
+}
+.so-suggest-parent-hint {
+    color: #7c3aed;
+    font-weight: 600;
+    font-size: 11.5px;
+}
+/* Mục CON: thụt lề + mũi tên ↳ cho thấy thuộc về cha phía trên */
+.so-suggest-item.so-suggest-child {
+    padding-left: 18px;
+}
+.so-suggest-child-arrow {
+    color: #a78bfa;
+    font-weight: 800;
+    margin-right: 4px;
+}
+
 /* Variant picker (per row trong so-order modal) */
 .so-variant-picker-wrap {
     position: relative;

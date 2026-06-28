@@ -33,7 +33,7 @@
         }
         return location.href;
     })();
-    const LOGO_URL = new URL('./img/logo-emblem.png?v=20260530', SCRIPT_BASE_URL).toString();
+    const LOGO_URL = new URL('./web2-logo.svg?v=20260628b', SCRIPT_BASE_URL).toString();
 
     // Mobile responsive overlay DÙNG CHUNG (web2-mobile.css) — nạp SAU web2-theme.css
     // (theme là <link> trong <head> trước sidebar.js → link này chèn cuối head =

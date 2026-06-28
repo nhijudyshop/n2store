@@ -18,24 +18,39 @@
             list.innerHTML = '';
             return;
         }
-        const items = cache.findByName(q, 8);
-        if (!items.length) {
+        const raw = cache.findByName(q, 24);
+        if (!raw.length) {
             list.hidden = true;
             list.innerHTML = '';
             return;
         }
-        list.innerHTML = items
-            .map((p) => {
-                const img = p.imageUrl
-                    ? `<img src="${SO.escapeHtml(p.imageUrl)}" alt="" />`
-                    : `<span class="so-suggest-img-placeholder"><i data-lucide="image"></i></span>`;
-                const variantBadge = p.variant
-                    ? `<span class="so-suggest-variant">${SO.escapeHtml(p.variant)}</span>`
-                    : '';
-                return `<button type="button" class="so-suggest-item" data-suggest-code="${SO.escapeHtml(p.code)}" data-suggest-uid="${uid}">
+        // Gom CHA–CON (module chung Web2ProductGroup): SP cùng cha/cùng tên nhiều biến
+        // thể → 1 mục CHA (thêm TẤT CẢ con) ở TRÊN + các mục CON. SP đơn lẻ → mục thường.
+        const PG = window.Web2ProductGroup;
+        const groups =
+            PG && PG.group
+                ? PG.group(raw, { by: 'parent' })
+                : raw.map((p) => ({
+                      name: p.name,
+                      variantCount: 1,
+                      variants: [{ code: p.code, orig: p }],
+                  }));
+        // Ưu tiên nhóm nhiều biến thể (có mục CHA) LÊN ĐẦU, rồi SP đơn lẻ.
+        const ordered = groups
+            .filter((g) => g.variantCount >= 2)
+            .concat(groups.filter((g) => g.variantCount < 2));
+
+        const itemHtml = (p, isChild) => {
+            const img = p.imageUrl
+                ? `<img src="${SO.escapeHtml(p.imageUrl)}" alt="" />`
+                : `<span class="so-suggest-img-placeholder"><i data-lucide="image"></i></span>`;
+            const variantBadge = p.variant
+                ? `<span class="so-suggest-variant">${SO.escapeHtml(p.variant)}</span>`
+                : '';
+            return `<button type="button" class="so-suggest-item${isChild ? ' so-suggest-child' : ''}" data-suggest-code="${SO.escapeHtml(p.code)}" data-suggest-uid="${uid}">
                     <div class="so-suggest-img">${img}</div>
                     <div class="so-suggest-text">
-                        <div class="so-suggest-name">${SO.escapeHtml(p.name)}${variantBadge}</div>
+                        <div class="so-suggest-name">${isChild ? '<span class="so-suggest-child-arrow">↳</span>' : ''}${SO.escapeHtml(p.name)}${variantBadge}</div>
                         <div class="so-suggest-sub">
                             <span class="so-suggest-code">${SO.escapeHtml(p.code)}</span>
                             <span class="so-suggest-stock">Tồn: ${p.stock ?? 0}</span>
@@ -43,6 +58,31 @@
                         </div>
                     </div>
                 </button>`;
+        };
+
+        list.innerHTML = ordered
+            .map((g) => {
+                if (g.variantCount < 2)
+                    return itemHtml((g.variants[0] && g.variants[0].orig) || {}, false);
+                // Mục CHA: thêm TẤT CẢ biến thể con thành từng dòng.
+                const codes = g.variants.map((v) => v.code).filter(Boolean);
+                const pcode = PG && PG.parentCode ? PG.parentCode(g.variants) : '';
+                const first = (g.variants[0] && g.variants[0].orig) || {};
+                const pImg =
+                    g.imageUrl || first.imageUrl
+                        ? `<img src="${SO.escapeHtml(g.imageUrl || first.imageUrl)}" alt="" />`
+                        : `<span class="so-suggest-img-placeholder"><i data-lucide="layers"></i></span>`;
+                const parentItem = `<button type="button" class="so-suggest-item so-suggest-parent" data-suggest-parent="${SO.escapeHtml(codes.join(','))}" data-suggest-uid="${uid}">
+                    <div class="so-suggest-img">${pImg}</div>
+                    <div class="so-suggest-text">
+                        <div class="so-suggest-name">${SO.escapeHtml(g.name)}<span class="so-suggest-parent-badge"><i data-lucide="git-branch"></i>cha · ${g.variantCount} biến thể</span></div>
+                        <div class="so-suggest-sub">
+                            <span class="so-suggest-parent-hint">+ Thêm tất cả ${g.variantCount} biến thể${pcode ? ' · ' + SO.escapeHtml(pcode) : ''}</span>
+                        </div>
+                    </div>
+                </button>`;
+                const childItems = g.variants.map((v) => itemHtml(v.orig || {}, true)).join('');
+                return parentItem + childItems;
             })
             .join('');
         // Portal panel ở <body> → neo fixed theo input, không bị modal-body clip.
@@ -56,8 +96,16 @@
         list.querySelectorAll('.so-suggest-item').forEach((btn) => {
             btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep input focus
             btn.addEventListener('click', () => {
-                const code = btn.dataset.suggestCode;
-                SO.applySuggestionToRow(uid, code);
+                if (btn.dataset.suggestParent) {
+                    // CHA → thêm tất cả biến thể con thành từng dòng.
+                    SO.applyParentSuggestionToRow(
+                        uid,
+                        btn.dataset.suggestParent.split(',').filter(Boolean)
+                    );
+                } else {
+                    // CON / SP đơn lẻ → điền dòng hiện tại theo biến thể đã chọn.
+                    SO.applySuggestionToRow(uid, btn.dataset.suggestCode);
+                }
                 SO.hideSuggest(uid);
             });
         });
@@ -253,24 +301,30 @@
         }
     };
 
+    // Đổ data 1 SP (từ Kho) vào 1 row modal. Quy đổi giá VND→tiền tab (rate).
+    // `fillVariant`: chọn từ suggest = pick tường minh → ĐIỀN biến thể mới (ghi đè).
+    SO._fillRowFromProduct = function _fillRowFromProduct(row, p, fillVariant) {
+        if (!row || !p) return;
+        const _tab = window.SoOrderStorage.getActiveTab(SO.state);
+        row.productName = p.name || '';
+        row.matchedCode = p.code;
+        // Chọn SP con từ suggest → điền theo BIẾN THỂ MỚI (ghi đè biến thể cũ).
+        if (fillVariant ? p.variant != null : p.variant && !row.variant)
+            row.variant = p.variant || '';
+        if (p.category) row.category = p.category;
+        // Kho SP lưu giá VND (canonical). Tab ngoại tệ (CNY rate 3500) → quy đổi
+        // VND ÷ rate ra tiền tab. Tab VND (rate 1) giữ nguyên.
+        if (Number(p.originalPrice)) row.costPrice = SO.fromVnd(p.originalPrice, _tab);
+        if (Number(p.price)) row.sellPrice = SO.fromVnd(p.price, _tab);
+        if (p.imageUrl && !row.productImage) row.productImage = p.imageUrl;
+    };
+
     SO.applySuggestionToRow = function applySuggestionToRow(uid, code) {
         const p = window.Web2ProductsCache?.findByCode?.(code);
         if (!p) return;
         const row = SO.modalRows.find((r) => r.uid === uid);
         if (!row) return;
-        row.productName = p.name || '';
-        row.matchedCode = p.code;
-        // Autofill variant từ Kho SP (field độc lập, không lấy từ note).
-        // Chỉ ghi đè nếu user chưa nhập variant — tránh nuốt input đang gõ.
-        if (p.variant && !row.variant) row.variant = p.variant;
-        // Kho SP lưu giá VND (canonical, 1 nguồn). Tab có thể là ngoại tệ (vd CNY
-        // rate 3500) → PHẢI quy đổi VND ÷ rate ra tiền tab khi đổ vào dòng đơn.
-        // Tab VND (rate 1) giữ nguyên. (Trước đây gán thẳng VND → tab CNY hiển
-        // thị gấp ~3500×, và Lưu Nháp lại ×rate → corrupt giá kho. Fix 2026-06-16.)
-        const _tab = window.SoOrderStorage.getActiveTab(SO.state);
-        if (Number(p.originalPrice)) row.costPrice = SO.fromVnd(p.originalPrice, _tab);
-        if (Number(p.price)) row.sellPrice = SO.fromVnd(p.price, _tab);
-        if (p.imageUrl && !row.productImage) row.productImage = p.imageUrl;
+        SO._fillRowFromProduct(row, p, true); // pick tường minh → điền biến thể mới
         SO.renderModalRows();
         // Re-focus name input after rerender
         setTimeout(() => {
@@ -279,5 +333,42 @@
             );
             if (inp) inp.focus();
         }, 30);
+    };
+
+    // Chọn SP CHA từ suggest → THÊM TẤT CẢ biến thể con thành TỪNG DÒNG: dòng hiện
+    // tại = con đầu, các con còn lại chèn ngay dưới (kế thừa NCC + ảnh HĐ của đơn).
+    // Gắn chung productGroupId → Kho gom 1 cha + N con khi Lưu Nháp + bảng gom khối.
+    SO.applyParentSuggestionToRow = function applyParentSuggestionToRow(uid, codes) {
+        if (!Array.isArray(codes) || !codes.length) return;
+        const cache = window.Web2ProductsCache;
+        const idx = SO.modalRows.findIndex((r) => r.uid === uid);
+        if (idx === -1) return;
+        const cur = SO.modalRows[idx];
+        const prods = codes.map((c) => cache?.findByCode?.(c)).filter(Boolean);
+        if (!prods.length) return;
+        const groupId =
+            cur.productGroupId ||
+            'pg-' + SO.modalRowCounter + '-' + Math.random().toString(36).slice(2, 7);
+        // Dòng hiện tại = con đầu.
+        SO._fillRowFromProduct(cur, prods[0], true);
+        cur.productGroupId = groupId;
+        // Các con còn lại = dòng mới chèn ngay dưới, kế thừa NCC + đơn + ảnh HĐ.
+        const newRows = prods.slice(1).map((p) => {
+            const row = SO._newModalRow({
+                supplier: cur.supplier,
+                invoiceGroupId: cur.invoiceGroupId,
+                invoiceImage: cur.invoiceImage,
+                productGroupId: groupId,
+            });
+            SO._fillRowFromProduct(row, p, true);
+            return row;
+        });
+        SO.modalRows.splice(idx + 1, 0, ...newRows);
+        SO.renderModalRows();
+        if (window.notificationManager?.show)
+            window.notificationManager.show(
+                `Đã thêm ${prods.length} biến thể của "${cur.productName}"`,
+                'success'
+            );
     };
 })();
