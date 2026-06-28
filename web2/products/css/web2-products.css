@@ -1020,61 +1020,38 @@
     color: #6d28d9;
     border-color: #ddd6fe;
 }
-/* ── KHỐI SP CHA–CON: cả nhóm (cha + các con) = 1 KHỐI tách biệt rõ trong bảng ──
-   Nền tím chung (khác hẳn dòng thường trắng) + thanh trái tím ĐẬM chạy suốt + viền
-   bracket trên/dưới/phải + dòng đệm `.w2p-grp-gap` tách khỏi SP khác. */
-tr.is-parent > td,
+/* ── SP CHA: hiển thị BÌNH THƯỜNG như SP khác (KHÔNG tô khối, không viền, không
+   thanh trái). Chỉ thêm chevron expand + mã cha + "N biến thể" ở nội dung. ── */
+/* (không có rule nền/viền riêng cho tr.is-parent → giống dòng thường) */
+
+/* ── CON (khi EXPAND): TÁCH BIỆT rõ để nhìn được từng biến thể con ──
+   thụt lề rõ + nền tím nhạt + thanh trái tím + viền gom khối con. Cha vẫn bình thường. */
 tr.is-child > td {
-    background: #f4f1ff;
+    background: #f5f2ff;
+    border-bottom: 1px dashed #e4dcfb;
 }
-tr.is-parent:hover > td,
 tr.is-child:hover > td {
-    background: #eae3fd;
+    background: #ebe4fd;
 }
-/* thanh dọc tím đậm chạy suốt nhóm (ô đầu mỗi dòng) */
-tr.is-parent > td:first-child,
+/* thanh dọc tím ở mép trái khối CON (gom các con lại) */
 tr.is-child > td:first-child {
-    box-shadow: inset 5px 0 0 #8b5cf6;
+    box-shadow: inset 4px 0 0 #a78bfa;
 }
-/* viền phải đóng khối (cột Thao tác) */
-tr.is-parent > td:last-child,
-tr.is-child > td:last-child {
-    border-right: 2px solid #b89cf3;
+/* con ĐẦU: viền trên đậm → tách rõ khỏi dòng CHA phía trên */
+tr.is-child-first > td {
+    border-top: 2px solid #cbbdf2;
 }
-/* NÓC khối = dòng cha */
-tr.is-parent > td {
-    border-top: 2px solid #b89cf3;
-}
-/* MỞ: nối cha → con (bỏ viền đáy cha) */
-tr.is-parent.is-expanded > td {
-    border-bottom: 0;
-}
-/* THU GỌN: cha là cả khối → đóng đáy luôn ở cha */
-tr.is-parent:not(.is-expanded) > td {
-    border-bottom: 2px solid #b89cf3;
-}
-/* vạch ngăn nhẹ giữa các con */
-tr.is-child > td {
-    border-bottom: 1px dashed #e1d8fb;
-}
-/* con CUỐI: đóng đáy khối */
+/* con CUỐI: viền dưới đậm → đóng khối các con, tách khỏi SP kế tiếp */
 tr.is-child-last > td {
-    border-bottom: 2px solid #b89cf3;
+    border-bottom: 2px solid #cbbdf2;
 }
-/* dòng đệm: khoảng trắng tách khối khỏi SP trên/dưới */
-tr.w2p-grp-gap > td {
-    height: 12px;
-    padding: 0;
-    background: #fff;
-    border: 0;
-    box-shadow: none;
-}
+/* tên con: thụt lề sâu hơn + mũi tên ↳ cho thấy là biến thể con */
 .w2p-child-name {
     display: flex;
     align-items: center;
     gap: 6px;
     color: #475569;
-    padding-left: 10px;
+    padding-left: 22px;
 }
 .w2p-child-arrow {
     color: #8b5cf6;

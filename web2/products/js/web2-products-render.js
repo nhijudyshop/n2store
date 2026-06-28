@@ -230,17 +230,14 @@
             );
             let n = baseN;
             const html = [];
-            // Dòng đệm tách KHỐI cha-con khỏi SP phía trên/dưới (nhìn rõ từng nhóm).
-            const GAP = '<tr class="w2p-grp-gap" aria-hidden="true"><td colspan="12"></td></tr>';
-            const lastIsGap = () =>
-                html.length && html[html.length - 1].indexOf('w2p-grp-gap') !== -1;
             for (const g of groups) {
                 if (g.variantCount <= 1) {
                     n += 1;
                     html.push(_rowHtml((g.variants[0] && g.variants[0].orig) || {}, n));
                 } else {
+                    // CHA hiển thị BÌNH THƯỜNG như SP khác; chỉ khi EXPAND mới tách
+                    // các CON ra cho dễ nhìn (style ở .is-child).
                     n += 1;
-                    if (html.length && !lastIsGap()) html.push(GAP); // tách khỏi dòng trên
                     const expanded = STATE.expandedParents.has(g.key);
                     html.push(_parentRowHtml(g, n, expanded));
                     if (expanded) {
@@ -255,7 +252,6 @@
                             )
                         );
                     }
-                    html.push(GAP); // đóng khối, tách khỏi dòng dưới
                 }
             }
             tbody().innerHTML = html.join('');
