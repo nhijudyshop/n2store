@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ff504d7` — feat(so-order): SP cha nhiều biến thể = khối tách biệt rõ (giữ NCC/Ảnh-HĐ rowspan)
-**Last updated**: 2026-06-28 09:26:11 +07
-**Latest session**: [`RESUME:20260628-092611-ff504d7`](../20260628-092611-ff504d7.md)
-**Summary**: feat(so-order): SP cha nhiều biến thể = khối tách biệt rõ (giữ NCC/Ảnh-HĐ rowspan)
+**Latest commit**: `b6cec44` — auto: session update
+**Last updated**: 2026-06-28 09:29:59 +07
+**Latest session**: [`RESUME:20260628-092959-b6cec44`](../20260628-092959-b6cec44.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`gemini-tryon/`](./gemini-tryon.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
-- [`web2/`](./web2.md) — 8 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -37,7 +35,7 @@
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
-- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-28 09:26
+- [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-28 09:29
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
@@ -84,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-28 09:26
+- [`web2/`](./web2.md) — updated 2026-06-28 09:29
