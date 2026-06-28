@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6f14bc7` — auto: session update
-**Last updated**: 2026-06-28 08:58:11 +07
-**Latest session**: [`RESUME:20260628-085811-6f14bc7`](../20260628-085811-6f14bc7.md)
-**Summary**: auto: session update
+**Latest commit**: `a4d8174` — feat(ai-hub): tab Gemini Free — chat với Gemini qua cookie (multi-turn, xem hội thoại)
+**Last updated**: 2026-06-28 09:08:07 +07
+**Latest session**: [`RESUME:20260628-090807-a4d8174`](../20260628-090807-a4d8174.md)
+**Summary**: feat(ai-hub): tab Gemini Free — chat với Gemini qua cookie (multi-turn, xem hội thoại)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-28 08:58
+- [`docs/`](./docs.md) — updated 2026-06-28 09:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-28 08:58
+- [`web2/`](./web2.md) — updated 2026-06-28 09:08
