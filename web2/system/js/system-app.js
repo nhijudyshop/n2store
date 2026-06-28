@@ -4,7 +4,7 @@
 (function () {
     'use strict';
 
-    const VALID_TABS = ['services', 'sse', 'pages', 'modules', 'thirdparty'];
+    const VALID_TABS = ['services', 'sse', 'pages', 'modules', 'thirdparty', 'ai'];
     const _inited = new Set();
 
     function $(id) {
@@ -45,6 +45,9 @@
         } else if (tab === 'thirdparty' && !_inited.has('thirdparty')) {
             _inited.add('thirdparty');
             window.SystemThirdParty?.start?.();
+        } else if (tab === 'ai' && !_inited.has('ai')) {
+            _inited.add('ai');
+            window.SystemAiSuggestions?.start?.();
         }
 
         // Reflect in URL (không tạo history entry).

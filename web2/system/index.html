@@ -57,6 +57,9 @@
                     <button class="sys-tab" role="tab" data-tab="thirdparty" type="button">
                         <i data-lucide="plug"></i> <span>Bên thứ 3</span>
                     </button>
+                    <button class="sys-tab" role="tab" data-tab="ai" type="button">
+                        <i data-lucide="sparkles"></i> <span>Gợi ý AI</span>
+                    </button>
                 </nav>
 
                 <!-- ============ PANEL: SERVICES & SYSTEM ============ -->
@@ -280,6 +283,23 @@
                         <div class="sd-loading">Đang tải…</div>
                     </div>
                 </section>
+
+                <!-- ============ PANEL: GỢI Ý AI WIDGET ============ -->
+                <section class="sys-panel" data-panel="ai" role="tabpanel">
+                    <p class="sys-panel-intro">
+                        Tất cả <strong>gợi ý + accessor dữ liệu</strong> của widget AI nổi ✨ theo
+                        từng trang Web 2.0 (nguồn:
+                        <code>web2/shared/web2-ai-page-registry.js</code>). Để quản lý: trang nào có
+                        bao nhiêu câu gợi ý, đọc dữ liệu qua accessor nào, model gì.
+                    </p>
+                    <div class="sys-pages-summary" id="aiSummary">
+                        <div class="sd-loading">Đang đọc registry…</div>
+                    </div>
+                    <div class="tp-toolbar" id="aiToolbar"></div>
+                    <div class="tp-host" id="aiHost">
+                        <div class="sd-loading">Đang tải…</div>
+                    </div>
+                </section>
             </main>
         </div>
 
@@ -291,6 +311,9 @@
         <script src="js/system-sse.js?v=20260614a"></script>
         <script src="js/system-modules.js?v=20260624b"></script>
         <script src="js/system-thirdparty.js?v=20260624a"></script>
-        <script src="js/system-app.js?v=20260624a"></script>
+        <!-- Tab "Gợi ý AI" — đọc window.Web2AiPageRegistry (sidebar autoload, load thêm cho chắc). -->
+        <script src="../shared/web2-ai-page-registry.js?v=20260628a"></script>
+        <script src="js/system-ai-suggestions.js?v=20260628a"></script>
+        <script src="js/system-app.js?v=20260628ai"></script>
     </body>
 </html>
