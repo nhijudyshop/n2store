@@ -135,6 +135,33 @@ body {
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
     pointer-events: none;
 }
+/* PWA/iOS: camera đen (cần gesture/quyền) → nút chạm-để-bật phủ khung */
+.cam-retry {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    border: 0;
+    background: rgba(11, 18, 32, 0.92);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    padding: 16px;
+}
+.cam-retry i {
+    width: 42px;
+    height: 42px;
+    stroke-width: 1.6;
+}
+.cam-retry:active {
+    background: rgba(11, 18, 32, 0.98);
+}
 .manual {
     display: flex;
     gap: 8px;

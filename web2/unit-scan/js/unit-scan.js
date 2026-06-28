@@ -317,10 +317,14 @@
     }
 
     // ── Scanner ────────────────────────────────────────────────────
-    function initScanner() {
+    // PWA/iOS: camera tự bật lúc load (KHÔNG có gesture) thường bị CHẶN → màn đen.
+    // + lỗi camera của scanner báo qua notificationManager (KHÔNG load ở trang này)
+    // → đen thui im lặng. Khắc phục: overlay "Chạm để bật camera" (gesture → start lại).
+    let camReady = false;
+    function buildScanner() {
         const host = $('#scanHost');
-        if (!host || !window.Web2BarcodeScanner) return;
-        scanner = window.Web2BarcodeScanner.mount(host, {
+        if (!host || !window.Web2BarcodeScanner) return null;
+        const ctrl = window.Web2BarcodeScanner.mount(host, {
             continuous: true,
             dedupeMs: 2500,
             hint: 'Đưa mã QR vào khung',
@@ -335,6 +339,53 @@
                 }
             },
         });
+        ctrl?.on?.('ready', () => {
+            camReady = true;
+            hideCamRetry();
+        });
+        ctrl?.on?.('error', () => showCamRetry());
+        return ctrl;
+    }
+    function initScanner() {
+        camReady = false;
+        scanner = buildScanner();
+        if (!scanner) {
+            $('#scanHost') && showCamRetry('Trình duyệt không hỗ trợ camera');
+            return;
+        }
+        // Đen thui im lặng (không 'ready' sau 2.5s) → cũng hiện nút bật tay.
+        setTimeout(() => {
+            if (!camReady) showCamRetry();
+        }, 2500);
+    }
+    function showCamRetry(msg) {
+        const host = $('#scanHost');
+        if (!host || host.querySelector('.cam-retry')) return;
+        const b = document.createElement('button');
+        b.className = 'cam-retry';
+        b.type = 'button';
+        b.innerHTML =
+            '<i data-lucide="camera"></i><span>' + esc(msg || 'Chạm để bật camera') + '</span>';
+        b.addEventListener('click', () => {
+            hideCamRetry();
+            camReady = false;
+            // start lại BẰNG gesture (tap) → iOS/PWA cho phép getUserMedia
+            if (scanner?.start) {
+                try {
+                    scanner.start();
+                } catch (_) {}
+            } else {
+                scanner = buildScanner();
+            }
+            setTimeout(() => {
+                if (!camReady) showCamRetry();
+            }, 3000);
+        });
+        host.appendChild(b);
+        icons();
+    }
+    function hideCamRetry() {
+        $('#scanHost')?.querySelector('.cam-retry')?.remove();
     }
     function toggleTorch() {
         if (!scanner?.setTorch) return;
