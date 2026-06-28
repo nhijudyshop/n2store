@@ -1377,27 +1377,6 @@
     gap: 4px;
 }
 
-/* Hàng checkbox (vd bật Quản lý ảnh) — input + nhãn nằm ngang. */
-.so-field-check {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 9px;
-    cursor: pointer;
-}
-.so-field-check input {
-    margin-top: 2px;
-    width: 17px;
-    height: 17px;
-    flex: 0 0 auto;
-    accent-color: #0068ff;
-    cursor: pointer;
-}
-.so-field-check > span {
-    font-size: 12.5px;
-    color: #475569;
-    line-height: 1.4;
-}
-
 .so-field > span {
     font-size: 12px;
     font-weight: 600;
@@ -1437,24 +1416,34 @@
     grid-column: span 2;
 }
 
-/* Checkbox field (Cài đặt tab → Hiện thông tin lô). Hàng ngang thay vì cột. */
+/* Checkbox field (Cài đặt tab → bật Quản lý ảnh). Hàng ngang thay vì cột. */
 .so-field-check {
     flex-direction: row;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-start;
+    gap: 9px;
     cursor: pointer;
 }
+/* FIX 2026-06-28: rule chung `.so-field input{appearance:none;padding;border-radius}`
+   biến checkbox thành ô oval. Khôi phục checkbox native + accent-color. */
 .so-field-check input[type='checkbox'] {
-    width: 16px;
-    height: 16px;
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    width: 17px;
+    height: 17px;
     flex: 0 0 auto;
+    margin: 1px 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
     accent-color: #0068ff;
     cursor: pointer;
 }
 .so-field-check > span {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 500;
     color: #475569;
+    line-height: 1.4;
 }
 
 /* 2026-06-16: cụm field thông tin lô nâng cao trong modal tạo đơn — ẩn theo
