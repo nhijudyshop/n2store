@@ -254,12 +254,14 @@ const SERVICES_INVENTORY = [
     {
         category: 'payment',
         name: 'SePay',
-        plan: 'Webhook (Free)',
+        plan: 'Trả phí — 589.000đ/tháng (gia hạn hàng tháng)',
         provider: 'SePay Vietnam',
-        costMonth: 0,
+        costMonth: 24, // ≈ 589.000đ/tháng (verify hóa đơn my.sepay.vn 2026-06-28; ~24.500đ/USD)
+        costMonthVnd: 589000,
         currency: 'USD',
-        freeTier: { webhook: 'không giới hạn (theo TK ngân hàng)' },
-        paidLimit: null,
+        freeTier: null,
+        paidLimit:
+            'Gói trả phí: webhook biến động số dư + có thể phụ phí "vượt hạn mức" khi nhiều giao dịch.',
         purpose:
             'Webhook biến động số dư ngân hàng → nạp ví KH Web 2.0 (web2_customer_wallets) + Sổ quỹ. 2 kênh độc lập (shop + Home).',
         url: 'https://my.sepay.vn',
