@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [ai-widget][live-chat] Bỏ nút đọc comment DB + "SP nhiều giỏ nhất" dùng số liệu GIỎ Web 2.0
+
+**Files:** `web2/shared/web2-ai-page-registry.js`, `live-chat/js/pancake/inventory-panel-init.js`.
+
+User: (1) bỏ nút "Đọc toàn bộ comment livestream (DB)" trên live-chat (comment quá lớn AI không nổi); (2) gợi ý "Hỏi nhiều về SP nào" → dùng **số liệu giỏ** thay vì đọc comment; **giỏ WEB 2.0 (native_orders), KHÔNG phải giỏ Pancake**.
+
+- **Bỏ DB button**: `DB_SOURCES['/live-chat/'] = []`.
+- **Helper giỏ web2**: `PancakeInventoryPanel.getCartProductStats()` (+ expose `STATE` getter) — overview (số khách có giỏ + tổng SL, ĐẦY ĐỦ từ `cartCounts`) + topProducts (SP nhiều giỏ nhất, best-effort từ `cartByCmt`). Cart inventory-panel ghi `/api/v2/cart` → `native_orders.products` (SSE `web2:cart`) = giỏ Web 2.0.
+- **Registry live-chat**: thêm accessor `window.PancakeInventoryPanel.getCartProductStats()` + đổi suggestion "🔥 SP nhiều giỏ nhất" (trước: đọc `LiveState.comments`) → dùng số liệu giỏ, KHÔNG đọc comment.
+- `resolveExpr` của widget là SYNC (không await Promise) → accessor phải trả data in-memory; per-product giỏ đầy đủ cần campaign board backend nên topProducts best-effort.
+
 ### [web2/products + so-order + live] Vòng đời SP: nhận hàng → bán → HẾT HÀNG (mất hiệu lực)
 
 **Files BE:** `render.com/routes/{web2-products,native-orders,fast-sale-orders,web2-returns,purchase-refund}.js`. **FE:** `web2/products/{index.html,js/web2-products-{state,filters,render}.js,js/web2-product-detail.js}`, `web2/live-control/js/live-control.js`, `web2/live-tv/js/live-tv.js`, `so-order/js/so-order-modal-suggest.js`.

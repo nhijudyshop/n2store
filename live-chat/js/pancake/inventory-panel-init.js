@@ -78,12 +78,68 @@
 
     NS.init = init;
 
+    // Thống kê GIỎ HÀNG WEB 2.0 (native_orders.products, KHÔNG phải giỏ Pancake) cho widget AI.
+    // overview = ĐẦY ĐỦ (từ cartCounts /cart/batch/counts). topProducts = best-effort theo SP
+    // (từ cartByCmt — chỉ giỏ đã mở chi tiết). Dùng cho gợi ý "Hỏi nhiều về SP nào" mà KHÔNG đọc comment.
+    function getCartProductStats() {
+        const S = NS.STATE || {};
+        const counts = S.cartCounts || {};
+        let customersWithCart = 0;
+        let totalItems = 0;
+        let totalQty = 0;
+        for (const k in counts) {
+            const c = counts[k];
+            if (c && c.qty > 0) {
+                customersWithCart++;
+                totalItems += Number(c.items) || 0;
+                totalQty += Number(c.qty) || 0;
+            }
+        }
+        const prod = {};
+        const cbc = S.cartByCmt;
+        if (cbc && typeof cbc.forEach === 'function') {
+            cbc.forEach((items) => {
+                for (const it of items || []) {
+                    const code = it.productCode || it.code;
+                    if (!code) continue;
+                    const p =
+                        prod[code] ||
+                        (prod[code] = {
+                            code,
+                            name: it.productName || it.name || '',
+                            carts: 0,
+                            qty: 0,
+                        });
+                    p.carts++;
+                    p.qty += Number(
+                        it.quantity != null ? it.quantity : it.qty != null ? it.qty : 1
+                    );
+                }
+            });
+        }
+        const topProducts = Object.values(prod)
+            .sort((a, b) => b.qty - a.qty)
+            .slice(0, 30);
+        return {
+            cartType: 'web2 (native_orders)',
+            overview: { customersWithCart, totalItems, totalQty },
+            topProducts,
+            cartsWithDetailLoaded: cbc?.size || 0,
+            note: 'overview ĐẦY ĐỦ; topProducts chỉ tính giỏ đã mở chi tiết (cartByCmt) — có thể thiếu.',
+        };
+    }
+    NS.getCartProductStats = getCartProductStats;
+
     global.PancakeInventoryPanel = {
         init,
         refresh: NS.refresh,
         addToCart: NS.addToCart,
         removeFromCart: NS.removeFromCart,
         refreshCartCounts: NS.refreshCartCounts,
+        getCartProductStats, // số liệu giỏ Web 2.0 cho widget AI
+        get STATE() {
+            return NS.STATE;
+        }, // expose state giỏ (products + cartCounts + cartByCmt) cho widget AI
         LS_TAB_KEY: NS.LS_TAB_KEY,
         DEFAULT_TAB: NS.DEFAULT_TAB,
     };

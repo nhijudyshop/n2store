@@ -883,6 +883,11 @@
                     desc: "Bản đồ commenter → đơn web (native-orders) đã tạo trong livestream. Key gốc = fromId (FB id). Lọc item.source==='NATIVE_WEB' để biết khách nào đã có đơn (item.code = mã đơn, item.index = STT, item.commentIds = comment đã gộp vào đơn). Dùng để soát 'khách comment chốt đơn nhưng chưa lên đơn web'.",
                     shape: 'Array<{ source:string, code?:string, index?:number, commentIds?:string[] }>',
                 },
+                {
+                    expr: 'window.PancakeInventoryPanel?.getCartProductStats?.()',
+                    desc: 'SỐ LIỆU GIỎ HÀNG WEB 2.0 (native_orders, KHÔNG phải giỏ Pancake) — để phân tích SP được quan tâm mà KHÔNG cần đọc comment. overview = đầy đủ (số khách có giỏ, tổng SL); topProducts = SP nhiều giỏ nhất (best-effort theo giỏ đã nạp chi tiết).',
+                    shape: '{ cartType:string, overview:{ customersWithCart:number, totalItems:number, totalQty:number }, topProducts:Array<{ code:string, name:string, carts:number, qty:number }>, cartsWithDetailLoaded:number, note:string }',
+                },
             ],
             suggestions: [
                 {
@@ -898,8 +903,8 @@
                     prompt: 'Rà window.LiveState.comments tìm các comment khách tự gõ SĐT (chuỗi 10 số 0xxxxxxxxx) hoặc có field phone. Liệt kê tên khách + SĐT + nội dung comment, loại trùng. Đánh dấu SĐT không hợp lệ (không đúng định dạng 10 số).',
                 },
                 {
-                    label: '🔥 Hỏi nhiều về SP nào',
-                    prompt: 'Đọc message của toàn bộ window.LiveState.comments. Tổng hợp khách đang hỏi/quan tâm nhiều nhất về sản phẩm / mẫu / màu / size nào (đếm số lượt nhắc). Trả top mặt hàng được hỏi nhiều kèm số comment, để biết nên ưu tiên giới thiệu gì trong livestream.',
+                    label: '🔥 SP nhiều giỏ nhất',
+                    prompt: 'KHÔNG đọc comment. Dùng SỐ LIỆU GIỎ HÀNG WEB 2.0 qua window.PancakeInventoryPanel.getCartProductStats(): overview (số khách có giỏ, tổng số lượng) + topProducts (SP được cho vào giỏ nhiều nhất — code, tên, số giỏ, tổng SL). Liệt kê top SP nhiều giỏ/số lượng nhất để biết nên ưu tiên giới thiệu / chuẩn bị hàng trong live. Nếu topProducts rỗng (chưa nạp chi tiết giỏ) thì báo tổng quan giỏ (overview) + gợi ý mở chi tiết giỏ để có breakdown theo SP.',
                 },
                 {
                     label: '❓ Câu hỏi chưa trả lời',
@@ -1837,16 +1842,9 @@
                 desc: 'Mỗi bản ghi = 1 dòng sổ quảng cáo Facebook nhập tay (bảng web2_fb_ad_entries). Field chính: id, entry_date (ngày, YYYY-MM-DD), page_id, post_id/post_message/post_picture/post_permalink/post_type (bài hoặc đợt live đã gắn), ad_spend (tiền quảng cáo, đồng), orders (số đơn), revenue (doanh thu), reach (tiếp cận), messages (tin nhắn), note (ghi chú), created_by. Trang tính CP/đơn = ad_spend/orders, RO',
             },
         ],
-        '/live-chat/': [
-            {
-                id: 'all',
-                label: '🗄️ Đọc toàn bộ comment livestream (DB)',
-                endpoint: '/api/web2-live-comments',
-                params: { limit: 5000 },
-                dataPath: 'data',
-                desc: 'Mỗi bản ghi = 1 comment livestream (web2_live_comments). Field chính: id, post_id, page_id, page_name, campaign_id, fb_id, customer_name, message, created_time, phone, address, has_order, avatar, updated_at. Trả newest-first (ORDER BY created_time DESC).',
-            },
-        ],
+        // live-chat: BỎ nút "Đọc toàn bộ comment livestream (DB)" (user 2026-06-28) — comment
+        // livestream quá lớn, AI phân tích không nổi. Phân tích SP dùng số liệu GIỎ thay vì comment.
+        '/live-chat/': [],
     };
     function dbSourcesFor(pathname) {
         const p = String(pathname || (global.location && global.location.pathname) || '');
