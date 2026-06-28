@@ -132,6 +132,7 @@
         SO.wireFooterInputs();
         if (SO.wireExpensesEditor) SO.wireExpensesEditor(); // CP inline (Sửa lô)
         if (SO.wirePaymentPanel) SO.wirePaymentPanel(); // Thanh toán CK (đợt)
+        if (SO.wireImageManager) SO.wireImageManager(); // Quản lý ảnh NCC theo đợt
         if (window.lucide?.createIcons) window.lucide.createIcons();
 
         // Web2ProductsCache — bật suggestion + badge cho modal tạo đơn.

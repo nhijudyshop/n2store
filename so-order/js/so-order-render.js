@@ -48,6 +48,9 @@
         const tab = window.SoOrderStorage.getActiveTab(SO.state);
         const lbl = document.getElementById('soActiveTabLabel');
         if (lbl) lbl.textContent = tab.label;
+        // Nút "Quản lý ảnh" chỉ hiện khi tab bật imageManager (Cài đặt tab).
+        const imgBtn = document.getElementById('soImageMgrBtn');
+        if (imgBtn) imgBtn.hidden = !tab.imageManager;
     };
 
     // ------ ĐỢT (batch) — tab cấp 2 dưới địa danh (2026-06-28) ------

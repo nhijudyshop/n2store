@@ -15,8 +15,15 @@
         const inputValueDisplay = isDataUrl ? '' : val;
         const placeholderText = val ? 'Đổi URL (xóa input để thay ảnh)' : 'Hoặc dán URL';
         const hasImg = !!val;
+        // 2026-06-28: nút "Chọn ảnh từ kho NCC" (productImage + tab bật Quản lý ảnh).
+        const _tab = window.SoOrderStorage.getActiveTab(SO.state);
+        const nccPickBtn =
+            fieldName === 'productImage' && _tab.imageManager
+                ? `<button type="button" class="so-img-ncc-pick" data-imc-pick-uid="${row.uid}" title="Chọn ảnh từ kho NCC"><i data-lucide="images"></i></button>`
+                : '';
         return `
             <div class="so-img-cell-v2${hasImg ? ' has-image' : ''}" tabindex="0" data-img-cell data-uid="${row.uid}" data-img-name="${fieldName}">
+                ${nccPickBtn}
                 ${
                     hasImg
                         ? `<div class="so-img-thumb-wrap">
@@ -160,6 +167,15 @@
                 clearBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     SO._applyImageToRow(uid, name, '');
+                });
+            }
+            // 2026-06-28: nút chọn ảnh từ kho NCC (Quản lý ảnh) → mở gallery.
+            const nccPick = cell.querySelector('[data-imc-pick-uid]');
+            if (nccPick) {
+                nccPick.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (SO._imgMgrOpenGalleryForRow)
+                        SO._imgMgrOpenGalleryForRow(nccPick.dataset.imcPickUid);
                 });
             }
         });

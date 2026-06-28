@@ -178,7 +178,14 @@
             // onPick: click "+ Tạo NCC …" / chọn NCC → tạo NGAY vào nguồn chung
             // Ví NCC (supplier-wallet) + báo kết quả.
             SO.attachSupplierPickerOnDemand(form.elements.supplier, {
-                onPick: (val) => SO._ensureSupplierWithFeedback(val),
+                onPick: (val) => {
+                    SO._ensureSupplierWithFeedback(val);
+                    if (SO._imgMgrAutoInvoice) SO._imgMgrAutoInvoice(val); // auto ảnh hóa đơn
+                },
+            });
+            // NCC gõ tay → vẫn thử auto ảnh hóa đơn khi rời ô (tab bật Quản lý ảnh).
+            form.elements.supplier.addEventListener('change', () => {
+                if (SO._imgMgrAutoInvoice) SO._imgMgrAutoInvoice(form.elements.supplier.value);
             });
         }
         setTimeout(() => {

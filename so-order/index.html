@@ -15,22 +15,22 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260628s" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260628s" />
-        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260628s" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260628s" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260628z" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260628-aa" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260628-aa" />
+        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260628-aa" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260628-aa" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260628-aa" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260628s" />
+        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260628-aa" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
         <!-- Firebase compat (Firestore sync for cross-device column visibility + data) -->
 
-        <script src="../shared/js/notification-system.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260628s"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260628s" />
+        <script src="../shared/js/notification-system.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260628-aa"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260628-aa" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -98,6 +98,16 @@
                             <i data-lucide="trash"></i>
                             <span>Thùng rác</span>
                             <span id="soTrashCount" class="so-trash-count" hidden>0</span>
+                        </button>
+                        <button
+                            id="soImageMgrBtn"
+                            class="btn btn-secondary"
+                            type="button"
+                            title="Quản lý ảnh NCC theo đợt (ảnh hóa đơn + ảnh SP)"
+                            hidden
+                        >
+                            <i data-lucide="images"></i>
+                            <span>Quản lý ảnh</span>
                         </button>
                         <button id="soCreateOrderBtn" class="btn btn-primary" type="button">
                             <i data-lucide="plus-square"></i>
@@ -647,81 +657,121 @@
         <!-- Modal Thanh toán CK = dùng CHUNG Web2SupplierPay (web2/shared) — markup
              tự tạo trong <body> bởi component, KHÔNG còn modal riêng ở đây. -->
 
-        <script src="../web2/shared/web2-auth.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-number-input.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-audit-log.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260628s"></script>
+        <!-- Quản lý ảnh NCC theo đợt (2026-06-28) — ảnh BYTEA ở Render web2Db. -->
+        <div class="so-modal so-modal-v2" id="soImageManagerModal" hidden>
+            <div class="so-modal-backdrop" data-so-close></div>
+            <div class="so-modal-panel-v2 so-imgmgr-panel">
+                <header class="so-modal-head-v2">
+                    <h2><i data-lucide="images"></i> Quản Lý Ảnh Sản Phẩm</h2>
+                    <button class="so-modal-close" type="button" data-so-close>
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="so-modal-body-v2">
+                    <div class="so-imgmgr-info">
+                        <i data-lucide="info"></i>
+                        <span
+                            >Chọn <strong>Đợt</strong> → thêm NCC → dán
+                            <strong>ảnh hóa đơn</strong> (1) và
+                            <strong>ảnh sản phẩm</strong> (nhiều) bằng Ctrl+V / kéo thả. Ảnh hóa đơn
+                            auto đổ vào đơn khi tạo với NCC đó; ảnh SP hiện cho chọn.</span
+                        >
+                    </div>
+                    <div class="so-imgmgr-batches" id="soImgMgrBatches">
+                        <!-- đợt tabs injected -->
+                    </div>
+                    <div class="so-imgmgr-search">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="soImgMgrSearch" placeholder="Tìm NCC trong đợt…" />
+                    </div>
+                    <div class="so-imgmgr-list" id="soImgMgrList">
+                        <!-- NCC cards injected -->
+                    </div>
+                </div>
+                <footer class="so-modal-foot">
+                    <span class="so-modal-foot-spacer"></span>
+                    <button class="btn btn-primary" type="button" data-so-close>Đóng</button>
+                </footer>
+            </div>
+        </div>
+
+        <script src="../web2/shared/web2-auth.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-number-input.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-audit-log.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260628-aa"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/shared/web2-products-api.js?v=20260628s"></script>
+        <script src="../web2/shared/web2-products-api.js?v=20260628-aa"></script>
         <!-- In tem/mã SP: dùng CHUNG module in của web2/products (Web2ProductsPrint).
              [SPLIT 2026-06-18] module in tách 5 file — PHẢI load đủ THEO THỨ TỰ
              (utils → barcode → render → modal → entry) thì window.W2PP.open mới có,
              nếu thiếu → Web2ProductsPrint.open=undefined → rớt về modal legacy. -->
-        <script src="../web2/shared/web2-printer.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-qr.js?v=20260628s"></script>
-        <script src="../web2/products/js/web2-products-print-utils.js?v=20260628s"></script>
-        <script src="../web2/products/js/web2-products-print-barcode.js?v=20260628s"></script>
-        <script src="../web2/products/js/web2-products-print-render.js?v=20260628s"></script>
-        <script src="../web2/products/js/web2-products-print-modal.js?v=20260628s"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260628s"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260628s"></script>
+        <script src="../web2/shared/web2-printer.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260628-aa"></script>
+        <script src="../web2/products/js/web2-products-print-utils.js?v=20260628-aa"></script>
+        <script src="../web2/products/js/web2-products-print-barcode.js?v=20260628-aa"></script>
+        <script src="../web2/products/js/web2-products-print-render.js?v=20260628-aa"></script>
+        <script src="../web2/products/js/web2-products-print-modal.js?v=20260628-aa"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260628-aa"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260628-aa"></script>
         <!-- Gom SP cha-con (suggest: mục cha thêm tất cả con) — module chung -->
-        <script src="../web2/shared/web2-variant-group.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-product-group.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260628s"></script>
+        <script src="../web2/shared/web2-variant-group.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-product-group.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260628-aa"></script>
         <!-- Nhập nhanh nhiều biến thể (Đen / S / M / L → N SP) — shared web2 -->
-        <script src="../web2/shared/web2-variant-multi.js?v=20260628s"></script>
+        <script src="../web2/shared/web2-variant-multi.js?v=20260628-aa"></script>
         <!-- Loại SP (Áo/Quần/Đầm) + picker biến thể theo món (dùng chung Kho SP) -->
-        <script src="../web2/product-types/js/web2-product-types-api.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-product-types-cache.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-variant-picker.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-suppliers-cache.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-product-code.js?v=20260628s"></script>
-        <script src="../web2/shared/web2-deeplink.js?v=20260628s"></script>
+        <script src="../web2/product-types/js/web2-product-types-api.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-product-types-cache.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-variant-picker.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-product-code.js?v=20260628-aa"></script>
+        <script src="../web2/shared/web2-deeplink.js?v=20260628-aa"></script>
         <!-- Import dữ liệu CSV/JSON + MÃ N2 (NGUỒN CHUNG Web2Import) -->
-        <script src="../web2/shared/web2-import.js?v=20260628s"></script>
+        <script src="../web2/shared/web2-import.js?v=20260628-aa"></script>
         <!-- so-order-storage.js (962 dòng) tách MOVE-only thành 2 module <800 dòng:
              storage (data layer) → storage-sync (Sync sub-system). Data TRƯỚC sync. -->
-        <script src="js/so-order-storage.js?v=20260628z"></script>
-        <script src="js/so-order-storage-sync.js?v=20260628s"></script>
+        <script src="js/so-order-storage.js?v=20260628-aa"></script>
+        <script src="js/so-order-storage-sync.js?v=20260628-aa"></script>
         <!-- so-order-app.js (5931 dòng) đã tách thành nhiều module nhỏ <800 dòng
              (MOVE-only, namespace window.SoOrder). Load theo thứ tự phụ thuộc;
              app (orchestrator) LAST. -->
-        <script src="js/so-order-state.js?v=20260628w"></script>
-        <script src="js/so-order-format.js?v=20260628s"></script>
-        <script src="js/so-order-render.js?v=20260628z"></script>
-        <script src="js/so-order-render-cells.js?v=20260628u"></script>
-        <script src="js/so-order-inline-edit.js?v=20260628s"></script>
-        <script src="js/so-order-bulk-edit.js?v=20260628s"></script>
-        <script src="js/so-order-modal-core.js?v=20260628w"></script>
-        <script src="js/so-order-modal-open.js?v=20260628w"></script>
-        <script src="js/so-order-modal-submit.js?v=20260628w"></script>
-        <script src="js/so-order-modal-suggest.js?v=20260628hh"></script>
-        <script src="js/so-order-modal-image.js?v=20260628s"></script>
-        <script src="js/so-order-modal-random.js?v=20260628s"></script>
-        <script src="js/so-order-receive.js?v=20260628t"></script>
-        <script src="js/so-order-barcode.js?v=20260628t"></script>
-        <script src="js/so-order-kho-sync.js?v=20260628s"></script>
-        <script src="js/so-order-delete.js?v=20260628u"></script>
-        <script src="js/so-order-shipment.js?v=20260628w"></script>
+        <script src="js/so-order-state.js?v=20260628-aa"></script>
+        <script src="js/so-order-format.js?v=20260628-aa"></script>
+        <script src="js/so-order-render.js?v=20260628-aa"></script>
+        <script src="js/so-order-render-cells.js?v=20260628-aa"></script>
+        <script src="js/so-order-inline-edit.js?v=20260628-aa"></script>
+        <script src="js/so-order-bulk-edit.js?v=20260628-aa"></script>
+        <script src="js/so-order-modal-core.js?v=20260628-aa"></script>
+        <script src="js/so-order-modal-open.js?v=20260628-aa"></script>
+        <script src="js/so-order-modal-submit.js?v=20260628-aa"></script>
+        <script src="js/so-order-modal-suggest.js?v=20260628-aa"></script>
+        <script src="js/so-order-modal-image.js?v=20260628-aa"></script>
+        <script src="js/so-order-modal-random.js?v=20260628-aa"></script>
+        <script src="js/so-order-receive.js?v=20260628-aa"></script>
+        <script src="js/so-order-barcode.js?v=20260628-aa"></script>
+        <script src="js/so-order-kho-sync.js?v=20260628-aa"></script>
+        <script src="js/so-order-delete.js?v=20260628-aa"></script>
+        <script src="js/so-order-shipment.js?v=20260628-aa"></script>
         <!-- Modal Thanh toán NCC dùng CHUNG (so-order + supplier-debt) -->
-        <script src="../web2/shared/web2-supplier-pay.js?v=20260628b"></script>
+        <script src="../web2/shared/web2-supplier-pay.js?v=20260628-aa"></script>
         <!-- Thanh toán CK theo đợt (S5 money-plan) — POST ledger NCC + SSE -->
-        <script src="js/so-order-payments.js?v=20260628z"></script>
-        <script src="js/so-order-settings.js?v=20260628z"></script>
-        <script src="js/so-order-import.js?v=20260628s"></script>
-        <script src="js/so-order-image-modal.js?v=20260628s"></script>
-        <script src="js/so-order-confirm.js?v=20260628s"></script>
-        <script src="js/so-order-toolbar.js?v=20260628v"></script>
-        <script src="js/so-order-app.js?v=20260628w"></script>
+        <script src="js/so-order-payments.js?v=20260628-aa"></script>
+        <script src="js/so-order-settings.js?v=20260628-aa"></script>
+        <script src="js/so-order-import.js?v=20260628-aa"></script>
+        <script src="js/so-order-image-modal.js?v=20260628-aa"></script>
+        <!-- Quản lý ảnh NCC theo đợt (BYTEA web2Db) -->
+        <script src="js/so-order-image-manager.js?v=20260628-aa"></script>
+        <script src="js/so-order-confirm.js?v=20260628-aa"></script>
+        <script src="js/so-order-toolbar.js?v=20260628-aa"></script>
+        <script src="js/so-order-app.js?v=20260628-aa"></script>
     </body>
 </html>

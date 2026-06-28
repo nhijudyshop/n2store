@@ -361,7 +361,12 @@
                     const row = SO.modalRows.find((r) => r.uid === input.dataset.uid);
                     if (row) row.supplier = val;
                     SO._ensureSupplierWithFeedback(val);
+                    if (SO._imgMgrAutoInvoice) SO._imgMgrAutoInvoice(val); // auto ảnh hóa đơn
                 },
+            });
+            // NCC gõ tay (không pick) → vẫn thử auto ảnh hóa đơn khi rời ô.
+            input.addEventListener('change', () => {
+                if (SO._imgMgrAutoInvoice) SO._imgMgrAutoInvoice(input.value);
             });
         });
         // + Thêm SP

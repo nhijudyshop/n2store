@@ -3608,3 +3608,432 @@ td.so-vp-editing {
     outline-offset: -2px;
     background: #eef2ff !important;
 }
+
+/* ============ Quản lý ảnh NCC theo đợt (2026-06-28) ============ */
+.so-imgmgr-panel {
+    width: min(880px, 96vw);
+}
+.so-imgmgr-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 13px;
+    background: #eff6ff;
+    border: 1px dashed #93c0ff;
+    border-radius: 10px;
+    font-size: 12.5px;
+    color: #1e40af;
+    margin-bottom: 12px;
+}
+.so-imgmgr-info i {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+}
+.so-imgmgr-batches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.so-imc-batch {
+    appearance: none;
+    border: 1px solid #dbe2ea;
+    background: #f8fafc;
+    color: #475569;
+    padding: 6px 13px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font:
+        600 13px Inter,
+        system-ui,
+        sans-serif;
+}
+.so-imc-batch:hover {
+    background: #eef2f7;
+}
+.so-imc-batch.is-active {
+    background: linear-gradient(135deg, #0058da, #0068ff);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 104, 255, 0.25);
+}
+.so-imc-batch-count {
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.so-imc-batch.is-active .so-imc-batch-count {
+    background: rgba(255, 255, 255, 0.28);
+    color: #fff;
+}
+.so-imc-batch-new {
+    border-style: dashed;
+    color: #0058da;
+}
+.so-imc-batch-new i {
+    width: 14px;
+    height: 14px;
+}
+.so-imgmgr-search {
+    position: relative;
+    margin-bottom: 12px;
+}
+.so-imgmgr-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+.so-imgmgr-search input {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #d1d9e3;
+    border-radius: 10px;
+    padding: 0 12px 0 38px;
+    font-size: 13px;
+    outline: none;
+    box-sizing: border-box;
+}
+.so-imgmgr-search input:focus {
+    border-color: #0068ff;
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.15);
+}
+.so-imc-group {
+    border: 1px solid #e3e8ee;
+    border-radius: 12px;
+    padding: 12px;
+    background: #fbfcfe;
+}
+.so-imc-group-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 10px;
+    font-size: 13.5px;
+}
+.so-imc-group-head i {
+    width: 16px;
+    height: 16px;
+    color: #0068ff;
+}
+.so-imc-empty {
+    font-size: 13px;
+    color: #94a3b8;
+    padding: 14px;
+    text-align: center;
+}
+.so-imc-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 11px;
+    background: #fff;
+    padding: 11px;
+    margin-bottom: 10px;
+}
+.so-imc-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+}
+.so-imc-ncc-input {
+    flex: 1;
+    height: 36px;
+    border: 1px solid #d1d9e3;
+    border-radius: 8px;
+    padding: 0 11px;
+    font:
+        600 13px Inter,
+        sans-serif;
+    color: #0f172a;
+    outline: none;
+}
+.so-imc-ncc-input:read-only {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #334155;
+}
+.so-imc-ncc-input:focus {
+    border-color: #0068ff;
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.15);
+}
+.so-imc-del-ncc {
+    appearance: none;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #dc2626;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.so-imc-del-ncc:hover {
+    background: #fef2f2;
+}
+.so-imc-del-ncc i {
+    width: 16px;
+    height: 16px;
+}
+.so-imc-sects {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 12px;
+}
+.so-imc-sect-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+.so-imc-sect-label span {
+    color: #94a3b8;
+    font-weight: 600;
+}
+.so-imc-paste {
+    border: 2px dashed #c7d2fe;
+    border-radius: 10px;
+    background: #f5f7ff;
+    min-height: 86px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #6366f1;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    padding: 8px;
+    outline: none;
+}
+.so-imc-paste:hover,
+.so-imc-paste:focus {
+    background: #eef2ff;
+    border-color: #818cf8;
+}
+.so-imc-paste i {
+    width: 20px;
+    height: 20px;
+}
+.so-imc-paste-add {
+    min-height: 0;
+    width: 86px;
+    height: 86px;
+    flex: 0 0 auto;
+}
+.so-imc-products {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.so-imc-thumb {
+    position: relative;
+    width: 86px;
+    height: 86px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    flex: 0 0 auto;
+}
+.so-imc-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.so-imc-thumb-del {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.so-imc-thumb-del:hover {
+    background: #dc2626;
+}
+.so-imc-thumb-del i {
+    width: 13px;
+    height: 13px;
+}
+.so-imc-sect .so-imc-paste {
+    /* ô hóa đơn full width của cột trái */
+    min-height: 86px;
+}
+.so-imc-add-ncc {
+    appearance: none;
+    width: 100%;
+    margin-top: 4px;
+    border: 1px dashed #c7d0db;
+    background: #fff;
+    color: #0058da;
+    border-radius: 10px;
+    padding: 9px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font:
+        600 13px Inter,
+        sans-serif;
+}
+.so-imc-add-ncc:hover {
+    background: #f5f8ff;
+}
+.so-imc-add-ncc i {
+    width: 15px;
+    height: 15px;
+}
+@media (max-width: 620px) {
+    .so-imc-sects {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Nút "chọn ảnh từ kho NCC" trên ô ảnh SP (modal tạo đơn) */
+.so-img-ncc-pick {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 7px;
+    background: rgba(0, 88, 218, 0.92);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.so-img-ncc-pick:hover {
+    background: #0068ff;
+}
+.so-img-ncc-pick i {
+    width: 14px;
+    height: 14px;
+}
+.so-img-cell-v2 {
+    position: relative;
+}
+
+/* Gallery popup chọn ảnh SP của NCC */
+.so-imc-gallery {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.so-imc-gallery[hidden] {
+    display: none;
+}
+.so-imc-gallery-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+}
+.so-imc-gallery-panel {
+    position: relative;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+    width: min(640px, 94vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.so-imc-gallery-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #eef2f7;
+    font-weight: 700;
+    color: #0058da;
+}
+.so-imc-gallery-close {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.so-imc-gallery-close:hover {
+    background: #f1f5f9;
+}
+.so-imc-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    padding: 16px 18px;
+    overflow-y: auto;
+}
+.so-imc-gal-item {
+    appearance: none;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    aspect-ratio: 1;
+    transition:
+        border-color 0.12s,
+        transform 0.1s;
+}
+.so-imc-gal-item:hover {
+    border-color: #0068ff;
+    transform: translateY(-2px);
+}
+.so-imc-gal-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
