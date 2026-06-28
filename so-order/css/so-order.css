@@ -270,26 +270,58 @@
     letter-spacing: 0.02em;
 }
 
-/* ── SP CHA nhiều biến thể (2026-06-27): gom các dòng biến thể cùng SP trong 1 đơn.
-   Dòng đầu (head) hiện TÊN cha; dòng tiếp (cont) hiện "↳" thay tên lặp + giữ mã con.
-   Thanh dọc tím ở cột Tên SP gom khối; viền đáy đậm đóng khối ở dòng cuối. ── */
-.so-table tbody tr.so-vargroup-head > td.so-cell-product,
-.so-table tbody tr.so-vargroup-cont > td.so-cell-product {
-    box-shadow: inset 3px 0 0 #a78bfa;
+/* ── SP CHA nhiều biến thể (2026-06-28): gom các dòng biến thể CÙNG SP trong 1 đơn
+   thành 1 KHỐI tách biệt hẳn. Dòng đầu (head) hiện TÊN cha + badge "N biến thể";
+   dòng tiếp (cont) hiện "↳" + giữ mã con. Khối = nền tím + thanh trái tím đậm + viền
+   bracket trên/dưới — KHÔNG đụng ô NCC gộp (rowspan) nên giữ nguyên nhận-hàng/Ảnh-HĐ. ── */
+.so-vargroup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 1px 8px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.so-vargroup-badge i {
+    width: 12px;
+    height: 12px;
+}
+/* nền tím nhạt cho cả nhóm (TRỪ ô NCC gộp — giữ nguyên) */
+.so-table tbody tr.so-vargroup-head > td:not(.so-cell-supplier),
+.so-table tbody tr.so-vargroup-cont > td:not(.so-cell-supplier) {
+    background: #f6f3ff;
+}
+/* thanh dọc tím đậm ở ô STT (đầu khối, ngay sau cột NCC) */
+.so-table tbody tr.so-vargroup-head > td.so-cell-stt,
+.so-table tbody tr.so-vargroup-cont > td.so-cell-stt {
+    box-shadow: inset 4px 0 0 #8b5cf6;
+}
+/* NÓC khối = dòng cha; ĐÁY khối = con cuối (đều trừ ô NCC gộp) */
+.so-table tbody tr.so-vargroup-head > td:not(.so-cell-supplier) {
+    border-top: 2px solid #c4b5fd;
+}
+.so-table tbody tr.so-vargroup-last > td:not(.so-cell-supplier) {
+    border-bottom: 2px solid #c4b5fd;
 }
 .so-cell-product-head {
     font-weight: 700;
 }
 .so-cell-product-cont {
-    padding-left: 6px;
+    padding-left: 10px;
+    color: #64748b;
 }
 .so-cell-product-arrow {
     color: #8b5cf6;
     font-weight: 800;
     font-size: 14px;
-}
-.so-table tbody tr.so-vargroup-last > td {
-    border-bottom: 2px solid #ddd6fe;
+    margin-right: 4px;
 }
 
 /* SL gộp vào cột Biến thể */

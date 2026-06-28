@@ -487,6 +487,7 @@
                 j++;
             if (j - i > 1) {
                 out[i].nameHead = true;
+                out[i].nameSpan = j - i; // số biến thể trong nhóm (cho badge "N biến thể")
                 for (let k = i + 1; k < j; k++) out[k].nameCont = true;
                 out[j - 1].nameLast = true;
             }
@@ -717,6 +718,10 @@
                       meta?.nameCont
                           ? '<span class="so-cell-product-arrow" title="Cùng SP cha — biến thể khác">↳</span>'
                           : SO.escapeHtml(r.productName || '—')
+                  }${
+                      meta?.nameHead
+                          ? `<span class="so-vargroup-badge" title="SP cha — ${meta.nameSpan} biến thể"><i data-lucide="git-branch"></i>${meta.nameSpan} biến thể</span>`
+                          : ''
                   }${khoCodeHtml}${khoCode && window.Web2Deeplink ? '<span class="so-kho-link">' + window.Web2Deeplink.linkBtn({ label: '', icon: 'package', url: window.Web2Deeplink.url.product(khoCode), title: 'Mở trong Kho SP' }) + '</span>' : ''}</td>`,
             variant: edit
                 ? SO.editableCellHtml('variant', r, rid, sid)

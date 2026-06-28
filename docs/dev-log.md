@@ -2,6 +2,16 @@
 
 ## 2026-06-28
 
+### [so-order] SP cha nhiều biến thể = KHỐI tách biệt rõ (an toàn, giữ NCC/Ảnh-HĐ rowspan)
+
+User muốn Sổ Order "cũng vậy" như Kho SP (bảng con). **Ràng buộc cấu trúc**: Sổ Order gộp ô NCC + Ảnh-Hóa-Đơn (rowspan) trải cả đơn, Ảnh-HĐ ở GIỮA bảng → bảng-con full-width sẽ vỡ layout + lệch "Nhận hàng" (đã giải thích user). Chọn: gom mỗi nhóm biến thể thành **1 KHỐI tách biệt** bằng CSS (an toàn, giữ nguyên nhận-hàng/sửa/rowspan):
+
+- `_computeRowSpans` thêm `nameSpan` ở dòng head (nhóm `productGroupId||tên` cùng đơn, ≥2).
+- `rowHtml` head: badge "🌿 N biến thể"; cont: "↳" + giữ mã con.
+- CSS: nền tím nhạt + thanh trái tím đậm (ở cột STT, sau NCC) + viền bracket trên/dưới — **TRỪ ô NCC gộp** (`:not(.so-cell-supplier)`) nên NCC/Ảnh-HĐ rowspan + nút Nhận hàng nguyên vẹn. EDIT mode không đổi.
+- Verify browser: 2 khối + badge "2 biến thể" + 2 nút Nhận hàng còn nguyên; VÁY HOA NHÍ (standalone) thường. Bump `so-order render/css=p5`.
+- Bảng-con full-width như Kho SP cần redesign bỏ gộp ô NCC/Ảnh-HĐ → để sau nếu cần.
+
 ### [ai-hub][gemini-tryon] Đính ảnh chat Gemini + fallback paid nhanh + PREMIUM ưu tiên xoay tua
 
 **Files:** `web2/shared/web2-gemini-chat.js` (A), `web2/shared/web2-tryon.js` (B + dropdown marker), `gemini-tryon/app.py` (C), `web2/ai-hub/index.html`.
