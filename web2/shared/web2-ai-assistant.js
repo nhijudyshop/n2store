@@ -244,12 +244,66 @@
             .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '«email»');
     }
 
-    // ───────── ĐỌC DỮ LIỆU TỪ DATABASE qua API đọc sẵn (Option B) ─────────
-    // _dbData[pathname] = [{ data:[], label, desc }] — cache sau khi user bấm "Đọc DB".
-    const _dbData = {};
+    // ───────── ĐỌC DỮ LIỆU TỪ DATABASE qua API + CACHE BROWSER (IDB) ─────────
+    // Dữ liệu full của trang (từ DB_SOURCES) nạp vào Web2SmartCache (IDB persist + TTL +
+    // SSE freshness). Widget đọc cache.peek() SYNC; cũ/trống → kêu user bấm nút "Lấy full
+    // dữ liệu mới nhất" rồi mới gọi AI (user yêu cầu 2026-06-28).
     const DB_BUDGET = 5200; // ký tự cho khối dữ liệu DB (ưu tiên cao nhất)
-
     const MAX_DB_ROWS = 5000; // cap tổng dòng tải về (tránh tải vô hạn DB cực lớn)
+    const DB_FRESH_MS = 10 * 60 * 1000; // TTL: cache cũ hơn → stale → kêu nạp lại
+
+    // SSE topic freshness theo trang (best-effort) — data đổi → cache stale ngay.
+    const _DB_TOPICS = {
+        '/native-orders/': 'web2:native-orders',
+        '/web2/fastsaleorder-invoice/': 'web2:fast-sale-orders',
+        '/web2/fastsaleorder-delivery/': 'web2:fast-sale-orders',
+        '/web2/fastsaleorder-refund/': 'web2:fast-sale-orders',
+        '/web2/customer-wallet/': 'web2:customer-wallet',
+        '/web2/order-tags/': 'web2:order-tags',
+        '/web2/audit-log/': 'web2:audit-log',
+        '/web2/notifications/': 'web2:notifications',
+    };
+    function _topicFor(path) {
+        for (const k in _DB_TOPICS) if (path.indexOf(k) >= 0) return _DB_TOPICS[k];
+        return undefined;
+    }
+    // Cache Web2SmartCache theo trang (tạo lười). null = trang không có nguồn full-data.
+    const _aiCaches = {};
+    let _pendingQ = null; // câu hỏi đang chờ nạp data (gate)
+    const _gateAsked = {}; // path → đã gate 1 lần (lần sau cho hỏi luôn)
+    async function _fetchAllDb(specs) {
+        const out = [];
+        for (const spec of specs) {
+            const data = await fetchDbSource(spec);
+            if (data) out.push({ data, label: spec.label, desc: spec.desc });
+        }
+        return out;
+    }
+    function aiCacheFor(path) {
+        if (path in _aiCaches) return _aiCaches[path];
+        let specs = [];
+        try {
+            specs = reg()?.dbSourcesFor?.(path) || [];
+        } catch {}
+        if (!specs.length || !global.Web2SmartCache?.create) return (_aiCaches[path] = null);
+        _aiCaches[path] = global.Web2SmartCache.create({
+            name: 'ai-dbdata:' + path,
+            fetcher: () => _fetchAllDb(specs),
+            topic: _topicFor(path),
+            ttl: DB_FRESH_MS,
+            persist: true,
+            swr: false, // không tự trả stale — ta chủ động kiểm tra freshness + kêu nạp
+        });
+        return _aiCaches[path];
+    }
+    // Cache full-data tươi? (có data + chưa stale theo TTL/SSE)
+    function dbCacheFresh(path) {
+        const c = aiCacheFor(path);
+        if (!c) return null; // trang không có nguồn full-data → không áp gate
+        const data = c.peek?.();
+        if (!data || !data.length) return false;
+        return !(c.isStale?.() === true);
+    }
 
     function _dataAt(j, dataPath) {
         let data = j;
@@ -301,50 +355,41 @@
         }
     }
 
-    // Tải toàn bộ DB cho trang hiện tại rồi hỏi AI (gắn vào _dbData → mọi câu sau vẫn thấy).
+    // Nạp FULL dữ liệu trang vào cache browser (IDB) rồi hỏi AI. Có câu hỏi đang chờ (_pendingQ)
+    // thì chạy câu đó; không thì phân tích tổng quan.
     async function loadDbThenAsk() {
         if (_busy) return;
         const path = location.pathname;
-        const specs = (() => {
-            try {
-                return reg()?.dbSourcesFor?.(path) || [];
-            } catch {
-                return [];
-            }
-        })();
-        if (!specs.length) return;
+        const cache = aiCacheFor(path);
+        if (!cache) return;
         ensureUi();
         _root.querySelector('.w2aa-panel').classList.add('open');
         if (_mode !== 'chat') showMode('chat');
         history.push({
             role: 'ai',
-            content: '⏳ Đang đọc toàn bộ dữ liệu từ database…',
+            content: '⏳ Đang nạp toàn bộ dữ liệu trang vào cache…',
             pending: true,
         });
         render();
         try {
-            const loaded = [];
-            for (const spec of specs) {
-                const data = await fetchDbSource(spec);
-                if (data) loaded.push({ data, label: spec.label, desc: spec.desc });
-            }
+            await cache.refresh(); // ép fetch full + lưu IDB + cập nhật timestamp
+            const loaded = cache.peek?.() || [];
             history.pop(); // bỏ placeholder
             if (!loaded.length) {
-                history.push({
-                    role: 'ai',
-                    content: '⚠️ Không đọc được dữ liệu từ database (thử lại sau).',
-                });
+                history.push({ role: 'ai', content: '⚠️ Không đọc được dữ liệu (thử lại sau).' });
                 render();
                 return;
             }
-            _dbData[path] = loaded;
             const total = loaded.reduce((s, x) => s + x.data.length, 0);
+            const q = _pendingQ;
+            _pendingQ = null;
             ask(
-                `Tôi vừa tải TOÀN BỘ dữ liệu từ database (${total} bản ghi) — xem khối "DỮ LIỆU TỪ DATABASE". Phân tích tổng quan + nêu các điểm cần chú ý: số liệu bất thường, thiếu thông tin, lệch tổng, trạng thái cần xử lý. Trả lời gọn, có số cụ thể.`
+                q ||
+                    `Tôi vừa nạp FULL dữ liệu trang vào cache (${total} bản ghi) — xem khối "DỮ LIỆU TỪ DATABASE". Phân tích tổng quan + nêu điểm cần chú ý: số liệu bất thường, thiếu thông tin, lệch tổng, trạng thái cần xử lý. Trả lời gọn, có số cụ thể.`
             );
         } catch (e) {
             history.pop();
-            history.push({ role: 'ai', content: '⚠️ ' + (e.message || 'Lỗi đọc DB') });
+            history.push({ role: 'ai', content: '⚠️ ' + (e.message || 'Lỗi nạp dữ liệu') });
             if (e.code === 401 && !_authRedirecting && global.Web2Auth?.requireAuth) {
                 _authRedirecting = true;
                 setTimeout(() => global.Web2Auth.requireAuth(), 1500);
@@ -510,8 +555,8 @@
         const sel = String(window.getSelection ? window.getSelection() : '').trim();
         if (sel && sel.length > 4) parts.push('ĐOẠN ĐANG CHỌN:\n' + sel.slice(0, 2500));
 
-        // (0) DỮ LIỆU TỪ DATABASE (nếu user đã bấm "Đọc DB") — nguồn ĐẦY ĐỦ NHẤT, ưu tiên cao nhất.
-        const dbLoaded = _dbData[location.pathname];
+        // (0) DỮ LIỆU FULL TỪ CACHE (user đã bấm "Lấy full dữ liệu") — nguồn ĐẦY ĐỦ NHẤT, ưu tiên cao nhất.
+        const dbLoaded = aiCacheFor(location.pathname)?.peek?.();
         if (dbLoaded && dbLoaded.length) {
             let dbBudget = DB_BUDGET;
             for (const src of dbLoaded) {
@@ -917,13 +962,16 @@
         try {
             dbSpecs = reg()?.dbSourcesFor?.(location.pathname) || [];
         } catch {}
-        const dbLoaded = !!_dbData[location.pathname];
+        const fresh = dbCacheFresh(location.pathname); // true=tươi, false=cũ/trống, null=không có nguồn
         let html = '';
         if (dbSpecs.length) {
-            const lbl = dbLoaded
-                ? '✓ Đã tải DB — tải lại'
-                : dbSpecs[0].label || '🗄️ Đọc toàn bộ từ DB';
-            html += `<button class="w2aa-quick w2aa-quick-db" data-db="1" title="Đọc TOÀN BỘ bảng từ database (không chỉ trang hiện tại)">${esc(lbl)}</button>`;
+            const lbl =
+                fresh === true
+                    ? '✓ Dữ liệu mới — nạp lại'
+                    : fresh === false && aiCacheFor(location.pathname)?.peek?.()
+                      ? '⚠️ Dữ liệu đã cũ — nạp lại'
+                      : '🔄 Lấy full dữ liệu mới nhất';
+            html += `<button class="w2aa-quick w2aa-quick-db" data-db="1" title="Nạp TOÀN BỘ dữ liệu trang vào cache browser (đầy đủ, không chỉ trang hiện tại) để AI phân tích chính xác">${esc(lbl)}</button>`;
         }
         html += sugs
             .map(
@@ -1152,6 +1200,25 @@
     let _authRedirecting = false;
     async function ask(text) {
         if (_busy || !text || !cfg.enabled) return;
+        const _path = location.pathname;
+        // FRESHNESS GATE: trang có nguồn full-data + cache trống/cũ → kêu user nạp trước (1 lần),
+        // tránh AI phân tích trên dữ liệu phân trang/thiếu/cũ. Hỏi lại = bỏ qua (dùng data hiện có).
+        if (dbCacheFresh(_path) === false && !_gateAsked[_path]) {
+            _gateAsked[_path] = true;
+            _pendingQ = text;
+            ensureUi();
+            _root.querySelector('.w2aa-panel').classList.add('open');
+            if (_mode !== 'chat') showMode('chat');
+            history.push({ role: 'user', content: text });
+            history.push({
+                role: 'ai',
+                content:
+                    '⚠️ Để AI phân tích **đúng & đủ**, hãy bấm nút **“🔄 Lấy full dữ liệu mới nhất”** ở thanh gợi ý phía trên — câu hỏi của bạn sẽ tự chạy sau khi nạp xong.\n\n(Dữ liệu đang hiển thị trên trang có thể bị **phân trang/thiếu/cũ**. Hoặc gõ lại câu hỏi để hỏi luôn với dữ liệu hiện có.)',
+            });
+            capHistory();
+            render();
+            return;
+        }
         _busy = true;
         ensureUi();
         _root.querySelector('.w2aa-panel').classList.add('open');

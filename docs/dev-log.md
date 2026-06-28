@@ -2,6 +2,17 @@
 
 ## 2026-06-28
 
+### [ai-widget] Full-data theo CACHE browser (IDB) + freshness gate + nút "Lấy full dữ liệu mới nhất"
+
+**Files:** `web2/shared/web2-ai-assistant.js` (+ bump sidebar inject).
+
+User: phần AI widget lấy full dữ liệu → lấy theo CACHE; nút nạp full vào cache browser; widget check cache mới nhất chưa, chưa thì kêu user bấm nút rồi mới dùng AI.
+
+- **Cache engine = `Web2SmartCache`** (tái dùng, DRY): per trang có DB_SOURCES → `aiCacheFor(path)` tạo cache lười (`name='ai-dbdata:'+path`, fetcher = fetch full từ DB_SOURCES, **IDB persist** + **TTL 10p** + **SSE topic** freshness). Thay hẳn `_dbData` in-memory cũ (mất khi reload).
+- **Đọc SYNC**: `pageContext()` lấy data qua `cache.peek()` (sync, value hiện có hoặc null) — hợp resolveExpr sync. Persist qua reload (IDB).
+- **Freshness gate trong `ask()`**: trang có nguồn full-data + cache **trống/cũ** (TTL/SSE) → KHÔNG gọi AI, hiện thông báo kêu bấm **“🔄 Lấy full dữ liệu mới nhất”** (câu hỏi tự chạy sau khi nạp qua `_pendingQ`). Gate 1 lần/trang (`_gateAsked`) — hỏi lại = hỏi luôn với data hiện có.
+- **Nút quick-bar** label theo freshness: `🔄 Lấy full dữ liệu mới nhất` / `⚠️ Dữ liệu đã cũ — nạp lại` / `✓ Dữ liệu mới — nạp lại`. Recon workflow (3 agent) xác nhận API + điểm tích hợp trước khi build.
+
 ### [web2/system] Tab "Gợi ý AI" — quản lý toàn bộ gợi ý + accessor của widget AI theo từng trang
 
 **Files:** `web2/system/js/system-ai-suggestions.js` (MỚI), `web2/system/{index.html, js/system-app.js}`.
