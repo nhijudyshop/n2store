@@ -2,6 +2,21 @@
 
 ## 2026-06-28
 
+### [web2/live-control + live-tv] Fix SP "ghost" khi xoá kho / Số Order
+
+**Files:** `render.com/routes/web2-campaign-products.js`, `web2/live-control/js/live-control.js`, `web2/live-tv/js/live-tv.js`, 2 index.html (cache-bust).
+
+**Bug:** xoá SP ở Kho SP (DELETE `/api/web2/products/:code`) hoặc xoá row Số Order (qua `adjust-pending` khi pending→0 & stock=0 & `created_by='so-order'` → DELETE web2_products) **hard-delete dòng `web2_products` nhưng KHÔNG dọn `web2_campaign_products`**. Dòng cp mồ côi (`removed=false`) → GET LEFT JOIN trả `name=null` → `missing:true` → "ghost" vẫn hiện trên board live-control + màn TV.
+
+**Fix (self-heal 1 nguồn, phủ MỌI path xoá + ghost cũ tồn đọng):**
+
+- `autoSyncPending`: trước khi add pending, `DELETE FROM web2_campaign_products cp WHERE campaign_id=$1 AND NOT EXISTS (SELECT 1 FROM web2_products p WHERE p.code=cp.product_code)`. Hard-delete (SP không còn tồn tại; tái tạo cùng mã sau auto-add lại sạch). Trả `{added,purged}`.
+- GET `sync=1`: broadcast `web2:campaign-products` khi `added>0` HOẶC `purged>0` → TV + tab khác refresh realtime (không kẹt tới F5).
+- Frontend `live-control.js` + `live-tv.js`: lọc `items.filter(it => !it.missing)` (defense — màn TV không gửi sync nên không tự dọn DB; tránh nháy 1 frame ghost).
+- **KHÔNG** đụng case-2 (SP còn trong kho, `pending→0` status `DANG_BAN`): `pending→0` cũng xảy ra khi nhận hàng vào kho (confirm-purchase) — SP còn bán được trên live → giữ.
+
+Verified: throwaway local PG (purge dọn đúng SP đã xoá P2/P3, giữ SP còn kho P1/P4, idempotent re-run=0). Cache-bust `live-*.js?v=20260628ghost`. Status: ✅ FE đẩy GH Pages; BE deploy web2-api.
+
 ### [so-order] Hardening: picker KHÔNG auto-đặt tên cho dòng đã CHỌN SP (matchedCode)
 
 User báo bug: chọn SP cha từ suggest → Lưu Nháp → dòng cha tên bị "A". **Repro trên code hiện tại (browser, port riêng): KHÔNG tái hiện** — modal + storage + bảng đều "ÁO SƠ MI LỤA" (3 con Beo/Ghi/Đỏ, head "ÁO SƠ MI LỤA · 3 biến thể · HCAO5BEO"). "A" có thể do JS cũ bị cache (version churn p9→q khi 2 agent sửa song song). **Hardening**: guard auto-name của Web2VariantPicker onChange thêm `!row.matchedCode` → dòng đã chọn SP có sẵn (từ suggest, mọi dòng cha-con) KHÔNG bị picker re-mount ghi đè tên thành tên auto/cụt; chỉ auto-name SP gõ tay mới. Bump `so-order-modal-core.js=r`. (Khuyến nghị user hard-refresh Cmd+Shift+R.)
