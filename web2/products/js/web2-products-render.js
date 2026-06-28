@@ -157,7 +157,9 @@
                     : `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
                 : totalPending > 0
                   ? `<span class="active-badge active-pending" title="Tổng còn chờ hàng các biến thể"><i data-lucide="clock"></i>CHỜ HÀNG (×${totalPending})</span>`
-                  : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
+                  : // totalStock=0 && totalPending=0 → tất cả biến thể đã bán hết →
+                    // HẾT HÀNG (khớp _recomputeParent backend; logic mới 2026-06-28).
+                    `<span class="active-badge" style="background:#f3f4f6;color:#6b7280;border-color:#d1d5db;" title="Tất cả biến thể đã bán hết — nhập lại từ Số Order"><i data-lucide="archive"></i>HẾT HÀNG</span>`;
         const allSel = childCodes.length && childCodes.every((c) => STATE.selectedCodes.has(c));
         const someSel = childCodes.some((c) => STATE.selectedCodes.has(c));
         const gkey = escapeHtml(g.key);

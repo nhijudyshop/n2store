@@ -163,8 +163,17 @@ async function deductStock(pool, lines) {
     for (const [code, qty] of lines) {
         const before = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
         const stockBefore = before.rows[0]?.stock != null ? Number(before.rows[0].stock) : null;
+        // Hoàn hàng về NCC → trừ kho. SP ĐANG BÁN về ≤0 + hết chờ → HET_HANG + ẩn
+        // (logic mới 2026-06-28). Guard is_active=true → không đụng SP "Tạm dừng".
         const upd = await pool.query(
-            `UPDATE web2_products SET stock = COALESCE(stock, 0) - $1, updated_at = $2 WHERE code = $3`,
+            `UPDATE web2_products
+                SET stock = COALESCE(stock, 0) - $1,
+                    status = CASE WHEN COALESCE(stock, 0) - $1 <= 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                  THEN 'HET_HANG' ELSE status END,
+                    is_active = CASE WHEN COALESCE(stock, 0) - $1 <= 0 AND COALESCE(pending_qty, 0) = 0 AND is_active = true
+                                     THEN false ELSE is_active END,
+                    updated_at = $2
+              WHERE code = $3`,
             [qty, now, code]
         );
         // 1D fix: mã SP sai trước đây bị nuốt silent → phiếu approved + ví giảm mà
@@ -187,8 +196,17 @@ async function restockStock(pool, lines) {
     const results = [];
     const now = Date.now();
     for (const [code, qty] of lines) {
+        // Đảo hoàn hàng → cộng kho lại. SP đang HET_HANG có tồn lại → un-retire
+        // (logic mới 2026-06-28). Chỉ đụng status='HET_HANG' → giữ SP "Tạm dừng".
         const upd = await pool.query(
-            `UPDATE web2_products SET stock = COALESCE(stock, 0) + $1, updated_at = $2 WHERE code = $3`,
+            `UPDATE web2_products
+                SET stock = COALESCE(stock, 0) + $1,
+                    status = CASE WHEN status = 'HET_HANG' AND COALESCE(stock, 0) + $1 > 0
+                                  THEN (CASE WHEN COALESCE(pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
+                                  ELSE status END,
+                    is_active = CASE WHEN status = 'HET_HANG' AND COALESCE(stock, 0) + $1 > 0 THEN true ELSE is_active END,
+                    updated_at = $2
+              WHERE code = $3`,
             [qty, now, code]
         );
         // 1D fix: như deductStock — mã SP không tồn tại phải fail rõ, không nuốt silent.
