@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7a639f3` — feat(so-order): money feature S2-S5 (Tab Đợt + stat cards + chi phí + thanh toán CK) + bỏ cột Ghi Chú CP
-**Last updated**: 2026-06-28 16:39:07 +07
-**Latest session**: [`RESUME:20260628-163907-7a639f3`](../20260628-163907-7a639f3.md)
-**Summary**: so-order money S2-S5 (Tab Đợt + stat cards trên bảng + chi phí đợt + thanh toán CK ledger) + bỏ cột Ghi Chú CP
+**Latest commit**: `374f22b` — docs(session): fill 20260628-163907-7a639f3 (so-order money S2-S5 decisions/next-steps)
+**Last updated**: 2026-06-28 16:41:04 +07
+**Latest session**: [`RESUME:20260628-164104-374f22b`](../20260628-164104-374f22b.md)
+**Summary**: docs(session): fill 20260628-163907-7a639f3 (so-order money S2-S5 decisions/next-steps)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 11 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
