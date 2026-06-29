@@ -19,6 +19,15 @@
     const _resolveCommitContext = NS._resolveCommitContext;
     const _resolveLiveCustomer = NS._resolveLiveCustomer;
 
+    // Auth header cho cart fetch (hardening 2026-06-29): gửi x-web2-token để backend
+    // gate được /api/v2/cart/* (ENFORCE=1). Web2Auth.authHeaders merge token vào header;
+    // fallback chỉ Content-Type nếu Web2Auth chưa load (soft — backend chỉ 401 khi ENFORCE).
+    function _cartHeaders() {
+        return global.Web2Auth && global.Web2Auth.authHeaders
+            ? global.Web2Auth.authHeaders({ 'Content-Type': 'application/json' })
+            : { 'Content-Type': 'application/json' };
+    }
+
     // ─────────────────────────────────────────────────────────
     // Cart API — Optimistic UI: cập nhật badge NGAY khi drop, rollback nếu fail.
     // Drop vào comment chưa có giỏ → tự tạo giỏ hàng (entry đầu tiên trong cart_items).
@@ -82,7 +91,7 @@
             try {
                 const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: _cartHeaders(),
                     credentials: 'include',
                     body: JSON.stringify({
                         product,
@@ -168,7 +177,7 @@
                         '/remove',
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: _cartHeaders(),
                         credentials: 'include',
                         body: JSON.stringify({
                             user: _user(),
@@ -218,7 +227,7 @@
             try {
                 const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/clear', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: _cartHeaders(),
                     credentials: 'include',
                     body: JSON.stringify({ user: _user() }),
                 });
