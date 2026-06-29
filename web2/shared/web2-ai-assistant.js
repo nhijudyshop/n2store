@@ -389,11 +389,11 @@
             );
         } catch (e) {
             history.pop();
-            history.push({ role: 'ai', content: '⚠️ ' + (e.message || 'Lỗi nạp dữ liệu') });
-            if (e.code === 401 && !_authRedirecting && global.Web2Auth?.requireAuth) {
-                _authRedirecting = true;
-                setTimeout(() => global.Web2Auth.requireAuth(), 1500);
-            }
+            history.push({
+                role: 'ai',
+                content:
+                    e.code === 401 ? onAuthExpired() : '⚠️ ' + (e.message || 'Lỗi nạp dữ liệu'),
+            });
             render();
         }
     }
@@ -689,6 +689,22 @@
         const e = new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
         e.code = 401;
         return e;
+    }
+
+    // 401 → phiên hết hạn: chuyển sang đăng nhập lại bằng handler CHUẨN của web2-auth
+    // (handleAuthExpired: clear token + redirect login?expired=1 — login page hiện thông
+    // báo "hết phiên"). Tin cậy hơn requireAuth (không cần round-trip /me). 1 lần/redirect.
+    // Trả message rõ ràng để hiển thị trong chat trong lúc chờ chuyển trang.
+    function onAuthExpired() {
+        if (!_authRedirecting) {
+            _authRedirecting = true;
+            setTimeout(() => {
+                const A = global.Web2Auth;
+                if (A?.handleAuthExpired) A.handleAuthExpired();
+                else if (A?.requireAuth) A.requireAuth();
+            }, 1800);
+        }
+        return '🔐 Phiên đăng nhập Web 2.0 đã hết hạn. Đang chuyển sang trang đăng nhập để bạn đăng nhập lại…';
     }
 
     // Cascade model THEO SỨC MẠNH (mạnh→yếu), xoay MỌI key free. Auto → thử lần lượt;
@@ -1254,12 +1270,8 @@
             else {
                 history[history.length - 1] = {
                     role: 'ai',
-                    content: '⚠️ ' + (e.message || 'Lỗi gọi AI'),
+                    content: e.code === 401 ? onAuthExpired() : '⚠️ ' + (e.message || 'Lỗi gọi AI'),
                 };
-                if (e.code === 401 && !_authRedirecting && global.Web2Auth?.requireAuth) {
-                    _authRedirecting = true;
-                    setTimeout(() => global.Web2Auth.requireAuth(), 1500);
-                }
             }
         } finally {
             _busy = false;
