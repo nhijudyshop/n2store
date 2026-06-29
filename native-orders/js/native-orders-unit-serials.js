@@ -16,7 +16,10 @@
 
     NO._loadUnitSerials = async function _loadUnitSerials() {
         const orders = (NO.STATE && NO.STATE.orders) || [];
-        const ids = orders.map((o) => o.id).filter((x) => Number.isInteger(x));
+        // ⚠ o.id có thể là STRING ("262") từ API → Number.isInteger(string)=false làm
+        // ids RỖNG → serials KHÔNG bao giờ fetch → expand thiếu "-xxx" (bug 2026-06-29).
+        // Ép Number() (khớp endpoint /by-orders cũng .map(Number)).
+        const ids = orders.map((o) => Number(o.id)).filter(Number.isInteger);
         if (!ids.length || _busy) return;
         _busy = true;
         try {

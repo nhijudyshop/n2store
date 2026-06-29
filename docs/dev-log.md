@@ -2,6 +2,12 @@
 
 ## 2026-06-29
 
+### [native-orders] Fix expand không hiện mã đơn vị (-001 -002) — o.id string
+
+**File:** `native-orders/js/native-orders-unit-serials.js` (+ cache-bust index.html).
+
+`_loadUnitSerials` lọc `Number.isInteger(o.id)` nhưng `o.id` từ API là **string** (`"262"`) → ids RỖNG → KHÔNG bao giờ fetch `/by-orders` → expand đơn chỉ hiện mã SP, THIẾU "-xxx". Fix: ép `Number(o.id)` (khớp endpoint cũng `.map(Number)`). Verify browser: expand đơn NJ-…0003 (SP TEST-EXP SL3) → hiện **`TEST-EXP -001 -002 -003`** ✓. (Bug này khiến serial đơn vị KHÔNG hiện ở native-orders mọi tab.)
+
 ### [units] MINT theo SL kho (SP-001..SP-SL) + gán seq nhỏ nhất / tái dùng freed
 
 **Files:** `render.com/routes/web2-product-units.js` (`ensureUnits`+`ensureUnitsForCodes`+`POST /ensure`, export; reconcile đổi ORDER BY), `render.com/routes/web2-products.js` (`_syncUnits` hook 7 handler: create/patch/adjust-stock/adjust-pending/upsert-pending/confirm-purchase/confirm-purchase-partial), `so-order/js/so-order-barcode.js` (mint→/ensure), `web2/products/js/web2-products-render.js` (`_attachUnitsForPrint`→/ensure self-heal), cache-bust 2 FE.
