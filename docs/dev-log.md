@@ -9,7 +9,7 @@
 - **#1 admin gate**: ✅ image-manager (`POST /` upload, `DELETE /ncc`, `DELETE /:id`) đổi `requireWeb2AuthSoft`→`requireWeb2Admin` (client đã gate admin, đóng lỗ direct-API). GET /list,/by-ncc,/img/:id GIỮ soft (non-admin đọc khi tạo đơn). ⚠ **KHÔNG gán admin cho payments `/tx`** — workflow phát hiện sẽ GÃY SePay auto-credit (chạy ở browser NV non-admin → 403 → mất refund NCC); manual payment đã gate ở client so-order. (supplier-debt manual chưa gate client — note riêng.)
 - **#3** getNccBatchTotals: adjustment (contractAmount/weightKg) của 1 đơn chỉ tính cho NCC **sở hữu gid** (row đầu), hết cộng đôi khi 1 đơn lẫn 2 NCC. **#4** delete lô mixed: chỉ trừ Kho pending phần CHƯA nhận (`max(0, qty-qtyReceived)`). **#6** counter chỉ đếm dòng có productName (khớp bảng). **#5** body scroll-lock 1 nguồn ở showModal/hideModal (ref-count Set, iOS-safe `position:fixed+top:-scrollY`) + route close paths (data-so-close/ESC) qua hideModal. **#7** inline-edit blur dùng `relatedTarget`/activeElement guard (thôi race setTimeout 150ms mất giá trị picker). **#8** restoreFromTrash trả `{ok,reparented,toTabLabel}` + caller cảnh báo khi tab gốc đã xoá. **#2** soft-warn: dòng SL≤0 → notify warning (KHÔNG chặn submit).
 
-**Status:** 🔄 Frontend áp + syntax OK + verify export/return-shape; deploy web2-api (#1a) + browser-test frontend.
+**Status:** ✅ Done + verified. #1a admin gate live (no-token DELETE→401, admin→pass); #5 scroll-lock browser (4× mở/đóng+ESC→body restore, không trôi); #2 soft-warn wired; 0 console error. #3/#4/#6/#7/#8 logic review + syntax OK + export/return-shape verified.
 
 ### [native-orders] Hook nhả đơn vị khi HUỶ đơn (POST /:code/cancel)
 
