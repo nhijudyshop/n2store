@@ -1,7 +1,11 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================================
-// Trang Zalo — tab Tài khoản: load/render accounts + status strip,
-// thêm tài khoản cá nhân, đăng nhập QR, kết nối OA.
+// Trang Zalo — tab Tài khoản (CHỈ ADMIN). GLOBAL always-on (2026-06-29):
+//   • 1 tài khoản Zalo cá nhân DUY NHẤT dùng chung cả dự án (bỏ per-máy).
+//   • Admin bấm "Đăng nhập Zalo" → 2 cách: cookie (tự động qua tiện ích) HOẶC quét QR.
+//   • Tự thử cookie nếu trình duyệt còn phiên chat.zalo.me (extension).
+//   • Phiên lưu trên server (mã hoá) → boot-restore + auto-reconnect 24/7.
+//   • OA giữ riêng cho ZNS.
 // =====================================================================
 
 (function () {
@@ -12,10 +16,10 @@
         WZApp;
 
     // ===================================================================
-    // ACCOUNTS
+    // RENDER
     // ===================================================================
     function skelCards(n) {
-        return Array.from({ length: n || 2 })
+        return Array.from({ length: n || 1 })
             .map(
                 () => `<div class="wz-skel-card">
                     <div class="wz-skel-row"><div class="wz-skel" style="width:48px;height:48px;border-radius:14px"></div>
@@ -27,55 +31,58 @@
             .join('');
     }
 
+    // TK cá nhân GLOBAL (chỉ có 1). Ưu tiên cái đang kết nối, rồi tới cái mới nhất.
+    function _personal() {
+        const list = (state.accounts || []).filter((a) => a.accountType === 'personal');
+        return list.find((a) => a.status === 'connected') || list[0] || null;
+    }
+    function _oa() {
+        return (state.accounts || []).filter((a) => a.accountType === 'oa');
+    }
+
     async function loadAccounts() {
         const grid = $('#wzAccGrid');
-        if (!state.accounts.length) grid.innerHTML = skelCards(2);
+        if (!grid) return;
+        if (!state.accounts.length) grid.innerHTML = skelCards(1);
         try {
             const res = await window.ZaloApi.status();
             state.zcaAvailable = res.zcaAvailable !== false;
             state.accounts = res.accounts || [];
             renderAccounts();
-            renderStatusStrip(res);
-            autoRenewZalo(); // tự gia hạn nền nếu TK rớt + còn phiên Zalo trên trình duyệt (1 lần)
+            renderRailHealth();
+            autoCookieIfDetected(); // tự đăng nhập cookie nếu trình duyệt còn phiên (admin)
         } catch (e) {
-            // Backend chưa deploy / lỗi mạng → vẫn cho onboarding (2 lựa chọn) thay vì màn lỗi cụt
             state.accounts = [];
             renderAccounts();
-            renderStatusStrip({ zcaAvailable: false });
+            renderRailHealth();
         } finally {
             grid.setAttribute('aria-busy', 'false');
         }
     }
 
-    // Đèn sức khoẻ ở chân icon-rail (gọn): N/M kết nối + màu. Cập nhật mỗi loadAccounts
-    // (init + SSE web2:zalo:accounts). #wzStatusStrip cũ đã bỏ khi rebuild 3-pane.
-    function renderStatusStrip(res) {
+    // Đèn sức khoẻ ở chân icon-rail: tài khoản global connected hay chưa.
+    function renderRailHealth() {
         const el = $('#wzRailHealth');
         if (!el) return;
-        const conn = state.accounts.filter(
-            (a) => a.status === 'connected' || a.status === 'token_ok'
-        ).length;
-        const total = state.accounts.length;
-        const reconnecting = state.accounts.some((a) => a.status === 'reconnecting');
-        const kicked = state.accounts.some((a) => a.status === 'kicked');
-        const yielded = state.accounts.some((a) => a.status === 'yielded');
-        // yielded = đang nhường chat.zalo.me (bình thường) → dùng dot trung tính, KHÔNG đỏ.
-        const dot = conn
-            ? 'connected'
-            : reconnecting || yielded
-              ? 'reconnecting'
-              : total
-                ? 'error'
-                : '';
-        el.innerHTML = `<span class="wz-dot ${dot}"></span><span class="wz-rail-health-n">${conn}/${total}</span>`;
+        const p = _personal();
+        const st = p ? p.status : null;
+        const dot =
+            st === 'connected'
+                ? 'connected'
+                : st === 'connecting' || st === 'reconnecting'
+                  ? 'reconnecting'
+                  : st
+                    ? 'error'
+                    : '';
+        el.innerHTML = `<span class="wz-dot ${dot}"></span>`;
         el.title =
-            res && res.zcaAvailable === false
+            state.zcaAvailable === false
                 ? 'zca-js chưa sẵn sàng trên server'
-                : kicked
-                  ? 'Có tài khoản bị giành phiên (mở Zalo Web nơi khác?)'
-                  : yielded && !conn
-                    ? 'Đang nhường chat.zalo.me — quay lại tab Zalo/J&T để nghe lại'
-                    : `${conn}/${total} tài khoản Zalo đang kết nối`;
+                : st === 'connected'
+                  ? 'Zalo đang kết nối (global)'
+                  : p
+                    ? 'Zalo chưa đăng nhập / mất kết nối'
+                    : 'Chưa đăng nhập Zalo';
     }
 
     function accCardHtml(a) {
@@ -95,13 +102,14 @@
                     `<button class="wz-btn wz-btn-sm" data-act="chat" data-key="${esc(a.accountKey)}"><i data-lucide="messages-square"></i> Chat</button>`
                 );
                 acts.push(
+                    `<button class="wz-btn wz-btn-sm" data-act="switch" data-key="${esc(a.accountKey)}" title="Đổi sang tài khoản Zalo khác"><i data-lucide="repeat"></i> Đổi tài khoản</button>`
+                );
+                acts.push(
                     `<button class="wz-btn wz-btn-sm" data-act="disconnect" data-key="${esc(a.accountKey)}" aria-label="Ngắt kết nối ${esc(dn)}" title="Ngắt kết nối"><i data-lucide="power"></i></button>`
                 );
             } else {
-                // ĐĂNG NHẬP DUY NHẤT: lấy phiên chat.zalo.me đang mở trên trình duyệt máy
-                // này (qua tiện ích N2Store). KHÔNG lưu phiên trên server, KHÔNG QR.
                 acts.push(
-                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="zalologin" data-key="${esc(a.accountKey)}" title="Đăng nhập bằng phiên Zalo đang mở trên trình duyệt (mở chat.zalo.me + đăng nhập trước)"><i data-lucide="log-in"></i> Đăng nhập Zalo</button>`
+                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="login" data-key="${esc(a.accountKey)}" title="Đăng nhập Zalo (cookie hoặc QR)"><i data-lucide="log-in"></i> Đăng nhập Zalo</button>`
                 );
             }
         } else {
@@ -109,34 +117,18 @@
                 `<button class="wz-btn wz-btn-sm" data-act="sync" data-key="${esc(a.accountKey)}"><i data-lucide="refresh-cw"></i> Đồng bộ template</button>`
             );
         }
-        // (Bỏ nút "Đặt làm chính" 2026-06-23 — per-máy: mỗi máy dùng account của mình,
-        // không có TK chính toàn cục.)
         acts.push(
             `<button class="wz-btn wz-btn-sm" data-act="delete" data-key="${esc(a.accountKey)}" aria-label="Xoá tài khoản ${esc(dn)}" title="Xoá"><i data-lucide="trash-2"></i></button>`
         );
-        // Health watchdog (Phase 1 "không bị văng"): hiện trạng thái sống/đang kết nối lại,
-        // cảnh báo khi bị giành phiên, và nhắc đừng mở Zalo Web TK này ở máy khác.
-        const h = a.health || {};
-        const eff = h.reconnecting ? 'reconnecting' : a.status;
+        const eff = a.status;
         const stLabel = STATUS_LABEL[eff] || eff;
-        const kickWarn =
-            t === 'personal' && a.status === 'kicked'
-                ? `<div class="wz-kick-warn"><i data-lucide="alert-triangle"></i> Tài khoản đang mở ở nơi khác — máy chủ tạm dừng nghe. Đừng mở <b>chat.zalo.me</b> tài khoản này trên máy/trình duyệt khác (app điện thoại vẫn dùng được), rồi bấm <b>Đăng nhập Zalo</b> lại.</div>`
-                : '';
         const liveHint =
             t === 'personal' && a.status === 'connected'
-                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Tài khoản của <b>MÁY NÀY</b> — máy khác không thấy/dùng. Đang nghe realtime; máy chủ <b>không lưu phiên</b> (chỉ giữ RAM): rớt nhẹ tự nối lại; máy chủ khởi động lại → đăng nhập lại từ trình duyệt.</div>`
+                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Tài khoản <b>dùng chung cả dự án</b> — luôn online trên máy chủ, tự kết nối lại khi rớt. Đừng mở chat.zalo.me bằng tài khoản này (sẽ bị "Đổi thiết bị").</div>`
                 : '';
-        // Đang NHƯỜNG (focus-lease): công cụ tạm nhả phiên để chat.zalo.me dùng được. Quay
-        // lại tab này (hoặc tab J&T) → tự nghe Zalo lại. Bình thường, KHÔNG phải lỗi.
-        const yieldHint =
-            t === 'personal' && a.status === 'yielded'
-                ? `<div class="wz-live-hint"><i data-lucide="pause"></i> Đang <b>nhường phiên cho chat.zalo.me</b> (bạn đang ở tab khác). Quay lại <b>tab này</b> hoặc tab <b>Vận đơn J&T</b> → công cụ tự nghe Zalo lại. Vậy <b>chat.zalo.me dùng được bình thường</b>, không còn báo "Đổi thiết bị".</div>`
-                : '';
-        // Hướng dẫn đăng nhập (TK cá nhân chưa kết nối, KHÔNG phải trạng thái nhường): mở chat.zalo.me rồi Đăng nhập Zalo.
-        const loginGuide =
-            t === 'personal' && a.status !== 'connected' && a.status !== 'yielded'
-                ? `<div class="wz-login-guide"><i data-lucide="info"></i> <span>Tài khoản của <b>MÁY NÀY</b>. Đăng nhập <a href="https://chat.zalo.me/" target="_blank" rel="noopener"><b>chat.zalo.me</b></a> trên trình duyệt máy này (đúng tài khoản), rồi bấm <b>Đăng nhập Zalo</b>. Máy chủ không lưu mật khẩu/phiên.</span></div>`
+        const errHint =
+            t === 'personal' && (a.status === 'error' || a.status === 'kicked')
+                ? `<div class="wz-kick-warn"><i data-lucide="alert-triangle"></i> Mất kết nối (phiên có thể hết hạn hoặc đang mở nơi khác). Bấm <b>Đăng nhập Zalo</b> để nối lại.</div>`
                 : '';
         return `<div class="wz-acc-card">
             <div class="wz-acc-top">
@@ -148,45 +140,73 @@
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
             <div class="wz-statustxt"><span class="wz-dot ${esc(eff)}"></span>${esc(stLabel)}${a.statusMsg && a.status !== 'kicked' ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
-            ${kickWarn}${liveHint}${yieldHint}${loginGuide}
+            ${liveHint}${errHint}
             <div class="wz-acc-actions">${acts.join('')}</div>
         </div>`;
     }
 
-    function choiceCardsHtml() {
-        return (
-            `<div class="wz-acc-card wz-choice" id="wzAddPersonal" role="button" tabindex="0" aria-label="Thêm tài khoản cá nhân">
+    // Khi CHƯA có tài khoản cá nhân nào → nút lớn "Đăng nhập Zalo".
+    function heroLoginHtml() {
+        return `<div class="wz-acc-card wz-choice" id="wzHeroLogin" role="button" tabindex="0" aria-label="Đăng nhập Zalo">
                 <div class="wz-acc-top">
-                    <span class="wz-choice-ic personal"><i data-lucide="user-plus"></i></span>
-                    <div><h3>Tài khoản cá nhân</h3></div>
+                    <span class="wz-choice-ic personal"><i data-lucide="log-in"></i></span>
+                    <div><h3>Đăng nhập Zalo</h3></div>
                 </div>
-                <p>Đăng nhập bằng phiên chat.zalo.me trên trình duyệt máy này → chat 2 chiều với khách như người thật, không giới hạn 24h như Facebook.</p>
-                <span class="wz-choice-cta">Thêm tài khoản <i data-lucide="arrow-right"></i></span>
-            </div>` +
-            `<div class="wz-acc-card wz-choice" id="wzAddOa" role="button" tabindex="0" aria-label="Kết nối Zalo OA">
+                <p>1 tài khoản Zalo cá nhân dùng chung cả dự án — chat 2 chiều với khách như người thật (không giới hạn 24h như Facebook). Đăng nhập bằng <b>cookie</b> (tự động) hoặc <b>quét QR</b>.</p>
+                <span class="wz-choice-cta">Đăng nhập <i data-lucide="arrow-right"></i></span>
+            </div>`;
+    }
+    function oaChoiceHtml() {
+        return `<div class="wz-acc-card wz-choice" id="wzAddOa" role="button" tabindex="0" aria-label="Kết nối Zalo OA">
                 <div class="wz-acc-top">
                     <span class="wz-choice-ic oa"><i data-lucide="badge-check"></i></span>
                     <div><h3>Zalo OA <span class="wz-tag-safe">An toàn</span></h3></div>
                 </div>
                 <p>Tài khoản chính thức → gửi ZNS thông báo đơn (~200đ/tin) tới mọi SĐT. Không rủi ro khoá.</p>
                 <span class="wz-choice-cta">Kết nối OA <i data-lucide="arrow-right"></i></span>
-            </div>`
-        );
+            </div>`;
     }
 
     function renderAccounts() {
         const grid = $('#wzAccGrid');
-        const cards = state.accounts.map(accCardHtml).join('');
-        grid.innerHTML = cards + choiceCardsHtml();
+        if (!grid) return;
+        // GLOBAL: thường chỉ 1 TK cá nhân. Render TẤT CẢ personal (để admin dọn TK thừa
+        // còn sót từ thời per-máy nếu có) — TK kết nối lên trước. Chưa có TK nào → hero login.
+        const personals = (state.accounts || [])
+            .filter((a) => a.accountType === 'personal')
+            .sort(
+                (a, b) => (b.status === 'connected' ? 1 : 0) - (a.status === 'connected' ? 1 : 0)
+            );
+        const oas = _oa();
+        let html = '';
+        html += personals.length ? personals.map(accCardHtml).join('') : heroLoginHtml();
+        html += oas.map(accCardHtml).join('');
+        if (!oas.length) html += oaChoiceHtml();
+        grid.innerHTML = html;
         if (window.lucide) lucide.createIcons();
     }
 
+    // ===================================================================
+    // ACTIONS
+    // ===================================================================
     async function onAccAction(act, key, btn) {
         const a = state.accounts.find((x) => x.accountKey === key);
         try {
-            if (act === 'zalologin') {
-                setBusy(btn, true);
-                await loginZaloCookie(key);
+            if (act === 'login') {
+                openLogin(key);
+                return;
+            }
+            if (act === 'switch') {
+                if (
+                    !(await Popup.confirm(
+                        'Đổi sang tài khoản Zalo khác? Tài khoản hiện tại sẽ bị xoá khỏi máy chủ, rồi đăng nhập tài khoản mới.',
+                        { okText: 'Đổi tài khoản' }
+                    ))
+                )
+                    return;
+                await window.ZaloApi.deleteAccount(key).catch(() => {});
+                state.accounts = state.accounts.filter((x) => x.accountKey !== key);
+                openLogin(null); // tạo slot mới + đăng nhập
                 return;
             }
             if (act === 'disconnect') {
@@ -218,139 +238,182 @@
         }
     }
 
-    // ── Đăng nhập Zalo 1-click (cookie phiên chat.zalo.me qua extension) ──────
-    // silent=true: tự gia hạn nền khi mở trang (KHÔNG popup/toast nếu không lấy được phiên).
-    async function loginZaloCookie(key, silent) {
-        const ext = window.Web2Ext;
-        if (!ext || !ext.hasExtension || !ext.hasExtension()) {
-            if (!silent)
-                await Popup.warning(
-                    'Cần cài tiện ích N2Store trên trình duyệt máy này để "Đăng nhập Zalo" (lấy phiên chat.zalo.me đang mở).'
-                );
-            return false;
-        }
-        const r = await ext.request('GET_ZALO_CREDS', {}, 15000);
-        if (!r || !r.ok) {
-            if (silent) return false;
-            const reason = (r && r.data && r.data.reason) || (r && r.error) || '';
-            if (reason === 'no_session' || reason === 'no_imei') {
-                const go = await Popup.confirm(
-                    'Chưa thấy phiên Zalo trên trình duyệt. Hãy đăng nhập https://chat.zalo.me/ trước (hoặc tải lại tab Zalo nếu đã đăng nhập), rồi bấm lại "Đăng nhập Zalo".',
-                    { okText: 'Mở chat.zalo.me', cancelText: 'Đóng' }
-                );
-                if (go) window.open('https://chat.zalo.me/', '_blank', 'noopener');
-            } else {
-                notify('✗ ' + ((r && r.error) || 'Không lấy được phiên Zalo'), 'error');
-            }
-            return false;
-        }
-        const { cookie, imei, userAgent } = r.data;
-        // silent (tự gia hạn nền) → backend từ chối nếu KHÔNG phải TK chính (chỉ TK
-        // chính được tự kết nối). Đăng nhập tay (silent=false) vẫn nối TK phụ được.
-        const res = await window.ZaloApi.loginCookie(key, {
-            cookie,
-            imei,
-            userAgent,
-            silent: !!silent,
-        });
-        if (res && res.skipped) return false; // TK phụ — bỏ qua tự gia hạn nền
-        if (!silent) notify('Đăng nhập Zalo thành công — đang kết nối…', 'success');
-        setTimeout(loadAccounts, 1500);
-        return true;
+    // ===================================================================
+    // ĐĂNG NHẬP (modal 2 lựa chọn: cookie tự động / quét QR)
+    // ===================================================================
+    let _qrUnsub = null; // huỷ subscribe SSE QR khi đóng modal
+    let _loginKey = null; // accountKey đang đăng nhập trong modal
+
+    // Tạo/lấy slot tài khoản cá nhân GLOBAL (chỉ 1). Tái dùng nếu có; thiếu thì tạo.
+    async function _ensureGlobalKey() {
+        const p = _personal();
+        if (p) return p.accountKey;
+        const r = await window.ZaloApi.createAccount('Zalo shop');
+        const key = r?.data?.accountKey;
+        if (!key) throw new Error('Không tạo được tài khoản');
+        return key;
     }
 
-    // Tự gia hạn: khi mở trang, TK cá nhân CỦA MÁY NÀY đang rớt + có extension + còn
-    // phiên chat.zalo.me trên trình duyệt → tự login lại nền (1 lần/lần mở trang).
-    // (state.accounts đã owner-scoped = chỉ TK của máy này.) Không có phiên → im lặng.
-    let _autoRenewTried = false;
-    async function autoRenewZalo() {
-        if (_autoRenewTried) return;
-        _autoRenewTried = true;
-        if (!window.Web2Ext?.hasExtension?.()) return;
-        const personal = (state.accounts || []).filter((a) => a.accountType === 'personal');
-        // #3.1 (2026-06-27): CHƯA có TK cá nhân nào của máy này → nếu trình duyệt còn phiên
-        // chat.zalo.me (extension trả creds) thì TỰ tạo slot + cookie-login (KHÔNG cần bấm
-        // "Đăng nhập Zalo"). Pre-check creds TRƯỚC khi tạo slot → tránh tạo+xoá slot rác khi
-        // không có phiên. Dùng login KHÔNG-silent (TK đầu = chính → không bị gate "TK phụ").
-        if (!personal.length) {
-            try {
-                const cr = await window.Web2Ext.request('GET_ZALO_CREDS', {}, 12000).catch(
-                    () => null
-                );
-                if (cr && cr.ok && cr.data && cr.data.cookie && cr.data.imei) {
-                    const acc = await window.ZaloApi.createAccount('Zalo (tự động)').catch(
-                        () => null
-                    );
-                    const key = acc && acc.data && acc.data.accountKey;
-                    if (key) {
-                        const ok = await loginZaloCookie(key, false);
-                        if (ok) await loadAccounts();
-                        else await window.ZaloApi.deleteAccount(key).catch(() => {}); // xoá slot rỗng
-                    }
-                }
-            } catch (e) {
-                /* im lặng — không phiên/cookie → giữ onboarding */
-            }
-            return;
-        }
-        const stale = personal.filter((a) => a.isActive && a.status !== 'connected');
-        for (const a of stale) {
-            try {
-                await loginZaloCookie(a.accountKey, true); // silent
-            } catch (e) {
-                /* im lặng */
-            }
-        }
+    function _showOpts() {
+        $('#wzLoginOpts').hidden = false;
+        $('#wzQrArea').hidden = true;
+        $('#wzLoginErr').textContent = '';
+        _stopQr();
     }
-
-    // (QR login flow đã GỠ 2026-06-23 — đăng nhập DUY NHẤT bằng phiên chat.zalo.me
-    // trên trình duyệt qua loginZaloCookie. Thêm TK mới cũng qua cookie path bên dưới.)
-
-    // ── Add personal account modal (thay prompt() — thân thiện hơn) ────────
-    function addPersonal() {
-        $('#wzAddLabel').value = 'Zalo shop';
-        showModal('#wzAddModal');
-    }
-
-    // THÊM tài khoản bằng phiên chat.zalo.me (cookie) — KHÔNG quét QR (2026-06-20).
-    // Tạo slot MỚI (chưa có uid) rồi cookie-login → guard expectedUid=null nhận đúng
-    // account đang mở trên chat.zalo.me. Đây là đường THÊM account mới qua cookie
-    // (trước đây cookie chỉ re-connect slot cũ; thêm account mới chỉ có QR).
-    // Login fail (no_session / hủy / WRONG…) → XOÁ slot rỗng vừa tạo (tránh slot rác).
-    async function saveAddPersonalCookie() {
-        const label = ($('#wzAddLabel').value || '').trim() || 'Zalo shop';
-        const btn = $('#wzAddSaveCookie');
-        if (!window.Web2Ext?.hasExtension?.()) {
-            await Popup.warning(
-                'Cần cài tiện ích N2Store để đăng nhập bằng phiên Zalo đang mở. Hoặc dùng "Tạo & quét QR".'
-            );
-            return;
-        }
-        setBusy(btn, true);
-        let newKey = null;
+    function _stopQr() {
         try {
-            const r = await window.ZaloApi.createAccount(label);
-            newKey = r.data?.accountKey;
-            if (!newKey) throw new Error('Không tạo được tài khoản');
-            const ok = await loginZaloCookie(newKey, false); // hiện feedback
-            if (ok) {
-                hideModal('#wzAddModal');
-            } else if (newKey) {
-                // Không lấy được phiên / hủy → xoá slot rỗng vừa tạo.
-                try {
-                    await window.ZaloApi.deleteAccount(newKey);
-                } catch (_) {}
-            }
-            await loadAccounts();
+            _qrUnsub?.();
+        } catch {}
+        _qrUnsub = null;
+    }
+
+    async function openLogin(key) {
+        $('#wzLoginErr').textContent = '';
+        showModal('#wzLoginModal');
+        _showOpts();
+        try {
+            _loginKey = key || (await _ensureGlobalKey());
         } catch (e) {
-            notify('✗ ' + e.message, 'error');
-            if (newKey) {
-                try {
-                    await window.ZaloApi.deleteAccount(newKey);
-                } catch (_) {}
+            $('#wzLoginErr').textContent = e.message;
+            return;
+        }
+        // Tự thử cookie nếu trình duyệt còn phiên chat.zalo.me (im lặng, không lỗi nếu không có).
+        autoTryCookieInModal();
+    }
+
+    function closeLogin() {
+        _stopQr();
+        hideModal('#wzLoginModal');
+    }
+
+    // Tự dò cookie ngay khi mở modal — có phiên → đăng nhập luôn, không có → giữ 2 lựa chọn.
+    async function autoTryCookieInModal() {
+        const ext = window.Web2Ext;
+        if (!ext?.hasExtension?.()) return; // không có tiện ích → để user chọn QR
+        const cr = await ext.request('GET_ZALO_CREDS', {}, 12000).catch(() => null);
+        if (!cr || !cr.ok || !cr.data?.cookie || !cr.data?.imei) return; // không có phiên → giữ options
+        $('#wzLoginErr').textContent = 'Phát hiện phiên Zalo trên trình duyệt — đang đăng nhập…';
+        await doCookieLogin(_loginKey, cr.data);
+    }
+
+    // Đăng nhập bằng cookie (creds đã có từ extension hoặc tự lấy).
+    async function doCookieLogin(key, creds) {
+        const btn = $('#wzLoginCookie');
+        setBusy(btn, true);
+        try {
+            const ext = window.Web2Ext;
+            if (!creds) {
+                if (!ext?.hasExtension?.()) {
+                    await Popup.warning(
+                        'Cần cài tiện ích N2Store để đăng nhập bằng cookie. Hoặc dùng "Quét mã QR".'
+                    );
+                    return;
+                }
+                const r = await ext.request('GET_ZALO_CREDS', {}, 15000);
+                if (!r || !r.ok || !r.data?.cookie) {
+                    const reason = (r && r.data && r.data.reason) || '';
+                    if (reason === 'no_session' || reason === 'no_imei') {
+                        const go = await Popup.confirm(
+                            'Chưa thấy phiên Zalo trên trình duyệt. Đăng nhập https://chat.zalo.me/ trước rồi thử lại — hoặc dùng "Quét mã QR".',
+                            { okText: 'Mở chat.zalo.me', cancelText: 'Đóng' }
+                        );
+                        if (go) window.open('https://chat.zalo.me/', '_blank', 'noopener');
+                    } else {
+                        $('#wzLoginErr').textContent =
+                            (r && r.error) || 'Không lấy được phiên Zalo';
+                    }
+                    return;
+                }
+                creds = r.data;
             }
+            const { cookie, imei, userAgent } = creds;
+            await window.ZaloApi.loginCookie(key, { cookie, imei, userAgent });
+            notify('Đăng nhập Zalo thành công — đang kết nối…', 'success');
+            closeLogin();
+            setTimeout(loadAccounts, 1500);
+        } catch (e) {
+            $('#wzLoginErr').textContent = e.message;
         } finally {
             setBusy(btn, false);
+        }
+    }
+
+    // Đăng nhập bằng QR: gọi server bắt đầu luồng, nghe SSE để vẽ mã + cập nhật trạng thái.
+    async function startQrLogin(key) {
+        $('#wzLoginErr').textContent = '';
+        $('#wzLoginOpts').hidden = true;
+        $('#wzQrArea').hidden = false;
+        const box = $('#wzQrBox');
+        const stEl = $('#wzQrStatus');
+        box.innerHTML = '<div class="wz-qr-spin">Đang tạo mã QR…</div>';
+        stEl.textContent = 'Mở Zalo trên điện thoại → Quét mã.';
+        _stopQr();
+        const topic = `web2:zalo:qr:${key}`;
+        if (window.Web2SSE?.subscribe) {
+            _qrUnsub = window.Web2SSE.subscribe(topic, (msg) => onQrEvent(msg?.data));
+        }
+        try {
+            await window.ZaloApi.loginQr(key);
+        } catch (e) {
+            stEl.textContent = '';
+            $('#wzLoginErr').textContent = e.message;
+        }
+    }
+
+    function onQrEvent(d) {
+        if (!d) return;
+        const box = $('#wzQrBox');
+        const stEl = $('#wzQrStatus');
+        switch (d.event) {
+            case 'qr':
+                if (d.image)
+                    box.innerHTML = `<img src="${esc(d.image)}" alt="Mã QR đăng nhập Zalo" class="wz-qr-img" width="240" height="240">`;
+                stEl.textContent = 'Mở Zalo trên điện thoại → Quét mã.';
+                break;
+            case 'scanned':
+                stEl.textContent = `Đã quét${d.displayName ? ' — ' + d.displayName : ''}. Xác nhận trên điện thoại…`;
+                break;
+            case 'expired':
+                box.innerHTML =
+                    '<div class="wz-qr-spin">Mã QR đã hết hạn. Bấm "Chọn cách khác" → "Quét mã QR" lại.</div>';
+                break;
+            case 'declined':
+                stEl.textContent = 'Bạn đã từ chối đăng nhập trên điện thoại.';
+                break;
+            case 'success':
+                stEl.textContent = 'Đăng nhập thành công — đang kết nối…';
+                notify('Đăng nhập Zalo thành công', 'success');
+                _stopQr();
+                closeLogin();
+                setTimeout(loadAccounts, 1200);
+                break;
+            case 'error':
+                stEl.textContent = '';
+                $('#wzLoginErr').textContent = d.error || 'Đăng nhập QR lỗi';
+                break;
+        }
+    }
+
+    // Tự đăng nhập cookie khi mở tab Tài khoản (admin) nếu CHƯA kết nối + còn phiên
+    // chat.zalo.me trên trình duyệt. 1 lần / lần mở trang. Im lặng nếu không có phiên.
+    let _autoTried = false;
+    async function autoCookieIfDetected() {
+        if (_autoTried) return;
+        if (WZApp.isAdmin && !WZApp.isAdmin()) return; // chỉ admin mới đăng nhập được
+        _autoTried = true;
+        if (!window.Web2Ext?.hasExtension?.()) return;
+        const p = _personal();
+        if (p && p.status === 'connected') return; // đã kết nối → khỏi
+        const cr = await window.Web2Ext.request('GET_ZALO_CREDS', {}, 12000).catch(() => null);
+        if (!cr || !cr.ok || !cr.data?.cookie || !cr.data?.imei) return; // không phiên → im lặng
+        try {
+            const key = p ? p.accountKey : await _ensureGlobalKey();
+            const { cookie, imei, userAgent } = cr.data;
+            await window.ZaloApi.loginCookie(key, { cookie, imei, userAgent });
+            notify('Tự đăng nhập Zalo từ phiên trình duyệt', 'success');
+            setTimeout(loadAccounts, 1500);
+        } catch (e) {
+            /* im lặng — WRONG_ACCOUNT / no-session → giữ onboarding */
         }
     }
 
@@ -391,8 +454,12 @@
     // ── Export ─────────────────────────────────────────────────────────────
     WZApp.loadAccounts = loadAccounts;
     WZApp.onAccAction = onAccAction;
-    WZApp.addPersonal = addPersonal;
-    WZApp.saveAddPersonalCookie = saveAddPersonalCookie;
+    WZApp.openLogin = openLogin;
+    WZApp.closeLogin = closeLogin;
+    WZApp.doCookieLogin = doCookieLogin;
+    WZApp.startQrLogin = startQrLogin;
+    WZApp._loginKey = () => _loginKey;
+    WZApp.showLoginOpts = _showOpts;
     WZApp.openOaModal = openOaModal;
     WZApp.closeOaModal = closeOaModal;
     WZApp.saveOa = saveOa;

@@ -2,6 +2,15 @@
 
 ## 2026-06-29
 
+### [web2-zalo][render] Đăng nhập Zalo GLOBAL always-on — admin, 2 cách (cookie/QR), lưu server + auto-refresh
+
+**Files:** `render.com/services/web2-zalo-zca.js` (`_isWanted` always-on bỏ focus-lease; `_afterLogin` persist creds thật; thêm `loginWithQR` + export; `releaseLease`→no-op), `render.com/routes/web2-zalo.js` (`_owner`=hằng `'__global__'`; `_saveSession` mã hoá+lưu session COALESCE; thêm `POST /accounts/:key/login-qr` đẩy QR qua SSE eventType `update`; admin-gate `login-cookie`/`login-qr`/`POST /accounts`; thêm `restoreSessions()`; require `web2-secret-crypto`), `render.com/db/web2-zalo-schema.js` (bỏ wipe `session=NULL`; migrate `owner_id='__global__'`), `render.com/server.js` (gọi `restoreSessions()` sau ensureSchema, chỉ instance `!DISABLE_WEB2_JOBS`), `web2/shared/web2-zalo-api.js` (`Web2ZaloOwner`=`'__global__'`; thêm `loginQr()`), `web2/shared/web2-zalo.js` (`_zaloOwner`→`'__global__'`), `web2/zalo/js/web2-zalo-accounts.js` (REWRITE — 1 TK global, modal 2 lựa chọn cookie/QR, auto-cookie khi detect, QR qua SSE `web2:zalo:qr:<key>`), `web2/zalo/js/web2-zalo-app.js` (admin-gate tab Tài khoản: `isAdmin`/`applyAdminGate`/guard `switchTab`; wiring login modal), `web2/zalo/index.html` (modal `#wzLoginModal` 2 lựa chọn + khu QR; bỏ presence focus-lease; bump asset `→20260629global`), `web2/zalo/css/web2-zalo.css` (`.wz-login-opt*` + `.wz-qr-*`).
+
+User: bỏ đăng nhập cũ → admin bấm nút → 2 option cookie/QR → tự cookie nếu detect → account lưu server dùng TOÀN dự án + auto-refresh nếu hết hạn. Tab Tài khoản chỉ admin. (User chốt: acc RIÊNG luôn online, 1 TK global — chấp nhận chat.zalo.me bị "Đổi thiết bị".)
+
+- **Đảo ngược** quyết định 2026-06-23 (per-máy + no-server-session + no-QR) + focus-lease 2026-06-25. owner ép hằng `'__global__'` (ponytail — không gỡ plumbing owner-scoped, chỉ ép hằng số → blast radius nhỏ). Session lưu DB mã hoá at-rest (`web2-secret-crypto`, no-op nếu chưa bật `WEB2_ENC_KEY`) → boot-restore + watchdog 24/7. QR: zca-js `loginQR` → ảnh base64 đẩy SSE (eventType `update` vì bridge không nghe custom type).
+- **Test browser (web2 login admin):** tab Tài khoản hiện (admin) · `Web2ZaloOwner='__global__'` · `ZaloApi.loginQr` có · modal mở 2 option cookie+QR · click QR → khu QR + subscribe `web2:zalo:qr:<key>` (lỗi `Not Found` = route chưa deploy, đúng đường gọi) · 0 console error · đóng modal → unsubscribe SSE sạch. Status ✅ (BE chờ deploy Render để test E2E login thật)
+
 ### [web2-variants] Trường "Nhóm" modal biến thể → SELECT bắt buộc (Màu / Size)
 
 **Files:** `web2/variants/index.html` (input#vmGroup → select 3 option `""`/`Màu`/`Size`, label `Nhóm (tùy chọn)`→`Nhóm *`, bump app js `→20260629a`), `web2/variants/js/web2-variants-app.js` (saveModal: thêm guard `if(!fields.groupName) _reenable('Cần chọn nhóm: Màu hoặc Size')`).

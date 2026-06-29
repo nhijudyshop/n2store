@@ -1792,3 +1792,120 @@
         transition: none;
     }
 }
+
+/* ── Đăng nhập Zalo: 2 lựa chọn (cookie / QR) + khu vực QR (2026-06-29) ── */
+/* [hidden] guard BẮT BUỘC: .wz-login-opts/.wz-qr-area có display:flex (specificity
+   0,1,0) đè UA [hidden]{display:none} (0,0,1) → attr `hidden` vô hiệu. JS toggle
+   bằng .hidden nên cần rule này (xem CLAUDE.md gotcha hidden vs display). */
+.wz-login-opts[hidden],
+.wz-qr-area[hidden] {
+    display: none !important;
+}
+.wz-login-opts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.wz-login-opt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    border: 1px solid var(--wz-line);
+    border-radius: 14px;
+    background: var(--wz-card);
+    cursor: pointer;
+    transition:
+        border-color var(--wz-fast) var(--wz-ease),
+        background var(--wz-fast) var(--wz-ease),
+        transform var(--wz-fast) var(--wz-ease),
+        box-shadow var(--wz-fast) var(--wz-ease);
+}
+.wz-login-opt:hover {
+    border-color: var(--wz-blue-border);
+    background: var(--wz-blue-soft);
+    transform: translateY(-1px);
+    box-shadow: var(--wz-shadow-1);
+}
+.wz-login-opt:focus-visible {
+    outline: 2px solid var(--wz-blue);
+    outline-offset: 2px;
+}
+.wz-login-opt:disabled,
+.wz-login-opt.is-busy {
+    opacity: 0.55;
+    cursor: progress;
+}
+.wz-login-opt-ic {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--wz-blue-soft);
+    color: var(--wz-blue);
+}
+.wz-login-opt-ic i {
+    width: 22px;
+    height: 22px;
+}
+.wz-login-opt-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.wz-login-opt-t {
+    font-weight: 700;
+    color: var(--wz-ink);
+}
+.wz-login-opt-s {
+    font-size: 12.5px;
+    color: var(--wz-muted);
+    line-height: 1.35;
+}
+.wz-login-opt > i[data-lucide] {
+    flex: 0 0 auto;
+    color: var(--wz-muted);
+}
+.wz-qr-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0 4px;
+}
+.wz-qr-box {
+    width: 248px;
+    height: 248px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--wz-line);
+    border-radius: 16px;
+    background: #fff;
+    padding: 6px;
+}
+.wz-qr-img {
+    width: 236px;
+    height: 236px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    border-radius: 8px;
+}
+.wz-qr-spin {
+    font-size: 13px;
+    color: var(--wz-muted);
+    text-align: center;
+    padding: 0 18px;
+    line-height: 1.4;
+}
+.wz-qr-status {
+    font-size: 13px;
+    color: var(--wz-ink);
+    text-align: center;
+    min-height: 18px;
+}

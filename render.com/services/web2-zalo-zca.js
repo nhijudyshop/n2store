@@ -494,10 +494,12 @@ async function _afterLogin(accountKey, api, label, opts) {
         throw err;
     }
 
-    // KHÔNG lưu phiên (cookie) lên server (2026-06-23): chỉ cập nhật DANH TÍNH TK
-    // (uid/tên/avatar/status) để UI hiện tên — KHÔNG ghi cookie vào DB. Phiên chỉ
-    // sống trong RAM (s.creds) phục vụ tự nối lại trong cùng uptime.
-    await _cb.persistSession?.(accountKey, null, s.info, label);
+    // LƯU phiên (cookie) lên server (2026-06-29, global always-on): ghi session đã mã
+    // hoá vào DB để boot-restore + auto-refresh (giống Pancake relay autoConnect).
+    // credentials = {cookie,imei,userAgent,language} trích từ ctx ở trên. Route
+    // _saveSession mã hoá at-rest trước khi ghi. credentials null (getContext lỗi) →
+    // chỉ cập nhật danh tính, giữ session cũ.
+    await _cb.persistSession?.(accountKey, credentials, s.info, label);
     _attachListener(accountKey, api);
     _setStatus(accountKey, 'connected');
 
@@ -532,10 +534,12 @@ async function _afterLogin(accountKey, api, label, opts) {
 // Lên lịch reconnect theo close code. 1006/network = backoff lũy thừa; 3000/3003
 // (DuplicateConnection/KickConnection — bị giành phiên) = reconnect chậm + đếm
 // liên tiếp, đụng trần KICK_CAP thì nghỉ dài (TK đang mở ở máy khác → tránh "đấu").
-// "Wanted" = đang có 1 tab công cụ focus (lease còn hạn) muốn giữ phiên. Hết lease /
-// đã yield / đã dispose → KHÔNG còn muốn → KHÔNG fight với chat.zalo.me nữa.
+// ALWAYS-ON (2026-06-29): tài khoản Zalo GLOBAL luôn online trên server cho cả dự án
+// (user chốt: dùng acc riêng, bỏ focus-lease). "Wanted" = chưa bị admin chủ động ngắt
+// / xoá (disposed) → watchdog giữ phiên 24/7 + auto-reconnect. KHÔNG còn nhường theo
+// lease (chat.zalo.me của acc này sẽ bị đá — chấp nhận, dùng acc phụ riêng cho tool).
 function _isWanted(s) {
-    return !!s && !s.yielded && !s.disposed && !!s.leaseUntil && now() <= s.leaseUntil;
+    return !!s && !s.disposed;
 }
 
 function _scheduleReconnect(accountKey, code) {
@@ -678,10 +682,41 @@ function stopAll() {
     console.log('[web2-zalo-zca] stopAll (graceful shutdown)');
 }
 
-// (Đăng nhập QR đã GỠ 2026-06-23 — chỉ đăng nhập bằng phiên chat.zalo.me sống trên
-// trình duyệt qua tiện ích N2Store: route /login-cookie → loginWithCredentials.)
+// ── Đăng nhập QR (khôi phục 2026-06-29) — zca-js loginQR phát sự kiện QR qua onEvent ──
+// onEvent(ev): ev.type 0=QRCodeGenerated{data.image base64}, 1=Expired, 2=Scanned
+// {data.avatar,display_name}, 3=Declined, 4=GotLoginInfo. Route forward sang SSE để
+// trình duyệt vẽ QR. Thành công → _afterLogin (lưu session + nghe realtime, như cookie).
+async function loginWithQR(accountKey, label, onEvent, opts) {
+    if (!Zalo) throw new Error('zca-js không khả dụng');
+    const existing = _sessions.get(accountKey);
+    if (existing?.api) return { status: 'connected', alreadyConnected: true };
+    if (existing?.connecting) return { status: 'connecting', alreadyConnecting: true };
+    const seed = _sessions.get(accountKey) || {};
+    seed.connecting = true;
+    _sessions.set(accountKey, seed);
+    _setStatus(accountKey, 'connecting');
+    try {
+        const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
+        const api = await zalo.loginQR({ language: 'vi' }, (ev) => {
+            try {
+                onEvent?.(ev);
+            } catch (_) {}
+        });
+        if (!api) throw new Error('QR hết hạn hoặc bị huỷ — chưa đăng nhập được');
+        await _afterLogin(accountKey, api, label, opts);
+        return { status: 'connected' };
+    } catch (e) {
+        if (!(e && e.code === 'WRONG_ACCOUNT')) {
+            _setStatus(accountKey, 'error', String((e && e.message) || e).slice(0, 120));
+        }
+        throw e;
+    } finally {
+        const cur = _sessions.get(accountKey);
+        if (cur) delete cur.connecting;
+    }
+}
 
-// ── Đăng nhập bằng credentials (cookie từ trình duyệt — KHÔNG lưu DB) ──
+// ── Đăng nhập bằng credentials (cookie từ trình duyệt) ──
 // opts.expectedUid: chỉ chấp nhận nếu phiên login ra đúng uid này (guard cookie-login slot khác).
 async function loginWithCredentials(accountKey, credentials, label, opts) {
     if (!Zalo) throw new Error('zca-js không khả dụng');
@@ -1139,9 +1174,12 @@ function _yield(accountKey) {
     return { released: true };
 }
 
-// releaseLease: tab công cụ mất focus / đóng → nhường ngay (không đợi lease hết hạn).
+// releaseLease: GLOBAL always-on (2026-06-29) → KHÔNG nhường nữa (tài khoản dùng chung
+// cả dự án, luôn online). No-op để các trang còn gọi /release (vd jt-tracking focus-lease
+// cũ) KHÔNG ngắt phiên global. _yield giữ lại phòng tương lai nhưng không còn caller.
 function releaseLease(accountKey) {
-    return _yield(accountKey);
+    const s = _sessions.get(accountKey);
+    return { released: false, connected: !!(s && s.api), status: (s && s.status) || 'offline' };
 }
 
 // Health 1 phiên (cho UI đèn sức khoẻ + observability "không bị văng").
@@ -1176,6 +1214,7 @@ module.exports = {
     configure,
     isAvailable,
     loginWithCredentials,
+    loginWithQR,
     send,
     sendMedia,
     sendSticker,

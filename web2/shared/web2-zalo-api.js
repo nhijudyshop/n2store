@@ -13,21 +13,12 @@
     const BASE = WORKER + '/api/web2-zalo';
     const DIRECT = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
-    // Per-máy (2026-06-23): UUID ổn định theo TRÌNH DUYỆT máy này (localStorage). Gửi
-    // kèm header x-web2-zalo-owner → server chỉ cho máy này thấy/dùng account của mình.
+    // GLOBAL (2026-06-29): 1 tài khoản Zalo dùng chung cả dự án (bỏ per-máy owner-scoped).
+    // owner = hằng số '__global__' → mọi máy tính ra cùng SSE topic + cùng thấy/dùng 1 account.
+    // (Server cũng ép _owner='__global__'; header x-web2-zalo-owner chỉ còn để tương thích.)
+    const GLOBAL_OWNER = '__global__';
     function _zaloOwner() {
-        try {
-            let o = localStorage.getItem('web2_zalo_owner');
-            if (!o) {
-                o =
-                    (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
-                    'own_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-                localStorage.setItem('web2_zalo_owner', o);
-            }
-            return o;
-        } catch {
-            return 'own_anon';
-        }
+        return GLOBAL_OWNER;
     }
     if (!window.Web2ZaloOwner) window.Web2ZaloOwner = _zaloOwner; // dùng chung (SSE topic)
 
@@ -137,6 +128,11 @@
                 method: 'POST',
                 body: JSON.stringify(creds),
             });
+        },
+        // Bắt đầu đăng nhập QR — server đẩy sự kiện QR (ảnh/đã quét/hết hạn/thành công)
+        // qua SSE topic web2:zalo:qr:<key>. Trả {started:true, topic}.
+        loginQr(key) {
+            return _fetch(`/accounts/${encodeURIComponent(key)}/login-qr`, { method: 'POST' });
         },
         self(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/self`, { method: 'GET' });

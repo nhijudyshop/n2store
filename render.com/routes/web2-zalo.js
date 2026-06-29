@@ -21,6 +21,7 @@ const { ensureWeb2ZaloSchema } = require('../db/web2-zalo-schema');
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 const zca = require('../services/web2-zalo-zca');
 const oa = require('../services/web2-zalo-oa');
+const secretCrypto = require('../lib/web2-secret-crypto'); // mã hoá session at-rest (no-op nếu chưa bật WEB2_ENC_KEY)
 
 // ── Auth gate (BẮT BUỘC) ────────────────────────────────────────────────
 // Toàn bộ router Zalo (đọc PII + gửi tin tới KH thật + media) PHẢI qua gate mềm.
@@ -85,12 +86,14 @@ function _notify(topic, action, code) {
     }
 }
 
-// ── Per-máy isolation (owner-scoped, 2026-06-23) ────────────────────────────
-// owner = MÁY/trình duyệt (header x-web2-zalo-owner = UUID localStorage). Mỗi máy
-// chỉ thấy/dùng account của mình. SSE topic ghép owner → tin của máy A không tới máy B.
-function _owner(req) {
-    const o = req.headers['x-web2-zalo-owner'];
-    return o && String(o).trim() ? String(o).trim().slice(0, 80) : null;
+// ── GLOBAL account (2026-06-29) ─────────────────────────────────────────────
+// User chốt: 1 tài khoản Zalo GLOBAL dùng chung cả dự án (bỏ per-máy owner-scoped).
+// ponytail: KHÔNG gỡ toàn bộ plumbing owner-scoped (rủi ro vỡ login) — chỉ ép owner =
+// hằng số GLOBAL_OWNER. Mọi máy tính ra cùng owner → cùng thấy/dùng/nghe SSE 1 account.
+// (header x-web2-zalo-owner cũ bị bỏ qua; client cũng đặt Web2ZaloOwner='__global__'.)
+const GLOBAL_OWNER = '__global__';
+function _owner(_req) {
+    return GLOBAL_OWNER;
 }
 // Cache accountKey → owner_id (cho _notify firehose khỏi query mỗi tin). Refresh 60s
 // + cập nhật ngay khi login/tạo slot.
@@ -560,15 +563,25 @@ async function _updateAccStatus(accountKey, status, txt) {
 // avatar/status) để UI hiện tên. KHÔNG lưu cookie/phiên lên server (2026-06-23):
 // cột `session` luôn = NULL. Phiên chỉ sống trong RAM (zca s.creds) trong uptime.
 // (Tham số `creds` được zca truyền null — bỏ qua, giữ chữ ký callback persistSession.)
-async function _saveSession(accountKey, _creds, info, label) {
+async function _saveSession(accountKey, creds, info, label) {
     if (!_pool) throw new Error('DB pool chưa sẵn sàng (cold-start)');
+    // LƯU phiên (global always-on, 2026-06-29): ghi session đã mã hoá at-rest để
+    // boot-restore + auto-refresh. creds null (getContext lỗi) → COALESCE giữ session cũ.
+    const encSession = creds ? secretCrypto.encryptJson(creds) : null;
     await _pool.query(
         `UPDATE web2_zalo_accounts SET
-            session=NULL, zalo_uid=COALESCE($1, zalo_uid),
+            session=COALESCE($6, session), zalo_uid=COALESCE($1, zalo_uid),
             display_name=COALESCE($2, display_name), avatar_url=COALESCE($3, avatar_url),
             status='connected', status_msg=NULL, last_connected_at=$4, updated_at=$4
           WHERE account_key=$5`,
-        [info?.uid || null, info?.name || label || null, info?.avatar || null, now(), accountKey]
+        [
+            info?.uid || null,
+            info?.name || label || null,
+            info?.avatar || null,
+            now(),
+            accountKey,
+            encSession,
+        ]
     );
     _notify(_ownerTopic(accountKey, 'accounts'), 'update', accountKey);
 }
@@ -626,7 +639,7 @@ router.get('/accounts', async (req, res) => {
 });
 
 // Tạo shell tài khoản personal (chưa đăng nhập) — gắn CHỦ SỞ HỮU = máy tạo (owner).
-router.post('/accounts', async (req, res) => {
+router.post('/accounts', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const { label } = req.body || {};
@@ -646,17 +659,15 @@ router.post('/accounts', async (req, res) => {
     }
 });
 
-// (Đăng nhập QR + "Kết nối lại bằng session đã lưu" đã GỠ 2026-06-23 — KHÔNG lưu
-// phiên trên server. Đăng nhập DUY NHẤT qua /login-cookie: phiên chat.zalo.me sống
-// trên trình duyệt + tiện ích N2Store. "Kết nối lại" = bấm "Đăng nhập Zalo" lại.)
+// Đăng nhập Zalo (GLOBAL, admin) — 2 cách: cookie (phiên chat.zalo.me qua tiện ích) hoặc
+// quét QR. Cả 2 đều qua _afterLogin → lưu session đã mã hoá lên server + nghe realtime.
 
-// "Đăng nhập Zalo" 1-click: client (qua extension) gửi {cookie, imei, userAgent} của phiên
-// chat.zalo.me → login zca-js bằng cookie (KHÔNG cần quét QR). _afterLogin tự lưu session +
-// set status connected + SSE. Cookie sai/hết hạn → zalo.login throw → 400 (client báo lỗi).
-router.post('/accounts/:key/login-cookie', async (req, res) => {
+// (1) COOKIE: client (qua extension) gửi {cookie, imei, userAgent} của phiên chat.zalo.me →
+// login zca-js bằng cookie (KHÔNG cần quét QR). Cookie sai/hết hạn → throw → 400.
+router.post('/accounts/:key/login-cookie', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
-        const { cookie, imei, userAgent, silent } = req.body || {};
+        const { cookie, imei, userAgent } = req.body || {};
         if (!cookie || !imei || !userAgent)
             return res
                 .status(400)
@@ -670,11 +681,8 @@ router.post('/accounts/:key/login-cookie', async (req, res) => {
             return res
                 .status(400)
                 .json({ success: false, error: 'Chỉ tài khoản cá nhân mới đăng nhập kiểu này' });
-        // Per-máy: gắn CHỦ SỞ HỮU = máy đang đăng nhập (header owner). Account này từ
-        // giờ thuộc máy này; máy khác không thấy/dùng. Re-login từ máy khác → re-stamp.
+        // GLOBAL: stamp owner hằng số (mọi máy thấy/dùng chung).
         const ownerId = _owner(req);
-        if (silent && !ownerId)
-            return res.json({ success: true, skipped: true, reason: 'no_owner' });
         await db
             .query(
                 `UPDATE web2_zalo_accounts SET owner_id=$1, updated_at=$2 WHERE account_key=$3`,
@@ -696,6 +704,64 @@ router.post('/accounts/:key/login-cookie', async (req, res) => {
             success: false,
             error: wrong ? e.message : 'Đăng nhập Zalo lỗi: ' + (e.message || 'phiên không hợp lệ'),
         });
+    }
+});
+
+// (2) QR: bắt đầu luồng quét QR; sự kiện QR (ảnh/đã quét/hết hạn) đẩy qua SSE topic
+// web2:zalo:qr:<key> để trình duyệt vẽ mã. Trả ngay {started:true}; thành công →
+// _afterLogin bắn SSE accounts → FE reload. Lỗi/hết hạn → SSE event:'error'.
+router.post('/accounts/:key/login-qr', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const key = req.params.key;
+        const { rows } = await db.query(`SELECT * FROM web2_zalo_accounts WHERE account_key=$1`, [
+            key,
+        ]);
+        if (!rows[0])
+            return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản' });
+        if (rows[0].account_type !== 'personal')
+            return res
+                .status(400)
+                .json({ success: false, error: 'Chỉ tài khoản cá nhân mới đăng nhập kiểu này' });
+        const topic = `web2:zalo:qr:${key}`;
+        // eventType 'update' — web2-sse-bridge chỉ lắng nghe các eventType đã đăng ký
+        // (update/created/deleted/change/test/resync), KHÔNG có 'qr' tuỳ biến.
+        const pushQr = (payload) => {
+            if (_notifyClients) _notifyClients(topic, { ...payload, ts: now() }, 'update');
+        };
+        // Stamp owner global trước khi login (giống cookie).
+        await db
+            .query(
+                `UPDATE web2_zalo_accounts SET owner_id=$1, updated_at=$2 WHERE account_key=$3`,
+                [_owner(req), now(), key]
+            )
+            .catch(() => {});
+        _ownerByAccount.set(key, _owner(req));
+        // Fire-and-forget: KHÔNG await (luồng QR sống ~vài chục giây chờ user quét).
+        zca.loginWithQR(
+            key,
+            rows[0].label || rows[0].display_name || 'Zalo shop',
+            (ev) => {
+                const t = ev && ev.type;
+                if (t === 0 && ev.data) pushQr({ event: 'qr', image: ev.data.image });
+                else if (t === 1) pushQr({ event: 'expired' });
+                else if (t === 2 && ev.data)
+                    pushQr({
+                        event: 'scanned',
+                        displayName: ev.data.display_name || '',
+                        avatar: ev.data.avatar || '',
+                    });
+                else if (t === 3) pushQr({ event: 'declined' });
+            },
+            { expectedUid: rows[0].zalo_uid || null }
+        )
+            .then(() => pushQr({ event: 'success' }))
+            .catch((e) =>
+                pushQr({ event: 'error', error: String(e && e.message ? e.message : e) })
+            );
+        res.json({ success: true, started: true, topic });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
     }
 });
 
@@ -2335,11 +2401,37 @@ async function ensureSchema(pool) {
     }
 }
 
-// (restoreSessions đã GỠ 2026-06-23 — KHÔNG lưu phiên trên server nên không boot-
-// restore. Boot chỉ ensureSchema (wipe cột session) + nạp cache TK chính. Mọi TK
-// đều disconnected sau restart; user "Đăng nhập Zalo" từ trình duyệt để nối lại.)
+// Boot-restore (khôi phục 2026-06-29, global always-on): re-login TK personal có session
+// đã lưu khi boot (giống Pancake relay autoConnect). Session mã hoá at-rest → giải mã
+// trước. Cookie hết hạn → login throw → status 'error' (admin đăng nhập lại). Gọi sau
+// ensureSchema trong server.js.
+async function restoreSessions() {
+    if (!_pool || !zca.isAvailable()) return;
+    try {
+        const { rows } = await _pool.query(
+            `SELECT account_key, session, label, display_name, zalo_uid
+               FROM web2_zalo_accounts
+              WHERE account_type='personal' AND is_active=true AND session IS NOT NULL`
+        );
+        for (const r of rows) {
+            try {
+                const creds = secretCrypto.decryptJson(r.session);
+                if (!creds || !creds.cookie || !creds.imei || !creds.userAgent) continue;
+                await zca.loginWithCredentials(r.account_key, creds, r.label || r.display_name, {
+                    expectedUid: r.zalo_uid || null,
+                });
+                console.log('[WEB2-ZALO] boot-restore login', r.account_key);
+            } catch (e) {
+                console.warn('[WEB2-ZALO] boot-restore fail', r.account_key, e.message);
+            }
+        }
+    } catch (e) {
+        console.warn('[WEB2-ZALO] restoreSessions failed:', e.message);
+    }
+}
 
 router.ensureSchema = ensureSchema;
+router.restoreSessions = restoreSessions;
 router.initializeNotifiers = initializeNotifiers;
 router.runZaloRetention = runZaloRetention;
 // Graceful shutdown: dừng watchdog + đóng listener zca để nhường phiên cho instance mới

@@ -28,21 +28,11 @@
     const BASE = WORKER + '/api/web2-zalo';
     const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
-    // Per-máy: owner UUID theo trình duyệt (dùng chung Web2ZaloOwner nếu có).
+    // GLOBAL (2026-06-29): 1 tài khoản Zalo dùng chung cả dự án (bỏ per-máy). owner =
+    // hằng số '__global__' → mọi trang/máy tính ra cùng SSE topic (kể cả chat nhúng).
     function _zaloOwner() {
         if (global.Web2ZaloOwner) return global.Web2ZaloOwner();
-        try {
-            let o = localStorage.getItem('web2_zalo_owner');
-            if (!o) {
-                o =
-                    (global.crypto && crypto.randomUUID && crypto.randomUUID()) ||
-                    'own_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-                localStorage.setItem('web2_zalo_owner', o);
-            }
-            return o;
-        } catch {
-            return 'own_anon';
-        }
+        return '__global__';
     }
     function _authHeaders() {
         const h = { 'x-web2-zalo-owner': _zaloOwner() };

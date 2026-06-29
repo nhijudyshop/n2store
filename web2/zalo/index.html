@@ -18,7 +18,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260625anim" />
-        <link rel="stylesheet" href="css/web2-zalo.css?v=20260623own" />
+        <link rel="stylesheet" href="css/web2-zalo.css?v=20260629global" />
         <link rel="stylesheet" href="../shared/zalo-chat/chat-bubbles.css?v=20260622p6" />
         <link rel="stylesheet" href="../shared/zalo-chat/chat-composer.css?v=20260622p4" />
         <link rel="stylesheet" href="../shared/zalo-chat/chat-lightbox.css?v=20260613L" />
@@ -281,51 +281,74 @@
             </main>
         </div>
 
-        <!-- Add personal account modal -->
+        <!-- Đăng nhập Zalo (GLOBAL, admin) — 2 cách: cookie tự động / quét QR -->
         <div
             class="wz-modal"
-            id="wzAddModal"
+            id="wzLoginModal"
             hidden
             role="dialog"
             aria-modal="true"
-            aria-labelledby="wzAddTitle"
+            aria-labelledby="wzLoginTitle"
         >
-            <div class="wz-modal-backdrop" id="wzAddBackdrop"></div>
+            <div class="wz-modal-backdrop" id="wzLoginBackdrop"></div>
             <div class="wz-modal-panel modal-content">
                 <header class="wz-modal-head">
-                    <h2 id="wzAddTitle">Thêm tài khoản cá nhân</h2>
-                    <button class="wz-modal-close" id="wzAddClose" type="button" aria-label="Đóng">
+                    <h2 id="wzLoginTitle">Đăng nhập Zalo</h2>
+                    <button
+                        class="wz-modal-close"
+                        id="wzLoginClose"
+                        type="button"
+                        aria-label="Đóng"
+                    >
                         <i data-lucide="x"></i>
                     </button>
                 </header>
                 <div class="wz-modal-body modal-body">
-                    <p class="wz-hint" style="margin: 0 0 12px">
-                        Đặt tên gợi nhớ, rồi:<br />
-                        1. Mở <b>chat.zalo.me</b> trên trình duyệt máy này + đăng nhập đúng tài
-                        khoản Zalo.<br />
-                        2. Bấm <b>Đăng nhập bằng Zalo đang mở</b> dưới đây (cần tiện ích
-                        <b>N2Store</b>).<br />
-                        Máy chủ <b>không lưu mật khẩu/phiên</b> — chỉ dùng phiên đang mở trên trình
-                        duyệt. ⚠ Nên dùng <b>tài khoản phụ</b> (đăng nhập không chính thức, có thể
-                        bị khoá).
+                    <p class="wz-hint" style="margin: 0 0 14px">
+                        1 tài khoản Zalo dùng chung <b>cả dự án</b> — phiên lưu trên máy chủ, luôn
+                        online &amp; tự kết nối lại. ⚠ Nên dùng <b>tài khoản phụ</b> (đăng nhập
+                        không chính thức) vì chat.zalo.me của tài khoản này sẽ bị "Đổi thiết bị".
                     </p>
-                    <div class="wz-field">
-                        <label for="wzAddLabel">Tên gợi nhớ</label>
-                        <input id="wzAddLabel" type="text" value="Zalo shop" autocomplete="off" />
+                    <!-- 2 lựa chọn -->
+                    <div class="wz-login-opts" id="wzLoginOpts">
+                        <button class="wz-login-opt" id="wzLoginCookie" type="button">
+                            <span class="wz-login-opt-ic"><i data-lucide="zap"></i></span>
+                            <span class="wz-login-opt-body">
+                                <span class="wz-login-opt-t">Đăng nhập tự động (cookie)</span>
+                                <span class="wz-login-opt-s"
+                                    >Dùng phiên chat.zalo.me đang mở trên máy này (cần tiện ích
+                                    N2Store).</span
+                                >
+                            </span>
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                        <button class="wz-login-opt" id="wzLoginQrBtn" type="button">
+                            <span class="wz-login-opt-ic"><i data-lucide="qr-code"></i></span>
+                            <span class="wz-login-opt-body">
+                                <span class="wz-login-opt-t">Quét mã QR</span>
+                                <span class="wz-login-opt-s"
+                                    >Mở Zalo trên điện thoại → Quét mã để đăng nhập.</span
+                                >
+                            </span>
+                            <i data-lucide="chevron-right"></i>
+                        </button>
                     </div>
+                    <!-- Khu vực QR -->
+                    <div class="wz-qr-area" id="wzQrArea" hidden>
+                        <div class="wz-qr-box" id="wzQrBox">
+                            <div class="wz-qr-spin">Đang tạo mã QR…</div>
+                        </div>
+                        <div class="wz-qr-status" id="wzQrStatus">
+                            Mở Zalo trên điện thoại → Quét mã.
+                        </div>
+                        <button class="wz-btn wz-btn-sm" id="wzQrBack" type="button">
+                            <i data-lucide="arrow-left"></i> Chọn cách khác
+                        </button>
+                    </div>
+                    <div class="wz-err" id="wzLoginErr" style="margin-top: 8px"></div>
                 </div>
-                <footer class="wz-modal-foot">
-                    <button class="wz-btn" id="wzAddCancel" type="button">
-                        <i data-lucide="x"></i> Hủy
-                    </button>
-                    <button class="wz-btn wz-btn-primary" id="wzAddSaveCookie" type="button">
-                        <i data-lucide="log-in"></i> Đăng nhập bằng Zalo đang mở
-                    </button>
-                </footer>
             </div>
         </div>
-
-        <!-- (QR login modal đã GỠ 2026-06-23 — chỉ đăng nhập bằng phiên chat.zalo.me) -->
 
         <!-- OA connect modal -->
         <div
@@ -395,9 +418,8 @@
         <script src="../shared/web2-extension-bridge.js?v=20260619zalo"></script>
 
         <!-- Page scripts -->
-        <script src="../shared/web2-zalo-api.js?v=20260623own"></script>
-        <!-- Focus-lease: giữ phiên Zalo khi tab này focus, nhường chat.zalo.me khi rời -->
-        <script src="../shared/web2-zalo-presence.js?v=20260627cookie"></script>
+        <script src="../shared/web2-zalo-api.js?v=20260629global"></script>
+        <!-- (focus-lease presence GỠ 2026-06-29 — tài khoản global luôn online trên server) -->
         <!-- Chat đầy đủ (WZChat.*) — load TRƯỚC app để app delegate -->
         <script src="../shared/zalo-chat/chat-store.js?v=20260613L"></script>
         <script src="../shared/zalo-chat/lightbox.js?v=20260613L"></script>
@@ -410,19 +432,17 @@
         <script src="../shared/zalo-chat/chat-actions.js?v=20260622p4"></script>
         <script src="../shared/zalo-chat/chat-view.js?v=20260622p4"></script>
         <!-- Page app — tách module (utils → accounts → chat → lookup-zns → app), app LAST -->
-        <script src="js/web2-zalo-utils.js?v=20260625lease"></script>
-        <script src="js/web2-zalo-accounts.js?v=20260627cookie"></script>
+        <script src="js/web2-zalo-utils.js?v=20260629global"></script>
+        <script src="js/web2-zalo-accounts.js?v=20260629global"></script>
         <script src="js/web2-zalo-notify.js?v=20260622p2"></script>
         <script src="js/web2-zalo-chat.js?v=20260622p2"></script>
         <script src="js/web2-zalo-lookup-zns.js?v=20260622p3"></script>
-        <script src="js/web2-zalo-app.js?v=20260623own"></script>
+        <script src="js/web2-zalo-app.js?v=20260629global"></script>
 
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
-            // Giữ phiên Zalo khi đang ở trang này; rời tab/đóng → nhường chat.zalo.me.
-            if (window.Web2ZaloPresence) window.Web2ZaloPresence.start();
         </script>
     </body>
 </html>

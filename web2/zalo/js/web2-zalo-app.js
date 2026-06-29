@@ -17,6 +17,7 @@
     // TABS
     // ===================================================================
     function switchTab(tab, focusPanel) {
+        if (tab === 'accounts' && !isAdmin()) tab = 'chat'; // tab Tài khoản chỉ admin
         state.tab = tab;
         document.querySelectorAll('.wz-rail-tab').forEach((b) => {
             const on = b.dataset.tab === tab;
@@ -73,7 +74,7 @@
         // account grid (delegated click + keyboard cho choice cards)
         const grid = $('#wzAccGrid');
         const gridActivate = (e) => {
-            if (e.target.closest('#wzAddPersonal')) return WZApp.addPersonal();
+            if (e.target.closest('#wzHeroLogin')) return WZApp.openLogin(null);
             if (e.target.closest('#wzAddOa')) return WZApp.openOaModal();
             const btn = e.target.closest('[data-act]');
             if (btn) WZApp.onAccAction(btn.dataset.act, btn.dataset.key, btn);
@@ -86,15 +87,12 @@
             }
         });
 
-        // Add-personal modal (đăng nhập bằng phiên chat.zalo.me — KHÔNG QR)
-        $('#wzAddSaveCookie')?.addEventListener('click', WZApp.saveAddPersonalCookie);
-        $('#wzAddCancel').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
-        $('#wzAddClose').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
-        $('#wzAddBackdrop').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
-        $('#wzAddLabel').addEventListener('keydown', (e) => {
-            if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt đang soạn
-            if (e.key === 'Enter') WZApp.saveAddPersonalCookie();
-        });
+        // Login modal (2 lựa chọn: cookie tự động / quét QR)
+        $('#wzLoginClose').addEventListener('click', WZApp.closeLogin);
+        $('#wzLoginBackdrop').addEventListener('click', WZApp.closeLogin);
+        $('#wzLoginCookie').addEventListener('click', () => WZApp.doCookieLogin(WZApp._loginKey()));
+        $('#wzLoginQrBtn').addEventListener('click', () => WZApp.startQrLogin(WZApp._loginKey()));
+        $('#wzQrBack').addEventListener('click', WZApp.showLoginOpts);
 
         // OA modal
         $('#wzOaClose').addEventListener('click', WZApp.closeOaModal);
@@ -139,10 +137,38 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (!$('#wzAddModal').hidden) WZApp.hideModal('#wzAddModal');
+                if (!$('#wzLoginModal').hidden) WZApp.closeLogin();
                 else if (!$('#wzOaModal').hidden) WZApp.closeOaModal();
             }
         });
+    }
+
+    // ── Admin gating: tab Tài khoản CHỈ admin (2026-06-29) ──────────────────
+    // Ưu tiên role Web2Auth; fallback auth Web 1.0 (giống web2-sidebar._isAdmin).
+    function isAdmin() {
+        try {
+            const u = window.Web2Auth?.getStored?.()?.user;
+            if (u && u.role) return String(u.role).toLowerCase() === 'admin';
+            const auth = JSON.parse(
+                localStorage.getItem('loginindex_auth') ||
+                    sessionStorage.getItem('loginindex_auth') ||
+                    '{}'
+            );
+            const userType = localStorage.getItem('userType') || '';
+            return (
+                auth.isAdmin === true ||
+                auth.roleTemplate === 'admin' ||
+                userType.startsWith('admin')
+            );
+        } catch {
+            return false;
+        }
+    }
+    function applyAdminGate() {
+        if (isAdmin()) return;
+        const tab = document.getElementById('wzTabAccounts');
+        if (tab) tab.hidden = true; // ẩn nút rail "Tài khoản"
+        if (state.tab === 'accounts') switchTab('chat'); // lỡ đang ở accounts → về chat
     }
 
     function subscribeSse() {
@@ -150,9 +176,8 @@
         // Per-máy: topic owner-scoped (TK cá nhân + tin của MÁY này) + topic global
         // (OA dùng chung + admin reset). owner = UUID trình duyệt.
         const own = (window.Web2ZaloOwner && window.Web2ZaloOwner()) || '_none';
-        // Audit SSE 2026-06-25: debounce refAcc giống refList — loadAccounts() là
-        // full fetch (status + renderAccounts + autoRenewZalo); burst (login/status
-        // flip liên tiếp, bulk tracked-changed) trước đây gọi không gom → phí fetch.
+        // Debounce refAcc: loadAccounts() là full fetch (status + render + autoCookie);
+        // burst (login/status flip liên tiếp) gom lại để tránh phí fetch.
         let _accT;
         const refAcc = () => {
             clearTimeout(_accT);
@@ -181,10 +206,12 @@
         // Mặc định mở khu vực Chat (giống app Zalo). switchTab('chat') → loadConversations()
         // → loadAccounts() nếu rỗng → đèn sức khoẻ rail cũng được render.
         switchTab('chat');
+        applyAdminGate(); // ẩn tab Tài khoản nếu không phải admin
     }
 
     // ── Export orchestrator API (switchTab dùng cross-module bởi accounts) ──
     WZApp.switchTab = switchTab;
+    WZApp.isAdmin = isAdmin;
     WZApp.init = init;
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

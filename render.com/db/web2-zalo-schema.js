@@ -115,19 +115,20 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_active ON web2_zalo_accounts(is_active);
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_oa     ON web2_zalo_accounts(oa_id) WHERE oa_id IS NOT NULL;
         `);
-        // KHÔNG lưu phiên Zalo trên server (2026-06-23): wipe cột `session` đang lưu
-        // → sạch sẽ, không còn cookie trên server. Cột giữ nguyên (không DROP). Boot
-        // sau đó mọi TK = disconnected; user "Đăng nhập Zalo" từ trình duyệt để nối.
-        // Idempotent (lần sau session đã NULL → no-op).
+        // GLOBAL always-on (2026-06-29): LƯU phiên Zalo trên server lại (đảo ngược wipe
+        // 2026-06-23) để boot-restore + auto-refresh. KHÔNG wipe cột `session` nữa.
+        // Gộp account về 1 owner GLOBAL ('__global__') — mọi máy thấy/dùng/nghe chung
+        // 1 tài khoản (bỏ per-máy owner-scoped). Idempotent (lần sau đã '__global__' → no-op).
         try {
             await pool.query(
-                `UPDATE web2_zalo_accounts SET session=NULL WHERE session IS NOT NULL`
+                `UPDATE web2_zalo_accounts
+                    SET owner_id='__global__'
+                  WHERE account_type IN ('personal','oa')
+                    AND (owner_id IS NULL OR owner_id <> '__global__')`
             );
         } catch (e) {
-            console.error('[web2-zalo-schema] wipe session warn:', e.message);
+            console.error('[web2-zalo-schema] migrate owner_id→global warn:', e.message);
         }
-        // (Bỏ seed is_primary 2026-06-23 — per-máy owner-scoped: không cần TK chính
-        // toàn cục. Tin KH 1-1 dùng account của chính MÁY gửi — xem routes.)
 
         // ── 2. Hội thoại (1 dòng / account × thread) ────────────────────────────
         await pool.query(`
