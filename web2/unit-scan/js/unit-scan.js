@@ -132,6 +132,13 @@
             const r = markSorted(data.unit);
             beep(r.full ? 'done' : r.dup ? 'warn' : 'ok');
             vibe(r.full ? [40, 50, 60] : 40);
+            // Put-to-light: sáng đúng ô kệ của tem vừa quét (nếu đã bật + cấu hình ESP32).
+            if (
+                window.Web2PutWall?.isOn() &&
+                data.unit.status === 'ASSIGNED' &&
+                data.unit.orderStt != null
+            )
+                window.Web2PutWall.light(data.unit.orderStt);
         } catch (e) {
             result.innerHTML =
                 '<div class="card"><div class="muted">❌ ' +
@@ -602,7 +609,10 @@
                 const wasActive = btn.classList.contains('active');
                 body.querySelectorAll('.kp-item').forEach((b) => b.classList.remove('active'));
                 clearHot();
-                if (wasActive) return;
+                if (wasActive) {
+                    if (window.Web2PutWall?.isOn()) window.Web2PutWall.clear();
+                    return;
+                }
                 btn.classList.add('active');
                 const stts = [];
                 g.orders.forEach((o) => {
@@ -613,6 +623,8 @@
                     body.querySelector('.m-cell[data-stt="' + s + '"]')?.classList.add('hot');
                     body.querySelector('#mrow-' + s)?.classList.add('hot');
                 });
+                // Put-to-light: sáng TẤT CẢ ô của SP này (đặt cả "sấp" 1 lượt).
+                if (window.Web2PutWall?.isOn()) window.Web2PutWall.lightMany(stts);
                 const first = stts.sort((a, b) => a - b)[0];
                 if (first != null)
                     body.querySelector('#mrow-' + first)?.scrollIntoView({
