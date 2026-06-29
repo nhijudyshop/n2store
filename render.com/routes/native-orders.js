@@ -1781,6 +1781,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                             SUM(amount_total)    AS amount_total,
                             SUM(residual)        AS residual,
                             SUM(payment_amount)  AS payment_amount,
+                            SUM(deposit)         AS deposit_total,
                             SUM(wallet_deducted) AS wallet_deducted,
                             BOOL_AND(COALESCE(fulfillment_state IN ('packed','shipped','delivered'), false)) AS all_reconciled,
                             (array_agg(fulfillment_state ORDER BY split_index ASC, date_created ASC))[1] AS fulfillment_state,
@@ -1797,6 +1798,10 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                     o.pbhTotal = Number(p.amount_total || 0);
                     o.pbhResidual = Number(p.residual || 0); // SUM mọi bill → còn nợ nếu bất kỳ bill nợ
                     o.pbhPaymentAmount = Number(p.payment_amount || 0);
+                    // 2026-06-29: tiền đặt cọc CẤP ĐƠN = SUM(deposit) PBH (đơn web không
+                    // ghi native_orders.deposit). Tag 'co_coc' đọc o.deposit → chỉ ĐƠN có
+                    // PBH + cọc>0 mới fire (GIỎ chưa PBH → không cọc, đúng logic GIỎ/ĐƠN).
+                    o.deposit = Number(p.deposit_total || 0);
                     o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
                     o.pbhFulfillmentState = p.fulfillment_state || null; // representative (display/legacy)
                     o.pbhAllReconciled = p.all_reconciled === true; // mọi bill đã đóng gói+

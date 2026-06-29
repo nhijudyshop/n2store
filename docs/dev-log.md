@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [order-tags] Activate + fix co_coc + ship_tinh/ship_tp (trigger dormant)
+
+**Files:** `render.com/services/web2-order-tags-service.js` + `render.com/routes/native-orders.js`.
+
+3 trigger có sẵn nhưng chưa seed (không hiện cột Thẻ) — user chọn activate + fix:
+
+- **co_coc** ("Có đặt cọc"): predicate đọc `o.deposit` nhưng `native_orders.deposit` không bao giờ ghi (đơn web) → DEAD. Fix: enrich `o.deposit = SUM(deposit)` PBH trong pbhQ `/load` (native-orders.js). Chỉ ĐƠN có PBH + cọc>0 fire (GIỎ chưa PBH → 0, đúng logic GIỎ/ĐƠN).
+- **ship_tinh / ship_tp**: predicate chỉ đọc `delivery_method` (trống khi NV chưa pick → im lặng false). Fix: helper `_shipZone(o)` — ưu tiên delivery_method, trống thì **derive zone từ địa chỉ** (port gọn `DeliveryMethodPicker.pickOffline`: keyword quận HCM → 'tp', còn lại có địa chỉ → 'tinh'). Khớp đúng badge "Ship Tỉnh" ở cột địa chỉ.
+- Seed activate cả 3 (ON CONFLICT DO NOTHING, idempotent) → hiệu lực khi web2-api redeploy (ensureTable chạy lại lúc restart).
+
+**Test:** assert ship zone (Q1 HCM→tp, Bạc Liêu→tinh, "KẾ BÊN CỐNG LỠ"→tinh, method override, shop→neither) + co_coc(deposit>0) ✓. `node --check` ✓.
+
 ### [order-tags] Audit toàn bộ predicate — fix pbh_created + gỡ co_tin_nhan
 
 **File:** `render.com/services/web2-order-tags-service.js`.

@@ -217,6 +217,95 @@ function _deliveryText(o) {
     return `${o.deliveryMethod || ''} ${o.deliveryMethodLabel || ''}`.toLowerCase();
 }
 
+// Ship zone — port GỌN DeliveryMethodPicker.pickOffline (web2/shared/delivery-method-picker.js):
+// quận/huyện HCM → 'tp' (nội/ven thành), còn lại có địa chỉ → 'tinh' (fallback ship tỉnh).
+// Ưu tiên delivery_method nếu NV đã chọn tay; trống thì DERIVE từ địa chỉ (vì cột
+// delivery_method để trống khi chưa pick → trước đây ship_tinh/ship_tp im lặng false,
+// bug 2026-06-29). Danh sách quận HCM đồng bộ thủ công với client (HCM geography ổn định).
+const _HCM_KEYWORDS = [
+    'tphcm',
+    'ho chi minh',
+    'sai gon',
+    'saigon',
+    'binh chanh',
+    'q9',
+    'quan 9',
+    'nha be',
+    'hoc mon', // ven
+    'q2',
+    'quan 2',
+    'q12',
+    'quan 12',
+    'binh tan',
+    'thu duc',
+    'q1',
+    'q3',
+    'q4',
+    'q5',
+    'q6',
+    'q7',
+    'q8',
+    'q10',
+    'q11',
+    'quan 1',
+    'quan 3',
+    'quan 4',
+    'quan 5',
+    'quan 6',
+    'quan 7',
+    'quan 8',
+    'quan 10',
+    'quan 11',
+    'phu nhuan',
+    'binh thanh',
+    'tan phu',
+    'tan binh',
+    'go vap',
+];
+function _normAddr(s) {
+    if (s == null) return '';
+    let out = String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+    out = out
+        .replace(/\bq\.?\s*(\d{1,2})\b/g, 'quan $1 q$1') // Q.12 → "quan 12 q12"
+        .replace(/\btp\.?\s*hcm\b/g, 'tphcm')
+        .replace(/\btp\.?\s*ho\s+chi\s+minh\b/g, 'tphcm');
+    return out
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+function _hasAddrKw(tokens, needle) {
+    const parts = needle.split(' ');
+    for (let i = 0; i <= tokens.length - parts.length; i++) {
+        let ok = true;
+        for (let j = 0; j < parts.length; j++) {
+            if (tokens[i + j] !== parts[j]) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) return true;
+    }
+    return false;
+}
+function _addrIsHCM(o) {
+    const tokens = _normAddr(o.address).split(' ').filter(Boolean);
+    if (!tokens.length) return false;
+    return _HCM_KEYWORDS.some((k) => _hasAddrKw(tokens, k));
+}
+// → 'tp' | 'tinh' | null. delivery_method (NV chọn tay) ưu tiên; trống → derive địa chỉ.
+function _shipZone(o) {
+    const dt = _deliveryText(o);
+    if (dt.trim()) {
+        if (/tp|thanh\s*pho|thành\s*phố|noi\s*thanh|nội\s*thành|trung\s*tam|trung\s*tâm/i.test(dt))
+            return 'tp';
+        if (/tinh|tỉnh/i.test(dt)) return 'tinh';
+        return null; // PT giao khác (vd shop) → không gán ship tỉnh/tp
+    }
+    if (!_hasText(o.address)) return null;
+    return _addrIsHCM(o) ? 'tp' : 'tinh';
+}
+
 const PREDICATES = {
     cho_hang: (o, f) => f.choHang,
     am_ma: (o, f) => f.amMa,
@@ -272,11 +361,10 @@ const PREDICATES = {
 
     thieu_dia_chi: (o) => !_hasText(o.address),
     thieu_sdt: (o) => !_hasText(o.phone),
-    ship_tinh: (o) => /tinh|tỉnh/i.test(_deliveryText(o)),
-    ship_tp: (o) =>
-        /tp|thanh\s*pho|thành\s*phố|noi\s*thanh|nội\s*thành|trung\s*tam|trung\s*tâm/i.test(
-            _deliveryText(o)
-        ),
+    // Ship tỉnh / nội thành: ưu tiên PT giao NV chọn tay; trống → derive từ địa chỉ
+    // (_shipZone). Trước đây chỉ đọc delivery_method (im lặng false khi chưa pick).
+    ship_tinh: (o) => _shipZone(o) === 'tinh',
+    ship_tp: (o) => _shipZone(o) === 'tp',
 
     gop_don: (o) => Array.isArray(o.mergedCodes) && o.mergedCodes.length > 0,
     don_tach: (o) => Number(o.splitIndex || 0) >= 2,
@@ -678,6 +766,19 @@ async function ensureTable(pool) {
         // Predicate + trigger + seed đã gỡ; xoá row để admin không thấy trigger chết.
         // Idempotent (no-op nếu đã xoá).
         await pool.query(`DELETE FROM web2_order_tags WHERE code = 'co_tin_nhan'`);
+        // 2026-06-29: ACTIVATE 'Có đặt cọc' + 'Ship Tỉnh' + 'Ship nội thành' — trước
+        // chỉ là trigger có sẵn (chưa seed → không hiện). co_coc giờ đọc o.deposit đã
+        // enrich từ PBH; ship_* derive zone từ địa chỉ (server-side). ON CONFLICT DO
+        // NOTHING (idempotent, không đè nếu admin đã chỉnh).
+        await pool.query(
+            `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
+             VALUES
+               ('co_coc',     'Có đặt cọc',   'co_coc',     '#0891b2', 'hand-coins', 39, 'system', $1, $1),
+               ('ship_tinh',  'Ship Tỉnh',    'ship_tinh',  '#f59e0b', 'truck',      36, 'system', $1, $1),
+               ('ship_tp',    'Ship nội thành','ship_tp',   '#10b981', 'truck',      37, 'system', $1, $1)
+             ON CONFLICT (code) DO NOTHING`,
+            [Date.now()]
+        );
     } catch (e) {
         console.warn('[WEB2-ORDER-TAGS] seed warn:', e.message);
     }
