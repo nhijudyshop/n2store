@@ -14,14 +14,10 @@
         NO.load();
     };
 
-    // ---------- Tag filter (client-side, không reload) ----------
-    // Tags (autoTags) tính server-side SAU phân trang → không lọc DB được. Lọc trên
-    // trang đã tải, giống KPI health bar. Đổi thẻ → chỉ re-render, KHÔNG gọi load().
-    NO.applyTagFilter = function applyTagFilter() {
-        NO.STATE.tagFilter = NO.$('#filterTag')?.value || '';
-        NO.renderRows();
-        NO.renderCounters();
-    };
+    // ---------- Tag filter — DANH SÁCH thẻ + "chi tiết" (client-side, không reload) ----------
+    // Thay <select> cũ: panel xổ xuống liệt kê mọi thẻ trên trang (tên + số đơn). Bấm 1 thẻ
+    // → lọc bảng. Nút "chi tiết" (mắt) cạnh thẻ → drawer tổng hợp (native-orders-tag-aggregate.js).
+    // Tags (autoTags) tính server-side SAU phân trang → lọc trên trang đã tải (giống KPI health).
 
     // orders đang HIỂN THỊ sau khi áp thẻ. tagFilter rỗng → toàn bộ trang.
     NO._visibleOrders = function _visibleOrders() {
@@ -31,37 +27,97 @@
         return orders.filter((o) => (o.autoTags || []).some((t) => t && t.trigger === tf));
     };
 
-    // Dựng lại options #filterTag từ autoTags của orders đã tải (gọi sau mỗi load).
-    // Gom theo trigger; kpi_user (tên NV động) → 1 nhãn cố định. Giữ lựa chọn hiện tại
-    // nếu trigger còn xuất hiện, ngược lại reset về "Tất cả".
-    NO.populateTagFilterOptions = function populateTagFilterOptions() {
-        const sel = NO.$('#filterTag');
-        if (!sel) return;
-        const byTrigger = new Map(); // trigger -> { label, count }
+    // Gom các thẻ xuất hiện trên trang → [{trigger,label,color,count}] (sort theo count desc).
+    // 1 đơn đếm 1 lần / trigger. kpi_user (tên NV động) → 1 nhãn cố định. DÙNG CHUNG cho
+    // panel lọc + drawer chi tiết (native-orders-tag-aggregate.js gọi NO._tagSummary).
+    NO._tagSummary = function _tagSummary() {
+        const byTrigger = new Map();
         for (const o of NO.STATE.orders || []) {
-            const seen = new Set(); // 1 đơn đếm 1 lần / trigger
+            const seen = new Set();
             for (const t of o.autoTags || []) {
                 if (!t || !t.trigger || seen.has(t.trigger)) continue;
                 seen.add(t.trigger);
                 const prev = byTrigger.get(t.trigger);
-                const label = t.trigger === 'kpi_user' ? 'KPI (người nhận)' : t.name || t.trigger;
                 if (prev) prev.count++;
-                else byTrigger.set(t.trigger, { label, count: 1 });
+                else
+                    byTrigger.set(t.trigger, {
+                        trigger: t.trigger,
+                        label: t.trigger === 'kpi_user' ? 'KPI (người nhận)' : t.name || t.trigger,
+                        color: t.color || '#6b7280',
+                        count: 1,
+                    });
             }
         }
-        const opts = [...byTrigger.entries()].sort((a, b) => b[1].count - a[1].count);
+        return [...byTrigger.values()].sort((a, b) => b.count - a.count);
+    };
+
+    NO._renderTagFilterLabel = function _renderTagFilterLabel() {
+        const lab = NO.$('#filterTagLabel');
+        if (!lab) return;
+        const tf = NO.STATE.tagFilter;
+        if (!tf) {
+            lab.textContent = 'Tất cả';
+            return;
+        }
+        const s = NO._tagSummary().find((x) => x.trigger === tf);
+        lab.textContent = s ? s.label : 'Thẻ';
+    };
+
+    // Dựng panel danh sách thẻ (gọi sau mỗi load + khi mở dropdown). Reset tagFilter nếu
+    // thẻ đang lọc không còn xuất hiện trên trang.
+    NO.renderTagFilterPanel = function renderTagFilterPanel() {
+        const box = NO.$('#filterTagList');
+        if (!box) return;
+        const tags = NO._tagSummary();
         const cur = NO.STATE.tagFilter || '';
-        const stillValid = cur === '' || byTrigger.has(cur);
-        sel.innerHTML =
-            '<option value="">Tất cả</option>' +
-            opts
-                .map(
-                    ([trigger, { label, count }]) =>
-                        `<option value="${NO.escapeHtml(trigger)}">${NO.escapeHtml(label)} (${count})</option>`
-                )
-                .join('');
-        if (!stillValid) NO.STATE.tagFilter = '';
-        sel.value = NO.STATE.tagFilter || '';
+        if (cur && !tags.some((t) => t.trigger === cur)) NO.STATE.tagFilter = '';
+        const active = NO.STATE.tagFilter || '';
+        const rowAll = `<button type="button" class="no-tagf-row${active === '' ? ' is-active' : ''}" data-trigger="">
+                <i data-lucide="${active === '' ? 'check' : 'layout-list'}" class="no-tagf-ic"></i>
+                <span class="no-tagf-name">Tất cả</span>
+            </button>`;
+        const rows = tags
+            .map(
+                (t) => `<div class="no-tagf-rowwrap">
+                <button type="button" class="no-tagf-row${active === t.trigger ? ' is-active' : ''}" data-trigger="${NO.escapeHtml(t.trigger)}" title="Lọc bảng theo thẻ này">
+                    <span class="no-tagf-dot" style="background:${NO.escapeHtml(t.color)};"></span>
+                    <span class="no-tagf-name">${NO.escapeHtml(t.label)}</span>
+                    <span class="no-tagf-count">${t.count}</span>
+                </button>
+                <button type="button" class="no-tagf-detail" data-detail="${NO.escapeHtml(t.trigger)}" title="Xem chi tiết tất cả đơn mang thẻ '${NO.escapeHtml(t.label)}'">
+                    <i data-lucide="eye"></i>
+                </button>
+            </div>`
+            )
+            .join('');
+        box.innerHTML =
+            rowAll + (rows || '<div class="no-tagf-empty">Trang này chưa có thẻ nào.</div>');
+        if (window.lucide) lucide.createIcons();
+        NO._renderTagFilterLabel();
+    };
+
+    NO.toggleTagDropdown = function toggleTagDropdown(force) {
+        const dd = NO.$('#filterTagDropdown');
+        if (!dd) return;
+        const isOpen = dd.style.display === 'block';
+        const next = typeof force === 'boolean' ? force : !isOpen;
+        dd.style.display = next ? 'block' : 'none';
+        if (next) NO.renderTagFilterPanel();
+    };
+
+    // Bấm 1 thẻ trong panel → lọc bảng (client-side, không reload) + đóng dropdown.
+    NO.applyTagFilter = function applyTagFilter(trigger) {
+        NO.STATE.tagFilter = trigger || '';
+        NO.toggleTagDropdown(false);
+        NO._renderTagFilterLabel();
+        NO.renderRows();
+        NO.renderCounters();
+    };
+
+    NO.clearTagFilter = function clearTagFilter() {
+        NO.STATE.tagFilter = '';
+        NO.toggleTagDropdown(false);
+        NO._renderTagFilterLabel();
     };
 
     // ---------- Search typeahead (gợi ý KH/đơn, client-side) ----------
@@ -194,9 +250,8 @@
         NO.$('#filterSearch').value = '';
         NO.$('#filterStatus').value = 'all';
         NO.$('#filterLimit').value = '200';
-        const tagSel = NO.$('#filterTag');
-        if (tagSel) tagSel.value = '';
-        NO.STATE.tagFilter = '';
+        if (NO.clearTagFilter) NO.clearTagFilter();
+        else NO.STATE.tagFilter = '';
         NO.STATE.search = '';
         NO.STATE.status = 'all';
         NO.STATE.limit = 200;

@@ -1017,7 +1017,7 @@
             // query mới sau khi đã search vẫn gợi ý đủ (search narrow STATE.orders, pool giữ rộng).
             if (!NO.STATE.search) NO._suggestPool = NO.STATE.orders;
             // Dựng lại options thẻ từ data mới (giữ lựa chọn nếu trigger còn xuất hiện).
-            if (NO.populateTagFilterOptions) NO.populateTagFilterOptions();
+            if (NO.renderTagFilterPanel) NO.renderTagFilterPanel();
             NO.renderRows();
             NO.renderPagination();
             NO.renderCounters();

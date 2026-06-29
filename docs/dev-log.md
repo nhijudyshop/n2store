@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [native-orders] Bộ lọc Thẻ: bỏ <select> → panel DANH SÁCH + drawer "chi tiết" tổng hợp
+
+**Files:** `native-orders/js/native-orders-tag-aggregate.js` (NEW — drawer slide-in `NO.openTagAggregateDetail`), `native-orders/js/native-orders-filters-campaigns.js` (bỏ `populateTagFilterOptions`/select → `renderTagFilterPanel`+`_tagSummary`+`applyTagFilter(trigger)`+`toggleTagDropdown`+`_renderTagFilterLabel`+`clearTagFilter`; giữ `_visibleOrders`), `native-orders/index.html` (chip select → button `#filterTagBtn`+panel `#filterTagDropdown`/`#filterTagList` + CSS `.no-tagf-*` + script mới + bump 4 js `→k`), `native-orders/js/native-orders-render.js` (gọi `renderTagFilterPanel`), `native-orders/js/native-orders-realtime-init.js` (bỏ listener `#filterTag change`; thêm button toggle + delegation panel + click-ngoài đóng).
+
+User: bỏ filter `<select>`; mở ra danh sách tất cả thẻ; bấm thẻ = lọc bảng; thêm nút cạnh thẻ bấm coi chi tiết (vd Chờ hàng → tất cả STT chờ + SP đang chờ). Style như drawer trang Sản phẩm.
+
+- **Panel**: button "Thẻ: [nhãn]" → dropdown liệt kê "Tất cả" + mỗi thẻ (chấm màu + tên + số đơn). Bấm hàng → `applyTagFilter(trigger)` lọc client-side + đổi nhãn + đóng. Nút mắt cạnh thẻ → drawer.
+- **Drawer** (slide-in phải, giống Sản phẩm): liệt kê MỌI đơn trang này mang thẻ (STT + KH + SĐT) + SP liên quan (thẻ SP chờ hàng/âm mã/hết hàng/mua 1 phần → `tag.detail.products`, hiện pendingQty/orderQty). Bấm 1 đơn → đóng + cuộn tới hàng + nhấp nháy. Footer "Lọc bảng theo thẻ này". Data 100% client (STATE.orders), dùng chung `_tagSummary`+`computeOrderStt`.
+
+**Test browser (6 đơn thật):** panel: 5 hàng (Tất cả/Chờ hàng 2/Thiếu địa chỉ 2/Giỏ trống 1/Khách lạ 1) + 4 nút mắt; bấm Chờ hàng → bảng 2 dòng + nhãn "Chờ hàng" + panel đóng; drawer Chờ hàng → "2 đơn · 2 SP", STT 6 Tuyen Thanh + STT 1 HK Man, mỗi đơn HCAO3XCO35 ÁO POLO BASIC ×4; screenshot khớp. Status ✅
+
 ### [native-orders/shared] In bill — gộp Phiếu Soạn Hàng vào đường in chung + bridge (nhanh)
 
 **Files:** `web2/shared/web2-bill-service.js` (thêm `Web2Bill.printDocHtml(html,opts)` + refactor `openPrint` delegate + export), `native-orders/js/native-orders-packing-slip.js` (route `_print` qua `Web2Bill.printDocHtml`, giữ iframe nội bộ làm fallback) + bump version.
