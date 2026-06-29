@@ -2,6 +2,19 @@
 
 ## 2026-06-29
 
+### [order-tags] Fix TAG "Có ghi chú đơn" firing trên MỌI đơn live
+
+**File:** `render.com/services/web2-order-tags-service.js` (predicate `co_ghi_chu` + desc/comment).
+
+User báo tag "Có ghi chú đơn" hiện ở mọi đơn (kể cả giỏ trống). Root cause: predicate đếm cả cột `note` — nhưng `note` của đơn livestream/from-comment là **log comment auto** (`"[time][Page] message"`, vd "Sọc xanh", "Quần đen size 2"), set trên ~mọi đơn live → tag firing khắp bảng. `create-manual` không gửi `note` cấp đơn; ghi chú đơn THẬT của NV nằm ở `user_note` (UI label đúng là "Ghi chú đơn", modal sửa đơn).
+
+- Verify live API `/api/native-orders/load`: 5/5 đơn `coGhiChu=true` chỉ vì `note`=comment, `userNote` rỗng cả 5.
+- Fix 1 dòng: `co_ghi_chu: (o) => _hasText(o.userNote)` (bỏ `_hasText(o.note)`).
+- Desc trigger (single-source, order-tags page fetch `/triggers`) + comment cập nhật.
+- autoTags tính fresh mỗi `/load` → không cần migration/cache. Hiệu lực khi web2-api redeploy.
+
+**Test:** assert predicate (note-comment → false, userNote → true, rỗng → false) ✓. `node --check` ✓.
+
 ### [print] Tem QR: QR sát lề trái + biến thể/giá lên đỉnh → chừa khoảng trống ghi bút
 
 **File:** `web2/products/js/web2-products-print-render.js` (QR-branch) + cache-bust 3 HTML (products/so-order/unit-scan `?v=20260629b`).

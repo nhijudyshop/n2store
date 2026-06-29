@@ -187,7 +187,7 @@ const TRIGGERS = [
         id: 'co_ghi_chu',
         label: 'Có ghi chú đơn',
         group: 'Nội dung / Tương tác',
-        desc: 'Đơn/giỏ có ghi chú CẤP ĐƠN (note hệ thống hoặc ghi chú NV tự nhập userNote). Khác với "Có ghi chú SP" (ghi chú ở từng dòng sản phẩm).',
+        desc: 'Đơn/giỏ có ghi chú đơn do NV tự nhập (userNote — modal sửa đơn). KHÔNG tính cột `note` (đó là log comment livestream/inbox tự ghi, gần như đơn nào cũng có → không phải ghi chú thật). Khác với "Có ghi chú SP" (ghi chú ở từng dòng sản phẩm).',
     },
     {
         id: 'co_ghi_chu_sp',
@@ -247,8 +247,11 @@ const PREDICATES = {
             ['packed', 'shipped', 'delivered'].includes(o.pbhFulfillmentState)),
     // Khách lạ: chưa gán customer_id (chưa khớp hồ sơ KH).
     khach_la: (o) => o.customerId == null,
-    // Có ghi chú đơn: note hệ thống HOẶC ghi chú NV (userNote) — cấp ĐƠN.
-    co_ghi_chu: (o) => _hasText(o.note) || _hasText(o.userNote),
+    // Có ghi chú đơn: CHỈ ghi chú NV tự nhập (userNote, modal sửa đơn — UI gọi là
+    // "Ghi chú đơn"). KHÔNG tính cột `note`: đó là log comment livestream/inbox
+    // auto-ghi ("[time][Page] message"), set trên ~mọi đơn live → tag firing khắp
+    // bảng, vô nghĩa (bug 2026-06-29). userNote là ghi chú đơn THẬT.
+    co_ghi_chu: (o) => _hasText(o.userNote),
     // Có ghi chú SP: ≥1 dòng sản phẩm có note riêng (size/màu/yêu cầu KH). products là
     // JSONB, mỗi line lưu field `note` (client setLineNote → line.note).
     co_ghi_chu_sp: (o) =>
