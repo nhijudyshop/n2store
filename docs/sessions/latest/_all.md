@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c09724e` — feat(putwall): đèn put-to-light (ESP32+WS2811) cho Quét tem + tài liệu lắp/mua
-**Last updated**: 2026-06-29 19:34:25 +07
-**Latest session**: [`RESUME:20260629-193425-c09724e`](../20260629-193425-c09724e.md)
-**Summary**: feat(putwall): đèn put-to-light (ESP32+WS2811) cho Quét tem + tài liệu lắp/mua
+**Latest commit**: `008edad` — docs(putwall): BOM chi tiết — số bóng/độ dài/controller + link Shopee + tổng giá
+**Last updated**: 2026-06-29 19:41:13 +07
+**Latest session**: [`RESUME:20260629-194113-008edad`](../20260629-194113-008edad.md)
+**Summary**: docs(putwall): BOM chi tiết — số bóng/độ dài/controller + link Shopee + tổng giá
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 19:34
+- [`docs/`](./docs.md) — updated 2026-06-29 19:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
