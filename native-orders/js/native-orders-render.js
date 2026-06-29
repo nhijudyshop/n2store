@@ -48,13 +48,20 @@
                           .map((s) => '-' + s)
                           .join(' ')}</span>`
                     : '';
+                // Thiếu tem: gán được 1 PHẦN (serial < SL) → chưa đủ hàng vật lý gán vào
+                // giỏ → đơn KHÔNG ra được PBH. Badge đỏ cảnh báo. 0 serial = bỏ qua (đơn
+                // cũ chưa track per-unit, tránh nhiễu). Không in quá SL nên serial ≤ SL.
+                const _short = _ser.length > 0 && _ser.length < qty ? qty - _ser.length : 0;
+                const _shortTag = _short
+                    ? ` <span class="expand-unit-short" title="Thiếu ${_short} tem — chưa đủ hàng vật lý gán vào giỏ (đơn không ra được PBH)" style="font-weight:700;color:#dc2626;font-size:11px;background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:0 5px;">⚠ thiếu ${_short}</span>`
+                    : '';
                 return `
                 <tr>
                     <td>${i + 1}</td>
                     <td>${img}</td>
                     <td>
                         <div class="expand-name">${NO.escapeHtml(l.name || '—')}</div>
-                        <div class="expand-code">${NO.escapeHtml(l.productCode || '')}${_unitTag}${sourceBadge}</div>
+                        <div class="expand-code">${NO.escapeHtml(l.productCode || '')}${_unitTag}${_shortTag}${sourceBadge}</div>
                     </td>
                     <td class="expand-qty">${qty}</td>
                     <td class="expand-price">${price.toLocaleString('vi-VN')}đ</td>

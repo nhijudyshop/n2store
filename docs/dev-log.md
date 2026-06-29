@@ -2,6 +2,14 @@
 
 ## 2026-06-29
 
+### [native-orders] Badge "⚠ thiếu N tem" khi đơn gán 1 phần (serial < SL)
+
+**Files:** `native-orders/js/native-orders-render.js` (`_renderExpandRow`), `native-orders/index.html` (cache-bust `b`).
+
+Bảng "Sản phẩm trong đơn": khi số serial đã auto-gán < SL (gán được 1 phần do thiếu unit vật lý) → badge đỏ `⚠ thiếu N` cạnh mã đơn vị. Đơn thiếu KHÔNG ra được PBH (signal đóng gói). Chỉ hiện khi `0 < serial < SL` (0 serial = bỏ qua, tránh nhiễu đơn cũ chưa track per-unit). Không in tem quá SL nên serial ≤ SL. **Verified**: mint 2 / SL 3 → /by-orders trả 2 serial → badge "thiếu 1".
+
+**Status:** ✅ Done + verified (backend /by-orders live, data path PASS).
+
 ### [supplier-debt + native-orders] Gate admin thanh toán NCC + hiển thị mã đơn vị "-xxx" trong đơn
 
 **Files:** `web2/supplier-debt/js/supplier-debt-actions.js` (#1 gate), `render.com/routes/web2-product-units.js` (+`POST /by-orders`), `native-orders/js/native-orders-unit-serials.js` (MỚI), `native-orders/js/native-orders-render.js` (#2 render), `native-orders/index.html` + `web2/supplier-debt/index.html` (cache-bust).
