@@ -8,7 +8,7 @@
 
 Quét QR đơn vị → ngoài STT/đơn/lịch sử, hiện thêm strip số liệu LIVE của SP (giống board live-control): **Bán** (GIỎ = Σ SL món trong giỏ KH draft) · **KH mới** (KH chưa SĐT & địa chỉ) · **NCC** (`web2_products.pending_qty`) · **Còn** (=max(0,NCC−Bán), đỏ khi ≤0) · **Tồn** (stock). Backend `/resolve` thêm `metrics` — cùng query native_orders draft như `/api/web2-campaign-products` (1 nguồn số liệu, self-contained, không cần campaign id).
 
-**Status:** 🔄 Deploy + test.
+**Status:** ✅ Done + verified live (METRICS PASS: giỏ 5+3 → /resolve sold=8, newCust=5, con=max(0,ncc-sold)).
 
 ### [native-orders] Nới PATCH hook reconcile khi đổi tên/SĐT KH (denorm sync triệt để)
 
