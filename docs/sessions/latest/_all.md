@@ -3,19 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `968eadd` — feat(goods-weight): rebuild MOBILE-NATIVE theo unit-scan (no sidebar, PWA, safe-area, Zalo tokens)
-**Last updated**: 2026-06-29 11:05:13 +07
-**Latest session**: [`RESUME:20260629-110513-968eadd`](../20260629-110513-968eadd.md)
-**Summary**: feat(goods-weight): rebuild MOBILE-NATIVE theo unit-scan (no sidebar, PWA, safe-area, Zalo tokens)
+**Latest commit**: `78dd026` — feat(unit-scan): danh sách TẤT CẢ tem của SP (ẩn/bật, mỗi tem→STT) + QR tem TO HƠN
+**Last updated**: 2026-06-29 11:32:45 +07
+**Latest session**: [`RESUME:20260629-113245-78dd026`](../20260629-113245-78dd026.md)
+**Summary**: unit-scan: danh sách tất cả tem của SP (ẩn/bật, mỗi tem→STT) + QR tem in to hơn
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 4 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 - [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 56 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -32,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 11:05
+- [`docs/`](./docs.md) — updated 2026-06-29 11:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -71,7 +68,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-23 23:09
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-29 11:05
+- [`so-order/`](./so-order.md) — updated 2026-06-29 11:32
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
@@ -86,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-29 11:05
+- [`web2/`](./web2.md) — updated 2026-06-29 11:32
