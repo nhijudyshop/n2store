@@ -8,7 +8,7 @@
 
 Trước: huỷ đơn qua `POST /:code/cancel` KHÔNG nhả unit (chỉ available lại ngầm qua availability-check, nhưng status hiển thị còn 'ASSIGNED' + STT đơn cũ → quét ra STT ma). Fix: sau commit huỷ, gọi `reconcileOrderUnits(pool, id)` cho đơn chính (`r.rows[0].id`) + đơn anh em PBH gộp huỷ lan truyền (`cancelledMemberCodes` → lookup id) → reconcile thấy giỏ rỗng (status cancelled) → nhả unit về IN_STOCK + event UNASSIGN. Fire-and-forget. (PATCH-cancel bị guard 3H4 chặn nên dedicated cancel là path thật.) **Chưa hook DELETE `/:code`** (xóa cứng — khác "huỷ", unit vẫn available qua availability-check; report cho user).
 
-**Status:** 🔄 Backend done, deploy web2-api để test.
+**Status:** ✅ Done + verified live. Test: tạo đơn qty2→gán 2 unit @STT; `POST /:code/cancel`→2 unit nhả về IN_STOCK (PASS). Hết "quét ra STT ma" sau huỷ.
 
 ## 2026-06-28
 
