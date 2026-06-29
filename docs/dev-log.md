@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [unit-scan] Bỏ 2 tab → 1 VIEW + chi tiết SP theo từng STT trong kệ
+
+**Files:** `web2/unit-scan/{index.html,js/unit-scan.js,css/unit-scan.css}` (bump css `f→g`, js `e→f`).
+
+User (2 ý): (1) cùng 1 kệ có nhiều SP giống nhau → trong xe có SP-00x phải bỏ ĐÚNG STT → cần thấy SP nào ở STT nào, tô màu/bấm để check kĩ; (2) chia 2 tab (Tra/Đóng gói ⇄ Chia hàng) **dư thừa** vì việc cần là "đem hàng ra kệ + coi chi tiết SP" → **gộp 1 tab**.
+
+- **Bỏ toggle 2 chế độ.** 1 view duy nhất: quét 1 món → card kết quả Ở TRÊN (hero "➡️ Bỏ vào KỆ X" + STT to + "📍 Kệ·Hàng·Cột" + chi tiết SP: in lại, sibling, đơn chờ, lịch sử) + tiến độ 9 kệ (xe) + sơ đồ Ở DƯỚI. Mỗi lần quét đồng thời đánh dấu vào tiến độ kệ (`markSorted`). Xoá `MODE`/`setMode`/`flash`/`onScanSort` + CSS `.mode-tabs`/`.flash` (chết).
+- **Sheet chi tiết kệ (giải ý 1):** thêm **tóm tắt SP** — mỗi mã → `×SL · STT a, b, c` (cùng 1 mã ở nhiều STT hiện rõ); **bấm 1 SP → TÔ Ô** mọi STT chứa mã đó (cell `.hot` + row `.hot`) + cuộn tới. Mỗi hàng STT giờ **liệt kê SP của STT đó** (`.m-prods`). Bấm ô sơ đồ → cuộn tới đơn.
+- `?mode=sort` cũ (sort-station redirect) vẫn vào được — boot bỏ qua param, load thẳng view gộp. Header tag (nhãn ô) hiện luôn.
+
+**Test browser (data thật 16 unit/Kệ 1):** kp-summary "ÁO BLAZER ×4 · STT 1,2,3,4", "ÁO POLO BASIC ×5 · STT 1,6" ✓; bấm BLAZER → tô cell+row STT 1-4 ✓; quét unit thật → hero "Bỏ vào KỆ 1 / STT 1 / 📍 Kệ 1·Hàng 1·Cột 1" + chi tiết + tiến độ 0/16→1/16 ✓; pageErrors=[] ✓; `node --check` ✓.
+
 ### [unit-scan] GỘP sort-station vào "Quét tem" (2 chế độ) + sơ đồ kệ vật lý + nhãn ô
 
 **Files:** `web2/shared/web2-shelf-map.js` (NEW — STT→Kệ·Hàng·Cột), `web2/unit-scan/{index.html,js,css}` (gộp 2 chế độ), `web2/shelf-labels/index.html` (NEW — in nhãn ô), `web2/sort-station/index.html` (→ redirect), XOÁ `web2/sort-station/{js,css}`, `web2/shared/web2-sidebar.js` (gộp menu "Quét tem"), bump sidebar 54 html `d→e`. `web2-product-units.js` +`GET /sort-manifest` +`sortManifest()`.

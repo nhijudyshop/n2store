@@ -595,108 +595,15 @@ body {
     background: #f1f5f9;
     color: var(--c-text);
 }
-/* Toggle 2 chế độ */
-.mode-tabs {
-    position: sticky;
-    top: var(--hd-h, 52px);
-    z-index: 25;
-    display: flex;
-    gap: 6px;
-    padding: 8px 12px;
-    background: var(--c-bg);
-}
-.mode-tab {
-    flex: 1;
-    border: 1.5px solid var(--c-line);
-    background: var(--c-surface);
-    color: var(--c-text-2);
+/* Hero vị trí (📍 Kệ·Hàng·Cột) trong card kết quả */
+.stt-hero .hero-pos {
+    margin-top: 3px;
+    color: var(--c-primary-d);
     font-weight: 800;
-    font-size: 13.5px;
-    padding: 9px 8px;
-    border-radius: 11px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+    font-size: 14px;
 }
-.mode-tab i {
-    width: 16px;
-    height: 16px;
-}
-.mode-tab.is-active {
-    background: var(--c-primary);
-    border-color: var(--c-primary);
-    color: #fff;
-}
-/* Flash kết quả quét (chia hàng) */
-.flash {
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    animation: rise 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    background: linear-gradient(180deg, #f3f8ff, #e9f1ff);
-    border: 1.5px solid rgba(0, 104, 255, 0.22);
-}
-.flash.done {
-    background: linear-gradient(180deg, #effaf2, #e3f6e9);
-    border-color: rgba(26, 162, 81, 0.3);
-}
-.flash.warn {
-    background: var(--c-amber-bg);
-    border-color: rgba(217, 138, 0, 0.4);
-}
-.flash.err {
-    background: var(--c-red-bg);
-    border-color: rgba(229, 72, 77, 0.4);
-}
-.flash .stt-num {
-    flex: 0 0 auto;
-    min-width: 64px;
-    height: 64px;
-    border-radius: 14px;
-    background: var(--c-primary);
-    color: #fff;
-    font-weight: 900;
-    font-size: 34px;
-    display: grid;
-    place-items: center;
-    padding: 0 8px;
-}
-.flash.done .stt-num {
-    background: var(--c-green);
-}
-.flash.warn .stt-num,
-.flash.err .stt-num {
-    background: var(--c-amber);
-    font-size: 22px;
-}
-.flash .f-meta {
-    min-width: 0;
-    flex: 1;
-}
-.flash .f-lbl {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--c-text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-}
-.flash .f-name {
-    font-size: 18px;
-    font-weight: 800;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.flash .f-sub {
-    font-size: 13px;
-    color: var(--c-text-2);
-    margin-top: 2px;
+.stt-hero.done .hero-pos {
+    color: var(--c-green);
 }
 /* Stats */
 .stats {
@@ -874,12 +781,9 @@ body {
     display: flex;
     align-items: flex-end;
 }
-/* author display:flex/grid ĐÈ UA [hidden]{display:none} (author > UA) → ẩn KHÔNG ăn.
+/* author display:flex ĐÈ UA [hidden]{display:none} (author > UA) → ẩn KHÔNG ăn.
    PHẢI ép !important cho element có display + thuộc tính hidden (gotcha CLAUDE.md). */
-.sheet-back[hidden],
-.flash[hidden],
-#sortView[hidden],
-#traView[hidden] {
+.sheet-back[hidden] {
     display: none !important;
 }
 .sheet {
@@ -945,6 +849,74 @@ body {
     font-size: 12.5px;
     color: var(--c-text-2);
     margin-top: 1px;
+}
+/* SP của từng STT (giải bài: cùng kệ nhiều SP giống nhau) */
+.m-prods {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-top: 2px;
+    line-height: 1.3;
+}
+.m-row.hot {
+    background: rgba(0, 104, 255, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 0 0 1.5px rgba(0, 104, 255, 0.3);
+}
+.m-cell[data-stt] {
+    cursor: pointer;
+}
+.m-cell.hot {
+    outline: 2.5px solid var(--c-primary);
+    outline-offset: -1px;
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.25);
+    z-index: 1;
+}
+/* Tóm tắt SP trong kệ → bấm tô ô STT */
+.kp-hint {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--c-text-2);
+    padding: 2px 4px 6px;
+}
+.kp-sum {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.kp-item {
+    border: 1.5px solid var(--c-line);
+    background: var(--c-surface);
+    border-radius: 11px;
+    padding: 7px 11px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    transition:
+        border-color 0.12s ease,
+        background 0.12s ease;
+}
+.kp-item:active {
+    transform: scale(0.98);
+}
+.kp-item.active {
+    border-color: var(--c-primary);
+    background: rgba(0, 104, 255, 0.08);
+    box-shadow: 0 0 0 1.5px rgba(0, 104, 255, 0.25);
+}
+.kp-name {
+    font-weight: 800;
+    font-size: 13.5px;
+    color: var(--c-text);
+}
+.kp-meta {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--c-primary-d);
 }
 
 @media (prefers-reduced-motion: reduce) {

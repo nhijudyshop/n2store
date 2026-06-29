@@ -1,8 +1,8 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét tem (gộp 2026-06-29): 1 trang 2 CHẾ ĐỘ chung scanner — "Tra/Đóng gói" (resolve 1 món + reprint + sibling + vị trí) & "Chia hàng" (9 KỆ/xe + tiến độ + manifest + sơ đồ). Client: Web2ProductUnits + Web2ShelfMap. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét tem (gộp bỏ tab 2026-06-29): 1 VIEW DUY NHẤT. Quét 1 món → hero "Bỏ vào KỆ X · STT · 📍 Hàng·Cột" + chi tiết SP (in lại, sibling, đơn, lịch sử) Ở TRÊN; tiến độ 9 kệ (xe) + sơ đồ kệ Ở DƯỚI. Bấm kệ → sheet chi tiết SP theo từng STT (cùng 1 mã ở nhiều STT → tô ô). Client: Web2ProductUnits + Web2ShelfMap. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md
 (function () {
     'use strict';
 
-    // ── Config / helpers (CHUNG) ───────────────────────────────────
+    // ── Config / helpers ───────────────────────────────────────────
     const PU = () => window.Web2ProductUnits;
     const SM = () => window.Web2ShelfMap;
     const $ = (sel, root = document) => root.querySelector(sel);
@@ -81,12 +81,11 @@
         return { code: raw };
     }
 
-    let MODE = 'tra'; // 'tra' | 'sort'
     let scanner = null;
     let torchOn = false;
 
     // =================================================================
-    // CHẾ ĐỘ "TRA / ĐÓNG GÓI" — resolve 1 món
+    // QUÉT 1 MÓN — resolve + render chi tiết + đánh dấu vào tiến độ kệ
     // =================================================================
     let current = null;
     let resolving = false;
@@ -98,13 +97,24 @@
         SHIPPED: ['Đã gửi', 'green'],
         RETURNED: ['Đã trả', 'amber'],
     };
+    const locate = (s) => (SM() ? SM().locate(s) : null);
+    const keOfStt = (s) => {
+        const l = locate(s);
+        return l && l.ke ? l.ke : null;
+    };
+
+    async function onScan(target) {
+        if (!target) return;
+        vibe(30);
+        await resolve(target);
+    }
 
     async function resolve(target) {
         if (resolving) return;
         resolving = true;
         const result = $('#result');
         result.innerHTML =
-            '<div class="muted"><i data-lucide="loader-2" class="spin"></i> Đang tra cứu…</div>';
+            '<div class="card"><div class="muted"><i data-lucide="loader-2" class="spin"></i> Đang tra cứu…</div></div>';
         result.hidden = false;
         icons();
         try {
@@ -112,16 +122,50 @@
             current = data;
             renderResult(data);
             loadEvents(data.unit.id);
+            // Gộp: mỗi lần quét cũng cập nhật tiến độ chia hàng
+            const r = markSorted(data.unit);
+            beep(r.full ? 'done' : r.dup ? 'warn' : 'ok');
+            vibe(r.full ? [40, 50, 60] : 40);
         } catch (e) {
             result.innerHTML =
-                '<div class="muted">❌ ' +
+                '<div class="card"><div class="muted">❌ ' +
                 esc(e.message || 'Không tra cứu được') +
                 '<br><span style="font-size:12px">' +
                 esc(target.id ? 'u=' + target.id : target.code) +
-                '</span></div>';
+                '</span></div></div>';
+            beep('warn');
         } finally {
             resolving = false;
         }
+    }
+
+    function heroHtml(u, suggested) {
+        const posLine = (s) => {
+            const l = locate(s);
+            return l && l.ke ? `<div class="hero-pos">📍 ${esc(l.full)}</div>` : '';
+        };
+        if (u.status === 'ASSIGNED' && u.orderStt != null) {
+            const ke = keOfStt(u.orderStt);
+            return `<div class="stt-hero done">
+                <div class="lbl">➡️ Bỏ vào KỆ ${ke != null ? esc(ke) : '?'}</div>
+                <div class="num">${esc(u.orderStt)}</div>
+                ${posLine(u.orderStt)}
+                <div class="sub">${esc(u.customerName || '')}${u.orderCode ? ' · ' + esc(u.orderCode) : ''}</div>
+            </div>`;
+        }
+        if (suggested && suggested.stt != null) {
+            const ke = keOfStt(suggested.stt);
+            return `<div class="stt-hero">
+                <div class="lbl">➡️ Bỏ vào KỆ ${ke != null ? esc(ke) : '?'}</div>
+                <div class="num">${esc(suggested.stt)}</div>
+                ${posLine(suggested.stt)}
+                <div class="sub">${esc(suggested.customerName || 'Đơn ' + (suggested.orderCode || ''))}${suggested.remaining ? ' · còn thiếu ' + suggested.remaining : ''}</div>
+            </div>`;
+        }
+        if ((current?.orders || []).length) {
+            return `<div class="stt-hero done"><div class="lbl">Tất cả đơn đã đủ</div><div class="sub" style="margin-top:6px">Món này DƯ — để IN_STOCK</div></div>`;
+        }
+        return `<div class="stt-hero"><div class="lbl">Chưa có đơn nào cần SP này</div><div class="sub" style="margin-top:6px">Để IN_STOCK — chờ khách đặt</div></div>`;
     }
 
     function renderResult(data) {
@@ -135,32 +179,6 @@
             ? `<img class="prod-img" src="${esc(p.imageUrl)}" alt="" />`
             : `<div class="prod-img" style="display:grid;place-items:center"><i data-lucide="package"></i></div>`;
         const suggested = orders.find((o) => o.remaining > 0) || null;
-        const posLine = (s) => {
-            const l = SM()?.locate(s);
-            return l && l.ke
-                ? `<div class="sub" style="margin-top:3px;color:var(--c-primary-d);font-weight:800">📍 ${esc(l.full)}</div>`
-                : '';
-        };
-        let hero = '';
-        if (u.status === 'ASSIGNED' && u.orderStt != null) {
-            hero = `<div class="stt-hero done">
-                <div class="lbl">Đã ở kệ</div>
-                <div class="num">${esc(u.orderStt)}</div>
-                <div class="sub">${esc(u.customerName || '')}${u.orderCode ? ' · ' + esc(u.orderCode) : ''}</div>
-                ${posLine(u.orderStt)}
-            </div>`;
-        } else if (suggested && suggested.stt != null) {
-            hero = `<div class="stt-hero">
-                <div class="lbl">➡️ Bỏ vào kệ</div>
-                <div class="num">${esc(suggested.stt)}</div>
-                <div class="sub">${esc(suggested.customerName || 'Đơn ' + (suggested.orderCode || ''))}${suggested.remaining ? ' · còn thiếu ' + suggested.remaining : ''}</div>
-                ${posLine(suggested.stt)}
-            </div>`;
-        } else if (orders.length) {
-            hero = `<div class="stt-hero done"><div class="lbl">Tất cả đơn đã đủ</div><div class="sub" style="margin-top:6px">Món này DƯ — để IN_STOCK</div></div>`;
-        } else {
-            hero = `<div class="stt-hero"><div class="lbl">Chưa có đơn nào cần SP này</div><div class="sub" style="margin-top:6px">Để IN_STOCK — chờ khách đặt</div></div>`;
-        }
         const chips = [
             p.supplier || u.supplier
                 ? `<span class="chip blue"><i data-lucide="truck"></i>NCC ${esc(u.supplier || p.supplier)}</span>`
@@ -196,7 +214,8 @@
 
         $('#result').innerHTML = `
             <div class="card">
-                <div class="prod">
+                ${heroHtml(u, suggested)}
+                <div class="prod" style="margin-top:12px">
                     ${img}
                     <div class="prod-meta">
                         <div class="prod-name">${esc(p.name || u.productCode)}</div>
@@ -207,7 +226,6 @@
                 <div class="chips">${chips}</div>
                 ${metricsHtml}
                 <button class="reprint-btn" id="reprintBtn"><i data-lucide="printer"></i> In lại tem này</button>
-                ${hero}
             </div>
             <button class="sib-toggle${sibOpen ? ' open' : ''}" id="sibToggle" type="button" aria-expanded="${sibOpen}">
                 <i data-lucide="layout-list"></i>
@@ -325,14 +343,13 @@
     }
 
     // =================================================================
-    // CHẾ ĐỘ "CHIA HÀNG" — 9 KỆ (xe) + tiến độ + manifest + sơ đồ
+    // TIẾN ĐỘ CHIA HÀNG — 9 KỆ (xe) + sơ đồ + manifest
     // =================================================================
-    const byId = new Map(); // orderId → {orderId,orderCode,stt,customerName,customerPhone,needed,products,unitIds,sorted:Set}
+    const byId = new Map(); // orderId → {orderId,orderCode,stt,customerName,...,needed,products,unitIds,sorted:Set}
     const unitToOrder = new Map();
     const scanned = new Set();
     let sortLoaded = false;
     let sortLoading = false;
-    let sortBusy = false;
 
     async function sortLoad() {
         if (sortLoading) return;
@@ -361,6 +378,31 @@
         } finally {
             sortLoading = false;
         }
+    }
+
+    // Đánh dấu 1 unit đã quét vào tiến độ kệ. Trả {assigned, dup, full, ke}.
+    function markSorted(u) {
+        if (!u || u.status !== 'ASSIGNED' || u.orderStt == null || u.orderId == null)
+            return { assigned: false, dup: false, full: false, ke: null };
+        const oid = u.orderId;
+        if (!byId.has(oid)) {
+            if (sortLoaded) sortLoad(); // đơn mới → refresh manifest
+            return { assigned: true, dup: false, full: false, ke: keOfStt(u.orderStt) };
+        }
+        if (scanned.has(u.id)) {
+            renderStats();
+            return { assigned: true, dup: true, full: false, ke: keOfStt(u.orderStt) };
+        }
+        scanned.add(u.id);
+        const o = byId.get(oid);
+        if (o) o.sorted.add(u.id);
+        const ke = keOf(o);
+        const g = buildKes().find((x) => x.ke === ke);
+        const full = !!(g && kDone(g));
+        if (ke != null) refreshKeCard(ke);
+        else renderGrid();
+        renderStats();
+        return { assigned: true, dup: false, full, ke };
     }
 
     const oDone = (o) => o.needed > 0 && o.sorted.size >= o.needed;
@@ -440,90 +482,8 @@
             `<div class="stat${sortedUnits >= totalUnits && totalUnits > 0 ? ' ok' : ''}"><b>${sortedUnits}/${totalUnits}</b><span>Món đã chia</span></div>` +
             `<div class="stat${doneKes === kes.length && kes.length ? ' ok' : ''}"><b>${doneKes}/${kes.length}</b><span>Kệ (xe) đủ</span></div>`;
     }
-    function flash(kind, big, lbl, name, sub) {
-        const el = $('#flash');
-        el.className = 'flash' + (kind ? ' ' + kind : '');
-        el.innerHTML = `<div class="stt-num">${esc(big)}</div>
-            <div class="f-meta">
-                <div class="f-lbl">${esc(lbl)}</div>
-                <div class="f-name">${esc(name || '')}</div>
-                <div class="f-sub">${esc(sub || '')}</div>
-            </div>`;
-        el.hidden = false;
-    }
-    async function onScanSort(target) {
-        if (sortBusy) return;
-        sortBusy = true;
-        try {
-            let orderId = null,
-                unitId = null,
-                stt = null,
-                name = null;
-            if (target.id != null && unitToOrder.has(Number(target.id))) {
-                unitId = Number(target.id);
-                orderId = unitToOrder.get(unitId);
-                const o = byId.get(orderId);
-                stt = o?.stt;
-                name = o?.customerName;
-            } else {
-                const data = await PU().resolve(target);
-                const u = data.unit || {};
-                unitId = u.id;
-                if (u.status !== 'ASSIGNED' || u.orderStt == null) {
-                    flash(
-                        'warn',
-                        '—',
-                        'Lưu ý',
-                        u.unitCode || '',
-                        'Món chưa gán đơn / không cần chia (' + (u.status || '?') + ')'
-                    );
-                    beep('warn');
-                    vibe(120);
-                    return;
-                }
-                orderId = u.orderId;
-                stt = u.orderStt;
-                name = u.customerName;
-                if (!byId.has(orderId)) await sortLoad();
-            }
-            const loc = SM() ? SM().locate(stt) : null;
-            const ke = loc && loc.ke ? loc.ke : null;
-            if (scanned.has(unitId)) {
-                flash(
-                    'warn',
-                    ke || '—',
-                    'Đã chia rồi',
-                    name || '',
-                    loc ? 'STT ' + stt + ' · ' + loc.full : 'STT ' + stt
-                );
-                beep('warn');
-                vibe(60);
-                return;
-            }
-            scanned.add(unitId);
-            const o = byId.get(orderId);
-            if (o) o.sorted.add(unitId);
-            const g = buildKes().find((x) => x.ke === ke);
-            const keFull = g && kDone(g);
-            flash(
-                keFull ? 'done' : '',
-                ke || '?',
-                keFull ? `Kệ ${ke} ĐỦ — đưa xe ra` : `Bỏ vào XE / KỆ ${ke ?? '?'}`,
-                name || (o && o.orderCode) || '',
-                loc ? `STT ${stt} · ${loc.full}` : 'STT ' + stt
-            );
-            beep(keFull ? 'done' : 'ok');
-            vibe(keFull ? [40, 50, 60] : 40);
-            if (ke != null) refreshKeCard(ke);
-            else renderGrid();
-            renderStats();
-        } catch (e) {
-            flash('err', '!', 'Lỗi', '', e.message || 'Lỗi tra cứu');
-            beep('warn');
-        } finally {
-            sortBusy = false;
-        }
-    }
+
+    // ── Sheet: chi tiết 1 kệ (SP theo từng STT) ─────────────────────
     function openKe(ke) {
         const g = buildKes().find((x) => x.ke === ke);
         if (!g) return;
@@ -532,41 +492,128 @@
         const body = $('#sheetBody');
         const sttMap = new Map();
         g.orders.forEach((o) => sttMap.set(o.stt, o));
-        const rows = g.orders
-            .map((o) => {
-                const loc = SM() ? SM().locate(o.stt) : null;
-                const done = oDone(o);
-                return `<div class="m-row">
-                <div class="m-badge" style="${done ? '' : 'background:var(--c-amber)'}">${o.stt != null ? esc(o.stt) : '?'}</div>
-                <div class="m-info">
-                    <div class="m-name">${esc(o.customerName || o.orderCode || 'Khách lẻ')}</div>
-                    <div class="m-sub">${loc ? '📍 ' + esc(loc.full) : ''} · ${done ? '✓ đủ ' : '⚠ ' + o.sorted.size + '/'}${o.needed} món</div>
-                </div>
-            </div>`;
+
+        // SP tóm tắt: cùng 1 mã có thể ở NHIỀU STT → bấm để tô ô.
+        const prodMap = new Map();
+        g.orders.forEach((o) =>
+            (o.products || []).forEach((p) => {
+                let e = prodMap.get(p.code);
+                if (!e) {
+                    e = { code: p.code, name: p.name || p.code, stts: [], qty: 0 };
+                    prodMap.set(p.code, e);
+                }
+                if (o.stt != null) e.stts.push(o.stt);
+                e.qty += Number(p.qty) || 0;
             })
-            .join('');
+        );
+        const prods = [...prodMap.values()].sort((a, b) => b.qty - a.qty);
+        const multi = prods.some((e) => e.stts.length > 1);
+        const sumHtml = prods.length
+            ? `<div class="kp-hint">${multi ? 'Cùng 1 mã ở nhiều STT — bấm 1 SP để TÔ Ô cần bỏ:' : 'Các loại SP trong kệ này:'}</div>` +
+              `<div class="kp-sum">` +
+              prods
+                  .map(
+                      (e) =>
+                          `<button class="kp-item" type="button" data-code="${esc(e.code)}">
+                            <span class="kp-name">${esc(e.name)}</span>
+                            <span class="kp-meta">×${e.qty} · STT ${e.stts.sort((a, b) => a - b).join(', ') || '?'}</span>
+                          </button>`
+                  )
+                  .join('') +
+              `</div>`
+            : '';
+
+        // Sơ đồ kệ — ô có hàng tô màu, bấm → cuộn tới đơn.
         let mapHtml = '';
         if (ke && SM()) {
             const grid = SM().keGrid(ke);
             mapHtml =
-                `<div class="ke-map-wrap"><div class="ke-map-title">Sơ đồ Kệ ${ke} (ô có hàng tô màu)</div><div class="ke-map">` +
+                `<div class="ke-map-wrap"><div class="ke-map-title">Sơ đồ Kệ ${ke} — bấm ô để xem đơn</div><div class="ke-map">` +
                 grid
                     .flat()
                     .map((s) => {
                         const o = sttMap.get(s);
                         const cls = o ? (oDone(o) ? 'm-cell on' : 'm-cell part') : 'm-cell';
-                        return `<span class="${cls}" title="STT ${s}${o ? ' · ' + esc(o.customerName || '') : ''}">${o ? s : ''}</span>`;
+                        return `<span class="${cls}" data-stt="${s}" title="STT ${s}${o ? ' · ' + esc(o.customerName || '') : ''}">${o ? s : ''}</span>`;
                     })
                     .join('') +
                 `</div></div>`;
         }
+
+        // Hàng theo STT — KÈM danh sách SP của STT đó.
+        const rows = g.orders
+            .map((o) => {
+                const loc = locate(o.stt);
+                const done = oDone(o);
+                const prodLine = (o.products || [])
+                    .map(
+                        (p) =>
+                            `${esc(p.name || p.code)}${(Number(p.qty) || 1) > 1 ? ' ×' + p.qty : ''}`
+                    )
+                    .join(' · ');
+                return `<div class="m-row" id="mrow-${o.stt}" data-stt="${o.stt}">
+                <div class="m-badge" style="${done ? '' : 'background:var(--c-amber)'}">${o.stt != null ? esc(o.stt) : '?'}</div>
+                <div class="m-info">
+                    <div class="m-name">${esc(o.customerName || o.orderCode || 'Khách lẻ')}</div>
+                    <div class="m-prods">${prodLine || '—'}</div>
+                    <div class="m-sub">${loc ? '📍 ' + esc(loc.full) + ' · ' : ''}${done ? '✓ đủ ' : '⚠ ' + o.sorted.size + '/'}${o.needed} món</div>
+                </div>
+            </div>`;
+            })
+            .join('');
+
         body.innerHTML =
-            `<div class="m-sub" style="padding:2px 4px 8px">${g.orders.length} đơn · đặt theo STT (📍 Hàng·Cột). Đưa xe ${ke} ra, bỏ lên đúng ô.</div>` +
+            `<div class="m-sub" style="padding:2px 4px 8px">${g.orders.length} đơn · ${prods.length} loại SP. Đưa xe ${ke} ra, bỏ đúng STT (📍 Hàng·Cột).</div>` +
+            sumHtml +
             mapHtml +
             rows;
         icons();
+
+        const clearHot = () => {
+            body.querySelectorAll('.m-cell.hot').forEach((c) => c.classList.remove('hot'));
+            body.querySelectorAll('.m-row.hot').forEach((r) => r.classList.remove('hot'));
+        };
+        // Bấm 1 SP → tô mọi STT chứa mã đó (giải bài "cùng kệ nhiều SP giống nhau").
+        body.querySelectorAll('.kp-item').forEach((btn) =>
+            btn.addEventListener('click', () => {
+                const code = btn.dataset.code;
+                const wasActive = btn.classList.contains('active');
+                body.querySelectorAll('.kp-item').forEach((b) => b.classList.remove('active'));
+                clearHot();
+                if (wasActive) return;
+                btn.classList.add('active');
+                const stts = [];
+                g.orders.forEach((o) => {
+                    if (o.stt != null && (o.products || []).some((p) => p.code === code))
+                        stts.push(o.stt);
+                });
+                stts.forEach((s) => {
+                    body.querySelector('.m-cell[data-stt="' + s + '"]')?.classList.add('hot');
+                    body.querySelector('#mrow-' + s)?.classList.add('hot');
+                });
+                const first = stts.sort((a, b) => a - b)[0];
+                if (first != null)
+                    body.querySelector('#mrow-' + first)?.scrollIntoView({
+                        block: 'nearest',
+                        behavior: 'smooth',
+                    });
+            })
+        );
+        // Bấm 1 ô sơ đồ → cuộn tới đơn của STT đó.
+        body.querySelectorAll('.m-cell[data-stt]').forEach((cell) =>
+            cell.addEventListener('click', () => {
+                const s = cell.dataset.stt;
+                const row = body.querySelector('#mrow-' + s);
+                if (!row) return;
+                body.querySelectorAll('.m-row.hot').forEach((r) => r.classList.remove('hot'));
+                row.classList.add('hot');
+                row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                setTimeout(() => row.classList.remove('hot'), 1400);
+            })
+        );
         $('#sheetBack').hidden = false;
     }
+
     function openManifest() {
         const kes = buildKes().filter((g) => g.sorted > 0);
         $('#sheetTitle').textContent = 'Đưa xe ra kệ';
@@ -598,7 +645,6 @@
             $('#resetBtn')?.addEventListener('click', () => {
                 scanned.clear();
                 byId.forEach((o) => o.sorted.clear());
-                $('#flash').hidden = true;
                 renderGrid();
                 renderStats();
                 closeSheet();
@@ -612,17 +658,8 @@
     }
 
     // =================================================================
-    // CHUNG: scanner, manual, SSE, mode toggle, boot
+    // scanner, manual, SSE, boot
     // =================================================================
-    function dispatchScan(t) {
-        if (!t) return;
-        if (MODE === 'sort') onScanSort(t);
-        else {
-            vibe(40);
-            resolve(t);
-        }
-    }
-
     let camReady = false;
     function buildScanner() {
         const host = $('#scanHost');
@@ -631,7 +668,7 @@
             continuous: true,
             dedupeMs: 1800,
             hint: 'Đưa mã QR vào khung',
-            onScan: (code) => dispatchScan(parseScan(code)),
+            onScan: (code) => onScan(parseScan(code)),
         });
         ctrl?.on?.('ready', () => {
             camReady = true;
@@ -696,11 +733,8 @@
                 window.Web2SSE.subscribe('web2:product-units', () => {
                     clearTimeout(deb);
                     deb = setTimeout(() => {
-                        if (MODE === 'sort') {
-                            if (sortLoaded) sortLoad();
-                        } else if (current?.unit) {
-                            resolve({ id: current.unit.id });
-                        }
+                        if (sortLoaded) sortLoad();
+                        if (current?.unit) resolve({ id: current.unit.id });
                     }, 650);
                 });
             }
@@ -711,8 +745,8 @@
         const go = () => {
             const v = $('#manualInput').value.trim();
             if (!v) return;
-            dispatchScan(parseScan(v));
-            if (MODE === 'sort') $('#manualInput').value = '';
+            onScan(parseScan(v));
+            $('#manualInput').value = '';
         };
         $('#manualGo').addEventListener('click', go);
         $('#manualInput').addEventListener('keydown', (e) => {
@@ -720,29 +754,9 @@
         });
     }
 
-    function setMode(m) {
-        MODE = m === 'sort' ? 'sort' : 'tra';
-        document
-            .querySelectorAll('.mode-tab')
-            .forEach((b) => b.classList.toggle('is-active', b.dataset.mode === MODE));
-        $('#traView').hidden = MODE !== 'tra';
-        $('#sortView').hidden = MODE !== 'sort';
-        $('#tagBtn') && ($('#tagBtn').style.display = MODE === 'sort' ? '' : 'none');
-        $('.scanner')?.classList.toggle('compact', MODE === 'sort');
-        $('#manualInput')?.setAttribute(
-            'placeholder',
-            MODE === 'sort' ? 'Nhập mã đơn vị để chia…' : 'Nhập mã đơn vị (vd KHOAODEN-017)'
-        );
-        if (MODE === 'sort' && !sortLoaded) sortLoad();
-        icons();
-    }
-
     function boot() {
         icons();
         $('#torchBtn').addEventListener('click', toggleTorch);
-        document
-            .querySelectorAll('.mode-tab')
-            .forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
         $('#manifestBtn')?.addEventListener('click', openManifest);
         $('#sheetClose')?.addEventListener('click', closeSheet);
         $('#sheetBack')?.addEventListener('click', (e) => {
@@ -750,13 +764,12 @@
         });
         wireManual();
         initSse();
-        // Deep-link: ?mode=sort → chia hàng; ?u=/?code= → tra 1 món.
+        sortLoad(); // tiến độ kệ luôn hiển thị
+        // Deep-link: ?u= / ?code= → tra 1 món ngay. (?mode=sort cũ: bỏ qua, view đã gộp.)
         const qs = new URLSearchParams(location.search);
         const u = qs.get('u');
         const code = qs.get('code');
-        if (qs.get('mode') === 'sort') {
-            setMode('sort');
-        } else if (u) {
+        if (u) {
             $('.scanner')?.classList.add('compact');
             resolve({ id: u });
         } else if (code) {
