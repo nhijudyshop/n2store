@@ -2,6 +2,14 @@
 
 ## 2026-06-29
 
+### [native-orders] Nới PATCH hook reconcile khi đổi tên/SĐT KH (denorm sync triệt để)
+
+**File:** `render.com/routes/native-orders.js` (PATCH `/:code` hook).
+
+Trước: PATCH chỉ fire reconcile khi `products`/`status` đổi → sửa CHỈ tên/SĐT KH không sync denorm unit (hero quét cũ tới lần sửa giỏ kế). Fix triệt để: thêm `body.customerName !== undefined || body.phone !== undefined` vào điều kiện → đổi tên/SĐT cũng fire reconcile → sync denorm STT/customer cho unit đã gán → quét luôn TƯƠI.
+
+**Status:** 🔄 Deploy + test.
+
 ### [web2/auth] TTL phiên theo role: admin 90 ngày, user 14 ngày (giảm "Phiên hết hạn")
 
 **Files:** `render.com/routes/web2-users.js` (TOKEN_TTL_MS → `tokenTtlFor(role)`).

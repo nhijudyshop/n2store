@@ -2075,9 +2075,15 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             body?.status ? 'Đổi trạng thái: ' + body.status : 'Sửa đơn'
         );
 
-        // Auto-gán/nhả đơn vị (per-unit QR) khi giỏ đổi (thêm/bớt SP) hoặc đổi trạng
-        // thái (huỷ → nhả hết). Best-effort fire-and-forget; reconcile idempotent theo SL.
-        if (Array.isArray(body.products) || body.status !== undefined) {
+        // Auto-gán/nhả đơn vị (per-unit QR) khi giỏ đổi (thêm/bớt SP), đổi trạng thái
+        // (huỷ → nhả hết), HOẶC đổi tên/SĐT KH (→ reconcile sync denorm STT/customer
+        // của unit đã gán → quét ra TƯƠI). Best-effort fire-and-forget; idempotent.
+        if (
+            Array.isArray(body.products) ||
+            body.status !== undefined ||
+            body.customerName !== undefined ||
+            body.phone !== undefined
+        ) {
             try {
                 require('./web2-product-units')
                     .reconcileOrderUnits(pool, order.id)
