@@ -2,6 +2,12 @@
 
 ## 2026-06-29
 
+### [live-chat] Fix tab vùng (HÀ NỘI / HƯƠNG CHÂU) trong Kho SP không hoạt động
+
+**Files:** `live-chat/js/pancake/inventory-panel-state.js` (`applyFilter` + comment header).
+
+User báo tab địa danh trong panel Kho SP bấm không lọc gì. Root cause: tab lấy từ Sổ Order = **vùng/khu** (HÀ NỘI, HƯƠNG CHÂU) nhưng `applyFilter` lại so khớp `p.supplier` (= xưởng/NCC: XƯỞNG GÒ VẤP, QUẢNG CHÂU…) → 2 namespace khác nhau, 0 overlap → mọi tab vùng cho 0 SP. Sản phẩm có sẵn field `p.region` = HÀ NỘI/HƯƠNG CHÂU khớp đúng nhãn tab. Fix 1 dòng: đổi field lọc `p.supplier` → `p.region`. Verify live data: ALL=9, HÀ NỘI=7, HƯƠNG CHÂU=2 (7+2=9 partition đúng); trước fix cả 2 tab =0. Status ✅
+
 ### [unit-scan] Hiện MÃ TEM theo từng STT (tem nào vào STT nào) + audit logic per-unit
 
 **Files:** `render.com/routes/web2-product-units.js` (`/sort-manifest` thêm `array_agg(unit_code)` → `products[].codes`), `web2/unit-scan/{index.html,js/unit-scan.js,css/unit-scan.css}` + bump css `g→h`, js `f→g`.

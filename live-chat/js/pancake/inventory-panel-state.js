@@ -5,8 +5,8 @@
 // (render / actions / init) gắn function của mình lên NS và đọc deps qua NS.
 //
 // Logic gốc (giữ nguyên từ inventory-panel.js):
-//   - Tabs lấy từ so-order Postgres (Web2SoOrder) → data.tabs[].label/name.
-//   - Filter: SP có supplier === tabName (exact, case-insensitive).
+//   - Tabs lấy từ so-order Postgres (Web2SoOrder) → data.tabs[].label/name (= vùng).
+//   - Filter: SP có region === tabName (exact, case-insensitive).
 //   - Search: tokenize input, AND-match qua code/name/variant (ASCII normalize).
 
 (function (global) {
@@ -127,10 +127,11 @@
                 const stock = Number(p.stock) || 0;
                 if (stock <= 0) return false;
             }
-            // Tab filter: exact supplier
+            // Tab filter: exact region. Sổ Order tabs = vùng/khu (HÀ NỘI, HƯƠNG
+            // CHÂU) → khớp p.region, KHÔNG phải p.supplier (xưởng/NCC cụ thể).
             if (tabUpper) {
-                const sup = asciiUpper(p.supplier || '');
-                if (sup !== tabUpper) return false;
+                const reg = asciiUpper(p.region || '');
+                if (reg !== tabUpper) return false;
             }
             // Search tokens AND-match
             if (tokens.length) {
