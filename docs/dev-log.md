@@ -2,6 +2,20 @@
 
 ## 2026-06-29
 
+### [goods-weight] Trang MỚI "Cân Nặng Hàng" ⚖️ (hàng về kiện → cân + ảnh)
+
+**Files:** `render.com/routes/web2-goods-weight.js` (NEW), `render.com/server.js` (mount + SSE wire), `web2/goods-weight/{index.html,js/goods-weight.js,css/goods-weight.css}` (NEW), `web2/shared/web2-sidebar.js` (menu "Mua hàng"), 55 html cache-bust sidebar `20260629b→c`.
+
+Hàng về (hàng ở kiện) → đưa kiện lên cân → chụp ảnh mặt cân → form ghi: **tên user** (server-resolved từ token) + **ảnh cân** + **ngày giờ phút** (server time, hiện GMT+7) + **số kg** + **số kiện** + **ghi chú**.
+
+- **Backend** `/api/web2-goods-weight` (web2Db, pool `web2Db||chatDb`): `GET /list` (auth soft), `GET /img/:id` (public, bytea immutable), `POST /` (auth soft — username từ `req.web2User`), `DELETE /:id` (**admin**). Ảnh = **BYTEA web2Db** (KHÔNG Bunny — policy aikol-only; mirror `web2-so-order-images.js`). SSE topic **`web2:goods-weight`** qua hub web2.
+- **Frontend**: form camera-first (`<input capture=environment>` mở cam sau ĐT) → nén canvas ≤1280px/jpeg0.8 (~4MB→~300KB) → preview; kg/kiện native number; clock GMT+7 live; list card (thumb→lightbox, kg lớn, kiện pill, user, giờ); xoá per-row chỉ admin; SSE realtime đa-máy/đa-tab.
+- Kiến trúc verify vs `docs/web2/KB-SYSTEM-SERVICES.md`: pool web2Db✓, SSE hub web2✓, worker tự route `/api/web2*`→web2-api (không đổi worker)✓, bytea-not-Bunny✓, GMT+7✓, ensureTables idempotent✓.
+
+**Test:** self-check local PG schema/query ✓ (bytea round-trip, has_image, order newest-first, delete). Syntax ✓.
+
+**Status:** ✅ Logic verified local. 🔄 Deploy web2-api + smoke (GET /list 200, no-token POST→401).
+
 ### [clearance] Đổi logic hàng rớt xả → THEO CHIẾN DỊCH (user spec)
 
 **Files:** `render.com/routes/web2-product-units.js` (`CLEARANCE_CTE` mới + viết lại `GET /clearance`).

@@ -952,6 +952,12 @@ const web2SoOrderImagesRoutes = require('./routes/web2-so-order-images');
 web2SoOrderImagesRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2-so-order-images', web2SoOrderImagesRoutes);
 
+// WEB2.0 (2026-06-29): Cân nặng hàng khi về kiện — ảnh cân BYTEA web2Db + kg/kiện/note.
+// Topic SSE 'web2:goods-weight'.
+const web2GoodsWeightRoutes = require('./routes/web2-goods-weight');
+web2GoodsWeightRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-goods-weight', web2GoodsWeightRoutes);
+
 // WEB2.0 — Báo cáo kho: mua vào (Sổ Order) vs bán ra (PBH) theo SP + NCC. Read-only, no SSE.
 const web2WarehouseReportRoutes = require('./routes/web2-warehouse-report');
 app.use('/api/web2-warehouse-report', web2WarehouseReportRoutes);

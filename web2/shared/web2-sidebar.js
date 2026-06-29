@@ -283,6 +283,10 @@
                     our: '../so-order/index.html',
                 },
                 {
+                    label: 'Cân Nặng Hàng ⚖️',
+                    our: '../web2/goods-weight/index.html',
+                },
+                {
                     label: 'Trả hàng NCC',
                     our: '../web2/purchase-refund/index.html',
                 },
