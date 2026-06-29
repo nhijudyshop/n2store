@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9fd3316` — feat(unit-scan): quét tem hiện số liệu live SP (Bán/KH mới/NCC/Còn/Tồn) như live-control
-**Last updated**: 2026-06-29 08:54:54 +07
-**Latest session**: [`RESUME:20260629-085454-9fd3316`](../20260629-085454-9fd3316.md)
-**Summary**: feat(unit-scan): quét tem hiện số liệu live SP (Bán/KH mới/NCC/Còn/Tồn) như live-control
+**Latest commit**: `a45a54a` — docs(dev-log): scan metrics verified live (Bán=8, KH mới=5)
+**Last updated**: 2026-06-29 08:57:55 +07
+**Latest session**: [`RESUME:20260629-085755-a45a54a`](../20260629-085755-a45a54a.md)
+**Summary**: Quét tem hiện số liệu live SP (Bán/mới/NCC/còn/tồn) như live-control — verified
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 08:54
+- [`docs/`](./docs.md) — updated 2026-06-29 08:57
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
