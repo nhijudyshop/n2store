@@ -1798,10 +1798,11 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                     o.pbhTotal = Number(p.amount_total || 0);
                     o.pbhResidual = Number(p.residual || 0); // SUM mọi bill → còn nợ nếu bất kỳ bill nợ
                     o.pbhPaymentAmount = Number(p.payment_amount || 0);
-                    // 2026-06-29: tiền đặt cọc CẤP ĐƠN = SUM(deposit) PBH (đơn web không
-                    // ghi native_orders.deposit). Tag 'co_coc' đọc o.deposit → chỉ ĐƠN có
-                    // PBH + cọc>0 mới fire (GIỎ chưa PBH → không cọc, đúng logic GIỎ/ĐƠN).
-                    o.deposit = Number(p.deposit_total || 0);
+                    // 2026-06-29: cọc CẤP ĐƠN. o.deposit mặc định = native_orders.deposit
+                    // (mapRow:547 — GIỎ nhập cọc TRƯỚC khi chốt VẪN tính co_coc). Khi có
+                    // PBH thì lấy MAX với cọc PBH (SUM) — KHÔNG đè mất cọc GIỎ nếu PBH
+                    // deposit=0. Tag 'co_coc' fire khi cọc > 0 ở GIỎ HOẶC ĐƠN.
+                    o.deposit = Math.max(Number(o.deposit || 0), Number(p.deposit_total || 0));
                     o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
                     o.pbhFulfillmentState = p.fulfillment_state || null; // representative (display/legacy)
                     o.pbhAllReconciled = p.all_reconciled === true; // mọi bill đã đóng gói+

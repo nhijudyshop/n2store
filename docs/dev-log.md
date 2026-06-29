@@ -8,7 +8,7 @@
 
 3 trigger có sẵn nhưng chưa seed (không hiện cột Thẻ) — user chọn activate + fix:
 
-- **co_coc** ("Có đặt cọc"): predicate đọc `o.deposit` nhưng `native_orders.deposit` không bao giờ ghi (đơn web) → DEAD. Fix: enrich `o.deposit = SUM(deposit)` PBH trong pbhQ `/load` (native-orders.js). Chỉ ĐƠN có PBH + cọc>0 fire (GIỎ chưa PBH → 0, đúng logic GIỎ/ĐƠN).
+- **co_coc** ("Có đặt cọc"): predicate đọc `o.deposit` — DEAD vì chưa seed active. Fix: o.deposit = native_orders.deposit (mapRow:547 — **GIỎ nhập cọc trước khi chốt VẪN tính**) + MAX với SUM(deposit) PBH khi có PBH (non-destructive, không đè mất cọc GIỎ). Fire khi cọc>0 ở GIỎ HOẶC ĐƠN. (Verify live: GIỎ draft deposit 50k → co_coc fire ✓.)
 - **ship_tinh / ship_tp**: predicate chỉ đọc `delivery_method` (trống khi NV chưa pick → im lặng false). Fix: helper `_shipZone(o)` — ưu tiên delivery_method, trống thì **derive zone từ địa chỉ** (port gọn `DeliveryMethodPicker.pickOffline`: keyword quận HCM → 'tp', còn lại có địa chỉ → 'tinh'). Khớp đúng badge "Ship Tỉnh" ở cột địa chỉ.
 - Seed activate cả 3 (ON CONFLICT DO NOTHING, idempotent) → hiệu lực khi web2-api redeploy (ensureTable chạy lại lúc restart).
 
