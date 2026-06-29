@@ -2,6 +2,16 @@
 
 ## 2026-06-29
 
+### [goods-weight] Fix tràn ngang trên mobile (number input không co)
+
+**Files:** `web2/goods-weight/css/goods-weight.css` (`.gw-field` + `min-width:0`, input/textarea + `width:100%;min-width:0`), `index.html` (cache-bust css `20260629b→c`).
+
+User báo "bug giao diện". Root cause: `.gw-row2 { grid-template-columns: 1fr 1fr }` (= `minmax(auto,1fr)`) tôn trọng min-content của `<input type=number>` (#gwKg/#gwBales) → track không co được dưới ~300px → tràn ngang ~250px trên mobile (scrollWidth 640 vs viewport 390). Desktop không lộ vì card 560px đủ chỗ. Fix kinh điển grid/flex overflow: cho item co (`min-width:0`) + input fill track (`width:100%`).
+
+**Test (Playwright 390px):** trước `overflowPx 250` (gwBales 301px tràn tới x=640); sau `overflowPx 0`, gwBales 163px vừa track, screenshot mobile edge-to-edge OK; desktop 1440 không đổi (flex stretch sẵn).
+
+**Status:** ✅ verified local.
+
 ### [unit-scan] Danh sách TẤT CẢ tem của SP (ẩn/bật) + [print] QR TO HƠN
 
 **Files:** `web2/unit-scan/js/unit-scan.js` (+ `sibRow`/`loadSiblings` + state `sibOpen` + toggle), `web2/unit-scan/css/unit-scan.css` (`.sib-*`), `web2/products/js/web2-products-print-render.js` (`qrMm` factors), cache-bust: unit-scan js `20260629a→b`+css `20260628d→20260629a`, print-render `20260628a/b→20260629a` ở products/so-order/unit-scan.

@@ -175,12 +175,15 @@ body {
     font-weight: 700;
     color: var(--c-text-2);
     margin-top: 12px;
+    min-width: 0; /* cho phép grid/flex item co lại < min-content của input number → khỏi tràn ngang mobile */
 }
 .gw-row2 .gw-field {
     margin-top: 0;
 }
 .gw-field input,
 .gw-field textarea {
+    width: 100%;
+    min-width: 0;
     border: 1.5px solid var(--c-line);
     border-radius: 12px;
     padding: 13px 14px;
