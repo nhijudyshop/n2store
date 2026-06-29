@@ -303,14 +303,12 @@
     //   - "31-2" nếu đơn TÁCH (splitIndex > 0)
     //   - campaignStt (per-campaign 1..n) cho đơn thường — KHÔNG dùng displayStt
     //     (global sequence) vì list hiển thị campaignStt → bill phải giống.
+    // STT đơn = SỐ KỆ vật lý (user dán ngoài kệ). Đơn GỘP: dùng campaign_stt MỚI
+    // của đơn gộp (= số kệ thật, KHỚP tem quét ra), KHÔNG còn join display_stt cũ
+    // "1 + 2" (2026-06-29 user chốt "lấy số mới nhất" — tránh lệch tem ↔ native-orders;
+    // 1 nguồn STT kệ = campaign_stt, xem render.com/lib/web2-shelf-stt.js).
+    // STT các đơn gốc vẫn xem được qua title badge (mergedDisplayStt) + merged_codes.
     NO.computeOrderStt = function computeOrderStt(o) {
-        if (Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1) {
-            return o.mergedDisplayStt
-                .map((n) => parseInt(n, 10))
-                .filter(Number.isFinite)
-                .sort((a, b) => a - b)
-                .join(' + ');
-        }
         const base = o.campaignStt ?? o.displayStt ?? o.sessionIndex ?? '';
         return o.splitIndex && o.splitIndex > 0 ? `${base}-${o.splitIndex}` : base;
     };
@@ -362,10 +360,21 @@
         //   - 2026-06-02 (user spec): ưu tiên campaignStt (per-campaign 1..n, reset
         //     theo campaign group key) thay vì displayStt (global sequence không bao
         //     giờ reset → "1 đơn STT 7" sau khi xóa data cũ → confusing).
-        //   - "1 + 2" nếu là đơn gộp (mergedDisplayStt array length > 1)
+        //   - đơn GỘP: campaign_stt MỚI của đơn gộp (số kệ thật, khớp tem) + dấu ⛓
+        //     (2026-06-29 user chốt "số mới nhất"); STT gốc xem qua title/⛓ hover
         //   - "31-2" nếu là đơn tách (splitIndex > 0) — chia sẻ STT với các đơn cùng split family
         //   - "31" cho đơn thường
         const sttValue = NO.computeOrderStt(o);
+        const _mergedFrom =
+            Array.isArray(o.mergedDisplayStt) && o.mergedDisplayStt.length > 1
+                ? o.mergedDisplayStt.join(' + ')
+                : '';
+        const _sttTitle = _mergedFrom
+            ? ` title="Đơn gộp từ STT ${NO.escapeHtml(_mergedFrom)}"`
+            : '';
+        const _mergeMark = _mergedFrom
+            ? '<sup class="web2-stt-merge" style="font-size:9px;color:#0068ff;font-weight:800;margin-left:1px;">⛓</sup>'
+            : '';
         // is-split-family: visually nhóm các đơn cùng display_stt với split_index > 0.
         // splitTopcap / splitBotcap để border-radius hợp lý: 33-1 chỉ bo trên, 33-2 chỉ bo dưới.
         const splitClass = o.splitIndex && o.splitIndex > 0 ? ' is-split-family' : '';
@@ -379,7 +388,7 @@
                     <td class="col-check" onclick="event.stopPropagation();">
                         <div class="web2-check-stt">
                             <input type="checkbox" class="row-check" value="${NO.escapeHtml(o.code)}">
-                            <span class="web2-row-stt">${sttValue}</span>
+                            <span class="web2-row-stt"${_sttTitle}>${sttValue}${_mergeMark}</span>
                             <!-- 2026-06-01: trạng thái đơn moved into STT cell (per user) -->
                             <div class="web2-row-status-inline">${NO.web2StatusText(o.status)}</div>
                             ${NO.orderDerivedBadges(o)}

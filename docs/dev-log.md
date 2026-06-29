@@ -2,6 +2,12 @@
 
 ## 2026-06-29
 
+### [native-orders] Đơn GỘP hiện STT kệ MỚI (khớp tem) thay vì "1 + 2"
+
+**Files:** `native-orders/js/native-orders-render.js` (`computeOrderStt` bỏ nhánh `mergedDisplayStt` join → dùng `campaign_stt`; badge thêm title + dấu ⛓), `native-orders/index.html` (cache-bust render `20260629b→c`).
+
+User chốt: STT ở native-orders = SỐ KỆ vật lý dán ngoài → phải khớp tem quét ra. Đơn gộp trước hiện `"1 + 2"` (display_stt 2 đơn gốc) nhưng đơn gộp được cấp `campaign_stt` MỚI → tem/unit-scan quét ra số mới đó → lệch. Nay đơn gộp hiện `campaign_stt` mới (số kệ thật), kèm `<sup>⛓</sup>` + title "Đơn gộp từ STT 1 + 2" để không mất thông tin nguồn. Hoàn tất thống nhất STT 1 nguồn (`campaign_stt`) trên MỌI surface: native-orders (badge), unit-scan/tem, board/TV. (PBH/packing-slip dùng display_stt là SỐ ĐƠN riêng — không phải số kệ — giữ nguyên.)
+
 ### [units/campaign] Thống nhất STT kệ về 1 NGUỒN (campaign_stt ?? display_stt)
 
 **Files:** `render.com/lib/web2-shelf-stt.js` (NEW — `shelfStt(row)` + `SHELF_STT_SQL`), `render.com/routes/web2-product-units.js` (require + dùng ở `_openOrdersForProduct` + `reconcileOrderUnits`), `render.com/routes/web2-campaign-products.js` (`/cart-detail` thêm `campaign_stt` vào query + dùng `shelfStt`).
