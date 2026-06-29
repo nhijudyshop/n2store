@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [order-creation + clearance] Fix audit findings #3-#7 + clearance bug (#2a defer)
+
+**Files:** `render.com/routes/native-orders.js` (#5 customer dedup, #6 phone normalize, LOW clamp qty/price), `render.com/routes/web2-product-units.js` (clearance open_recent fix), `live-chat/js/live/{live-native-orders-api,live-comment-list-orders}.js` + `js/pancake/{inventory-panel-render,inventory-panel-actions}.js` (#3,#4,#7,LOW), cache-bust `20260629f`.
+
+- **#3** SP hết hàng (`isOos`) → `draggable="false"` (không kéo tạo đơn oversell). **#4** double-drop: in-flight key `commentId::code` chặn drop trùng khi request đang bay (giữ optimistic UI). **#7** đọc SĐT/địa chỉ SCOPED trong row nút bấm (không `getElementById` global → hết lấy nhầm row KH nhiều comment). **LOW** nút tạo giỏ dùng ref `btn` đã giữ (hết kẹt spinner khi row re-render). **g1b** `createFromComment` gửi `x-web2-token`.
+- **#6** cột `native_orders.phone` normalize canonical `^0\d{9}$` qua `normalizePhone` (1 nguồn với customer link) — raw '+84…'/rác → '' . **#5** `upsertCustomerFromOrder` dùng phone normalize (khớp `getOrCreateWeb2OrderCustomer` → hết đôi KH). **LOW** clamp qty/price âm → 0.
+- **CLEARANCE bug**: bỏ ràng buộc `created_at > grace` trong `open_recent` (redundant → vô hiệu) → giờ xét MỌI đơn chưa huỷ còn thiếu tem (bất kể tuổi) → SP còn đơn cũ chưa đủ hàng KHÔNG bị xả nhầm.
+- **⚠ DEFER #2a** (gate from-comment auth): ENFORCE=1 prod; cart `_createDraftViaFromComment` HTTP self-call from-comment KHÔNG gửi token + cart frontend cũng không → gate sẽ phá luồng cart drag (KH mới → 401). Cần làm chuỗi auth cart trước.
+
+**Status:** 🔄 Deploy + test backend (phone/clamp/clearance); frontend syntax OK.
+
 ### [v2/cart] FIX HIGH: cart drag (luồng livestream chính) KHÔNG auto-gán unit — hook reconcile
 
 **Files:** `render.com/routes/v2/cart.js` (+hook 4 endpoint), `render.com/routes/web2-product-units.js` (+`freeOrderUnits`).

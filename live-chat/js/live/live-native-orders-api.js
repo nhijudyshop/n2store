@@ -73,7 +73,7 @@ const NativeOrdersApi = {
     async createFromComment(params) {
         const data = await this._fetchJson(`${this._getBaseUrl()}/from-comment`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this._w2AuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(params || {}),
         });
         return data;

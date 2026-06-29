@@ -34,8 +34,20 @@
     // Pattern UI-first: optimistic badge + toast NGAY → backend chạy background.
     // Backend lỗi → rollback badge + remove toast optimistic + show error toast.
     // KHÔNG async/await ở caller path (drop event handler) — return ngay tức thì.
+    // ponytail: in-flight dedup theo (commentId, productCode). Module-level Set
+    // sống qua mọi lần drop — chặn 2 drop CÙNG SP khi request /add đang bay.
+    const _addInflight = (NS._addInflight ||= new Set());
+
     function addToCart(groupKey, product, customer, commentIdMeta) {
         const commentId = groupKey;
+        // #4 double-drop guard: drop thứ 2 cùng (commentId, code) khi request đang
+        // bay → bỏ qua + báo nhẹ. Key xoá khi response settle (finally bên dưới).
+        const _inflightKey = commentId + '::' + product.code;
+        if (_addInflight.has(_inflightKey)) {
+            NS._showToast(`⏳ Đang xử lý "${product.code}"…`, 'ok');
+            return;
+        }
+        _addInflight.add(_inflightKey);
         const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
         const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
         // Step 1 — Optimistic UI INSTANT
@@ -110,6 +122,11 @@
                     if (toast.parentNode) toast.remove();
                 }
                 NS._showToast(`✗ Lỗi thêm "${product.code}": ${e.message}`, 'err');
+            } finally {
+                // Xoá in-flight key khi response settle (success/fail) → cho phép
+                // drop lại SP này. Undo trong 5s gọi removeFromCart độc lập, không
+                // qua addToCart nên không đụng key.
+                _addInflight.delete(_inflightKey);
             }
         })();
     }

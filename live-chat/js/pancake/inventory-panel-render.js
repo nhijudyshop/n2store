@@ -115,7 +115,7 @@
                 const isOos = stock <= 0;
                 // stock tier badge màu: hết / nguy cấp ≤5 / sắp hết ≤15 / còn
                 const tier = isOos ? 'zero' : stock <= 5 ? 'crit' : stock <= 15 ? 'low' : '';
-                return `<div class="inv-card${isOos ? ' oos' : ''}" draggable="true" data-product='${productJson}'>
+                return `<div class="inv-card${isOos ? ' oos' : ''}" draggable="${!isOos}" data-product='${productJson}'>
                     <div class="inv-card-imgwrap">
                         ${imgHtml}
                     </div>

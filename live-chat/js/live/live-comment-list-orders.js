@@ -37,13 +37,21 @@
             const fbPageId = pageObj?.Facebook_PageId || pageObj?.FacebookPageId;
             const message = comment?.message || '';
 
-            // Inline field values (user may have typed into phone/addr inputs)
-            const phoneEl = document.getElementById(`phone-${fromId}`);
-            const addrEl = document.getElementById(`addr-${fromId}`);
+            // Bug #7: phone/addr inputs dùng id=`phone-${fromId}` (chỉ theo fromId,
+            // KHÔNG unique theo comment) → 1 KH nhiều comment row sẽ trùng id, và
+            // getElementById trả ROW ĐẦU trong DOM → đọc nhầm input của row khác.
+            // Fix: lấy nút theo id comment-unique (create-order-${fromId}-${commentId})
+            // rồi đọc input SCOPED trong cùng .live-conversation-item của nút đó.
+            const btn = document.getElementById(`create-order-${fromId}-${commentId}`);
+            const row = btn?.closest('.live-conversation-item') || document;
+            const phoneEl =
+                row.querySelector(`#phone-${CSS.escape(String(fromId))}`) ||
+                row.querySelector('.live-conv-info input[id^="phone-"]');
+            const addrEl =
+                row.querySelector(`#addr-${CSS.escape(String(fromId))}`) ||
+                row.querySelector('.live-conv-info input[id^="addr-"]');
             const phone = phoneEl ? phoneEl.value.trim() : '';
             const address = addrEl ? addrEl.value.trim() : '';
-
-            const btn = document.getElementById(`create-order-${fromId}-${commentId}`);
             const previousIcon =
                 btn?.querySelector('i')?.getAttribute('data-lucide') || 'shopping-cart';
             if (btn) {
@@ -123,11 +131,13 @@
                     );
                 }
             } catch (error) {
-                // Restore button to clickable state with the previous icon
-                const restoreBtn = document.getElementById(`create-order-${fromId}-${commentId}`);
-                if (restoreBtn) {
-                    restoreBtn.innerHTML = `<i data-lucide="${previousIcon}" style="width:14px;height:14px;"></i>`;
-                    restoreBtn.disabled = false;
+                // Restore button to clickable state with the previous icon.
+                // Dùng tham chiếu `btn` đã giữ (đóng băng) thay vì getElementById lại
+                // — nếu row re-render giữa chừng, getElementById có thể trả null →
+                // nút kẹt spinner. btn vẫn trỏ đúng element (kể cả đã detach).
+                if (btn) {
+                    btn.innerHTML = `<i data-lucide="${previousIcon}" style="width:14px;height:14px;"></i>`;
+                    btn.disabled = false;
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 }
                 if (window.notificationManager)

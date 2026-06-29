@@ -695,9 +695,13 @@ router.get('/clearance', async (req, res) => {
                 SELECT
                     COALESCE(e->>'productCode', e->>'code') AS pcode,
                     MAX(no.created_at) AS last_order_at,
+                    -- FIX clearance bug (2026-06-29): bo rang buoc created_at > grace
+                    -- (chi xet don <=24h, redundant voi last_order_at<grace -> vo hieu).
+                    -- Gio xet MOI don CHUA HUY con THIEU tem (SL dat > SL da gan), bat
+                    -- ke tuoi -> SP con don cu chua du hang thi KHONG xa (giu stock gan
+                    -- cho don do). open_recent = don mo con thieu (bat ke tuoi).
                     BOOL_OR(
                         no.status <> 'cancelled'
-                        AND no.created_at > $1
                         AND (CASE WHEN (e->>'quantity') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (e->>'quantity')::numeric
                                   WHEN (e->>'qty') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (e->>'qty')::numeric
                                   ELSE 0 END)
