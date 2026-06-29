@@ -815,7 +815,7 @@ router.post('/reset-stt', requireWeb2AuthSoft, async (req, res) => {
 //    message?, phone?, address?, note?,
 //    createdBy?, createdByName? }
 // -----------------------------------------------------
-router.post('/from-comment', async (req, res) => {
+router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {

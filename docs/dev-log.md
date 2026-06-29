@@ -2,6 +2,19 @@
 
 ## 2026-06-29
 
+### [cart auth hardening] Gate chuỗi auth cart + đóng #2a (from-comment)
+
+**Files:** `render.com/routes/v2/cart.js` (gate 5 write + forward token), `render.com/routes/native-orders.js` (gate /from-comment), `live-chat/js/pancake/inventory-panel-actions.js` (Phase 1 token, cache-bust `g`).
+
+ENFORCE=1 prod nhưng cart `/api/v2/cart/*` + `/from-comment` ungated → ai cũng tạo/sửa đơn live được (lỗ hổng chuỗi auth cart). Fix 2 phase (deploy frontend trước):
+
+- **Phase 1 (frontend)**: `_cartHeaders()` gửi `x-web2-token` (Web2Auth.authHeaders) cho cart WRITE add/remove/clear. Vô hại khi backend chưa gate.
+- **Phase 2 (backend)**: gate 5 cart write (`/add /remove /clear` PATCH `/commit`) bằng `requireWeb2AuthSoft`; `_createDraftViaFromComment` (self-call) **forward** `req.headers['x-web2-token']`; gate `/from-comment` (đóng #2a defer trước đó). Read endpoints (counts/history/get) giữ ungated.
+
+Giờ chuỗi: cart frontend gửi token → cart write gated nhận → tạo draft qua from-comment (forward token) → from-comment gated nhận. KH mới (chưa draft) vẫn chạy.
+
+**Status:** 🔄 Deploy + test (no-token→401, token→full flow OK).
+
 ### [order-creation + clearance] Fix audit findings #3-#7 + clearance bug (#2a defer)
 
 **Files:** `render.com/routes/native-orders.js` (#5 customer dedup, #6 phone normalize, LOW clamp qty/price), `render.com/routes/web2-product-units.js` (clearance open_recent fix), `live-chat/js/live/{live-native-orders-api,live-comment-list-orders}.js` + `js/pancake/{inventory-panel-render,inventory-panel-actions}.js` (#3,#4,#7,LOW), cache-bust `20260629f`.

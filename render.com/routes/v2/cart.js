@@ -21,6 +21,9 @@
 
 const express = require('express');
 const router = express.Router();
+// Hardening 2026-06-29: gate auth cho cart WRITE (tạo/sửa đơn live). Soft (chỉ 401
+// khi WEB2_AUTH_ENFORCE=1). Frontend cart đã gửi x-web2-token (Phase 1).
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 
 // KPI helpers (Sprint 1) — emit forecast events khi cart mutates.
 // Sai sót ở KPI = không-blocking → wrap try/catch.
@@ -252,7 +255,12 @@ async function _createDraftViaFromComment(req, customerId, customer, fbContext, 
     const fetchFn = global.fetch || (await import('node-fetch')).default;
     const r = await fetchFn(`${NATIVE_API}/api/native-orders/from-comment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // Forward token của request gốc (cart frontend đã gửi) → from-comment (đã gate
+        // requireWeb2AuthSoft) chấp nhận self-call này. Thiếu token + ENFORCE=1 → 401.
+        headers: {
+            'Content-Type': 'application/json',
+            ...(req.headers['x-web2-token'] ? { 'x-web2-token': req.headers['x-web2-token'] } : {}),
+        },
         body: JSON.stringify({
             fbUserId: customerId,
             fbUserName: customer?.name || fc.fbUserName || null,
@@ -394,7 +402,7 @@ async function _withDraftLock(pool, code, fn) {
 
 // POST /:commentId/add  body: { product, customer, user, qty?, fbContext, page_id? }
 // Tạo draft order nếu chưa có + append SP vào products array.
-router.post('/:commentId/add', async (req, res) => {
+router.post('/:commentId/add', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
@@ -509,7 +517,7 @@ router.post('/:commentId/add', async (req, res) => {
 
 // POST /:commentId/:productCode/remove  body: { user }
 // Xóa SP khỏi products. Nếu products còn lại = [] → DELETE native_order.
-router.post('/:commentId/:productCode/remove', async (req, res) => {
+router.post('/:commentId/:productCode/remove', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const customerId = req.params.commentId;
@@ -584,7 +592,7 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
 
 // POST /:commentId/clear  body: { user, reason? }
 // Xóa hết SP của khách = DELETE draft native_order (tương đương xóa đơn).
-router.post('/:commentId/clear', async (req, res) => {
+router.post('/:commentId/clear', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const customerId = req.params.commentId;
@@ -628,7 +636,7 @@ router.post('/:commentId/clear', async (req, res) => {
 });
 
 // PATCH /:commentId/:productCode  body: { qty, user }  — update qty cho 1 SP
-router.patch('/:commentId/:productCode', async (req, res) => {
+router.patch('/:commentId/:productCode', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const customerId = req.params.commentId;
@@ -700,7 +708,7 @@ router.patch('/:commentId/:productCode', async (req, res) => {
 // Trước đây fire sau 5s undo để chuyển từ cart_items → native_order. Bây giờ /add
 // ghi thẳng vào native_orders nên không cần commit nữa. Vẫn return success cho
 // frontend cũ chưa update.
-router.post('/:commentId/commit', async (req, res) => {
+router.post('/:commentId/commit', requireWeb2AuthSoft, async (req, res) => {
     const draft = await _findDraft(
         req.app.locals.web2Db || req.app.locals.chatDb,
         req.params.commentId
