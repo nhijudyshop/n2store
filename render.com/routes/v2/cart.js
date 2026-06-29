@@ -26,6 +26,27 @@ const router = express.Router();
 // Sai sót ở KPI = không-blocking → wrap try/catch.
 const kpiModule = require('./kpi');
 
+// Auto-gán/nhả ĐƠN VỊ (per-unit QR) khi giỏ đổi qua cart drag — luồng livestream
+// CHÍNH (kéo SP vào comment). reconcile = đồng bộ unit theo products; free = nhả hết
+// khi xoá đơn. Fire-and-forget, không chặn response. Đối xứng hook ở native-orders
+// (create-manual/PATCH/cancel) — trước đây cart.js BỎ SÓT nên đơn live không auto-gán.
+function _reconcileUnits(pool, orderId) {
+    if (!orderId) return;
+    try {
+        require('../web2-product-units')
+            .reconcileOrderUnits(pool, orderId)
+            .catch(() => {});
+    } catch (_) {}
+}
+function _freeUnits(pool, orderId) {
+    if (!orderId) return;
+    try {
+        require('../web2-product-units')
+            .freeOrderUnits(pool, orderId)
+            .catch(() => {});
+    } catch (_) {}
+}
+
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
     _notifyClients = notifyClients;
@@ -471,6 +492,7 @@ router.post('/:commentId/add', async (req, res) => {
 
         _notifyCart(customerId);
         _notifyNativeOrders('update', draft.code);
+        _reconcileUnits(pool, draft.id); // AUTO-GÁN unit theo giỏ (luồng live chính)
         // Sprint 1: KPI forecast emit (livestream source). qtyDelta = qtyAdd
         // (sự kiện logic: NV add qtyAdd units, dù có merge với line cũ hay không).
         _emitCartKpi(pool, draft, b, 'forecast_add', qtyAdd, p);
@@ -526,6 +548,9 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
         if (!lockedRow || !removed) return res.json({ success: true, alreadyRemoved: true });
         // Notify SAU commit (anti-phantom): chỉ broadcast khi mutation đã chốt.
         _notifyNativeOrders(nativeDeleted ? 'delete' : 'update', draft.code);
+        // Đơn bị xoá (remove SP cuối) → nhả hết unit; còn → reconcile (nhả SP vừa gỡ).
+        if (nativeDeleted) _freeUnits(pool, draft.id);
+        else _reconcileUnits(pool, draft.id);
 
         _logHistory(pool, {
             comment_id: customerId,
@@ -572,6 +597,7 @@ router.post('/:commentId/clear', async (req, res) => {
 
         await pool.query(`DELETE FROM native_orders WHERE code = $1`, [draft.code]);
         _notifyNativeOrders('delete', draft.code);
+        _freeUnits(pool, draft.id); // xoá giỏ → nhả hết unit về IN_STOCK
 
         // Fire-and-forget history logs (anti-lag)
         for (const p of products) {
@@ -663,6 +689,7 @@ router.patch('/:commentId/:productCode', async (req, res) => {
         });
         _notifyCart(customerId);
         _notifyNativeOrders('update', draft.code);
+        _reconcileUnits(pool, draft.id); // đổi SL → gán thêm / nhả bớt unit
         res.json({ success: true, qty: newQty, native_order_code: draft.code });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

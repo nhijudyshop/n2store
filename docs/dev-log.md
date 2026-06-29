@@ -2,6 +2,16 @@
 
 ## 2026-06-29
 
+### [v2/cart] FIX HIGH: cart drag (luồng livestream chính) KHÔNG auto-gán unit — hook reconcile
+
+**Files:** `render.com/routes/v2/cart.js` (+hook 4 endpoint), `render.com/routes/web2-product-units.js` (+`freeOrderUnits`).
+
+**Audit toàn bộ tạo đơn (4 agent workflow live-chat→native-orders) tìm bug HIGH:** đường CHÍNH build đơn livestream = **kéo SP vào comment → `POST /api/v2/cart/:id/add`** (cart.js), ghi thẳng `native_orders.products` nhưng **KHÔNG gọi reconcileOrderUnits** → auto-gán per-unit CHỈ chạy ở create-manual/PATCH/cancel, **BỎ SÓT cart drag** (luồng dùng nhiều nhất). Field-shape OK (cart dual-write code+productCode, qty+quantity).
+
+**Fix:** hook 4 endpoint cart sau commit (fire-and-forget): `/add`→reconcile (gán), `/remove`→free nếu xoá đơn / reconcile nếu còn, `/clear`→free (nhả hết), PATCH qty→reconcile. Thêm `freeOrderUnits(pool,orderId)` (nhả hết unit ASSIGNED→IN_STOCK+UNASSIGN) cho case xoá đơn (reconcile không thấy đơn đã DELETE).
+
+**Status:** 🔄 Deploy + test.
+
 ### [web2/ai-assistant] FIX GỐC: lỗi provider chứa chữ "token" bị nhầm là "Phiên hết hạn" → đăng xuất oan
 
 **Files:** `web2/shared/web2-ai-assistant.js` (`_streamOne` L771 + `_postAi` L803 bỏ regex), `web2/shared/web2-sidebar.js` (inject `20260629b`), 54 `*.html` (cache-bust `web2-sidebar.js?v=20260629b`).

@@ -955,6 +955,41 @@ async function reconcileOrderUnits(pool, orderId) {
     return { assigned, unassigned };
 }
 
+// NHẢ HẾT đơn vị của 1 đơn (dùng khi XOÁ đơn — cart clear / remove SP cuối → đơn bị
+// DELETE, reconcile không thấy đơn để nhả). Set ASSIGNED → IN_STOCK + event UNASSIGN.
+async function freeOrderUnits(pool, orderId) {
+    orderId = Number(orderId);
+    if (!pool || !Number.isInteger(orderId)) return 0;
+    await ensureTables(pool);
+    const client = await pool.connect();
+    let n = 0;
+    try {
+        await client.query('BEGIN');
+        const rows = (
+            await client.query(
+                `UPDATE web2_product_units SET status='IN_STOCK', order_id=NULL, order_code=NULL,
+                    order_stt=NULL, customer_name=NULL, customer_phone=NULL, updated_at=$2
+                  WHERE order_id=$1 AND status='ASSIGNED' RETURNING id, unit_code`,
+                [orderId, Date.now()]
+            )
+        ).rows;
+        for (const u of rows) {
+            await _logEvent(client, { id: u.id, unit_code: u.unit_code }, 'UNASSIGN', {
+                note: 'auto (xoá đơn)',
+            });
+            n++;
+        }
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.warn('[WEB2-PRODUCT-UNITS] freeOrderUnits failed:', e.message);
+    } finally {
+        client.release();
+    }
+    if (n) _notify('assign-auto', { orderId, unassigned: n });
+    return n;
+}
+
 // POST /assign-auto { orderId } — reconcile đơn vị cho 1 đơn theo giỏ (manual/test;
 // luồng chính gọi reconcileOrderUnits trực tiếp từ native-orders sau khi lưu đơn).
 router.post('/assign-auto', requireWeb2AuthSoft, async (req, res) => {
@@ -972,4 +1007,5 @@ router.post('/assign-auto', requireWeb2AuthSoft, async (req, res) => {
 router.initializeNotifiers = initializeNotifiers;
 router.ensureTables = ensureTables;
 router.reconcileOrderUnits = reconcileOrderUnits;
+router.freeOrderUnits = freeOrderUnits;
 module.exports = router;
