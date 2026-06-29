@@ -107,7 +107,7 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
         params.set('t', String(Math.floor(offsetSec)));
     }
-    return `https://nhijudy.store/tpos-pancake/fb-video-player.html?${params.toString()}`;
+    return `https://nhijudy.store/live-chat/fb-video-player.html?${params.toString()}`;
 }
 
 function _mapRow(row, selfBase) {

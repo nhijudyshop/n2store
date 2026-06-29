@@ -196,7 +196,7 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     // không reliable. FB doesn't natively support timestamp URL params
     // (theo MakeVideoLink, Meta docs).
     //
-    // Solution: local wrapper page tpos-pancake/fb-video-player.html load
+    // Solution: local wrapper page live-chat/fb-video-player.html load
     // FB JS SDK + embed plugin + call player.seek(N) programmatic on
     // xfbml.ready event. Reliable seek dù live VOD hay regular VOD.
     const params = new URLSearchParams({ v: videoId });
@@ -204,7 +204,7 @@ function _computeLivestreamUrl(pageSlugOrId, liveVideoId, offsetSec) {
     if (offsetSec && Number.isFinite(offsetSec) && offsetSec > 0) {
         params.set('t', String(Math.floor(offsetSec)));
     }
-    return `https://nhijudy.store/tpos-pancake/fb-video-player.html?${params.toString()}`;
+    return `https://nhijudy.store/live-chat/fb-video-player.html?${params.toString()}`;
 }
 
 function _mapRow(row) {
