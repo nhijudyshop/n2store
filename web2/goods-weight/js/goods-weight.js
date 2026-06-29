@@ -349,12 +349,12 @@
         if (from) qs.set('from', from);
         if (to) qs.set('to', to);
         if (user) qs.set('username', user);
-        $('#rpBody').innerHTML = '<tr><td colspan="7" class="rp-muted">Đang tải…</td></tr>';
+        $('#rpBody').innerHTML = '<tr><td colspan="8" class="rp-muted">Đang tải…</td></tr>';
         try {
             REPORT = await api('/report?' + qs.toString());
             renderReport();
         } catch (e) {
-            $('#rpBody').innerHTML = `<tr><td colspan="7" class="rp-muted">Lỗi: ${esc(
+            $('#rpBody').innerHTML = `<tr><td colspan="8" class="rp-muted">Lỗi: ${esc(
                 e.message
             )}</td></tr>`;
             $('#rpFoot').innerHTML = '';
@@ -372,6 +372,7 @@
 
     function renderReport() {
         if (!REPORT) return;
+        const admin = isAdmin();
         const rates = REPORT.rates || { kg: RATE_KG, bale: RATE_BALE };
         $('#rpRate').innerHTML = `Đơn giá ship: <b>${money(rates.kg)}</b>/kg · <b>${money(
             rates.bale
@@ -398,13 +399,16 @@
 
         if (!rows.length) {
             $('#rpBody').innerHTML =
-                '<tr><td colspan="7" class="rp-muted">Không có dữ liệu trong khoảng lọc.</td></tr>';
+                '<tr><td colspan="8" class="rp-muted">Không có dữ liệu trong khoảng lọc.</td></tr>';
             $('#rpFoot').innerHTML = '';
             return;
         }
         $('#rpBody').innerHTML = rows
             .map((d) => {
                 const dl = dayLabel(d.day);
+                const act = admin
+                    ? `<button class="rp-del" data-del-day="${esc(d.day)}" data-count="${d.count}" title="Xoá toàn bộ ngày này"><i data-lucide="trash-2"></i></button>`
+                    : '';
                 return `<tr>
                     <td class="rp-day"><b>${dl.date}</b><span>${dl.wd}</span></td>
                     <td class="num">${fmtInt(d.count)}</td>
@@ -413,6 +417,7 @@
                     <td class="num">${money(d.shipKg)}</td>
                     <td class="num">${money(d.shipBale)}</td>
                     <td class="num rp-ship">${money(d.ship)}</td>
+                    <td class="rp-act">${act}</td>
                 </tr>`;
             })
             .join('');
@@ -424,8 +429,36 @@
             <td class="num">${money(t.shipKg)}</td>
             <td class="num">${money(t.shipBale)}</td>
             <td class="num rp-ship">${money(t.ship)}</td>
+            <td class="rp-act"></td>
         </tr>`;
+        if (admin)
+            $('#rpBody')
+                .querySelectorAll('[data-del-day]')
+                .forEach((b) =>
+                    b.addEventListener('click', () =>
+                        deleteDay(b.dataset.delDay, Number(b.dataset.count))
+                    )
+                );
         icons($('#panelReport'));
+    }
+
+    async function deleteDay(ymd, count) {
+        if (!isAdmin()) return toast('Chỉ admin được xoá', 'err');
+        const user = $('#rpUser').value;
+        const dl = dayLabel(ymd);
+        const who = user ? ` của "${user}"` : '';
+        const msg = `Xoá TOÀN BỘ ${count} lần cân ngày ${dl.date}${who}?\nKhông thể hoàn tác.`;
+        const ok = window.Popup?.confirm ? await window.Popup.confirm(msg) : confirm(msg);
+        if (!ok) return;
+        try {
+            const qs = user ? '?username=' + encodeURIComponent(user) : '';
+            const r = await api('/day/' + encodeURIComponent(ymd) + qs, { method: 'DELETE' });
+            toast(`✓ Đã xoá ${r.deleted ?? count} bản ghi`, 'ok');
+            loadReport();
+            load(); // đồng bộ lại danh sách Lịch sử cân
+        } catch (e) {
+            toast('Lỗi: ' + e.message, 'err');
+        }
     }
 
     function setPreset(range) {
@@ -497,6 +530,7 @@
     function boot() {
         // Mobile-native (học unit-scan): KHÔNG mount desktop sidebar — header riêng.
         $('#gwUserName').textContent = username() || '—';
+        document.body.classList.toggle('rp-admin', isAdmin()); // cột Xoá chỉ admin thấy
         $('#gwPhotoBtn').addEventListener('click', () => $('#gwPhoto').click());
         $('#gwPhoto').addEventListener('change', onPhoto);
         $('#gwPreviewX').addEventListener('click', clearPhoto);

@@ -697,6 +697,41 @@ body {
     padding: 24px;
 }
 
+/* cột Thao tác (Xoá) — chỉ admin (body.rp-admin) thấy */
+.rp-act {
+    width: 44px;
+    text-align: center;
+    padding-left: 6px !important;
+    padding-right: 10px !important;
+}
+body:not(.rp-admin) .rp-act {
+    display: none;
+}
+.rp-del {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--c-line);
+    border-radius: 9px;
+    background: var(--c-surface);
+    color: var(--c-text-3);
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+    transition:
+        background 0.13s,
+        color 0.13s,
+        border-color 0.13s;
+}
+.rp-del i {
+    width: 15px;
+    height: 15px;
+}
+.rp-del:hover {
+    background: #fdeced;
+    color: var(--c-red);
+    border-color: #f4c4c6;
+}
+
 /* mobile: summary xuống 2 cột, ô tổng tiền chiếm hết hàng */
 @media (max-width: 720px) {
     .rp-summary {

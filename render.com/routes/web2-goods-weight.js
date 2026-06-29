@@ -240,6 +240,30 @@ router.post('/', jsonBody, requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
+// DELETE /day/:ymd?username= — xoá TOÀN BỘ bản ghi của 1 NGÀY (GMT+7), optional lọc theo NV. (ADMIN)
+router.delete('/day/:ymd', requireWeb2Admin, async (req, res) => {
+    try {
+        const ymd = req.params.ymd;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd))
+            return res.status(400).json({ success: false, error: 'Ngày không hợp lệ' });
+        const user = req.query.username ? String(req.query.username) : null;
+        const pool = getPool(req);
+        await ensureTables(pool);
+        const r = await pool.query(
+            `DELETE FROM web2_goods_weight
+             WHERE to_char(to_timestamp(created_at/1000.0) AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') = $1
+               AND ($2::text IS NULL OR username = $2)
+             RETURNING id`,
+            [ymd, user]
+        );
+        _notify('delete-day', { day: ymd, deleted: r.rowCount });
+        res.json({ success: true, deleted: r.rowCount });
+    } catch (e) {
+        console.error('[WEB2-GOODS-WEIGHT] delete-day:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // DELETE /:id — xoá 1 bản ghi (ADMIN — tránh NV xoá nhầm bằng chứng cân).
 router.delete('/:id', requireWeb2Admin, async (req, res) => {
     try {
