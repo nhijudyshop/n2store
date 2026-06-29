@@ -21,6 +21,7 @@
 
 const express = require('express');
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+const { shelfStt } = require('../lib/web2-shelf-stt'); // STT kệ = campaign_stt ?? display_stt (1 nguồn)
 const router = express.Router();
 
 const MAX_MINT_QTY = 500; // trần qty/lần mint (SL/SP hiếm khi >100; 500 là biên an toàn)
@@ -415,7 +416,7 @@ async function _openOrdersForProduct(pool, productCode) {
         return {
             orderId: r.id,
             orderCode: r.order_code,
-            stt: r.campaign_stt != null ? r.campaign_stt : r.display_stt,
+            stt: shelfStt(r),
             campaignSttRaw: r.campaign_stt,
             displayStt: r.display_stt,
             customerName: r.customer_name || null,
@@ -848,7 +849,7 @@ async function reconcileOrderUnits(pool, orderId) {
             await client.query('ROLLBACK');
             return { assigned, unassigned };
         }
-        const stt = order.campaign_stt != null ? order.campaign_stt : order.display_stt;
+        const stt = shelfStt(order); // STT kệ đóng dấu lên unit (campaign_stt ?? display_stt)
         const cancelled = order.status === 'cancelled';
         // cartMap: productCode -> qty (đơn huỷ → giỏ rỗng → nhả hết unit của đơn).
         const cart = {};

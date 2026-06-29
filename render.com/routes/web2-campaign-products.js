@@ -29,6 +29,7 @@ const express = require('express');
 const router = express.Router();
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const { recordAuditEvent } = require('../services/web2-audit-sink');
+const { shelfStt } = require('../lib/web2-shelf-stt'); // STT kệ = campaign_stt ?? display_stt (1 nguồn)
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
@@ -636,13 +637,13 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
     if (!code) return res.status(400).json({ success: false, error: 'code required' });
     try {
         const r = await pool.query(
-            `SELECT n.code AS order_code, n.display_stt, n.customer_name, n.phone,
+            `SELECT n.code AS order_code, n.display_stt, n.campaign_stt, n.customer_name, n.phone,
                     n.address, n.fb_user_id, n.fb_user_name, n.fb_page_id, n.created_at,
                     SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS qty
              FROM native_orders n, jsonb_array_elements(n.products) prod
              WHERE COALESCE(prod->>'productCode', prod->>'code') = $1
                AND n.status = 'draft'
-             GROUP BY n.id, n.code, n.display_stt, n.customer_name, n.phone, n.address,
+             GROUP BY n.id, n.code, n.display_stt, n.campaign_stt, n.customer_name, n.phone, n.address,
                       n.fb_user_id, n.fb_user_name, n.fb_page_id, n.created_at
              ORDER BY n.created_at DESC NULLS LAST`,
             [code]
@@ -652,7 +653,7 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
             const address = String(row.address || '').trim();
             return {
                 orderCode: row.order_code,
-                stt: row.display_stt != null ? Number(row.display_stt) : null,
+                stt: shelfStt(row), // STT kệ = campaign_stt ?? display_stt (khớp tem + unit-scan)
                 customerName: row.customer_name || null,
                 phone: phone || null,
                 address: address || null,
