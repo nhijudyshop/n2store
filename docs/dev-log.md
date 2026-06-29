@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [units/campaign] Thống nhất STT kệ về 1 NGUỒN (campaign_stt ?? display_stt)
+
+**Files:** `render.com/lib/web2-shelf-stt.js` (NEW — `shelfStt(row)` + `SHELF_STT_SQL`), `render.com/routes/web2-product-units.js` (require + dùng ở `_openOrdersForProduct` + `reconcileOrderUnits`), `render.com/routes/web2-campaign-products.js` (`/cart-detail` thêm `campaign_stt` vào query + dùng `shelfStt`).
+
+Bug: popup giỏ trên board/TV (live-control, live-tv) hiện `display_stt` (số đơn GLOBAL) còn tem vật lý + unit-scan dùng `campaign_stt` (số kệ 1..N theo chiến dịch) → **cùng 1 đơn, TV in `#7` mà tem `kệ 3`**. Nguyên nhân: quy tắc "STT kệ = campaign_stt ?? display_stt" nằm rải rác, 1 chỗ (cart-detail) drift sang display_stt.
+
+- **1 nguồn duy nhất** `lib/web2-shelf-stt.js` `shelfStt(row)` (nhận snake/camelCase) — mọi nơi đóng dấu/hiển thị STT kệ gọi chung: tem (`reconcileOrderUnits`), unit-scan đơn-chờ (`_openOrdersForProduct`), popup giỏ board/TV (`/cart-detail`). Không drift lại.
+- Quy ước: kệ = `campaign_stt` (reset theo chiến dịch → số nhỏ hợp ô kệ vật lý), fallback `display_stt`. **KHÔNG đụng** STT của native-orders/PBH (đó là số đơn riêng, keyed PBH/merge/KPI — khác khái niệm).
+
+**Test:** `node --check` 3 file ✓ + self-check `shelfStt` 7 case (campaign thắng, fallback, camelCase, campaign=0 hợp lệ, null) ✓. ⚠ cart-detail chạy trên web2-api (deploy) → verify online sau push.
+
 ### [goods-weight] Fix tràn ngang trên mobile (number input không co)
 
 **Files:** `web2/goods-weight/css/goods-weight.css` (`.gw-field` + `min-width:0`, input/textarea + `width:100%;min-width:0`), `index.html` (cache-bust css `20260629b→c`).
