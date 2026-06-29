@@ -2,6 +2,20 @@
 
 ## 2026-06-29
 
+### [native-orders] Render chunked + content-visibility — hết freeze list lớn (1000 dòng)
+
+**Files:** `native-orders/js/native-orders-render.js` (renderRows: chunked + `_iconsIn` scoped + `_finalizeRender` + quyết định chunk theo `rebuildCount`), `native-orders/index.html` (CSS `content-visibility:auto` cho `.order-row` + bump render.js `f→i`).
+
+User: "thử thêm 1000 giỏ test độ nhạy/giật/lag" → đo thấy render 1000 dòng freeze 1.3s + cuộn 35fps. Chọn hướng **content-visibility + chunked** (giữ mọi dòng trong DOM → KHÔNG vỡ check-all/bulk-ops/KPI/expand vốn quét DOM; tránh rework rủi ro).
+
+- **Đo phân rã freeze 1000**: build HTML 591ms + chèn 300ms + lucide icon 307ms (~11 icon/dòng).
+- **Chunked render**: build+chèn `RENDER_CHUNK=80` dòng/frame qua rAF → lô đầu hiện **176ms** (was 1303ms freeze), phần sau lấp dần. Lô đầu chạy sync, còn lại rAF. Hủy rAF cũ khi render mới.
+- **Quyết định chunk theo `rebuildCount` (dòng BUILD MỚI), KHÔNG theo jobs.length**: mở trang/đổi lọc/load lớn → chunk; SSE refresh (đa số tái dùng) → **swap nguyên tử 1 phát** = KHÔNG flicker (không xóa-rồi-lấp).
+- **`_iconsIn(root)` — convert `<i data-lucide>`→svg SCOPED trong fragment** (lucide.createElement + map kebab→Pascal), thay `lucide.createIcons()` quét cả DOM mỗi lô = **O(n²)** (đã đo longtask tăng 220→912ms). Fallback createIcons() cuối nếu API lucide khác.
+- **CSS `content-visibility:auto; contain-intrinsic-size:auto 98px`** trên `.order-row` → cuộn 35→41fps, off-screen bỏ layout/paint. Verify KHÔNG lệch cột dù table-layout:auto (maxColShift 0px).
+
+**Test browser (1000 inject):** first-paint 176ms · longtask ổn định ~280ms (hết O(n²) 912ms) · cuộn 41fps · check-all=1000 · tag filter 1000→700 · expand OK · 1000 dòng vẫn trong DOM. **Real 6 đơn (atomic path):** 6 dòng, 11 svg.lucide/dòng, 0 icon sót, expand/tagfilter/typeahead OK, screenshot khớp. SSE re-render (reuse) = atomic 1 swap không flicker. Status ✅
+
 ### [native-orders] Ô tìm kiếm typeahead — gợi ý KH/đơn từ data đã tải
 
 **Files:** `native-orders/index.html` (`#searchSuggest` trong `.search-wrapper` + CSS `.no-search-suggest`/`.nss-*` + bump 3 js `e→f`), `native-orders/js/native-orders-filters-campaigns.js` (`_searchSuggestItems`/`renderSearchSuggest`/`pickSuggestion`/`hideSearchSuggest`/`moveSuggestActive`), `native-orders/js/native-orders-realtime-init.js` (input→render gợi ý; keydown Arrow/Enter/Escape; focus/blur; clear), `native-orders/js/native-orders-render.js` (`_suggestPool` lần load không-search + refresh khi dropdown mở).

@@ -31,6 +31,13 @@
                     min-width: 44px;
                 }
             }
+            /* Cuộn mượt list lớn: off-screen rows bỏ qua layout/paint. contain-intrinsic-size
+               'auto 98px' = chiều cao thực 1 dòng (browser nhớ size thật sau render đầu → không
+               nhảy scrollbar). Đã verify KHÔNG lệch cột dù table-layout:auto. */
+            #ordersTbody tr.order-row {
+                content-visibility: auto;
+                contain-intrinsic-size: auto 98px;
+            }
             /* Search typeahead — gợi ý KH/đơn khớp text đã nhập */
             .no-search-suggest {
                 position: absolute;
@@ -640,7 +647,7 @@
         <script src="js/native-orders-state.js?v=20260629d"></script>
         <script src="js/native-orders-snapshots.js?v=20260628c"></script>
         <script src="js/native-orders-customer-panel.js?v=20260628c"></script>
-        <script src="js/native-orders-render.js?v=20260629f"></script>
+        <script src="js/native-orders-render.js?v=20260629i"></script>
         <script src="js/native-orders-delivery.js?v=20260628c"></script>
         <script src="js/native-orders-modal-edit.js?v=20260628c"></script>
         <script src="js/native-orders-product-picker.js?v=20260628c"></script>

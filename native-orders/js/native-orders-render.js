@@ -623,10 +623,21 @@
         return s;
     };
 
+    // Chunked render: build+chèn RENDER_CHUNK dòng mỗi frame để KHÔNG freeze ở list lớn
+    // (1000 dòng: build HTML ~590ms + chèn ~300ms + icon ~300ms — chunk rải qua nhiều frame,
+    // lô đầu hiện ~120ms, phần sau lấp dần không khựng). Kết hợp content-visibility (CSS) cho cuộn.
+    NO.RENDER_CHUNK = 80;
+    NO._renderRAF = null;
+
     NO.renderRows = function renderRows() {
         // _visibleOrders áp thẻ (client-side); rỗng/chưa load module filters → toàn bộ.
         const orders = NO._visibleOrders ? NO._visibleOrders() : NO.STATE.orders;
         const tb = NO.tbody();
+        // Hủy render chunk đang chạy dở (render mới thay thế hoàn toàn).
+        if (NO._renderRAF) {
+            cancelAnimationFrame(NO._renderRAF);
+            NO._renderRAF = null;
+        }
         if (!orders.length) {
             tb.replaceChildren();
             const hasFilter = !!(
@@ -671,9 +682,11 @@
             existing.get(code).push(el);
         });
 
-        const fragment = document.createDocumentFragment();
+        // ---- Phase 1: LẬP KẾ HOẠCH (rẻ) — quyết định tái dùng vs rebuild theo chữ ký.
+        // Build HTML nặng (_buildOrderHtml ~0.6ms/dòng) HOÃN sang phase 2 để chunk được.
+        const jobs = []; // theo thứ tự hiển thị: {els?, tagChanged?, o?, order?, enter}
         const newCodes = new Set();
-        let rebuiltCount = 0;
+        let rebuildCount = 0; // số dòng phải BUILD MỚI (quyết định có chunk hay không)
         for (const o of orders) {
             newCodes.add(o.code);
             const sig = NO._rowSignature(o);
@@ -682,44 +695,26 @@
             const oldTagSig = tagSigs.get(o.code);
             const newTagTriggers = NO._rowTagTriggers(o);
             const oldTagTriggers = tagSets.get(o.code);
-            // Trigger của THẺ vừa MỚI (có ở lần này, chưa có lần trước) → pill đó "pop vào".
-            // null khi row mới thấy lần đầu → KHÔNG animate (tránh nhảy hết pill lúc load).
-            const enterTriggers = oldTagTriggers
+            // Trigger THẺ mới (chưa có lần trước) → pill "pop vào". null lần đầu → không animate.
+            const enter = oldTagTriggers
                 ? new Set([...newTagTriggers].filter((tr) => !oldTagTriggers.has(tr)))
                 : null;
             if (oldSig === sig && existing.has(o.code)) {
-                // "rest" giống → tái dùng DOM (no flicker, no image reload).
-                const els = existing.get(o.code);
-                if (oldTagSig !== tagSig) {
-                    // CHỈ cột "Thẻ" đổi → cập nhật cell .col-tag TẠI CHỖ + animate pill mới,
-                    // KHÔNG rebuild cả row (giữ avatar + cell khác → hết giật, hết reload ảnh).
-                    const mainRow =
-                        els.find((el) => el.classList && el.classList.contains('order-row')) ||
-                        els[0];
-                    const cell =
-                        mainRow && mainRow.querySelector ? mainRow.querySelector('.col-tag') : null;
-                    if (cell) {
-                        o._enterTriggers = enterTriggers;
-                        cell.innerHTML = NO._autoTagPills(o);
-                        delete o._enterTriggers;
-                    }
-                }
-                els.forEach((el) => fragment.appendChild(el));
+                jobs.push({
+                    els: existing.get(o.code),
+                    tagChanged: oldTagSig !== tagSig,
+                    o,
+                    enter,
+                });
             } else {
-                // "rest" đổi (hoặc row mới) → rebuild cả row. Animate tag mới nếu row đã tồn tại.
-                o._enterTriggers = enterTriggers;
-                const html = NO._buildOrderHtml(o);
-                const tmp = document.createElement('tbody');
-                tmp.innerHTML = html;
-                while (tmp.firstChild) fragment.appendChild(tmp.firstChild);
-                delete o._enterTriggers;
+                jobs.push({ order: o, enter });
                 sigs.set(o.code, sig);
-                rebuiltCount++;
+                rebuildCount++;
             }
             tagSigs.set(o.code, tagSig);
             tagSets.set(o.code, newTagTriggers);
         }
-        // Clean up sigs for codes no longer present
+        // Dọn chữ ký của code không còn.
         for (const code of Array.from(sigs.keys())) {
             if (!newCodes.has(code)) sigs.delete(code);
         }
@@ -729,21 +724,112 @@
                 tagSets.delete(code);
             }
         }
-        // Single atomic swap
-        tb.replaceChildren(fragment);
 
-        // Gỡ class .w2-otag-enter SAU khi animation chạy xong (once) → pill không "pop"
-        // lại mỗi lần render kế. Lý do: renderRows move row reused ra/vào document qua
-        // fragment → class animation còn sót có thể bị trình duyệt chạy lại animation.
+        // Build 1 job vào fragment. Tái dùng → move els (cập nhật cell Thẻ nếu đổi);
+        // rebuild → _buildOrderHtml (gồm cả expand row khi mở).
+        const buildJob = (job, frag) => {
+            if (job.els) {
+                if (job.tagChanged) {
+                    // CHỈ cột "Thẻ" đổi → cập nhật .col-tag TẠI CHỖ + animate pill mới.
+                    const mainRow =
+                        job.els.find((el) => el.classList && el.classList.contains('order-row')) ||
+                        job.els[0];
+                    const cell = mainRow?.querySelector ? mainRow.querySelector('.col-tag') : null;
+                    if (cell) {
+                        job.o._enterTriggers = job.enter;
+                        cell.innerHTML = NO._autoTagPills(job.o);
+                        delete job.o._enterTriggers;
+                    }
+                }
+                job.els.forEach((el) => frag.appendChild(el));
+            } else {
+                job.order._enterTriggers = job.enter;
+                const tmp = document.createElement('tbody');
+                tmp.innerHTML = NO._buildOrderHtml(job.order);
+                while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+                delete job.order._enterTriggers;
+            }
+        };
+
+        const CHUNK = NO.RENDER_CHUNK || 80;
+        // Chunk CHỈ khi có NHIỀU dòng BUILD MỚI (mở trang / đổi lọc / load lớn). SSE refresh
+        // đa số dòng tái dùng → rebuildCount nhỏ → swap NGUYÊN TỬ 1 phát (KHÔNG xóa-rồi-lấp
+        // = KHÔNG flicker). Quyết định theo rebuildCount, KHÔNG theo jobs.length.
+        if (rebuildCount <= CHUNK) {
+            const frag = document.createDocumentFragment();
+            for (const job of jobs) buildJob(job, frag);
+            const ok = NO._iconsIn(frag); // convert icon SCOPED trong frag (off-DOM, không quét document)
+            tb.replaceChildren(frag);
+            NO._finalizeRender(tb, ok);
+            return;
+        }
+
+        // Nhiều dòng (mở trang / đổi lọc / load lớn) → CHUNK qua nhiều frame: hết freeze.
+        // Xóa tbody (els tái dùng vẫn sống nhờ ref trong jobs) rồi append từng lô. Lô đầu
+        // chạy ĐỒNG BỘ (first paint nhanh ~1 lô), phần sau qua rAF.
+        tb.replaceChildren();
+        let idx = 0;
+        let iconsOk = true;
+        const renderChunk = () => {
+            const frag = document.createDocumentFragment();
+            const end = Math.min(idx + CHUNK, jobs.length);
+            for (; idx < end; idx++) buildJob(jobs[idx], frag);
+            // Convert icon SCOPED trong lô (O(lô)) — KHÔNG quét cả DOM mỗi lô (O(n²)).
+            if (!NO._iconsIn(frag)) iconsOk = false;
+            tb.appendChild(frag);
+            if (idx < jobs.length) {
+                NO._renderRAF = requestAnimationFrame(renderChunk);
+            } else {
+                NO._renderRAF = null;
+                NO._finalizeRender(tb, iconsOk);
+            }
+        };
+        renderChunk();
+    };
+
+    // Convert <i data-lucide> → <svg> SCOPED trong 1 root (fragment/element) — KHÔNG quét cả
+    // document như lucide.createIcons() (quét lặp mỗi lô khi list lớn = O(n²), đã đo: longtask
+    // tăng 220→912ms). Trả false nếu API lucide khác kỳ vọng → caller fallback createIcons() cuối.
+    NO._iconsIn = function _iconsIn(root) {
+        const L = window.lucide;
+        if (!L || typeof L.createElement !== 'function' || !root || !root.querySelectorAll)
+            return false;
+        for (const el of Array.from(root.querySelectorAll('[data-lucide]'))) {
+            const raw = el.getAttribute('data-lucide') || '';
+            const pascal = raw.replace(/(^|-)(\w)/g, (_m, _s, c) => c.toUpperCase());
+            const node = L[pascal] || (L.icons && L.icons[pascal]);
+            if (!node) continue;
+            let svg;
+            try {
+                svg = L.createElement(node);
+            } catch (_) {
+                return false;
+            }
+            // Khớp output createIcons: class 'lucide lucide-<name>' + class gốc của <i>.
+            svg.setAttribute(
+                'class',
+                ('lucide lucide-' + raw + ' ' + (el.getAttribute('class') || '')).trim()
+            );
+            for (const a of Array.from(el.attributes)) {
+                if (a.name === 'data-lucide' || a.name === 'class') continue;
+                svg.setAttribute(a.name, a.value);
+            }
+            el.replaceWith(svg);
+        }
+        return true;
+    };
+
+    // Hậu kỳ chung sau khi tbody dựng xong (atomic hoặc chunk cuối).
+    // iconsDone=true khi icon đã convert (scoped per-lô hoặc atomic). false → fallback 1 lần.
+    NO._finalizeRender = function _finalizeRender(tb, iconsDone) {
+        // Gỡ class .w2-otag-enter sau animation (once) → pill không "pop" lại mỗi render kế.
         tb.querySelectorAll('.w2-otag-enter').forEach((p) =>
             p.addEventListener('animationend', () => p.classList.remove('w2-otag-enter'), {
                 once: true,
             })
         );
-
-        // Lucide only re-processes <i data-lucide> nodes (idempotent skip <svg>).
-        // Reused rows already have <svg> rendered → no work; new rows get icons created.
-        if (window.lucide) lucide.createIcons();
+        // Lucide chỉ xử lý <i data-lucide> (idempotent skip <svg>).
+        if (!iconsDone && window.lucide) lucide.createIcons();
         if (window.Web2NewMsgBadge?.reapply) window.Web2NewMsgBadge.reapply();
         // Số dư ví KH cho row có SĐT (chỉ hiện khi > 0).
         window.Web2WalletBalance?.attachBalances?.(tb);
