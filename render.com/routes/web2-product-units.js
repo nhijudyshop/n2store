@@ -99,9 +99,52 @@ async function ensureTables(pool) {
     _ensuredPools.add(pool);
 }
 
-// Kho rớt xả — config (derived, không cron). Aging tier theo ngày-từ-đơn-cuối.
-const CLEARANCE_GRACE_MS = 24 * 60 * 60 * 1000; // 1 ngày ân hạn sau khi hết nhu cầu
+// Kho rớt xả — config (derived, không cron). Aging tier theo ngày-từ-chiến-dịch-xong.
+const CLEARANCE_GRACE_MS = 24 * 60 * 60 * 1000; // 1 ngày ân hạn sau khi chiến dịch xong
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CLEARANCE_DONE_RATIO = 0.7; // chiến dịch "xong" khi da_doi_soat > 70% tổng đơn (chưa huỷ)
+
+// CTE dùng chung cho /clearance — settlement THEO CHIẾN DỊCH (live_campaign_id, có thể
+// gồm nhiều ngày liên tục). Logic (user spec 2026-06-29):
+//   • da_doi_soat(đơn) = MỌI PBH của đơn (fast_sale_orders, source_type='native_order',
+//     bỏ bill huỷ) đã packed/shipped/delivered (BOOL_AND). = đơn đã đối soát.
+//   • chiến dịch "xong" = da_doi_soat > 70% tổng đơn (chưa huỷ) của chiến dịch.
+//   • SP → chiến dịch GẦN NHẤT từng chứa SP (DISTINCT ON pcode, last_at DESC). Còn live
+//     mới đang bán SP thì chiến dịch gần nhất CHƯA xong → giữ kho chính (không xả nhầm).
+//   • anchor = đơn cuối (MAX created_at, bigint ms) của chiến dịch đó → +1 ngày ân hạn.
+// Bỏ NO_CAMPAIGN (đơn inbox/thủ công không campaign) khỏi clearance — rớt xả là khái
+// niệm của livestream. SP chưa từng vào campaign nào → giữ kho chính.
+const CLEARANCE_CTE = `
+    pbh AS (
+        SELECT source_code,
+               BOOL_AND(COALESCE(fulfillment_state IN ('packed','shipped','delivered'), false)) AS all_reconciled
+        FROM fast_sale_orders
+        WHERE source_type='native_order' AND state <> 'cancel'
+        GROUP BY source_code
+    ),
+    ord AS (
+        SELECT no.id, no.live_campaign_id AS cid, no.created_at, no.products,
+               COALESCE(pbh.all_reconciled, false) AS reconciled
+        FROM native_orders no
+        LEFT JOIN pbh ON pbh.source_code = no.code
+        WHERE no.live_campaign_id IS NOT NULL AND no.status <> 'cancelled'
+    ),
+    camp AS (
+        SELECT cid, MAX(created_at) AS last_at,
+               (COUNT(*) > 0 AND COUNT(*) FILTER (WHERE reconciled)::float / COUNT(*) > ${CLEARANCE_DONE_RATIO}) AS done
+        FROM ord GROUP BY cid
+    ),
+    prodcamp AS (
+        SELECT DISTINCT COALESCE(e->>'productCode', e->>'code') AS pcode, o.cid
+        FROM ord o,
+             jsonb_array_elements(CASE WHEN jsonb_typeof(o.products)='array' THEN o.products ELSE '[]'::jsonb END) e
+        WHERE COALESCE(e->>'productCode', e->>'code') IS NOT NULL
+    ),
+    prod AS (
+        SELECT DISTINCT ON (pc.pcode) pc.pcode, c.done, c.last_at AS anchor_at
+        FROM prodcamp pc JOIN camp c ON c.cid = pc.cid
+        ORDER BY pc.pcode, c.last_at DESC NULLS LAST
+    )`;
 function _clearanceTier(daysSince) {
     if (daysSince >= 90) return 'THANH_LY'; // >90 ngày → thanh lý
     if (daysSince >= 30) return 'XA_MANH'; // 30-90 → xả mạnh
@@ -668,9 +711,11 @@ router.post('/:id/status', requireWeb2AuthSoft, async (req, res) => {
 
 // =====================================================================
 // GET /clearance — KHO HÀNG RỚT XẢ (derived/lazy, KHÔNG cron).
-// Unit IN_STOCK + SP đã từng bán + KHÔNG còn đơn mở cần (trong ân hạn) +
-// đã qua 1 ngày → ứng viên xả. Cờ clearance_state ép KEEP/CLEARANCE.
-// Tier theo ngày-từ-đơn-cuối: <30 RỚT XẢ · 30-90 XẢ MẠNH · >90 THANH LÝ.
+// THEO CHIẾN DỊCH (user spec 2026-06-29): unit IN_STOCK của SP mà chiến dịch GẦN
+// NHẤT chứa SP đó đã "xong" (da_doi_soat > 70% tổng đơn) + đã qua 1 ngày → ứng viên
+// xả. Còn live mới đang bán SP → chiến dịch gần nhất chưa xong → giữ kho chính.
+// Cờ clearance_state ép KEEP/CLEARANCE (thủ công). Chi tiết logic: xem CLEARANCE_CTE.
+// Tier theo ngày-từ-chiến-dịch-xong: <30 RỚT XẢ · 30-90 XẢ MẠNH · >90 THANH LÝ.
 // → group theo SP + summary giá-trị-kẹt mỗi tier (value-trapped).
 // =====================================================================
 router.get('/clearance', async (req, res) => {
@@ -678,44 +723,13 @@ router.get('/clearance', async (req, res) => {
     try {
         await ensureTables(pool);
         const now = Date.now();
-        const graceBefore = now - CLEARANCE_GRACE_MS;
+        const graceBefore = now - CLEARANCE_GRACE_MS; // anchor < graceBefore ⟺ chiến dịch xong + qua 1 ngày
         const rows = (
             await pool.query(
                 `
-            WITH asg AS (
-                SELECT order_id, product_code, COUNT(*) AS n
-                FROM web2_product_units
-                WHERE order_id IS NOT NULL AND status IN ('ASSIGNED','PACKED','SHIPPED')
-                GROUP BY 1,2
-            ),
-            instock AS (
-                SELECT DISTINCT product_code FROM web2_product_units WHERE status='IN_STOCK'
-            ),
-            prod AS (
-                SELECT
-                    COALESCE(e->>'productCode', e->>'code') AS pcode,
-                    MAX(no.created_at) AS last_order_at,
-                    -- FIX clearance bug (2026-06-29): bo rang buoc created_at > grace
-                    -- (chi xet don <=24h, redundant voi last_order_at<grace -> vo hieu).
-                    -- Gio xet MOI don CHUA HUY con THIEU tem (SL dat > SL da gan), bat
-                    -- ke tuoi -> SP con don cu chua du hang thi KHONG xa (giu stock gan
-                    -- cho don do). open_recent = don mo con thieu (bat ke tuoi).
-                    BOOL_OR(
-                        no.status <> 'cancelled'
-                        AND (CASE WHEN (e->>'quantity') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (e->>'quantity')::numeric
-                                  WHEN (e->>'qty') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (e->>'qty')::numeric
-                                  ELSE 0 END)
-                            > COALESCE((SELECT n FROM asg
-                                        WHERE asg.order_id = no.id
-                                          AND asg.product_code = COALESCE(e->>'productCode', e->>'code')), 0)
-                    ) AS open_recent
-                FROM native_orders no,
-                     jsonb_array_elements(CASE WHEN jsonb_typeof(no.products)='array' THEN no.products ELSE '[]'::jsonb END) e
-                WHERE COALESCE(e->>'productCode', e->>'code') IN (SELECT product_code FROM instock)
-                GROUP BY 1
-            )
+            WITH ${CLEARANCE_CTE}
             SELECT u.*, COALESCE(pr.price,0) AS price, pr.name AS pname, pr.image_url AS pimg,
-                   prod.last_order_at
+                   prod.anchor_at AS last_order_at
             FROM web2_product_units u
             LEFT JOIN prod ON prod.pcode = u.product_code
             LEFT JOIN web2_products pr ON pr.code = u.product_code
@@ -723,7 +737,7 @@ router.get('/clearance', async (req, res) => {
               AND COALESCE(u.clearance_state,'') <> 'KEEP'
               AND (
                   u.clearance_state='CLEARANCE'
-                  OR (prod.pcode IS NOT NULL AND prod.last_order_at < $1 AND COALESCE(prod.open_recent,false)=false)
+                  OR (prod.pcode IS NOT NULL AND prod.done = true AND prod.anchor_at < $1)
               )
             ORDER BY u.product_code, u.seq`,
                 [graceBefore]

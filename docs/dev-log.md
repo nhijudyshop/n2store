@@ -2,6 +2,24 @@
 
 ## 2026-06-29
 
+### [clearance] Đổi logic hàng rớt xả → THEO CHIẾN DỊCH (user spec)
+
+**Files:** `render.com/routes/web2-product-units.js` (`CLEARANCE_CTE` mới + viết lại `GET /clearance`).
+
+User định nghĩa lại: rớt xả không còn per-product (đơn cuối >24h) mà **theo chiến dịch livestream** (`live_campaign_id`, nhiều ngày liên tục):
+
+- **da_doi_soat(đơn)** = MỌI PBH của đơn (`fast_sale_orders`, bỏ bill huỷ) đã packed/shipped/delivered (`BOOL_AND`). = đơn đã đối soát.
+- **chiến dịch "xong"** = `da_doi_soat > 70%` tổng đơn (chưa huỷ) của chiến dịch (`CLEARANCE_DONE_RATIO=0.7`). [user chọn: 70% là đủ, không cần mọi giỏ settle]
+- **SP → chiến dịch GẦN NHẤT** từng chứa SP (`DISTINCT ON pcode, last_at DESC`). [user chọn: most-recent, không phải mọi campaign] Còn live mới đang bán SP → chiến dịch gần nhất chưa xong → **giữ kho chính** (không xả nhầm hàng đang bán).
+- **+1 ngày ân hạn**: `anchor = MAX(created_at) đơn của chiến dịch`; eligible khi `anchor < now-1ngày`.
+- Bỏ `NO_CAMPAIGN` (đơn inbox/thủ công) khỏi clearance — rớt xả là khái niệm livestream. Giữ override `KEEP`/`CLEARANCE` + aging tier (giờ = ngày-từ-chiến-dịch-xong).
+
+⚠ Badge per-unit `GET /:id` (`noOpenDemand`) GIỮ NGUYÊN (hint advisory, đã ghi "chính xác tính ở /clearance"; nằm trên hot path quét tem → không thêm campaign query). Có thể lệch nhẹ với kho — align sau nếu cần.
+
+**Test:** self-check local PG 7 case ✓ (done 80%+2d→XẢ; not-done 50%→giữ; most-recent not-done→giữ; done nhưng <1d grace→giữ; KEEP→giữ; CLEARANCE→XẢ; no-campaign→giữ).
+
+**Status:** ✅ Logic verified local. 🔄 Deploy web2-api + smoke /clearance.
+
 ### [cart auth hardening] Gate chuỗi auth cart + đóng #2a (from-comment)
 
 **Files:** `render.com/routes/v2/cart.js` (gate 5 write + forward token), `render.com/routes/native-orders.js` (gate /from-comment), `live-chat/js/pancake/inventory-panel-actions.js` (Phase 1 token, cache-bust `g`).
