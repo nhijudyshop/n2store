@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `45b9702` — fix(native-orders): PATCH fire reconcile khi đổi tên/SĐT KH → denorm sync triệt để
-**Last updated**: 2026-06-29 08:45:11 +07
-**Latest session**: [`RESUME:20260629-084511-45b9702`](../20260629-084511-45b9702.md)
-**Summary**: TTL phiên web2 theo role (admin 90d, user 14d) deploy live + verify 90d; widget AI 401 redirect chuẩn + notice login expired=1
+**Latest commit**: `c74d11e` — docs(dev-log): widened PATCH hook verified — denorm sync triệt để (customer-only edit)
+**Last updated**: 2026-06-29 08:47:57 +07
+**Latest session**: [`RESUME:20260629-084757-c74d11e`](../20260629-084757-c74d11e.md)
+**Summary**: Denorm sync triệt để: PATCH fire reconcile khi đổi customer — verified live
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 08:45
+- [`docs/`](./docs.md) — updated 2026-06-29 08:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
