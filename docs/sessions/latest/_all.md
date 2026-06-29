@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5ebfd63` — docs(dev-log): denorm-sync verified live (audit per-unit 1 vòng done)
-**Last updated**: 2026-06-29 08:38:24 +07
-**Latest session**: [`RESUME:20260629-083824-5ebfd63`](../20260629-083824-5ebfd63.md)
-**Summary**: Audit per-unit 1 vòng: core vững, fix denorm-sync reconcile — verified live
+**Latest commit**: `45b9702` — fix(native-orders): PATCH fire reconcile khi đổi tên/SĐT KH → denorm sync triệt để
+**Last updated**: 2026-06-29 08:45:11 +07
+**Latest session**: [`RESUME:20260629-084511-45b9702`](../20260629-084511-45b9702.md)
+**Summary**: TTL phiên web2 theo role (admin 90d, user 14d) deploy live + verify 90d; widget AI 401 redirect chuẩn + notice login expired=1
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 08:38
+- [`docs/`](./docs.md) — updated 2026-06-29 08:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -60,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-29 08:38
+- [`render.com/`](./render.com.md) — updated 2026-06-29 08:45
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-28 20:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
