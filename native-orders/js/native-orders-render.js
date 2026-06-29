@@ -927,12 +927,18 @@
             });
             NO.STATE.orders = resp.orders || [];
             NO.STATE.total = resp.total || 0;
+            // Pool gợi ý tìm kiếm = lần load KHÔNG search (tập đầy đủ theo scope) → gõ
+            // query mới sau khi đã search vẫn gợi ý đủ (search narrow STATE.orders, pool giữ rộng).
+            if (!NO.STATE.search) NO._suggestPool = NO.STATE.orders;
             // Dựng lại options thẻ từ data mới (giữ lựa chọn nếu trigger còn xuất hiện).
             if (NO.populateTagFilterOptions) NO.populateTagFilterOptions();
             NO.renderRows();
             NO.renderPagination();
             NO.renderCounters();
             NO.renderCustomerChip();
+            // Gợi ý tìm kiếm đang mở → làm tươi theo data vừa tải.
+            const sb = NO.$('#searchSuggest');
+            if (NO.renderSearchSuggest && sb && !sb.hidden) NO.renderSearchSuggest();
         } catch (e) {
             console.error(e);
             // Chỉ hiển thị error row nếu chưa có dữ liệu (first load failed). SSE

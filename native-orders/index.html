@@ -31,6 +31,73 @@
                     min-width: 44px;
                 }
             }
+            /* Search typeahead — gợi ý KH/đơn khớp text đã nhập */
+            .no-search-suggest {
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                right: 0;
+                z-index: 60;
+                max-height: 320px;
+                overflow-y: auto;
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+                padding: 4px;
+            }
+            .no-search-suggest[hidden] {
+                display: none;
+            }
+            .nss-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 7px 9px;
+                border-radius: 7px;
+                cursor: pointer;
+                transition: background 0.1s;
+            }
+            .nss-item:hover,
+            .nss-item.is-active {
+                background: #eaf3ff;
+            }
+            .nss-av {
+                flex: 0 0 auto;
+            }
+            .nss-av .cust-avatar {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+            .nss-main {
+                flex: 1;
+                min-width: 0;
+            }
+            .nss-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: #0f172a;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .nss-sub {
+                font-size: 11.5px;
+                color: #6b7280;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .nss-count {
+                flex: 0 0 auto;
+                font-size: 11px;
+                font-weight: 700;
+                color: #0068ff;
+                background: #e8f2ff;
+                border-radius: 999px;
+                padding: 2px 8px;
+            }
         </style>
 
         <!-- Lucide icons -->
@@ -105,6 +172,13 @@
                             <button class="search-clear" id="filterSearchClear" title="Xóa">
                                 <i data-lucide="x"></i>
                             </button>
+                            <!-- Typeahead: gợi ý KH/đơn từ dữ liệu đã tải (client-side) -->
+                            <div
+                                id="searchSuggest"
+                                class="no-search-suggest"
+                                role="listbox"
+                                hidden
+                            ></div>
                         </div>
 
                         <!-- Status filter pill -->
@@ -566,15 +640,15 @@
         <script src="js/native-orders-state.js?v=20260629d"></script>
         <script src="js/native-orders-snapshots.js?v=20260628c"></script>
         <script src="js/native-orders-customer-panel.js?v=20260628c"></script>
-        <script src="js/native-orders-render.js?v=20260629d"></script>
+        <script src="js/native-orders-render.js?v=20260629f"></script>
         <script src="js/native-orders-delivery.js?v=20260628c"></script>
         <script src="js/native-orders-modal-edit.js?v=20260628c"></script>
         <script src="js/native-orders-product-picker.js?v=20260628c"></script>
         <script src="js/native-orders-pbh-bill.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-add.js?v=20260628c"></script>
         <script src="js/native-orders-bulk-operations.js?v=20260628c"></script>
-        <script src="js/native-orders-filters-campaigns.js?v=20260629d"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260629d"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260629f"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260629f"></script>
         <script src="js/native-orders-customer360.js?v=20260628c"></script>
         <script src="js/native-orders-interactions.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-resolve.js?v=20260628c"></script>

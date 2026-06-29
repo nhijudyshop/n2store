@@ -154,15 +154,38 @@
         // (logic backend MAX+1 scoped by campaign group), không cần thao tác thủ công.
         let searchDebounce = null;
         NO.$('#filterSearch')?.addEventListener('input', () => {
+            NO.renderSearchSuggest(); // gợi ý tức thì từ data đã tải
             clearTimeout(searchDebounce);
             searchDebounce = setTimeout(() => NO.applyFilters(), 350);
         });
         NO.$('#filterSearch')?.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                if (NO.moveSuggestActive(1)) e.preventDefault();
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                if (NO.moveSuggestActive(-1)) e.preventDefault();
+                return;
+            }
+            if (e.key === 'Escape') return NO.hideSearchSuggest();
             if (e.key === 'Enter') {
+                // Đang trỏ 1 gợi ý → chọn nó; ngược lại tìm tự do như cũ.
+                if (NO._suggestActive >= 0 && NO._suggestItems[NO._suggestActive]) {
+                    e.preventDefault();
+                    return NO.pickSuggestion(NO._suggestActive);
+                }
                 clearTimeout(searchDebounce);
+                NO.hideSearchSuggest();
                 NO.applyFilters();
             }
         });
+        NO.$('#filterSearch')?.addEventListener('focus', () => {
+            if (NO.$('#filterSearch').value.trim()) NO.renderSearchSuggest();
+        });
+        // blur trễ 120ms để mousedown trên item kịp chạy trước khi đóng.
+        NO.$('#filterSearch')?.addEventListener('blur', () =>
+            setTimeout(() => NO.hideSearchSuggest(), 120)
+        );
         // Auto-apply when Status / Limit dropdowns change
         NO.$('#filterStatus')?.addEventListener('change', NO.applyFilters);
         NO.$('#filterLimit')?.addEventListener('change', NO.applyFilters);
@@ -193,6 +216,7 @@
                 el.value = '';
                 NO.STATE.search = '';
                 NO.STATE.page = 1;
+                NO.hideSearchSuggest();
                 NO.load();
             }
         });

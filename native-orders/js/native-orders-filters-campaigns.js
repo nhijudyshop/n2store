@@ -64,7 +64,133 @@
         sel.value = NO.STATE.tagFilter || '';
     };
 
+    // ---------- Search typeahead (gợi ý KH/đơn, client-side) ----------
+    // Gợi ý lấy TỪ orders ĐÃ TẢI (STATE.orders) khớp text gõ — tức thì, KHÔNG fetch.
+    // Bảng vẫn lọc server-side (debounce) như cũ; dropdown chỉ giúp chọn nhanh 1 KH/đơn.
+    // Chọn 1 gợi ý → đặt search = SĐT (hoặc mã đơn) chính xác → load thu hẹp bảng.
+    NO._suggestItems = [];
+    NO._suggestActive = -1;
+
+    NO._searchSuggestItems = function _searchSuggestItems(raw) {
+        const q = (raw || '').trim().toLowerCase();
+        if (!q) return [];
+        const qDigits = q.replace(/\D/g, '');
+        const map = new Map(); // key → suggestion (dedupe theo KH/đơn)
+        // Nguồn = pool ỔN ĐỊNH (lần load gần nhất KHÔNG search) → gõ query mới sau khi
+        // đã search trước đó vẫn gợi ý đủ. Chưa có pool → tạm dùng orders hiện tại.
+        const pool = NO._suggestPool && NO._suggestPool.length ? NO._suggestPool : NO.STATE.orders;
+        for (const o of pool || []) {
+            const name = (o.customerName || '').toLowerCase();
+            const phoneDigits = (o.phone || '').replace(/\D/g, '');
+            const code = (o.code || '').toLowerCase();
+            const note = (o.userNote || o.note || '').toLowerCase();
+            const mPhone = qDigits.length >= 2 && phoneDigits.includes(qDigits);
+            const mName = name.includes(q);
+            const mCode = code.includes(q);
+            const mNote = q.length >= 3 && note.includes(q);
+            if (!(mPhone || mName || mCode || mNote)) continue;
+            // Khớp DUY NHẤT bởi mã đơn → gợi ý cấp ĐƠN (chọn → search đúng mã đó).
+            if (mCode && !mPhone && !mName) {
+                const key = 'o:' + o.code;
+                if (!map.has(key))
+                    map.set(key, {
+                        kind: 'order',
+                        value: o.code,
+                        label: o.code,
+                        sub: o.customerName || 'Khách lạ',
+                        o,
+                        count: 1,
+                        rank: code.startsWith(q) ? 0 : 1,
+                    });
+                continue;
+            }
+            // Còn lại → gom theo KHÁCH (SĐT, fallback tên) → chọn → search SĐT.
+            const key = phoneDigits ? 'p:' + phoneDigits : 'n:' + name;
+            const ex = map.get(key);
+            if (ex) {
+                ex.count++;
+                continue;
+            }
+            map.set(key, {
+                kind: 'customer',
+                value: o.phone || o.code,
+                label: o.customerName || 'Khách lạ',
+                sub: o.phone || o.code,
+                o,
+                count: 1,
+                rank: name.startsWith(q) || (qDigits && phoneDigits.startsWith(qDigits)) ? 0 : 1,
+            });
+        }
+        return [...map.values()].sort((a, b) => a.rank - b.rank || b.count - a.count).slice(0, 8);
+    };
+
+    NO.renderSearchSuggest = function renderSearchSuggest() {
+        const box = NO.$('#searchSuggest');
+        const inp = NO.$('#filterSearch');
+        if (!box || !inp) return;
+        const items = NO._searchSuggestItems(inp.value);
+        NO._suggestItems = items;
+        NO._suggestActive = -1;
+        if (!items.length) return NO.hideSearchSuggest();
+        box.innerHTML = items
+            .map((it, i) => {
+                const cnt =
+                    it.kind === 'customer' && it.count > 1
+                        ? `<span class="nss-count">${it.count} đơn</span>`
+                        : '';
+                const icon = it.kind === 'order' ? '🧾 ' : '';
+                return `<div class="nss-item" data-i="${i}" role="option">
+                    <div class="nss-av">${NO.renderAvatar(it.o)}</div>
+                    <div class="nss-main">
+                        <div class="nss-label">${icon}${NO.escapeHtml(it.label)}</div>
+                        <div class="nss-sub">${NO.escapeHtml(it.sub || '')}</div>
+                    </div>${cnt}
+                </div>`;
+            })
+            .join('');
+        box.hidden = false;
+        // mousedown (KHÔNG click) → fire TRƯỚC blur của input nên không bị đóng mất.
+        box.querySelectorAll('.nss-item').forEach((el) =>
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                NO.pickSuggestion(Number(el.dataset.i));
+            })
+        );
+    };
+
+    NO.pickSuggestion = function pickSuggestion(i) {
+        const it = (NO._suggestItems || [])[i];
+        if (!it) return;
+        const inp = NO.$('#filterSearch');
+        if (inp) inp.value = it.value;
+        NO.hideSearchSuggest();
+        NO.applyFilters();
+    };
+
+    NO.hideSearchSuggest = function hideSearchSuggest() {
+        const box = NO.$('#searchSuggest');
+        if (box) {
+            box.hidden = true;
+            box.innerHTML = '';
+        }
+        NO._suggestActive = -1;
+    };
+
+    // Điều hướng bàn phím trong dropdown. Trả true nếu đã xử lý (để chặn default).
+    NO.moveSuggestActive = function moveSuggestActive(dir) {
+        const box = NO.$('#searchSuggest');
+        if (!box || box.hidden) return false;
+        const n = (NO._suggestItems || []).length;
+        if (!n) return false;
+        NO._suggestActive = (NO._suggestActive + dir + n) % n;
+        box.querySelectorAll('.nss-item').forEach((el, i) =>
+            el.classList.toggle('is-active', i === NO._suggestActive)
+        );
+        return true;
+    };
+
     NO.clearFilters = function clearFilters() {
+        NO.hideSearchSuggest();
         NO.$('#filterSearch').value = '';
         NO.$('#filterStatus').value = 'all';
         NO.$('#filterLimit').value = '200';

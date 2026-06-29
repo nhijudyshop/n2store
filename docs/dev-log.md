@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [native-orders] Ô tìm kiếm typeahead — gợi ý KH/đơn từ data đã tải
+
+**Files:** `native-orders/index.html` (`#searchSuggest` trong `.search-wrapper` + CSS `.no-search-suggest`/`.nss-*` + bump 3 js `e→f`), `native-orders/js/native-orders-filters-campaigns.js` (`_searchSuggestItems`/`renderSearchSuggest`/`pickSuggestion`/`hideSearchSuggest`/`moveSuggestActive`), `native-orders/js/native-orders-realtime-init.js` (input→render gợi ý; keydown Arrow/Enter/Escape; focus/blur; clear), `native-orders/js/native-orders-render.js` (`_suggestPool` lần load không-search + refresh khi dropdown mở).
+
+User: "Ô tìm kiếm nhập vào sẽ hiện các option dữ liệu để chọn" (đã đọc `web2/order-tags` + `web2/system?tab=services`).
+
+- **Client-side, KHÔNG fetch thêm**: gợi ý lấy từ orders đã tải. Bảng vẫn lọc server-side (debounce 350ms) như cũ — dropdown chỉ là tiện ích chọn nhanh.
+- **Pool ỔN ĐỊNH** (`_suggestPool` = lần load `search` rỗng) → gõ query mới sau khi đã search vẫn gợi ý đủ (search narrow STATE.orders, pool giữ rộng). Bug đã sửa: trước lấy STATE.orders → bị thu hẹp → gõ tên sau SĐT ra rỗng.
+- Match SĐT/tên/mã/ghi-chú; gom theo KH (SĐT) — kèm "N đơn"; khớp DUY NHẤT bởi mã → gợi ý cấp ĐƠN. Chọn → input = SĐT (hoặc mã) chính xác → load thu hẹp. Bàn phím Arrow/Enter/Escape; Enter rỗng = tìm tự do (giữ behavior cũ).
+
+**Test browser (admin, localhost, 6 đơn thật):** "0903"→HK Man·0903618628 ✓; search "0903" rồi gõ "trang" → vẫn gợi ý Trang Đài (pool size 6, fix circularity) ✓; chọn Trang Đài → input "0919561765" + bảng còn 1 row ✓; "NJ-...0001"→gợi ý kind=order ✓; "09"→4 KH (avatar+tên+SĐT), screenshot UI đúng ✓; `node --check` ✓. Status ✅
+
 ### [native-orders] Bộ lọc THẺ (autoTags) — client-side trên trang đã tải
 
 **Files:** `native-orders/index.html` (chip `#filterTag` giữa Trạng thái↔Chiến dịch + bump 4 js `c→d`), `native-orders/js/native-orders-state.js` (`STATE.tagFilter`), `native-orders/js/native-orders-filters-campaigns.js` (`applyTagFilter`/`_visibleOrders`/`populateTagFilterOptions` + reset trong `clearFilters`), `native-orders/js/native-orders-render.js` (`renderRows` lặp `_visibleOrders`, empty-state + `renderCounters` theo lọc, `load` gọi populate), `native-orders/js/native-orders-realtime-init.js` (wire `change`).
