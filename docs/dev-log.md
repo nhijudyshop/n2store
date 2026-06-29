@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [print] Tem QR: QR sát lề trái + biến thể/giá lên đỉnh → chừa khoảng trống ghi bút
+
+**File:** `web2/products/js/web2-products-print-render.js` (QR-branch) + cache-bust 3 HTML (products/so-order/unit-scan `?v=20260629b`).
+
+User muốn 1 khoảng trống trên tem để ghi bút bi tay. Chỉnh QR-branch `buildLabelHTML`:
+
+- **QR sát lề trái**: `outerStyle` override `padding-left:0.2mm`; `qrColStyle` canh `flex-start` (QR flush mép trái — verify `qrLeftVsRow1Left=0px`).
+- **Biến thể + giá lên sát lề trên**: `row1` `align-items:flex-start` + `rightCol` `justify-content:flex-start` (verify giá `top:8`).
+- ⇒ Khoảng trống bên phải QR, DƯỚI giá = **41px** (cao = QR − chiều cao biến thể/giá) để ghi tay. Dùng chung mọi tem (Kho SP + so-order + reprint).
+
+**Test:** render label mẫu (HCAOSTT41-001, Sọc Trắng To/41, 1.333.500) → đo DOM iframe: rightCol flex-start ✓, blankBelowPrice 41px ✓, QR flush trái ✓. `node --check` ✓.
+
 ### [shared] Module CHUNG Web2ProductUnits — client duy nhất /api/web2-product-units/\*
 
 **Files:** `web2/shared/web2-product-units.js` (NEW), adopt: `web2/unit-scan/js/unit-scan.js`, `so-order/js/so-order-barcode.js`, `web2/products/js/web2-products-render.js`, `web2/shared/web2-unit-reprint.js` + 3 HTML (script include + cache-bust). Codemap/system-data regen.

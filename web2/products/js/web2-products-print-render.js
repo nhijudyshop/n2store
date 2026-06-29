@@ -168,17 +168,22 @@
                         .replace(/\b(màu|mau|size|sz|cỡ)\s*:?\s*/gi, '')
                         .replace(/\s{2,}/g, ' ')
                         .trim();
+                    // 2026-06-29 (user): QR SÁT LỀ TRÁI (padding-left tối thiểu) + biến thể/giá
+                    // LÊN SÁT LỀ TRÊN (row1 + rightCol canh flex-start) → chừa KHOẢNG TRỐNG
+                    // bên phải, DƯỚI giá (cao = QR − chiều cao biến thể/giá) để GHI BÚT tay.
                     const outerStyle =
                         labelStyle +
-                        'flex-direction:column;justify-content:flex-start;text-align:left;';
+                        'flex-direction:column;justify-content:flex-start;text-align:left;padding-left:0.2mm;';
                     // HÀNG TRÊN lấy ĐÚNG chiều cao QR (flex:0) — KHÔNG grow để bóp mã SP;
                     // BĂNG TÊN (flex:1) ăn phần còn lại → KHÔNG đè lên mã dưới QR.
+                    // align-items:flex-start → QR + cột phải đều canh ĐỈNH.
                     const row1 =
-                        'display:flex;flex-direction:row;align-items:center;gap:0.6mm;width:100%;flex:0 0 auto;min-height:0;overflow:hidden;';
-                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:center;justify-content:center;`;
+                        'display:flex;flex-direction:row;align-items:flex-start;gap:0.6mm;width:100%;flex:0 0 auto;min-height:0;overflow:hidden;';
+                    const qrColStyle = `flex:0 0 ${qrMm}mm;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;`;
                     const qrBox = `width:${qrMm}mm;height:${qrMm}mm;display:flex;align-items:center;justify-content:center;`;
+                    // justify-content:flex-start → biến thể + giá dồn LÊN TRÊN, chừa trống dưới để ghi.
                     const rightCol =
-                        'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.3mm;overflow:hidden;';
+                        'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;gap:0.3mm;overflow:hidden;';
                     const nameBand = `flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;font-size:${fs}px;line-height:${nameLineH}px;max-height:${nameLineH * 2}px;overflow:hidden;overflow-wrap:normal;word-break:keep-all;`;
 
                     labelInner += `<div class="barcode_label" style="${outerStyle}">`;
