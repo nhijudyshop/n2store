@@ -11,7 +11,7 @@
 - **CLEARANCE bug**: bỏ ràng buộc `created_at > grace` trong `open_recent` (redundant → vô hiệu) → giờ xét MỌI đơn chưa huỷ còn thiếu tem (bất kể tuổi) → SP còn đơn cũ chưa đủ hàng KHÔNG bị xả nhầm.
 - **⚠ DEFER #2a** (gate from-comment auth): ENFORCE=1 prod; cart `_createDraftViaFromComment` HTTP self-call from-comment KHÔNG gửi token + cart frontend cũng không → gate sẽ phá luồng cart drag (KH mới → 401). Cần làm chuỗi auth cart trước.
 
-**Status:** 🔄 Deploy + test backend (phone/clamp/clearance); frontend syntax OK.
+**Status:** ✅ Backend verified live (phone +84→0912345678 · clamp qty/price âm→0 · clearance.success=true). Frontend syntax OK (agent-verified edits). #2a auth gate defer.
 
 ### [v2/cart] FIX HIGH: cart drag (luồng livestream chính) KHÔNG auto-gán unit — hook reconcile
 
