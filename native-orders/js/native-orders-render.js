@@ -299,10 +299,9 @@
     };
 
     // STT hiển thị CHUẨN (dùng chung list + in bill — phải khớp nhau):
-    //   - "1 + 2" nếu đơn GỘP (mergedDisplayStt array length > 1)
-    //   - "31-2" nếu đơn TÁCH (splitIndex > 0)
-    //   - campaignStt (per-campaign 1..n) cho đơn thường — KHÔNG dùng displayStt
-    //     (global sequence) vì list hiển thị campaignStt → bill phải giống.
+    //   - đơn TÁCH: "31-2" (splitIndex > 0, chia sẻ campaignStt gốc)
+    //   - đơn thường + đơn GỘP: campaignStt (per-campaign 1..n) — KHÔNG dùng
+    //     displayStt (global sequence) vì list hiển thị campaignStt → bill phải giống.
     // STT đơn = SỐ KỆ vật lý (user dán ngoài kệ). Đơn GỘP: dùng campaign_stt MỚI
     // của đơn gộp (= số kệ thật, KHỚP tem quét ra), KHÔNG còn join display_stt cũ
     // "1 + 2" (2026-06-29 user chốt "lấy số mới nhất" — tránh lệch tem ↔ native-orders;
