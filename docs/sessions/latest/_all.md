@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `be910cb` — fix(nav): purge dead tpos-pancake/ paths → live-chat/ (nav href, permissions-registry, 17 test scripts)
-**Last updated**: 2026-06-29 18:22:15 +07
-**Latest session**: [`RESUME:20260629-182215-be910cb`](../20260629-182215-be910cb.md)
-**Summary**: fix(nav): purge dead tpos-pancake/ paths → live-chat/ (nav href, permissions-registry, 17 test scripts)
+**Latest commit**: `a09e241` — fix(live-chat): tab vùng Kho SP lọc p.region thay vì p.supplier
+**Last updated**: 2026-06-29 19:02:23 +07
+**Latest session**: [`RESUME:20260629-190223-a09e241`](../20260629-190223-a09e241.md)
+**Summary**: fix(live-chat): tab vùng Kho SP lọc p.region thay vì p.supplier
 
 ## Folders affected in this commit
 
-- [`scripts/`](./scripts.md) — 17 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`user-management/`](./user-management.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 18:12
+- [`docs/`](./docs.md) — updated 2026-06-29 19:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -45,7 +44,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-26 14:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-29 17:00
+- [`live-chat/`](./live-chat.md) — updated 2026-06-29 19:02
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
