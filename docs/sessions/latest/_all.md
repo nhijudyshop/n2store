@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6929879` — docs(dev-log): cart reconcile verified (add/patch/remove auto-gán đúng)
-**Last updated**: 2026-06-29 09:42:11 +07
-**Latest session**: [`RESUME:20260629-094211-6929879`](../20260629-094211-6929879.md)
-**Summary**: docs(dev-log): cart reconcile verified (add/patch/remove auto-gán đúng)
+**Latest commit**: `b6ad388` — auto: session update
+**Last updated**: 2026-06-29 09:44:48 +07
+**Latest session**: [`RESUME:20260629-094448-b6ad388`](../20260629-094448-b6ad388.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -59,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-29 09:33
+- [`render.com/`](./render.com.md) — updated 2026-06-29 09:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-28 20:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
