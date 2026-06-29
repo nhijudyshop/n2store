@@ -1,0 +1,183 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — In NHÃN Ô KỆ: bảng STT theo layout 9 kệ × 15×6 để dán lên từng ô (đặt hàng đúng STT). Dùng Web2ShelfMap. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Nhãn ô kệ — Web 2.0</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                font-family: 'Inter', system-ui, Arial, sans-serif;
+                margin: 0;
+                background: #eef1f6;
+                color: #16202c;
+            }
+            .bar {
+                position: sticky;
+                top: 0;
+                background: #0068ff;
+                color: #fff;
+                padding: 12px 16px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .bar h1 {
+                font-size: 17px;
+                margin: 0;
+                flex: 1;
+            }
+            .bar button,
+            .bar select {
+                border: 0;
+                border-radius: 9px;
+                padding: 8px 14px;
+                font-weight: 700;
+                font-size: 14px;
+                cursor: pointer;
+            }
+            .bar button {
+                background: #fff;
+                color: #0052cc;
+            }
+            .hint {
+                max-width: 1100px;
+                margin: 12px auto 0;
+                padding: 0 16px;
+                font-size: 13px;
+                color: #5b6b7d;
+            }
+            .sheets {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 12px 16px 40px;
+            }
+            .ke {
+                background: #fff;
+                border-radius: 12px;
+                box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+                padding: 14px;
+                margin-bottom: 16px;
+            }
+            .ke h2 {
+                font-size: 16px;
+                margin: 0 0 10px;
+            }
+            .ke h2 span {
+                font-size: 12px;
+                font-weight: 600;
+                color: #5b6b7d;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(15, 1fr);
+                gap: 4px;
+            }
+            .cell {
+                aspect-ratio: 1.4;
+                border: 1.5px solid #16202c;
+                border-radius: 5px;
+                display: grid;
+                place-items: center;
+                font-weight: 800;
+                font-size: 15px;
+            }
+            @media print {
+                .bar,
+                .hint {
+                    display: none !important;
+                }
+                body {
+                    background: #fff;
+                }
+                .sheets {
+                    padding: 0;
+                    max-width: none;
+                }
+                .ke {
+                    box-shadow: none;
+                    border: none;
+                    border-radius: 0;
+                    padding: 0;
+                    margin: 0 0 6mm;
+                    page-break-after: always;
+                }
+                .cell {
+                    font-size: 13px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="bar">
+            <h1>🏷️ Nhãn ô kệ (STT)</h1>
+            <label style="color: #fff; font-size: 13px"
+                >Kệ:
+                <select id="keSel">
+                    <option value="0">Tất cả</option>
+                </select>
+            </label>
+            <button id="printBtn">🖨️ In</button>
+        </div>
+        <div class="hint">
+            Bảng STT theo đúng sơ đồ kệ (9 kệ × 15 cột × 6 hàng = 810 ô). In ra, cắt/dán số lên từng
+            ô kệ → khi đưa xe ra, bỏ hàng vào đúng ô STT. STT chạy hàng-major (trái→phải rồi xuống
+            hàng dưới). Dán 1 lần, dùng mãi (STT lặp lại mỗi chiến dịch).
+        </div>
+        <div class="sheets" id="sheets"></div>
+
+        <script src="../shared/web2-shelf-map.js?v=20260629a"></script>
+        <script>
+            (function () {
+                'use strict';
+                const SM = window.Web2ShelfMap;
+                const sheets = document.getElementById('sheets');
+                const sel = document.getElementById('keSel');
+                for (let k = 1; k <= SM.KE_COUNT; k++) {
+                    const o = document.createElement('option');
+                    o.value = k;
+                    o.textContent = 'Kệ ' + k + ' (' + SM.wallOf(k) + ')';
+                    sel.appendChild(o);
+                }
+                function render(only) {
+                    sheets.innerHTML = '';
+                    for (let k = 1; k <= SM.KE_COUNT; k++) {
+                        if (only && k !== only) continue;
+                        const base = (k - 1) * SM.PER_KE;
+                        const div = document.createElement('div');
+                        div.className = 'ke';
+                        const grid = SM.keGrid(k)
+                            .flat()
+                            .map((s) => '<div class="cell">' + s + '</div>')
+                            .join('');
+                        div.innerHTML =
+                            '<h2>KỆ ' +
+                            k +
+                            ' <span>· ' +
+                            SM.wallOf(k) +
+                            ' · STT ' +
+                            (base + 1) +
+                            '–' +
+                            (base + SM.PER_KE) +
+                            ' · ' +
+                            SM.COLS +
+                            ' cột × ' +
+                            SM.ROWS +
+                            ' hàng</span></h2>' +
+                            '<div class="grid">' +
+                            grid +
+                            '</div>';
+                        sheets.appendChild(div);
+                    }
+                }
+                sel.addEventListener('change', () => render(Number(sel.value)));
+                document.getElementById('printBtn').addEventListener('click', () => window.print());
+                render(0);
+            })();
+        </script>
+    </body>
+</html>

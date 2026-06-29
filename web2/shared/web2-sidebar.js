@@ -216,12 +216,8 @@
                     our: '../web2/reconcile/index.html',
                 },
                 {
-                    label: 'Quét tem đóng gói 📱',
+                    label: 'Quét tem 📱',
                     our: '../web2/unit-scan/index.html',
-                },
-                {
-                    label: 'Bàn chia hàng 📱',
-                    our: '../web2/sort-station/index.html',
                 },
                 {
                     label: 'Trả hàng',

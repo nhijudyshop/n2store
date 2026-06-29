@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-29 09:15",
+    "generatedAt": "2026-06-29 09:57",
     "totals": {
         "files": 457,
-        "sharedModules": 147,
-        "functions": 3747,
+        "sharedModules": 148,
+        "functions": 3767,
         "oversized": 15
     },
     "sharedModules": [
@@ -503,7 +503,6 @@
                 "web2/reconcile/js/reconcile-app.js",
                 "web2/shared/web2-label-ocr.js",
                 "web2/shared/web2-pack-counter.js",
-                "web2/sort-station/js/sort-station.js",
                 "web2/unit-scan/js/unit-scan.js"
             ],
             "lines": 443
@@ -1498,7 +1497,6 @@
                 "so-order/js/so-order-barcode.js",
                 "web2/products/js/web2-products-render.js",
                 "web2/shared/web2-unit-reprint.js",
-                "web2/sort-station/js/sort-station.js",
                 "web2/unit-scan/js/unit-scan.js"
             ],
             "lines": 158
@@ -1617,6 +1615,14 @@
             "lines": 59
         },
         {
+            "file": "web2/shared/web2-shelf-map.js",
+            "globals": ["Web2ShelfMap"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "consumers": ["web2/unit-scan/js/unit-scan.js"],
+            "lines": 87
+        },
+        {
             "file": "web2/shared/web2-sidebar.js",
             "globals": ["Web2Sidebar"],
             "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
@@ -1640,7 +1646,7 @@
                 "web2/shared/web2-user-profile.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 985
+            "lines": 981
         },
         {
             "file": "web2/shared/web2-skeleton.js",
@@ -1793,7 +1799,6 @@
                 "web2/shared/web2-wallet-balance.js",
                 "web2/shared/web2-zalo.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/sort-station/js/sort-station.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js",
                 "web2/unit-scan/js/unit-scan.js",
@@ -6591,7 +6596,7 @@
             "files": [
                 {
                     "file": "web2/goods-weight/js/goods-weight.js",
-                    "lines": 280,
+                    "lines": 445,
                     "purpose": "WEB2.0 — Cân nặng hàng khi về kiện.",
                     "globals": [],
                     "uses": [
@@ -6605,24 +6610,36 @@
                     "functions": [
                         "$",
                         "_auth",
+                        "addDays",
                         "api",
                         "boot",
                         "clearPhoto",
                         "compress",
+                        "dayLabel",
                         "del",
                         "esc",
+                        "fillUserOptions",
+                        "fmtInt",
+                        "fmtKg",
                         "fmtTime",
                         "icons",
                         "isAdmin",
                         "load",
+                        "loadReport",
+                        "money",
                         "onPhoto",
                         "onerror",
                         "onload",
                         "render",
+                        "renderReport",
                         "save",
+                        "setPreset",
+                        "setupReport",
                         "setupSSE",
+                        "showTab",
                         "tickClock",
                         "toast",
+                        "todayHCM",
                         "token",
                         "username"
                     ]
@@ -10807,8 +10824,16 @@
                     "functions": ["_normPhone", "collect", "fetchQueued"]
                 },
                 {
+                    "file": "web2/shared/web2-shelf-map.js",
+                    "lines": 87,
+                    "purpose": "WEB2.0 shared.",
+                    "globals": ["Web2ShelfMap"],
+                    "uses": [],
+                    "functions": ["compareWalk", "keGrid", "keOf", "locate", "wallOf"]
+                },
+                {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 985,
+                    "lines": 981,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -11800,46 +11825,6 @@
             ]
         },
         {
-            "page": "web2/sort-station",
-            "files": [
-                {
-                    "file": "web2/sort-station/js/sort-station.js",
-                    "lines": 399,
-                    "purpose": "WEB2.0 — Bàn chia hàng: quét pile → KỆ to + theo dõi đủ/thiếu từng STT + manifest mang ra. Client units = Web2ProductUnits. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md",
-                    "globals": [],
-                    "uses": ["Web2BarcodeScanner", "Web2ProductUnits", "Web2SSE"],
-                    "functions": [
-                        "$",
-                        "PU",
-                        "beep",
-                        "boot",
-                        "buildScanner",
-                        "cardHtml",
-                        "closeSheet",
-                        "esc",
-                        "flash",
-                        "go",
-                        "hideCamRetry",
-                        "icons",
-                        "initScanner",
-                        "initSse",
-                        "isDone",
-                        "load",
-                        "onScan",
-                        "openManifest",
-                        "parseScan",
-                        "refreshCard",
-                        "renderGrid",
-                        "renderStats",
-                        "showCamRetry",
-                        "toast",
-                        "vibe",
-                        "wireManual"
-                    ]
-                }
-            ]
-        },
-        {
             "page": "web2/supplier-debt",
             "files": [
                 {
@@ -12230,17 +12215,23 @@
             "files": [
                 {
                     "file": "web2/unit-scan/js/unit-scan.js",
-                    "lines": 454,
-                    "purpose": "WEB2.0 — Quét QR đơn vị (mobile): resolve → HIỂN THỊ STT giỏ đã gán + đơn chờ (gán TỰ ĐỘNG ở luồng giỏ, KHÔNG nút Gán). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md",
+                    "lines": 755,
+                    "purpose": "WEB2.0 — Quét tem (gộp 2026-06-29): 1 trang 2 CHẾ ĐỘ chung scanner — \"Tra/Đóng gói\" (resolve 1 món + reprint + sibling + vị trí) & \"Chia hàng\" (9 KỆ/xe + tiến độ + manifest + sơ đồ). Client: Web2ProductUnits + Web2ShelfMap. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md",
                     "globals": [],
-                    "uses": ["Web2BarcodeScanner", "Web2ProductUnits", "Web2SSE"],
+                    "uses": ["Web2BarcodeScanner", "Web2ProductUnits", "Web2ShelfMap", "Web2SSE"],
                     "functions": [
                         "$",
                         "PU",
+                        "SM",
                         "_mCard",
+                        "beep",
                         "boot",
+                        "buildKes",
                         "buildScanner",
+                        "closeSheet",
+                        "dispatchScan",
                         "esc",
+                        "flash",
                         "fmtTime",
                         "fmtVnd",
                         "go",
@@ -12248,17 +12239,30 @@
                         "icons",
                         "initScanner",
                         "initSse",
+                        "kDone",
+                        "keOf",
                         "loadEvents",
                         "loadSiblings",
+                        "oDone",
                         "onScan",
+                        "onScanSort",
+                        "openKe",
+                        "openManifest",
                         "parseScan",
+                        "posLine",
+                        "refreshKeCard",
+                        "renderGrid",
                         "renderResult",
+                        "renderStats",
                         "reprintUnit",
                         "resolve",
+                        "setMode",
                         "showCamRetry",
                         "sibRow",
+                        "sortLoad",
                         "toast",
                         "toggleTorch",
+                        "vibe",
                         "wireManual"
                     ]
                 }
@@ -12954,11 +12958,10 @@
                 "web2/shared/web2-gemini-chat.js",
                 "web2/shared/web2-tryon.js",
                 "web2/shared/web2-user-profile.js",
-                "web2/sort-station/js/sort-station.js",
                 "web2/unit-scan/js/unit-scan.js",
                 "web2/video-maker/js/video-stock.js"
             ],
-            "count": 21
+            "count": 20
         },
         {
             "fn": "ensureStyles",
@@ -13198,21 +13201,6 @@
             "count": 9
         },
         {
-            "fn": "icons",
-            "files": [
-                "web2/clearance/js/clearance.js",
-                "web2/goods-weight/js/goods-weight.js",
-                "web2/jt-tracking/js/jt-tracking-constants.js",
-                "web2/order-tags/js/order-tags-app.js",
-                "web2/products/js/web2-product-detail.js",
-                "web2/shared/web2-order-tag-detail.js",
-                "web2/shared/web2-unit-reprint.js",
-                "web2/sort-station/js/sort-station.js",
-                "web2/unit-scan/js/unit-scan.js"
-            ],
-            "count": 9
-        },
-        {
             "fn": "norm",
             "files": [
                 "live-chat/js/live/live-init-lifecycle.js",
@@ -13273,20 +13261,6 @@
             "count": 9
         },
         {
-            "fn": "boot",
-            "files": [
-                "web2/clearance/js/clearance.js",
-                "web2/goods-weight/js/goods-weight.js",
-                "web2/live-control/js/live-control.js",
-                "web2/live-tv/js/live-tv.js",
-                "web2/overview/overview.js",
-                "web2/shared/web2-lottie.js",
-                "web2/sort-station/js/sort-station.js",
-                "web2/unit-scan/js/unit-scan.js"
-            ],
-            "count": 8
-        },
-        {
             "fn": "done",
             "files": [
                 "web2/ai-hub/js/ai-image.js",
@@ -13329,6 +13303,20 @@
             "count": 8
         },
         {
+            "fn": "icons",
+            "files": [
+                "web2/clearance/js/clearance.js",
+                "web2/goods-weight/js/goods-weight.js",
+                "web2/jt-tracking/js/jt-tracking-constants.js",
+                "web2/order-tags/js/order-tags-app.js",
+                "web2/products/js/web2-product-detail.js",
+                "web2/shared/web2-order-tag-detail.js",
+                "web2/shared/web2-unit-reprint.js",
+                "web2/unit-scan/js/unit-scan.js"
+            ],
+            "count": 8
+        },
+        {
             "fn": "renderCounters",
             "files": [
                 "native-orders/js/native-orders-render.js",
@@ -13365,6 +13353,19 @@
                 "web2/shared/web2-quick-reply.js",
                 "web2/shared/web2-supplier-pay.js",
                 "web2/shared/web2-suppliers-cache.js"
+            ],
+            "count": 7
+        },
+        {
+            "fn": "boot",
+            "files": [
+                "web2/clearance/js/clearance.js",
+                "web2/goods-weight/js/goods-weight.js",
+                "web2/live-control/js/live-control.js",
+                "web2/live-tv/js/live-tv.js",
+                "web2/overview/overview.js",
+                "web2/shared/web2-lottie.js",
+                "web2/unit-scan/js/unit-scan.js"
             ],
             "count": 7
         },
@@ -13439,18 +13440,6 @@
                 "web2/fb-insights/js/fb-insights.js",
                 "web2/shared/web2-qr.js",
                 "web2/system/js/system-thirdparty.js"
-            ],
-            "count": 6
-        },
-        {
-            "fn": "cardHtml",
-            "files": [
-                "live-chat/js/live/comments-mobile-render.js",
-                "web2/customer-wallet/js/web2-customer-wallet-render.js",
-                "web2/live-tv/js/live-tv.js",
-                "web2/shared/web2-ai-presets.js",
-                "web2/sort-station/js/sort-station.js",
-                "web2/supplier-wallet/js/supplier-wallet-render.js"
             ],
             "count": 6
         },
@@ -13558,7 +13547,7 @@
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/overview/overview.js",
                 "web2/shared/chat-panel/web2-chat-panel-render.js",
-                "web2/sort-station/js/sort-station.js"
+                "web2/unit-scan/js/unit-scan.js"
             ],
             "count": 6
         },
@@ -13651,6 +13640,17 @@
                 "live-chat/js/pancake/inventory-panel-state.js",
                 "web2/returns/js/returns-api.js",
                 "web2/shared/web2-perm.js"
+            ],
+            "count": 5
+        },
+        {
+            "fn": "cardHtml",
+            "files": [
+                "live-chat/js/live/comments-mobile-render.js",
+                "web2/customer-wallet/js/web2-customer-wallet-render.js",
+                "web2/live-tv/js/live-tv.js",
+                "web2/shared/web2-ai-presets.js",
+                "web2/supplier-wallet/js/supplier-wallet-render.js"
             ],
             "count": 5
         },
@@ -14152,6 +14152,16 @@
             "count": 4
         },
         {
+            "fn": "money",
+            "files": [
+                "native-orders/js/native-orders-customer360.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-ads-stats/js/fb-ads-stats.js",
+                "web2/goods-weight/js/goods-weight.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "push",
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
@@ -14218,6 +14228,16 @@
                 "web2/shared/web2-chat-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "setMode",
+            "files": [
+                "live-chat/js/pancake/pancake-mode-switcher.js",
+                "web2/photo-studio/photo-studio-ui.js",
+                "web2/unit-scan/js/unit-scan.js",
+                "web2/video-maker/js/video-maker.js"
             ],
             "count": 4
         },
@@ -14439,7 +14459,7 @@
             "fn": "beep",
             "files": [
                 "web2/shared/web2-barcode-scanner.js",
-                "web2/sort-station/js/sort-station.js",
+                "web2/unit-scan/js/unit-scan.js",
                 "web2/zalo/js/web2-zalo-notify.js"
             ],
             "count": 3
@@ -14467,7 +14487,7 @@
             "files": [
                 "live-chat/js/live/comments-mobile-render.js",
                 "web2/photo-studio/photo-studio-ui.js",
-                "web2/sort-station/js/sort-station.js"
+                "web2/unit-scan/js/unit-scan.js"
             ],
             "count": 3
         },
@@ -14652,15 +14672,6 @@
             "count": 3
         },
         {
-            "fn": "money",
-            "files": [
-                "native-orders/js/native-orders-customer360.js",
-                "web2/fb-ads-stats/js/fb-ads-manual.js",
-                "web2/fb-ads-stats/js/fb-ads-stats.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "openChat",
             "files": [
                 "web2/jt-tracking/js/jt-tracking-modals.js",
@@ -14781,7 +14792,7 @@
             "fn": "renderGrid",
             "files": [
                 "web2/shared/web2-ai-presets.js",
-                "web2/sort-station/js/sort-station.js",
+                "web2/unit-scan/js/unit-scan.js",
                 "web2/video-maker/js/video-stock.js"
             ],
             "count": 3
@@ -14837,15 +14848,6 @@
                 "live-chat/js/live/live-comment-list-actions.js",
                 "live-chat/js/live/live-init-lifecycle.js",
                 "live-chat/js/live/live-init.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "setMode",
-            "files": [
-                "live-chat/js/pancake/pancake-mode-switcher.js",
-                "web2/photo-studio/photo-studio-ui.js",
-                "web2/video-maker/js/video-maker.js"
             ],
             "count": 3
         },
@@ -14953,12 +14955,12 @@
             "lines": 1039
         },
         {
-            "file": "web2/shared/web2-sidebar.js",
-            "lines": 985
-        },
-        {
             "file": "web2/users/js/users-app.js",
             "lines": 982
+        },
+        {
+            "file": "web2/shared/web2-sidebar.js",
+            "lines": 981
         },
         {
             "file": "so-order/js/so-order-storage.js",

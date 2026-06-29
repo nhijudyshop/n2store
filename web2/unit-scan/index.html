@@ -1,4 +1,4 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét QR đơn vị (mobile, phone-native). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét tem (mobile): 2 chế độ Tra/Đóng gói + Chia hàng (gộp 2026-06-29). Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md -->
 <!doctype html>
 <html lang="vi">
     <head>
@@ -9,7 +9,7 @@
         />
         <meta name="theme-color" content="#0068ff" />
         <meta http-equiv="Cache-Control" content="no-store" />
-        <title>Quét QR sản phẩm — Web 2.0</title>
+        <title>Quét tem — Web 2.0</title>
         <!-- AUTH GUARD: trang Web 2.0 (đụng đơn KH có PII) — chưa đăng nhập → đẩy login ngay. -->
         <script>
             (function () {
@@ -22,29 +22,50 @@
                 location.replace('../login/index.html?next=' + next);
             })();
         </script>
-        <!-- PWA "Thêm vào màn hình chính" = app Máy quét (start_url = chính trang này) -->
+        <!-- PWA "Thêm vào màn hình chính" -->
         <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png?v=20260530" />
         <link rel="icon" type="image/png" href="../shared/img/logo-emblem.png?v=20260530" />
         <link rel="manifest" href="./unit-scan.webmanifest?v=20260628a" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Quét QR" />
+        <meta name="apple-mobile-web-app-title" content="Quét tem" />
         <link rel="preconnect" href="https://chatomni-proxy.nhijudyshop.workers.dev" crossorigin />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/unit-scan.css?v=20260629a" />
+        <link rel="stylesheet" href="./css/unit-scan.css?v=20260629f" />
     </head>
     <body>
         <header class="hd">
-            <span class="hd-title">Quét QR sản phẩm</span>
+            <span class="hd-title">Quét tem</span>
+            <a
+                class="hd-btn"
+                id="tagBtn"
+                href="../shelf-labels/index.html"
+                target="_blank"
+                rel="noopener"
+                title="In nhãn ô kệ (dán STT lên ô)"
+                style="display: none"
+            >
+                <i data-lucide="tag"></i>
+            </a>
             <button class="hd-btn" id="torchBtn" aria-label="Đèn flash" title="Đèn flash">
                 <i data-lucide="zap"></i>
             </button>
         </header>
+
+        <!-- Toggle 2 chế độ -->
+        <div class="mode-tabs">
+            <button class="mode-tab is-active" type="button" data-mode="tra">
+                <i data-lucide="search"></i> Tra / Đóng gói
+            </button>
+            <button class="mode-tab" type="button" data-mode="sort">
+                <i data-lucide="layout-grid"></i> Chia hàng
+            </button>
+        </div>
 
         <main class="wrap">
             <div class="scanner">
@@ -60,8 +81,40 @@
                 />
                 <button id="manualGo">Tra</button>
             </div>
-            <div id="result" hidden></div>
+
+            <!-- CHẾ ĐỘ TRA / ĐÓNG GÓI -->
+            <div id="traView">
+                <div id="result" hidden></div>
+            </div>
+
+            <!-- CHẾ ĐỘ CHIA HÀNG -->
+            <div id="sortView" hidden>
+                <div class="flash" id="flash" hidden></div>
+                <div class="stats" id="stats"></div>
+                <div class="sec-row">
+                    <div class="sec-title" id="gridTitle">9 kệ (xe)</div>
+                    <button class="link-btn" id="manifestBtn" type="button">
+                        <i data-lucide="list-checks"></i> Đưa xe ra
+                    </button>
+                </div>
+                <div class="grid" id="grid">
+                    <div class="muted">Đang tải danh sách đơn chờ xếp kệ…</div>
+                </div>
+            </div>
         </main>
+
+        <!-- Bottom sheet (chế độ chia hàng: chi tiết kệ / manifest) -->
+        <div class="sheet-back" id="sheetBack" hidden>
+            <div class="sheet" role="dialog" aria-modal="true">
+                <div class="sheet-hd">
+                    <h3 id="sheetTitle">Đưa xe ra kệ</h3>
+                    <button class="hd-btn dark" id="sheetClose" aria-label="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="sheet-body" id="sheetBody"></div>
+            </div>
+        </div>
 
         <div class="toast" id="toast"></div>
 
@@ -73,7 +126,7 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <!-- camera barcode/QR scanner (on-device) -->
         <script src="../shared/web2-barcode-scanner.js?v=20260618a"></script>
-        <!-- IN LẠI TEM 1 đơn vị: tái dùng Web2ProductsPrint (Kho SP) — cùng bộ 5 file -->
+        <!-- IN LẠI TEM (chế độ Tra): tái dùng Web2ProductsPrint (Kho SP) — bộ 5 file -->
         <script src="../shared/web2-printer.js?v=20260623role"></script>
         <script src="../shared/web2-qr.js?v=20260625qr"></script>
         <script src="../products/js/web2-products-print-utils.js?v=20260623fix"></script>
@@ -81,9 +134,10 @@
         <script src="../products/js/web2-products-print-render.js?v=20260629b"></script>
         <script src="../products/js/web2-products-print-modal.js?v=20260628b"></script>
         <script src="../products/js/web2-products-print.js?v=20260618w2"></script>
-        <!-- Client CHUNG /api/web2-product-units/* (mã đơn vị per-unit) -->
-        <script src="../shared/web2-product-units.js?v=20260629a"></script>
-        <!-- app -->
-        <script src="./js/unit-scan.js?v=20260629c"></script>
+        <!-- Client CHUNG /api/web2-product-units/* + sơ đồ kệ -->
+        <script src="../shared/web2-product-units.js?v=20260629b"></script>
+        <script src="../shared/web2-shelf-map.js?v=20260629a"></script>
+        <!-- app (2 chế độ) -->
+        <script src="./js/unit-scan.js?v=20260629e"></script>
     </body>
 </html>

@@ -1,106 +1,28 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Bàn chia hàng (sort station): quét pile → báo KỆ + theo dõi đủ/thiếu từng STT + manifest mang ra. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — ĐÃ GỘP vào web2/unit-scan (Quét tem → chế độ "Chia hàng"). Trang này chỉ redirect (giữ link/bookmark cũ). -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
-        />
-        <meta name="theme-color" content="#0068ff" />
-        <meta http-equiv="Cache-Control" content="no-store" />
-        <title>Bàn chia hàng — Web 2.0</title>
-        <!-- AUTH GUARD: trang Web 2.0 (đụng đơn KH có PII) — chưa đăng nhập → đẩy login. -->
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Chuyển hướng — Bàn chia hàng</title>
+        <meta http-equiv="refresh" content="0; url=../unit-scan/index.html?mode=sort" />
         <script>
-            (function () {
-                try {
-                    var raw = localStorage.getItem('web2_auth');
-                    var a = raw ? JSON.parse(raw) : null;
-                    if (a && a.token) return;
-                } catch (e) {}
-                var next = encodeURIComponent(location.pathname + location.search);
-                location.replace('../login/index.html?next=' + next);
-            })();
+            location.replace('../unit-scan/index.html?mode=sort' + (location.hash || ''));
         </script>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Chia hàng" />
-        <link rel="preconnect" href="https://chatomni-proxy.nhijudyshop.workers.dev" crossorigin />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-            rel="stylesheet"
-        />
-        <link rel="stylesheet" href="./css/sort-station.css?v=20260629a" />
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                padding: 40px;
+                text-align: center;
+                color: #16202c;
+            }
+            a {
+                color: #0068ff;
+            }
+        </style>
     </head>
     <body>
-        <header class="hd">
-            <span class="hd-title">Bàn chia hàng</span>
-            <button class="hd-btn" id="reloadBtn" aria-label="Tải lại" title="Tải lại danh sách">
-                <i data-lucide="refresh-cw"></i>
-            </button>
-        </header>
-
-        <main class="wrap">
-            <div class="scanner">
-                <div id="scanHost"></div>
-                <div class="scan-hint">Quét QR từng món trong đống hàng</div>
-            </div>
-
-            <div class="manual">
-                <input
-                    id="manualInput"
-                    inputmode="text"
-                    autocomplete="off"
-                    placeholder="Hoặc nhập mã đơn vị (vd HNAODEN-017)"
-                />
-                <button id="manualGo">Tra</button>
-            </div>
-
-            <!-- Flash kết quả quét gần nhất -->
-            <div class="flash" id="flash" hidden></div>
-
-            <!-- Thanh tiến độ tổng -->
-            <div class="stats" id="stats"></div>
-
-            <div class="sec-row">
-                <div class="sec-title" id="gridTitle">Các kệ cần chia</div>
-                <button class="link-btn" id="manifestBtn" type="button">
-                    <i data-lucide="list-checks"></i> Mang ra kệ
-                </button>
-            </div>
-            <div class="grid" id="grid">
-                <div class="muted" id="gridEmpty">Đang tải danh sách đơn chờ xếp kệ…</div>
-            </div>
-        </main>
-
-        <!-- Bottom sheet: manifest mang ra kệ -->
-        <div class="sheet-back" id="sheetBack" hidden>
-            <div class="sheet" role="dialog" aria-modal="true">
-                <div class="sheet-hd">
-                    <h3 id="sheetTitle">Mang ra kệ</h3>
-                    <button class="hd-btn dark" id="sheetClose" aria-label="Đóng">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-                <div class="sheet-body" id="sheetBody"></div>
-            </div>
-        </div>
-
-        <div class="toast" id="toast"></div>
-
-        <!-- lucide icons -->
-        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-        <!-- base-URL + auth guard + token (1 nguồn WEB2_CONFIG) -->
-        <script src="../shared/web2-auth.js?v=20260621r7"></script>
-        <!-- SSE realtime bridge (web2:product-units) -->
-        <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
-        <!-- camera barcode/QR scanner (on-device) -->
-        <script src="../shared/web2-barcode-scanner.js?v=20260618a"></script>
-        <!-- Client CHUNG /api/web2-product-units/* -->
-        <script src="../shared/web2-product-units.js?v=20260629b"></script>
-        <!-- app -->
-        <script src="./js/sort-station.js?v=20260629a"></script>
+        Bàn chia hàng đã gộp vào
+        <a href="../unit-scan/index.html?mode=sort">Quét tem → Chia hàng</a>. Đang chuyển…
     </body>
 </html>

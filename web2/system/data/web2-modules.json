@@ -1,16 +1,16 @@
 {
-    "generatedAt": "2026-06-29T09:15:25.879Z",
+    "generatedAt": "2026-06-29T09:57:15.908Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
-        "sharedModules": 147,
-        "pages": 49,
+        "sharedModules": 148,
+        "pages": 48,
         "backendRoutes": 63,
         "backendServices": 35,
         "frontendFiles": 457,
-        "functions": 3747
+        "functions": 3767
     },
     "sharedByCategory": {
-        "other": 50,
+        "other": 51,
         "beauty": 3,
         "chat": 35,
         "popup-ui": 6,
@@ -409,8 +409,8 @@
             "purpose": "On-device barcode/QR scanning via camera",
             "api": [],
             "lines": 443,
-            "consumerCount": 5,
-            "consumerPages": ["web2/reconcile", "web2/sort-station", "web2/unit-scan"],
+            "consumerCount": 4,
+            "consumerPages": ["web2/reconcile", "web2/unit-scan"],
             "category": "qr-barcode"
         },
         {
@@ -1324,8 +1324,8 @@
             "purpose": "WEB2.0 shared.",
             "api": [],
             "lines": 158,
-            "consumerCount": 5,
-            "consumerPages": ["so-order", "web2/products", "web2/sort-station", "web2/unit-scan"],
+            "consumerCount": 4,
+            "consumerPages": ["so-order", "web2/products", "web2/unit-scan"],
             "category": "other"
         },
         {
@@ -1430,12 +1430,23 @@
             "category": "other"
         },
         {
+            "file": "web2/shared/web2-shelf-map.js",
+            "name": "Web2ShelfMap",
+            "globals": ["Web2ShelfMap"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "lines": 87,
+            "consumerCount": 1,
+            "consumerPages": ["web2/unit-scan"],
+            "category": "other"
+        },
+        {
             "file": "web2/shared/web2-sidebar.js",
             "name": "Web2Sidebar",
             "globals": ["Web2Sidebar"],
             "purpose": "Main sidebar navigation",
             "api": [],
-            "lines": 985,
+            "lines": 981,
             "consumerCount": 17,
             "consumerPages": [
                 "web2/cham-cong",
@@ -1544,7 +1555,7 @@
             "purpose": "SSE bridge for realtime updates",
             "api": [],
             "lines": 289,
-            "consumerCount": 70,
+            "consumerCount": 69,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1573,7 +1584,6 @@
                 "web2/purchase-refund",
                 "web2/reconcile",
                 "web2/returns",
-                "web2/sort-station",
                 "web2/supplier-debt",
                 "web2/supplier-wallet",
                 "web2/unit-scan",
@@ -3039,7 +3049,7 @@
         {
             "page": "web2/goods-weight",
             "fileCount": 1,
-            "totalLines": 280,
+            "totalLines": 445,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3864,8 +3874,8 @@
         },
         {
             "page": "web2/shared",
-            "fileCount": 147,
-            "totalLines": 45023,
+            "fileCount": 148,
+            "totalLines": 45106,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -3907,7 +3917,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 985
+                    "lines": 981
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
@@ -3916,28 +3926,6 @@
             ],
             "usesShared": [],
             "usesSharedCount": 0
-        },
-        {
-            "page": "web2/sort-station",
-            "fileCount": 1,
-            "totalLines": 399,
-            "globals": [],
-            "oversized": [],
-            "usesShared": [
-                {
-                    "name": "Web2BarcodeScanner",
-                    "category": "qr-barcode"
-                },
-                {
-                    "name": "Web2ProductUnits",
-                    "category": "other"
-                },
-                {
-                    "name": "Web2SSE",
-                    "category": "sse-realtime"
-                }
-            ],
-            "usesSharedCount": 3
         },
         {
             "page": "web2/supplier-debt",
@@ -4091,7 +4079,7 @@
         {
             "page": "web2/unit-scan",
             "fileCount": 1,
-            "totalLines": 454,
+            "totalLines": 755,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -4104,11 +4092,15 @@
                     "category": "other"
                 },
                 {
+                    "name": "Web2ShelfMap",
+                    "category": "other"
+                },
+                {
                     "name": "Web2SSE",
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 3
+            "usesSharedCount": 4
         },
         {
             "page": "web2/users",
@@ -4481,7 +4473,7 @@
                 "file": "render.com/routes/web2-goods-weight.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — CÂN NẶNG HÀNG (goods weight log)",
-                "lines": 190
+                "lines": 262
             },
             {
                 "file": "render.com/routes/web2-jt-tracking.js",
