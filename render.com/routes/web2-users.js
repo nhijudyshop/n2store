@@ -104,7 +104,12 @@ function decryptPassword(blob) {
 }
 
 const ROLES = ['admin', 'manager', 'staff', 'viewer'];
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DAY_MS = 24 * 60 * 60 * 1000;
+// TTL phiên Web 2.0 theo role: admin dùng lâu → 90 ngày; user thường → 14 ngày.
+// (Trước đây cố định 7 ngày → active user vẫn bị "Phiên hết hạn" khá thường.)
+const ADMIN_TOKEN_TTL_MS = 90 * DAY_MS;
+const USER_TOKEN_TTL_MS = 14 * DAY_MS;
+const tokenTtlFor = (role) => (role === 'admin' ? ADMIN_TOKEN_TTL_MS : USER_TOKEN_TTL_MS);
 
 // ── Login rate-limit (in-memory, no dependency) ─────────────────────
 // Theo IP: > LOGIN_MAX_FAILS lần thất bại trong LOGIN_WINDOW_MS → 429.
@@ -1207,12 +1212,13 @@ router.post('/login', async (req, res) => {
         const token = crypto.randomBytes(32).toString('hex'); // raw — trả client, KHÔNG lưu
         const tokenHash = hashWeb2Token(token);
         const now = Date.now();
+        const ttlMs = tokenTtlFor(user.role); // admin 90d, user 14d
         // C7: lưu HASH trong cả token (PK) lẫn token_hash → DB không có plaintext.
         // Client giữ raw token (localStorage); verify bằng hash(incoming)=token_hash.
         await pool.query(
             `INSERT INTO web2_user_sessions (token, token_hash, user_id, created_at, expires_at)
              VALUES ($1, $1, $2, $3, $4)`,
-            [tokenHash, user.id, now, now + TOKEN_TTL_MS]
+            [tokenHash, user.id, now, now + ttlMs]
         );
         await pool.query('UPDATE web2_users SET last_login_at = $1 WHERE id = $2', [now, user.id]);
         // Cleanup expired sessions opportunistically (cheap query).
