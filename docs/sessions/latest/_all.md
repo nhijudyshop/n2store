@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `038a746` — fix(units): thêm lib/web2-shelf-stt thiếu (routes require → tránh crash web2-api) + dev-log
-**Last updated**: 2026-06-29 11:48:03 +07
-**Latest session**: [`RESUME:20260629-114803-038a746`](../20260629-114803-038a746.md)
-**Summary**: Thống nhất STT kệ 1 nguồn (lib/web2-shelf-stt: campaign_stt??display_stt) — tem+unit-scan+board/TV khớp; vá lib thiếu tránh crash web2-api
+**Latest commit**: `09123bc` — docs(native-orders): dọn comment STT cũ ('1 + 2') cho khớp hành vi gộp mới
+**Last updated**: 2026-06-29 12:01:25 +07
+**Latest session**: [`RESUME:20260629-120124-09123bc`](../20260629-120124-09123bc.md)
+**Summary**: STT kệ 1 nguồn (campaign_stt) trên MỌI surface — native-orders/tem/unit-scan/board; đơn gộp hiện kệ mới + dấu ⛓
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 11:48
+- [`docs/`](./docs.md) — updated 2026-06-29 12:01
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -48,7 +48,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-29 11:05
+- [`native-orders/`](./native-orders.md) — updated 2026-06-29 12:01
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
