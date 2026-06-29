@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a58e9b4` — fix(order-tags): pbh_created chỉ tính PBH thật + gỡ tag co_tin_nhan (trùng co_binh_luan)
-**Last updated**: 2026-06-29 14:47:01 +07
-**Latest session**: [`RESUME:20260629-144701-a58e9b4`](../20260629-144701-a58e9b4.md)
-**Summary**: order-tags: fix pbh_created + gỡ co_tin_nhan; CK flow verified
+**Latest commit**: `0290c61` — feat(order-tags): activate + fix co*coc (enrich PBH deposit) + ship_tinh/ship_tp (derive zone từ địa chỉ)
+**Last updated**: 2026-06-29 15:02:14 +07
+**Latest session**: [`RESUME:20260629-150214-0290c61`](../20260629-150214-0290c61.md)
+**Summary**: order-tags: activate+fix co_coc+ship*\*; CK flow + GIỎ/ĐƠN; cleanup
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 14:47
+- [`docs/`](./docs.md) — updated 2026-06-29 15:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -60,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-29 14:47
+- [`render.com/`](./render.com.md) — updated 2026-06-29 15:02
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-28 20:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
