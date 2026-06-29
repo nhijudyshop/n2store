@@ -3,19 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5050372` — feat(unit-scan): GỘP sort-station → "Quét tem" 2 chế độ + sơ đồ kệ vật lý + nhãn ô + fix overlay
-**Last updated**: 2026-06-29 17:00:22 +07
-**Latest session**: [`RESUME:20260629-170022-5050372`](../20260629-170022-5050372.md)
-**Summary**: feat(unit-scan): GỘP sort-station → "Quét tem" 2 chế độ + sơ đồ kệ vật lý + nhãn ô + fix overlay
+**Latest commit**: `2cd874f` — chore(session): RESUME:20260629-170022-5050372
+**Last updated**: 2026-06-29 17:00:28 +07
+**Latest session**: [`RESUME:20260629-170028-2cd874f`](../20260629-170028-2cd874f.md)
+**Summary**: Gộp sort-station vào unit-scan (2 chế độ Tra/Chia hàng) + Web2ShelfMap (STT→Kệ·Hàng·Cột) + shelf-labels in nhãn ô + fix overlay [hidden]
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 4 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 63 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
