@@ -3,40 +3,8 @@
     'use strict';
 
     // ── Config / helpers ───────────────────────────────────────────
-    const API_BASE =
-        window.API_CONFIG?.WORKER_URL ||
-        window.WEB2_CONFIG?.WORKER_URL ||
-        'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const UNITS = API_BASE + '/api/web2-product-units';
-
-    function token() {
-        try {
-            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || '';
-        } catch (_) {
-            return '';
-        }
-    }
-    function userName() {
-        try {
-            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.username || '';
-        } catch (_) {
-            return '';
-        }
-    }
-    async function api(path, opts = {}) {
-        const t = token();
-        const res = await fetch(UNITS + path, {
-            ...opts,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(t ? { 'x-web2-token': t } : {}),
-                ...(opts.headers || {}),
-            },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        return data;
-    }
+    // API /api/web2-product-units/* qua CLIENT CHUNG window.Web2ProductUnits (1 nguồn).
+    const PU = () => window.Web2ProductUnits;
 
     const $ = (sel, root = document) => root.querySelector(sel);
     const esc = (s) =>
@@ -113,11 +81,7 @@
         result.hidden = false;
         icons();
         try {
-            const q =
-                target.id != null
-                    ? 'u=' + encodeURIComponent(target.id)
-                    : 'code=' + encodeURIComponent(target.code);
-            const data = await api('/resolve?' + q);
+            const data = await PU().resolve(target);
             current = data;
             renderResult(data);
             // history (best-effort)
@@ -276,23 +240,19 @@
                 units: [{ unitCode: u.unitCode, qrUrl }],
             },
         ]);
-        // print_count++ + refresh (best-effort)
-        api('/reprint', {
-            method: 'POST',
-            body: JSON.stringify({ unitIds: [u.id], userName: userName() }),
-        })
+        // print_count++ + refresh (best-effort, qua client chung)
+        PU()
+            .reprint([u.id])
             .then(() => {
                 if (current?.unit?.id === u.id) resolve({ id: u.id });
-            })
-            .catch(() => {});
+            });
     }
 
     async function loadEvents(unitId) {
         try {
-            const data = await api('/' + unitId + '/events');
             const host = $('#hist');
             if (!host) return;
-            const evs = data.events || [];
+            const evs = await PU().events(unitId);
             host.innerHTML = evs.length
                 ? evs
                       .map((ev) => {
@@ -338,8 +298,7 @@
         if (!host) return;
         host.innerHTML = '<div class="muted" style="padding:10px">Đang tải…</div>';
         try {
-            const data = await api('/by-product/' + encodeURIComponent(productCode));
-            const units = data.units || [];
+            const units = await PU().byProduct(productCode);
             const titleEl = $('#sibTitle');
             if (titleEl) titleEl.textContent = `Tất cả tem của SP này (${units.length})`;
             if (!units.length) {

@@ -2,6 +2,14 @@
 
 ## 2026-06-29
 
+### [shared] Module CHUNG Web2ProductUnits — client duy nhất /api/web2-product-units/\*
+
+**Files:** `web2/shared/web2-product-units.js` (NEW), adopt: `web2/unit-scan/js/unit-scan.js`, `so-order/js/so-order-barcode.js`, `web2/products/js/web2-products-render.js`, `web2/shared/web2-unit-reprint.js` + 3 HTML (script include + cache-bust). Codemap/system-data regen.
+
+Audit mã SP Web 2.0 (workflow 5-reader + synthesis): **mọi thứ đã dùng hệ mới** (sinh mã `Web2ProductCode`, in `Web2ProductsPrint`, STT server `shelfStt`, reprint `Web2UnitReprint`) — gap DUY NHẤT: **4 file tự fork fetch `/api/web2-product-units/*`** (base+token+ensure/reprint/by-product). Gom về `window.Web2ProductUnits`: `resolve · events · byProduct · ensure · reprint · attachForPrint`. `attachForPrint` gom luôn vòng gắn units giống nhau của so-order + Kho SP (khác mỗi `qrBase`/`perItemQty`). Xoá ~120 dòng fork trùng. KHÔNG cache/SSE (fetch wrapper mỏng).
+
+**Test browser:** unit-scan quét TEST-SIB-001 → resolve+events+byProduct (5 sib) qua client ✓; `attachForPrint(perItemQty=2)` → [001,002] qty2 qrUrl đúng ✓; products page client+Web2UnitReprint modal mở ✓. `node --check` 5 file ✓. Nút in: audit kết luận phần lớn là surface khác nhau (giữ) — không có nút thừa thật.
+
 ### [native-orders] Fix expand không hiện mã đơn vị (-001 -002) — o.id string
 
 **File:** `native-orders/js/native-orders-unit-serials.js` (+ cache-bust index.html).

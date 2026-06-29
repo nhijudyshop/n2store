@@ -370,48 +370,12 @@
         _updateBulkBar();
     }
 
-    // PER-UNIT (2026-06-29): Kho SP in tem theo SL — gọi /ensure (server đọc SL
-    // stock+pending → TOP-UP mint SP-001..SP-SL nếu thiếu) rồi gắn units. Tự tạo mã
-    // cho SP chưa có unit (tạo trước feature / SL vừa tăng). SP không có SL → giữ
-    // hành vi cũ (lặp mã SP). 1 call batch. Mutate BẢN CLONE caller truyền (đừng bẩn cache).
+    // PER-UNIT (2026-06-29): Kho SP in tem theo SL — qua CLIENT CHUNG Web2ProductUnits
+    // (/ensure top-up SP-001..SP-SL nếu thiếu → gắn units = TẤT CẢ units của SP). Tự tạo
+    // mã cho SP chưa có unit. SP không có SL → giữ hành vi cũ (lặp mã SP). Mutate CLONE.
     async function _attachUnitsForPrint(products) {
-        const base =
-            window.API_CONFIG?.WORKER_URL ||
-            window.WEB2_CONFIG?.WORKER_URL ||
-            'https://chatomni-proxy.nhijudyshop.workers.dev';
-        let token = '';
-        try {
-            token = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || '';
-        } catch (_) {
-            /* no token */
-        }
-        const list = (products || []).filter((p) => p.code);
-        if (!list.length) return products;
-        try {
-            const r = await fetch(base + '/api/web2-product-units/ensure', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'x-web2-token': token } : {}),
-                },
-                body: JSON.stringify({ productCodes: [...new Set(list.map((p) => p.code))] }),
-            });
-            const d = await r.json().catch(() => ({}));
-            const byCode = d.byCode || {};
-            for (const p of list) {
-                const units = (byCode[p.code] || []).map((u) => ({
-                    unitCode: u.unitCode,
-                    qrUrl: location.origin + '/web2/unit-scan/?u=' + u.id,
-                }));
-                if (units.length) {
-                    p.units = units;
-                    p.quantity = units.length;
-                }
-            }
-        } catch (_) {
-            /* lỗi → in theo hành vi cũ (lặp mã SP) */
-        }
-        return products;
+        if (!window.Web2ProductUnits) return products;
+        return window.Web2ProductUnits.attachForPrint(products); // mặc định: units = SL
     }
 
     async function _bulkPrint() {

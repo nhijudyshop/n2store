@@ -1,16 +1,16 @@
 {
-    "generatedAt": "2026-06-29T03:52:57.529Z",
+    "generatedAt": "2026-06-29T06:13:17.459Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
-        "sharedModules": 146,
+        "sharedModules": 147,
         "pages": 48,
         "backendRoutes": 63,
         "backendServices": 35,
-        "frontendFiles": 455,
-        "functions": 3738
+        "frontendFiles": 456,
+        "functions": 3742
     },
     "sharedByCategory": {
-        "other": 49,
+        "other": 50,
         "beauty": 3,
         "chat": 35,
         "popup-ui": 6,
@@ -348,7 +348,7 @@
             "purpose": "Token storage and page guard",
             "api": [],
             "lines": 308,
-            "consumerCount": 147,
+            "consumerCount": 144,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -385,7 +385,6 @@
                 "web2/supplier-debt",
                 "web2/supplier-wallet",
                 "web2/system",
-                "web2/unit-scan",
                 "web2/users",
                 "web2/variants",
                 "web2/video-maker"
@@ -1319,6 +1318,17 @@
             "category": "other"
         },
         {
+            "file": "web2/shared/web2-product-units.js",
+            "name": "Web2ProductUnits",
+            "globals": ["Web2ProductUnits"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "lines": 148,
+            "consumerCount": 4,
+            "consumerPages": ["so-order", "web2/products", "web2/unit-scan"],
+            "category": "other"
+        },
+        {
             "file": "web2/shared/web2-products-api.js",
             "name": "Web2ProductsApi",
             "globals": ["Web2ProductsApi"],
@@ -1426,7 +1436,7 @@
             "purpose": "Main sidebar navigation",
             "api": [],
             "lines": 981,
-            "consumerCount": 18,
+            "consumerCount": 17,
             "consumerPages": [
                 "web2/cham-cong",
                 "web2/chi-tieu",
@@ -1435,7 +1445,6 @@
                 "web2/fb-ads-stats",
                 "web2/fb-insights",
                 "web2/fb-posts",
-                "web2/goods-weight",
                 "web2/jt-tracking",
                 "web2/live-control",
                 "web2/multi-tool",
@@ -1652,7 +1661,7 @@
             "globals": ["Web2UnitReprint"],
             "purpose": "WEB2.0 shared — In lại tem ĐƠN VỊ (per-unit reprint). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md",
             "api": [],
-            "lines": 331,
+            "lines": 294,
             "consumerCount": 1,
             "consumerPages": ["web2/products"],
             "category": "other"
@@ -2067,7 +2076,7 @@
         {
             "page": "native-orders",
             "fileCount": 22,
-            "totalLines": 7393,
+            "totalLines": 7404,
             "globals": [
                 "NativeOrdersApi",
                 "NativeOrders",
@@ -2083,7 +2092,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
-                    "lines": 931
+                    "lines": 939
                 }
             ],
             "usesShared": [
@@ -2197,7 +2206,7 @@
         {
             "page": "so-order",
             "fileCount": 27,
-            "totalLines": 9509,
+            "totalLines": 9441,
             "globals": ["SoOrder", "SoOrderStorage"],
             "oversized": [
                 {
@@ -2275,6 +2284,10 @@
                     "category": "other"
                 },
                 {
+                    "name": "Web2ProductUnits",
+                    "category": "other"
+                },
+                {
                     "name": "Web2SSE",
                     "category": "sse-realtime"
                 },
@@ -2303,7 +2316,7 @@
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 23
+            "usesSharedCount": 24
         },
         {
             "page": "web2/ai-assistant",
@@ -3042,15 +3055,11 @@
                     "category": "image"
                 },
                 {
-                    "name": "Web2Sidebar",
-                    "category": "sidebar-nav"
-                },
-                {
                     "name": "Web2SSE",
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 5
+            "usesSharedCount": 4
         },
         {
             "page": "web2/jt-tracking",
@@ -3576,7 +3585,7 @@
         {
             "page": "web2/products",
             "fileCount": 13,
-            "totalLines": 4725,
+            "totalLines": 4693,
             "globals": [
                 "Web2ProductDetail",
                 "Web2ProductsCore",
@@ -3643,6 +3652,10 @@
                     "category": "other"
                 },
                 {
+                    "name": "Web2ProductUnits",
+                    "category": "other"
+                },
+                {
                     "name": "Web2QR",
                     "category": "qr-barcode"
                 },
@@ -3679,7 +3692,7 @@
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 23
+            "usesSharedCount": 24
         },
         {
             "page": "web2/purchase-refund",
@@ -3850,8 +3863,8 @@
         },
         {
             "page": "web2/shared",
-            "fileCount": 146,
-            "totalLines": 44898,
+            "fileCount": 147,
+            "totalLines": 45009,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -4055,17 +4068,17 @@
         {
             "page": "web2/unit-scan",
             "fileCount": 1,
-            "totalLines": 425,
+            "totalLines": 454,
             "globals": [],
             "oversized": [],
             "usesShared": [
                 {
-                    "name": "WEB2_CONFIG",
-                    "category": "format-util"
-                },
-                {
                     "name": "Web2BarcodeScanner",
                     "category": "qr-barcode"
+                },
+                {
+                    "name": "Web2ProductUnits",
+                    "category": "other"
                 },
                 {
                     "name": "Web2SSE",
@@ -4391,7 +4404,7 @@
                 "file": "render.com/routes/web2-campaign-products.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — SẢN PHẨM TRONG CHIẾN DỊCH LIVESTREAM (campaign ⇄ product)",
-                "lines": 714
+                "lines": 715
             },
             {
                 "file": "render.com/routes/web2-cashbook.js",
@@ -4505,13 +4518,13 @@
                 "file": "render.com/routes/web2-product-units.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — PER-UNIT PRODUCT TRACKING (mã đơn vị + QR riêng/món)",
-                "lines": 1031
+                "lines": 1163
             },
             {
                 "file": "render.com/routes/web2-products.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 PRODUCTS REST API",
-                "lines": 2054
+                "lines": 2086
             },
             {
                 "file": "render.com/routes/web2-quick-replies.js",

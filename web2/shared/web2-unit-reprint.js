@@ -10,40 +10,7 @@
     'use strict';
     if (global.Web2UnitReprint) return;
 
-    const API_BASE =
-        global.API_CONFIG?.WORKER_URL ||
-        global.WEB2_CONFIG?.WORKER_URL ||
-        'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const UNITS = API_BASE + '/api/web2-product-units';
-
-    function token() {
-        try {
-            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || '';
-        } catch (_) {
-            return '';
-        }
-    }
-    function userName() {
-        try {
-            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.username || '';
-        } catch (_) {
-            return '';
-        }
-    }
-    async function api(path, opts = {}) {
-        const t = token();
-        const res = await fetch(UNITS + path, {
-            ...opts,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(t ? { 'x-web2-token': t } : {}),
-                ...(opts.headers || {}),
-            },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        return data;
-    }
+    // API /api/web2-product-units/* qua CLIENT CHUNG window.Web2ProductUnits (1 nguồn).
     const esc = (s) =>
         String(s == null ? '' : s).replace(
             /[&<>"]/g,
@@ -223,8 +190,7 @@
             '<div class="w2ur-muted"><i data-lucide="loader-2"></i> Đang tải tem…</div>';
         icons(body);
         try {
-            const data = await api('/by-product/' + encodeURIComponent(curProduct.code));
-            curUnits = data.units || [];
+            curUnits = await global.Web2ProductUnits.byProduct(curProduct.code);
             renderUnits();
         } catch (e) {
             body.innerHTML = '<div class="w2ur-muted">❌ ' + esc(e.message) + '</div>';
@@ -318,11 +284,8 @@
                 })),
             },
         ]);
-        // print_count++ (best-effort)
-        api('/reprint', {
-            method: 'POST',
-            body: JSON.stringify({ unitIds: chosen.map((u) => u.id), userName: userName() }),
-        }).catch(() => {});
+        // print_count++ (best-effort, qua client chung)
+        global.Web2ProductUnits.reprint(chosen.map((u) => u.id));
         close();
     }
 

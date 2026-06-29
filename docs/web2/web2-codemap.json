@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-29 03:52",
+    "generatedAt": "2026-06-29 06:13",
     "totals": {
-        "files": 455,
-        "sharedModules": 146,
-        "functions": 3738,
+        "files": 456,
+        "sharedModules": 147,
+        "functions": 3742,
         "oversized": 15
     },
     "sharedModules": [
@@ -374,7 +374,6 @@
                 "native-orders/js/native-orders-snapshots.js",
                 "native-orders/js/native-orders-state.js",
                 "native-orders/js/native-orders-unit-serials.js",
-                "so-order/js/so-order-barcode.js",
                 "so-order/js/so-order-image-manager.js",
                 "so-order/js/so-order-payments.js",
                 "so-order/js/so-order-state.js",
@@ -419,7 +418,6 @@
                 "web2/products/js/web2-products-modal.js",
                 "web2/products/js/web2-products-print-barcode.js",
                 "web2/products/js/web2-products-print-utils.js",
-                "web2/products/js/web2-products-render.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/purchase-refund/js/purchase-refund-state.js",
@@ -455,6 +453,7 @@
                 "web2/shared/web2-perm.js",
                 "web2/shared/web2-printer.js",
                 "web2/shared/web2-product-counter.js",
+                "web2/shared/web2-product-units.js",
                 "web2/shared/web2-products-api.js",
                 "web2/shared/web2-qr-modal.js",
                 "web2/shared/web2-quick-reply.js",
@@ -465,7 +464,6 @@
                 "web2/shared/web2-suppliers-cache.js",
                 "web2/shared/web2-translate.js",
                 "web2/shared/web2-tryon.js",
-                "web2/shared/web2-unit-reprint.js",
                 "web2/shared/web2-unread-panel.js",
                 "web2/shared/web2-user-info.js",
                 "web2/shared/web2-user-profile.js",
@@ -480,7 +478,6 @@
                 "web2/supplier-wallet/js/supplier-wallet-storage.js",
                 "web2/system/js/system-services.js",
                 "web2/system/js/system-sse.js",
-                "web2/unit-scan/js/unit-scan.js",
                 "web2/users/js/users-app.js",
                 "web2/variants/js/web2-variants-api.js",
                 "web2/video-maker/js/video-ai-script.js",
@@ -1492,6 +1489,19 @@
             "lines": 209
         },
         {
+            "file": "web2/shared/web2-product-units.js",
+            "globals": ["Web2ProductUnits"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "consumers": [
+                "so-order/js/so-order-barcode.js",
+                "web2/products/js/web2-products-render.js",
+                "web2/shared/web2-unit-reprint.js",
+                "web2/unit-scan/js/unit-scan.js"
+            ],
+            "lines": 148
+        },
+        {
             "file": "web2/shared/web2-products-api.js",
             "globals": ["Web2ProductsApi"],
             "purpose": "WEB2.0 shared — Web2ProductsApi client (1 NGUỒN cho mọi trang dùng Kho SP).",
@@ -1617,7 +1627,6 @@
                 "web2/fb-ads-stats/js/fb-ads-stats.js",
                 "web2/fb-insights/js/fb-insights.js",
                 "web2/fb-posts/js/fb-posts-app.js",
-                "web2/goods-weight/js/goods-weight.js",
                 "web2/jt-tracking/js/jt-tracking-app.js",
                 "web2/live-control/js/live-control.js",
                 "web2/multi-tool/js/multi-tool.js",
@@ -1860,7 +1869,7 @@
             "purpose": "WEB2.0 shared — In lại tem ĐƠN VỊ (per-unit reprint). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md",
             "api": [],
             "consumers": ["web2/products/js/web2-products-app.js"],
-            "lines": 331
+            "lines": 294
         },
         {
             "file": "web2/shared/web2-unread-panel.js",
@@ -4346,7 +4355,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
-                    "lines": 931,
+                    "lines": 939,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [
@@ -4443,7 +4452,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-unit-serials.js",
-                    "lines": 70,
+                    "lines": 73,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Auth", "Web2SSE"],
@@ -4477,17 +4486,14 @@
                 },
                 {
                     "file": "so-order/js/so-order-barcode.js",
-                    "lines": 234,
+                    "lines": 166,
                     "purpose": "WEB2.0 module.",
                     "globals": ["SoOrder"],
-                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2ProductsApi", "Web2ProductsCache"],
+                    "uses": ["Web2ProductUnits", "Web2ProductsApi", "Web2ProductsCache"],
                     "functions": [
                         "_attachUnitCodes",
-                        "_bumpReprint",
-                        "_mintUnits",
-                        "_unitsApiBase",
-                        "_web2Token",
                         "openBarcodePrintModal",
+                        "perItemQty",
                         "printLabelsFromReceivePanel"
                     ]
                 },
@@ -6591,7 +6597,6 @@
                         "API_CONFIG",
                         "Web2Auth",
                         "Web2ImageLightbox",
-                        "Web2Sidebar",
                         "Web2SSE"
                     ],
                     "functions": [
@@ -7781,7 +7786,7 @@
                 },
                 {
                     "file": "web2/products/js/web2-products-print-render.js",
-                    "lines": 524,
+                    "lines": 528,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2PP"],
                     "uses": [],
@@ -7822,13 +7827,12 @@
                 },
                 {
                     "file": "web2/products/js/web2-products-render.js",
-                    "lines": 765,
+                    "lines": 729,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2ProductsCore"],
                     "uses": [
-                        "WEB2_CONFIG",
-                        "API_CONFIG",
                         "Web2ProductGroup",
+                        "Web2ProductUnits",
                         "Web2ProductsApi",
                         "Web2ProductsCache",
                         "Web2Skeleton",
@@ -10582,6 +10586,26 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-product-units.js",
+                    "lines": 148,
+                    "purpose": "WEB2.0 shared.",
+                    "globals": ["Web2ProductUnits"],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG"],
+                    "functions": [
+                        "URL_",
+                        "attachForPrint",
+                        "base",
+                        "byProduct",
+                        "ensure",
+                        "events",
+                        "headers",
+                        "reprint",
+                        "resolve",
+                        "token",
+                        "userName"
+                    ]
+                },
+                {
                     "file": "web2/shared/web2-products-api.js",
                     "lines": 159,
                     "purpose": "WEB2.0 shared — Web2ProductsApi client (1 NGUỒN cho mọi trang dùng Kho SP).",
@@ -11086,12 +11110,11 @@
                 },
                 {
                     "file": "web2/shared/web2-unit-reprint.js",
-                    "lines": 331,
+                    "lines": 294,
                     "purpose": "WEB2.0 shared — In lại tem ĐƠN VỊ (per-unit reprint). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md",
                     "globals": ["Web2UnitReprint"],
-                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2ProductsCache"],
+                    "uses": ["Web2ProductUnits", "Web2ProductsCache"],
                     "functions": [
-                        "api",
                         "close",
                         "doPrint",
                         "ensureStyle",
@@ -11104,9 +11127,7 @@
                         "renderSearch",
                         "renderUnits",
                         "toggleAll",
-                        "token",
-                        "updateFooter",
-                        "userName"
+                        "updateFooter"
                     ]
                 },
                 {
@@ -12165,14 +12186,14 @@
             "files": [
                 {
                     "file": "web2/unit-scan/js/unit-scan.js",
-                    "lines": 425,
+                    "lines": 454,
                     "purpose": "WEB2.0 — Quét QR đơn vị (mobile): resolve → HIỂN THỊ STT giỏ đã gán + đơn chờ (gán TỰ ĐỘNG ở luồng giỏ, KHÔNG nút Gán). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md",
                     "globals": [],
-                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2BarcodeScanner", "Web2SSE"],
+                    "uses": ["Web2BarcodeScanner", "Web2ProductUnits", "Web2SSE"],
                     "functions": [
                         "$",
+                        "PU",
                         "_mCard",
-                        "api",
                         "boot",
                         "buildScanner",
                         "esc",
@@ -12184,16 +12205,16 @@
                         "initScanner",
                         "initSse",
                         "loadEvents",
+                        "loadSiblings",
                         "onScan",
                         "parseScan",
                         "renderResult",
                         "reprintUnit",
                         "resolve",
                         "showCamRetry",
+                        "sibRow",
                         "toast",
                         "toggleTorch",
-                        "token",
-                        "userName",
                         "wireManual"
                     ]
                 }
@@ -13574,6 +13595,17 @@
             "count": 5
         },
         {
+            "fn": "ensure",
+            "files": [
+                "web2/shared/web2-ai-assistant.js",
+                "web2/shared/web2-product-units.js",
+                "web2/shared/web2-suppliers-cache.js",
+                "web2/shared/web2-zalo-presence.js",
+                "web2/supplier-wallet/js/supplier-wallet-api.js"
+            ],
+            "count": 5
+        },
+        {
             "fn": "exportCsv",
             "files": [
                 "web2/balance-history/js/web2-bh-chat-export.js",
@@ -13757,17 +13789,6 @@
                 "web2/product-types/js/web2-product-types-app.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
-            ],
-            "count": 5
-        },
-        {
-            "fn": "token",
-            "files": [
-                "web2/clearance/js/clearance.js",
-                "web2/goods-weight/js/goods-weight.js",
-                "web2/shared/web2-unit-reprint.js",
-                "web2/shared/web2-video-render.js",
-                "web2/unit-scan/js/unit-scan.js"
             ],
             "count": 5
         },
@@ -13968,16 +13989,6 @@
                 "web2/products/js/web2-products-print-render.js",
                 "web2/shared/web2-product-picker.js",
                 "web2/video-maker/js/video-import.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "ensure",
-            "files": [
-                "web2/shared/web2-ai-assistant.js",
-                "web2/shared/web2-suppliers-cache.js",
-                "web2/shared/web2-zalo-presence.js",
-                "web2/supplier-wallet/js/supplier-wallet-api.js"
             ],
             "count": 4
         },
@@ -14188,6 +14199,16 @@
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-text-utils.js",
                 "web2/shared/web2-vn-address.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "token",
+            "files": [
+                "web2/clearance/js/clearance.js",
+                "web2/goods-weight/js/goods-weight.js",
+                "web2/shared/web2-product-units.js",
+                "web2/shared/web2-video-render.js"
             ],
             "count": 4
         },
@@ -14708,6 +14729,15 @@
             "count": 3
         },
         {
+            "fn": "resolve",
+            "files": [
+                "web2/shared/web2-product-units.js",
+                "web2/shared/web2-skeleton.js",
+                "web2/unit-scan/js/unit-scan.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "restore",
             "files": [
                 "so-order/js/so-order-inline-edit.js",
@@ -14807,15 +14837,6 @@
             "count": 3
         },
         {
-            "fn": "userName",
-            "files": [
-                "web2/clearance/js/clearance.js",
-                "web2/shared/web2-unit-reprint.js",
-                "web2/unit-scan/js/unit-scan.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "wireTabs",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -14869,7 +14890,7 @@
         },
         {
             "file": "native-orders/js/native-orders-render.js",
-            "lines": 931
+            "lines": 939
         },
         {
             "file": "web2/cham-cong/js/cham-cong-app.js",

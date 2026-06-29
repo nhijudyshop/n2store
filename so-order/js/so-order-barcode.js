@@ -6,85 +6,15 @@
 
     const SO = (window.SoOrder = window.SoOrder || {});
 
-    // PER-UNIT (2026-06-29): mỗi tem 1 mã ĐƠN VỊ + QR riêng/món.
-    // Units MINT theo SL kho ở web2-products (tạo/nhận SP → SP-001..SP-SL, hook
-    // _syncUnits). Ở đây CHỈ /ensure (server đọc SL → top-up nếu thiếu) rồi gắn units
-    // vào tem. KHÔNG mint per-shipment nữa (tránh DOUBLE với hook web2-products).
-    // Lỗi → fallback in mã SP lặp. QR = .../web2/unit-scan/?u=<id>. docs/web2/PER-UNIT-QR-PLAN.md.
-    function _unitsApiBase() {
-        return (
-            window.API_CONFIG?.WORKER_URL ||
-            window.WEB2_CONFIG?.WORKER_URL ||
-            'https://chatomni-proxy.nhijudyshop.workers.dev'
-        );
-    }
-    function _web2Token() {
-        try {
-            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || '';
-        } catch (_) {
-            return '';
-        }
-    }
-    // /ensure batch: server đọc SL (stock+pending) từ web2_products → top-up mint →
-    // trả { byCode: { [code]: [units...] } }. 1 nguồn SL = kho, KHÔNG truyền qty.
-    async function _ensureUnits(productCodes) {
-        const token = _web2Token();
-        const res = await fetch(`${_unitsApiBase()}/api/web2-product-units/ensure`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'x-web2-token': token } : {}),
-            },
-            body: JSON.stringify({ productCodes }),
-        });
-        if (!res.ok) throw new Error('ensure HTTP ' + res.status);
-        const data = await res.json();
-        return data.byCode || {};
-    }
-    async function _bumpReprint(unitIds) {
-        if (!unitIds.length) return;
-        try {
-            const token = _web2Token();
-            await fetch(`${_unitsApiBase()}/api/web2-product-units/reprint`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'x-web2-token': token } : {}),
-                },
-                body: JSON.stringify({ unitIds }),
-            });
-        } catch (_) {
-            /* best-effort: print_count không tăng cũng không chặn in */
-        }
-    }
-    // Gắn item.units = [{unitCode, qrUrl}] cho mỗi product (in-place). Best-effort.
-    // /ensure (top-up theo SL kho) 1 lần cho cả batch → lấy units 001..SL → in.
+    // PER-UNIT (2026-06-29): mỗi tem 1 mã ĐƠN VỊ + QR riêng/món. Units MINT theo SL
+    // kho ở web2-products (hook _syncUnits server). Ở đây CHỈ /ensure (top-up nếu thiếu)
+    // rồi gắn units — qua CLIENT CHUNG window.Web2ProductUnits (1 nguồn, KHÔNG fork fetch).
+    // In theo SL nhập/nhận (perItemQty). Lỗi → fallback in mã SP lặp.
     SO._attachUnitCodes = async function _attachUnitCodes(products) {
-        const scanBase = location.origin; // vd https://nhijudy.store
-        const list = (products || []).filter((p) => p.code);
-        if (!list.length) return products;
-        let byCode = {};
-        try {
-            byCode = await _ensureUnits([...new Set(list.map((p) => p.code))]);
-        } catch (e) {
-            console.warn('[so-order] ensure units fail', e.message || e);
-            return products; // fallback: không units → in mã SP lặp
-        }
-        const minted = [];
-        for (const p of list) {
-            const units = byCode[p.code] || [];
-            if (!units.length) continue;
-            // In theo SL nhập/nhận (mặc định cả lô = tổng units). Lấy 001..qty.
-            const qty = Math.max(1, Number(p.quantity || p.qtyReceived) || units.length);
-            const slice = units.slice(0, qty);
-            p.units = slice.map((u) => ({
-                unitCode: u.unitCode,
-                qrUrl: `${scanBase}/web2/unit-scan/?u=${u.id}`,
-            }));
-            slice.forEach((u) => minted.push(u.id));
-        }
-        if (minted.length) _bumpReprint(minted); // fire-and-forget print_count++
-        return products;
+        if (!window.Web2ProductUnits) return products; // fallback an toàn nếu chưa load
+        return window.Web2ProductUnits.attachForPrint(products, {
+            perItemQty: (p) => p.quantity || p.qtyReceived,
+        });
     };
 
     // 2026-06-07: In tem QR theo SL — KHÔNG cần nhận lại (dùng cho SP đã nhận đủ
