@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `008edad` — docs(putwall): BOM chi tiết — số bóng/độ dài/controller + link Shopee + tổng giá
-**Last updated**: 2026-06-29 19:41:13 +07
-**Latest session**: [`RESUME:20260629-194113-008edad`](../20260629-194113-008edad.md)
-**Summary**: docs(putwall): BOM chi tiết — số bóng/độ dài/controller + link Shopee + tổng giá
+**Latest commit**: `093ec45` — feat(native-orders): bộ lọc Thẻ (autoTags) client-side trên trang Đơn Web
+**Last updated**: 2026-06-29 20:03:06 +07
+**Latest session**: [`RESUME:20260629-200306-093ec45`](../20260629-200306-093ec45.md)
+**Summary**: feat(native-orders): bộ lọc Thẻ (autoTags) client-side cho trang Đơn Web
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 19:41
+- [`docs/`](./docs.md) — updated 2026-06-29 20:03
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -47,7 +48,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-29 17:00
+- [`native-orders/`](./native-orders.md) — updated 2026-06-29 20:03
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
