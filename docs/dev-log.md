@@ -14,7 +14,7 @@ Hàng về (hàng ở kiện) → đưa kiện lên cân → chụp ảnh mặt 
 
 **Test:** self-check local PG schema/query ✓ (bytea round-trip, has_image, order newest-first, delete). Syntax ✓.
 
-**Status:** ✅ Logic verified local. 🔄 Deploy web2-api + smoke (GET /list 200, no-token POST→401).
+**Status:** ✅ Backend deployed + smoke PASS (GET /list no-token→401, POST→401). ✅ Frontend MOBILE-NATIVE (rebuild theo `unit-scan` — user: "trang dùng trên ĐT"): bỏ desktop sidebar shell → `header.hd` riêng + back/refresh, PWA `goods-weight.webmanifest` (standalone portrait #0068ff), auth-guard inline, `viewport-fit=cover`+`maximum-scale=1`, safe-area insets, Inter font, tokens Zalo-blue, input 16px+ (chống iOS zoom), camera `capture=environment`. Cache-bust css/js `20260629b`.
 
 ### [clearance] Đổi logic hàng rớt xả → THEO CHIẾN DỊCH (user spec)
 

@@ -261,7 +261,7 @@
     }
 
     function boot() {
-        if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside', { activeRoute: 'goods-weight' });
+        // Mobile-native (học unit-scan): KHÔNG mount desktop sidebar — header riêng.
         $('#gwUserName').textContent = username() || '—';
         $('#gwPhotoBtn').addEventListener('click', () => $('#gwPhoto').click());
         $('#gwPhoto').addEventListener('change', onPhoto);

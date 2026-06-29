@@ -1,120 +1,131 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Cân nặng hàng khi về kiện (ảnh cân + kg + kiện + note). -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Cân nặng hàng (mobile, phone-native, học từ unit-scan). -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Cân Nặng Hàng - WEB 2.0</title>
-        <meta name="web2-db" content="render" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
-        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260625anim" />
-        <link rel="stylesheet" href="../shared/web2-mobile.css?v=20260624a" />
-        <link rel="stylesheet" href="./css/goods-weight.css?v=20260629a" />
-        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+        />
+        <meta name="theme-color" content="#0068ff" />
+        <meta http-equiv="Cache-Control" content="no-store" />
+        <title>Cân Nặng Hàng — Web 2.0</title>
+        <!-- AUTH GUARD: trang Web 2.0 — chưa đăng nhập → đẩy login ngay. -->
+        <script>
+            (function () {
+                try {
+                    var raw = localStorage.getItem('web2_auth');
+                    var a = raw ? JSON.parse(raw) : null;
+                    if (a && a.token) return;
+                } catch (e) {}
+                var next = encodeURIComponent(location.pathname + location.search);
+                location.replace('../login/index.html?next=' + next);
+            })();
+        </script>
+        <!-- PWA "Thêm vào màn hình chính" = app Cân Hàng -->
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png?v=20260530" />
+        <link rel="icon" type="image/png" href="../shared/img/logo-emblem.png?v=20260530" />
+        <link rel="manifest" href="./goods-weight.webmanifest?v=20260629a" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Cân Hàng" />
+        <link rel="preconnect" href="https://chatomni-proxy.nhijudyshop.workers.dev" crossorigin />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="./css/goods-weight.css?v=20260629b" />
     </head>
-    <body class="web2-theme">
-        <div class="web2-shell">
-            <aside class="web2-aside" id="web2Aside"></aside>
-            <main class="web2-main gw-main">
-                <div class="gw-head">
-                    <h1>Cân Nặng Hàng ⚖️</h1>
-                    <button class="gw-refresh" id="gwRefresh" title="Làm mới">
-                        <i data-lucide="refresh-cw"></i>
+    <body>
+        <header class="hd">
+            <a
+                class="hd-btn"
+                href="../overview/index.html"
+                aria-label="Về trang chủ"
+                title="Trang chủ"
+            >
+                <i data-lucide="arrow-left"></i>
+            </a>
+            <span class="hd-title">Cân Nặng Hàng ⚖️</span>
+            <button class="hd-btn" id="gwRefresh" aria-label="Làm mới" title="Làm mới">
+                <i data-lucide="refresh-cw"></i>
+            </button>
+        </header>
+
+        <main class="wrap">
+            <!-- FORM ghi nhận -->
+            <section class="gw-form" aria-label="Ghi nhận cân nặng">
+                <!-- Ảnh cân (chụp mặt cân) -->
+                <input type="file" id="gwPhoto" accept="image/*" capture="environment" hidden />
+                <button type="button" class="gw-photo-btn" id="gwPhotoBtn">
+                    <i data-lucide="camera"></i>
+                    <span>Chụp ảnh mặt cân</span>
+                </button>
+                <div class="gw-preview" id="gwPreview" hidden>
+                    <img id="gwPreviewImg" alt="Ảnh cân" />
+                    <button type="button" class="gw-preview-x" id="gwPreviewX" title="Chụp lại">
+                        <i data-lucide="rotate-ccw"></i>
                     </button>
                 </div>
-                <p class="gw-sub">
-                    Hàng về (kiện) → đưa lên cân → <strong>chụp ảnh mặt cân</strong> → ghi số kg, số
-                    kiện, ghi chú. Lưu kèm tên người nhập + ngày giờ.
-                </p>
 
-                <!-- FORM ghi nhận -->
-                <section class="gw-form" aria-label="Ghi nhận cân nặng">
-                    <div class="gw-form-grid">
-                        <!-- Ảnh cân -->
-                        <div class="gw-photo">
-                            <input
-                                type="file"
-                                id="gwPhoto"
-                                accept="image/*"
-                                capture="environment"
-                                hidden
-                            />
-                            <button type="button" class="gw-photo-btn" id="gwPhotoBtn">
-                                <i data-lucide="camera"></i>
-                                <span>Chụp ảnh cân</span>
-                            </button>
-                            <div class="gw-preview" id="gwPreview" hidden>
-                                <img id="gwPreviewImg" alt="Ảnh cân" />
-                                <button
-                                    type="button"
-                                    class="gw-preview-x"
-                                    id="gwPreviewX"
-                                    title="Xoá ảnh"
-                                >
-                                    <i data-lucide="x"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Số liệu -->
-                        <div class="gw-fields">
-                            <label class="gw-field">
-                                <span>Số kg</span>
-                                <input
-                                    type="number"
-                                    id="gwKg"
-                                    inputmode="decimal"
-                                    step="0.1"
-                                    min="0"
-                                    placeholder="VD: 20.5"
-                                />
-                            </label>
-                            <label class="gw-field">
-                                <span>Số kiện</span>
-                                <input
-                                    type="number"
-                                    id="gwBales"
-                                    inputmode="numeric"
-                                    step="1"
-                                    min="1"
-                                    placeholder="VD: 3"
-                                />
-                            </label>
-                            <label class="gw-field gw-field-wide">
-                                <span>Ghi chú</span>
-                                <textarea
-                                    id="gwNote"
-                                    rows="2"
-                                    placeholder="NCC, mã đợt, tình trạng kiện…"
-                                ></textarea>
-                            </label>
-                            <div class="gw-meta-row">
-                                <span class="gw-meta" id="gwUser">
-                                    <i data-lucide="user"></i> <b id="gwUserName">—</b>
-                                </span>
-                                <span class="gw-meta" id="gwClock">
-                                    <i data-lucide="clock"></i> <b>—</b>
-                                </span>
-                            </div>
-                            <button type="button" class="gw-save" id="gwSave">
-                                <i data-lucide="save"></i> Lưu cân nặng
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="gw-list-head">
-                    <h2>Lịch sử cân</h2>
-                    <span class="gw-count" id="gwCount"></span>
+                <!-- Số liệu -->
+                <div class="gw-row2">
+                    <label class="gw-field">
+                        <span>Số kg</span>
+                        <input
+                            type="number"
+                            id="gwKg"
+                            inputmode="decimal"
+                            step="0.1"
+                            min="0"
+                            placeholder="20.5"
+                        />
+                    </label>
+                    <label class="gw-field">
+                        <span>Số kiện</span>
+                        <input
+                            type="number"
+                            id="gwBales"
+                            inputmode="numeric"
+                            step="1"
+                            min="1"
+                            placeholder="3"
+                        />
+                    </label>
                 </div>
-                <div id="gwList"><div class="gw-muted">Đang tải…</div></div>
-            </main>
-        </div>
+                <label class="gw-field">
+                    <span>Ghi chú</span>
+                    <textarea
+                        id="gwNote"
+                        rows="2"
+                        placeholder="NCC, mã đợt, tình trạng kiện…"
+                    ></textarea>
+                </label>
 
+                <div class="gw-meta-row">
+                    <span class="gw-meta"><i data-lucide="user"></i> <b id="gwUserName">—</b></span>
+                    <span class="gw-meta" id="gwClock"><i data-lucide="clock"></i> <b>—</b></span>
+                </div>
+                <button type="button" class="gw-save" id="gwSave">
+                    <i data-lucide="save"></i> Lưu cân nặng
+                </button>
+            </section>
+
+            <div class="gw-list-head">
+                <h2>Lịch sử cân</h2>
+                <span class="gw-count" id="gwCount"></span>
+            </div>
+            <div id="gwList"><div class="gw-muted">Đang tải…</div></div>
+        </main>
+
+        <div class="gw-toast" id="gwToast"></div>
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
-        <script src="../shared/web2-sidebar.js?v=20260629c"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-image-lightbox.js?v=20260629a"></script>
-        <script src="./js/goods-weight.js?v=20260629a"></script>
+        <script src="./js/goods-weight.js?v=20260629b"></script>
     </body>
 </html>
