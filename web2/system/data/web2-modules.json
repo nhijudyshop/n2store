@@ -1,13 +1,13 @@
 {
-    "generatedAt": "2026-06-28T13:51:32.499Z",
+    "generatedAt": "2026-06-29T03:52:57.529Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
         "sharedModules": 146,
-        "pages": 47,
-        "backendRoutes": 62,
+        "pages": 48,
+        "backendRoutes": 63,
         "backendServices": 35,
-        "frontendFiles": 453,
-        "functions": 3720
+        "frontendFiles": 455,
+        "functions": 3738
     },
     "sharedByCategory": {
         "other": 49,
@@ -193,7 +193,7 @@
             "purpose": "Alert/confirm/prompt popup",
             "api": [],
             "lines": 481,
-            "consumerCount": 57,
+            "consumerCount": 58,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -209,6 +209,7 @@
                 "web2/fastsaleorder-refund",
                 "web2/fb-ads-stats",
                 "web2/fb-posts",
+                "web2/goods-weight",
                 "web2/live-control",
                 "web2/order-tags",
                 "web2/pancake-settings",
@@ -231,7 +232,7 @@
             "globals": ["Web2AiAssistant"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 1318,
+            "lines": 1335,
             "consumerCount": 3,
             "consumerPages": ["web2/ai-assistant"],
             "category": "other"
@@ -347,7 +348,7 @@
             "purpose": "Token storage and page guard",
             "api": [],
             "lines": 308,
-            "consumerCount": 142,
+            "consumerCount": 147,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -366,6 +367,7 @@
                 "web2/fastsaleorder-refund",
                 "web2/fb-ads-stats",
                 "web2/fb-posts",
+                "web2/goods-weight",
                 "web2/jt-tracking",
                 "web2/kpi",
                 "web2/live-control",
@@ -920,8 +922,8 @@
             "purpose": "Image lightbox viewer with navigation",
             "api": [],
             "lines": 353,
-            "consumerCount": 6,
-            "consumerPages": ["web2/live-tv", "web2/purchase-refund"],
+            "consumerCount": 7,
+            "consumerPages": ["web2/goods-weight", "web2/live-tv", "web2/purchase-refund"],
             "category": "image"
         },
         {
@@ -1312,8 +1314,8 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "lines": 209,
-            "consumerCount": 4,
-            "consumerPages": ["web2/product-types", "web2/products"],
+            "consumerCount": 5,
+            "consumerPages": ["so-order", "web2/product-types", "web2/products"],
             "category": "other"
         },
         {
@@ -1423,8 +1425,8 @@
             "globals": ["Web2Sidebar"],
             "purpose": "Main sidebar navigation",
             "api": [],
-            "lines": 977,
-            "consumerCount": 17,
+            "lines": 981,
+            "consumerCount": 18,
             "consumerPages": [
                 "web2/cham-cong",
                 "web2/chi-tieu",
@@ -1433,6 +1435,7 @@
                 "web2/fb-ads-stats",
                 "web2/fb-insights",
                 "web2/fb-posts",
+                "web2/goods-weight",
                 "web2/jt-tracking",
                 "web2/live-control",
                 "web2/multi-tool",
@@ -1532,7 +1535,7 @@
             "purpose": "SSE bridge for realtime updates",
             "api": [],
             "lines": 289,
-            "consumerCount": 67,
+            "consumerCount": 69,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1548,6 +1551,7 @@
                 "web2/fastsaleorder-invoice",
                 "web2/fastsaleorder-refund",
                 "web2/fb-posts",
+                "web2/goods-weight",
                 "web2/jt-tracking",
                 "web2/kpi",
                 "web2/live-control",
@@ -1782,7 +1786,7 @@
             "globals": ["Web2VnAddress"],
             "purpose": "WEB2.0 shared — Web2VnAddress: bộ chọn Tỉnh/TP → Phường/Xã (2 cấp, dùng chung).",
             "api": [],
-            "lines": 306,
+            "lines": 319,
             "consumerCount": 2,
             "consumerPages": ["native-orders", "web2/customers"],
             "category": "other"
@@ -1976,7 +1980,7 @@
         {
             "page": "live-chat",
             "fileCount": 86,
-            "totalLines": 23955,
+            "totalLines": 23991,
             "globals": [
                 "API_CONFIG",
                 "APP_CONFIG",
@@ -2062,8 +2066,8 @@
         },
         {
             "page": "native-orders",
-            "fileCount": 21,
-            "totalLines": 7295,
+            "fileCount": 22,
+            "totalLines": 7393,
             "globals": [
                 "NativeOrdersApi",
                 "NativeOrders",
@@ -2079,7 +2083,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
-                    "lines": 911
+                    "lines": 931
                 }
             ],
             "usesShared": [
@@ -2193,16 +2197,16 @@
         {
             "page": "so-order",
             "fileCount": 27,
-            "totalLines": 9285,
+            "totalLines": 9509,
             "globals": ["SoOrder", "SoOrderStorage"],
             "oversized": [
                 {
                     "file": "so-order/js/so-order-render.js",
-                    "lines": 1030
+                    "lines": 1039
                 },
                 {
                     "file": "so-order/js/so-order-storage.js",
-                    "lines": 949
+                    "lines": 954
                 }
             ],
             "usesShared": [
@@ -2267,6 +2271,10 @@
                     "category": "products"
                 },
                 {
+                    "name": "Web2ProductTypesCache",
+                    "category": "other"
+                },
+                {
                     "name": "Web2SSE",
                     "category": "sse-realtime"
                 },
@@ -2295,7 +2303,7 @@
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 22
+            "usesSharedCount": 23
         },
         {
             "page": "web2/ai-assistant",
@@ -2637,7 +2645,7 @@
         {
             "page": "web2/clearance",
             "fileCount": 1,
-            "totalLines": 236,
+            "totalLines": 252,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -2701,7 +2709,7 @@
         {
             "page": "web2/customers",
             "fileCount": 6,
-            "totalLines": 1183,
+            "totalLines": 1190,
             "globals": ["CustomersApi"],
             "oversized": [],
             "usesShared": [
@@ -3013,6 +3021,36 @@
                 }
             ],
             "usesSharedCount": 12
+        },
+        {
+            "page": "web2/goods-weight",
+            "fileCount": 1,
+            "totalLines": 280,
+            "globals": [],
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Popup",
+                    "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2ImageLightbox",
+                    "category": "image"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 5
         },
         {
             "page": "web2/jt-tracking",
@@ -3538,7 +3576,7 @@
         {
             "page": "web2/products",
             "fileCount": 13,
-            "totalLines": 4677,
+            "totalLines": 4725,
             "globals": [
                 "Web2ProductDetail",
                 "Web2ProductsCore",
@@ -3813,7 +3851,7 @@
         {
             "page": "web2/shared",
             "fileCount": 146,
-            "totalLines": 44864,
+            "totalLines": 44898,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -3839,7 +3877,7 @@
             "oversized": [
                 {
                     "file": "web2/shared/web2-ai-assistant.js",
-                    "lines": 1318
+                    "lines": 1335
                 },
                 {
                     "file": "web2/shared/web2-ai-page-registry.js",
@@ -3855,7 +3893,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 977
+                    "lines": 981
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
@@ -3868,7 +3906,7 @@
         {
             "page": "web2/supplier-debt",
             "fileCount": 6,
-            "totalLines": 1536,
+            "totalLines": 1553,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -4017,7 +4055,7 @@
         {
             "page": "web2/unit-scan",
             "fileCount": 1,
-            "totalLines": 401,
+            "totalLines": 425,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -4263,7 +4301,7 @@
                 "file": "render.com/routes/admin-web2-data-reset.js",
                 "kind": "route",
                 "purpose": "ADMIN WEB2 DATA RESET — backup + wipe data Sản phẩm / Đơn Web / PBH / Cart",
-                "lines": 610
+                "lines": 644
             },
             {
                 "file": "render.com/routes/admin-web2-import-customers.js",
@@ -4404,6 +4442,12 @@
                 "lines": 793
             },
             {
+                "file": "render.com/routes/web2-goods-weight.js",
+                "kind": "route",
+                "purpose": "WEB 2.0 — CÂN NẶNG HÀNG (goods weight log)",
+                "lines": 190
+            },
+            {
                 "file": "render.com/routes/web2-jt-tracking.js",
                 "kind": "route",
                 "purpose": "Tra cứu + quản lý trạng thái giao hàng J&T Express VN cho Web 2.0.",
@@ -4461,7 +4505,7 @@
                 "file": "render.com/routes/web2-product-units.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — PER-UNIT PRODUCT TRACKING (mã đơn vị + QR riêng/món)",
-                "lines": 742
+                "lines": 1031
             },
             {
                 "file": "render.com/routes/web2-products.js",
@@ -4533,7 +4577,7 @@
                 "file": "render.com/routes/web2-users.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 USERS — user account system riêng cho Web 2.0",
-                "lines": 1320
+                "lines": 1338
             },
             {
                 "file": "render.com/routes/web2-variants.js",
@@ -4570,7 +4614,7 @@
                 "file": "render.com/routes/v2/cart.js",
                 "kind": "route-v2",
                 "purpose": "WEB 2.0 — Giỏ TPOS panel = native_orders.products (status='draft')",
-                "lines": 786,
+                "lines": 821,
                 "piggyback": true
             },
             {
