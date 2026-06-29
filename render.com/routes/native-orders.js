@@ -2422,6 +2422,22 @@ router.post('/:code/cancel', requireWeb2AuthSoft, async (req, res) => {
         _notify('cancel', code);
         _auditOrder(req, 'cancel', code, 'Hủy đơn');
 
+        // Auto-NHẢ đơn vị (per-unit QR) của đơn vừa huỷ (+ đơn anh em PBH gộp huỷ lan
+        // truyền) → reconcile thấy giỏ rỗng (status cancelled) → nhả unit về IN_STOCK +
+        // event UNASSIGN. Fire-and-forget, không chặn response.
+        try {
+            const units = require('./web2-product-units');
+            const reconcileIds = [r.rows[0].id];
+            if (cancelledMemberCodes.length) {
+                const mr = await pool.query(
+                    `SELECT id FROM native_orders WHERE code = ANY($1::text[])`,
+                    [cancelledMemberCodes]
+                );
+                for (const x of mr.rows) reconcileIds.push(x.id);
+            }
+            for (const id of reconcileIds) units.reconcileOrderUnits(pool, id).catch(() => {});
+        } catch (_) {}
+
         // Sprint 1 KPI: emit actual_revoked cho từng SP đã có actual_confirmed.
         // Lookup events qua order_code; emit qua deterministic client_event_id.
         // audit d-fix (2026-06-23): thu hồi KPI cho CẢ đơn anh em bị huỷ lan truyền
