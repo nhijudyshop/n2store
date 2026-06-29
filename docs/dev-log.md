@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [native-orders/shared] In bill — gộp Phiếu Soạn Hàng vào đường in chung + bridge (nhanh)
+
+**Files:** `web2/shared/web2-bill-service.js` (thêm `Web2Bill.printDocHtml(html,opts)` + refactor `openPrint` delegate + export), `native-orders/js/native-orders-packing-slip.js` (route `_print` qua `Web2Bill.printDocHtml`, giữ iframe nội bộ làm fallback) + bump version.
+
+User: "in bill có dùng chung 1 module chưa? Cải thiện tốc độ in, tìm github".
+
+- **Review**: bill PBH ĐÃ dùng chung `Web2Bill`+`Web2Printer` (bridge-aware). NHƯNG **Phiếu Soạn Hàng** (giỏ hàng) là FORK riêng trong packing-slip.js — tự iframe-print, **KHÔNG qua bridge** → luôn mở hộp thoại (chậm). GitHub: ESC/POS bridge (DantSu/receiptline…) đúng là cách nhanh nhất cho thermal — project đã dùng; chỉ thiếu ở packing slip.
+- **Fix**: thêm `Web2Bill.printDocHtml(html,{role,method,bill,label})` = bridge-or-dialog DÙNG CHUNG (role có máy IP → in THẲNG ESC/POS không hộp thoại = nhanh; chưa gán/lỗi → fallback iframe). `openPrint` (bill) refactor gọi nó. Packing slip `_print` gọi nó (role `pbh`) → giờ in thẳng máy bill như bill PBH.
+- 1 nguồn in: openPrint + Phiếu Soạn Hàng cùng `printDocHtml`. Fallback iframe nội bộ giữ khi Web2Bill chưa load (defensive). 5 caller `openPrint` đều không dùng return → đổi sang Promise an toàn.
+
+**Test browser:** `Web2Bill.printDocHtml`=function; spy xác nhận packing slip route qua nó (role `pbh`, label "Phiếu Soạn Hàng", HTML có "CHỜ HÀNG" + SP đúng); `roleIsBridge('pbh')`=true (env có máy) → đi bridge; openPrint refactor syntax OK + page responsive. ⚠ Chưa test in vật lý (no printer thật) — packing slip raster 72mm cần user verify output thermal đẹp. Status ✅
+
 ### [native-orders] Phiếu Soạn Hàng tự tick SP "Chờ Hàng"
 
 **Files:** `native-orders/js/native-orders-packing-slip.js` (`_waitingCodes`/`_isWaiting` + attr `checked` checkbox) + bump version trong index.html.

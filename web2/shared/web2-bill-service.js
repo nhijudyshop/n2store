@@ -571,32 +571,44 @@ html, body { margin: 0; padding: 0; background: #fff; }
         return f;
     }
 
+    // In 1 trang HTML 80mm — DÙNG CHUNG cho mọi loại phiếu (bill PBH, Phiếu Soạn Hàng…).
+    // Role có máy bridge (IP) → in THẲNG ESC/POS (không hộp thoại = NHANH); chưa gán/lỗi
+    // bridge → fallback hộp thoại iframe ẩn (hành vi cũ — không regression). 1 NGUỒN in,
+    // không fork: openPrint + Phiếu Soạn Hàng đều gọi cái này.
+    //   opts.role   : 'pbh' (mặc định) | 'label' | …
+    //   opts.method : 'dialog' → ép hộp thoại, bỏ qua bridge
+    //   opts.bill   : false → dùng printHtml (raster ss2) thay printBillHtml (ss3, sắc nét)
+    //   opts.label  : nhãn thông báo (vd 'bill', 'Phiếu Soạn Hàng')
+    function printDocHtml(html, opts = {}) {
+        const role = opts.role || 'pbh';
+        const label = opts.label || 'phiếu';
+        const P = global.Web2Printer;
+        if (P && opts.method !== 'dialog' && P.roleIsBridge && P.roleIsBridge(role)) {
+            const fn = opts.bill === false ? P.printHtml : P.printBillHtml;
+            return fn(html, role)
+                .then(() => {
+                    if (global.notificationManager)
+                        global.notificationManager.show('Đã in ' + label, 'success');
+                    return { mode: 'bridge' };
+                })
+                .catch((e) => {
+                    console.warn('[Web2Bill] in thẳng lỗi → hộp thoại:', e.message);
+                    if (global.notificationManager)
+                        global.notificationManager.show(
+                            'Máy in IP lỗi (' + e.message + ') — mở hộp thoại',
+                            'warning'
+                        );
+                    _printViaIframe(html);
+                    return { mode: 'dialog', error: e.message };
+                });
+        }
+        _printViaIframe(html);
+        return Promise.resolve({ mode: 'dialog' });
+    }
+
     function openPrint(pbh, opts = {}) {
         const html = generateHTML(pbh, opts);
-        // Nếu đã gán máy in IP cho chức năng PBH → in THẲNG (không hộp thoại).
-        // Lỗi bridge/máy in → tự fallback về hộp thoại iframe.
-        const P = global.Web2Printer;
-        if (P && opts.method !== 'dialog') {
-            const printer = P.getPrinterFor('pbh');
-            if (printer && printer.method === 'bridge' && printer.ip) {
-                P.printBillHtml(html, 'pbh')
-                    .then(() => {
-                        if (global.notificationManager)
-                            global.notificationManager.show('Đã in bill', 'success');
-                    })
-                    .catch((e) => {
-                        console.warn('[Web2Bill] in thẳng lỗi → hộp thoại:', e.message);
-                        if (global.notificationManager)
-                            global.notificationManager.show(
-                                'Máy in IP lỗi (' + e.message + ') — mở hộp thoại',
-                                'warning'
-                            );
-                        _printViaIframe(html);
-                    });
-                return null;
-            }
-        }
-        return _printViaIframe(html);
+        return printDocHtml(html, { role: 'pbh', method: opts.method, label: 'bill' });
     }
 
     function openCombinedPrint(pbhs, opts = {}) {
@@ -748,6 +760,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
     global.Web2Bill = {
         generateHTML,
         openPrint,
+        printDocHtml, // in 1 trang HTML bất kỳ (bridge-or-dialog) — dùng chung Phiếu Soạn Hàng
         openCombinedPrint,
         openPreview,
         generateImage,

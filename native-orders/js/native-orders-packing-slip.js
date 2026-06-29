@@ -243,23 +243,9 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
 </div></body></html>`;
     }
 
+    // Fallback iframe nội bộ (chỉ khi Web2Bill chưa load) — tái dùng 1 frame.
     let _frame = null;
-    function _print() {
-        if (!_order || !_products.length) {
-            _notify('Không có dữ liệu để in', 'warning');
-            return;
-        }
-        const waiting = new Set();
-        _modal.querySelectorAll('[data-ps-wait]').forEach((cb) => {
-            if (cb.checked) waiting.add(parseInt(cb.dataset.psWait, 10));
-        });
-        const notes = {};
-        _modal.querySelectorAll('[data-ps-note]').forEach((inp) => {
-            const v = inp.value.trim();
-            if (v) notes[parseInt(inp.dataset.psNote, 10)] = v;
-        });
-        const html = _buildPrintHTML(waiting, notes);
-        // iframe ẩn tái sử dụng (in nhanh, không popup)
+    function _printViaLocalIframe(html) {
         if (!_frame || !_frame.isConnected) {
             _frame = document.createElement('iframe');
             _frame.style.cssText =
@@ -286,6 +272,31 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         if (typeof win.requestAnimationFrame === 'function')
             win.requestAnimationFrame(() => win.requestAnimationFrame(go));
         else setTimeout(go, 60);
+    }
+
+    function _print() {
+        if (!_order || !_products.length) {
+            _notify('Không có dữ liệu để in', 'warning');
+            return;
+        }
+        const waiting = new Set();
+        _modal.querySelectorAll('[data-ps-wait]').forEach((cb) => {
+            if (cb.checked) waiting.add(parseInt(cb.dataset.psWait, 10));
+        });
+        const notes = {};
+        _modal.querySelectorAll('[data-ps-note]').forEach((inp) => {
+            const v = inp.value.trim();
+            if (v) notes[parseInt(inp.dataset.psNote, 10)] = v;
+        });
+        const html = _buildPrintHTML(waiting, notes);
+        // DÙNG CHUNG đường in của Web2Bill (1 nguồn): role 'pbh' có máy bridge (IP) → in
+        // THẲNG ESC/POS không hộp thoại = NHANH như bill PBH; chưa gán máy → fallback hộp
+        // thoại (hành vi cũ). Web2Bill chưa load → iframe nội bộ (defensive).
+        if (global.Web2Bill && global.Web2Bill.printDocHtml) {
+            global.Web2Bill.printDocHtml(html, { role: 'pbh', label: 'Phiếu Soạn Hàng' });
+        } else {
+            _printViaLocalIframe(html);
+        }
         // Ghi số lần in (onPrint) — đơn này đã in Phiếu Soạn Hàng.
         if (_onPrint) {
             try {
