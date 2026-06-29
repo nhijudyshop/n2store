@@ -261,16 +261,20 @@ router.get('/resolve', async (req, res) => {
         if (!unitRow) return res.status(404).json({ error: 'Không tìm thấy đơn vị (unit)' });
         const unit = mapUnit(unitRow);
 
-        // Thông tin SP (tên/giá/ảnh) — best-effort
+        // Thông tin SP (tên/giá/ảnh/tồn/NCC) — best-effort
         let product = null;
+        let pendingQty = 0;
+        let stock = 0;
         try {
             const p = (
                 await pool.query(
-                    `SELECT code, name, price, image_url, supplier, region FROM web2_products WHERE code = $1`,
+                    `SELECT code, name, price, image_url, supplier, region, stock, pending_qty FROM web2_products WHERE code = $1`,
                     [unit.productCode]
                 )
             ).rows[0];
-            if (p)
+            if (p) {
+                pendingQty = Number(p.pending_qty) || 0;
+                stock = Number(p.stock) || 0;
                 product = {
                     code: p.code,
                     name: p.name,
@@ -278,7 +282,9 @@ router.get('/resolve', async (req, res) => {
                     imageUrl: p.image_url || null,
                     supplier: p.supplier || null,
                     region: p.region || null,
+                    stock,
                 };
+            }
         } catch (_) {}
 
         // Đơn ĐANG MỞ chứa product_code này (kệ STT để bỏ vào) — gợi ý FIFO
@@ -293,7 +299,32 @@ router.get('/resolve', async (req, res) => {
                 (unit.status === 'IN_STOCK' && unit.clearanceState !== 'KEEP' && noOpenDemand),
             manual: unit.clearanceState === 'CLEARANCE',
         };
-        res.json({ success: true, unit, product, orders, clearance });
+        // Số liệu LIVE của SP (giống live-control): bán (GIỎ = Σ SL món trong giỏ KH
+        // draft) + mới (KH chưa SĐT & địa chỉ) + NCC (web2_products.pending_qty) + còn
+        // = max(0, NCC − bán). Quét tem thấy ngay SP đang bán thế nào. (Cùng query
+        // web2-campaign-products dùng cho board live-control.)
+        let metrics = { ncc: pendingQty, sold: 0, newCust: 0, con: pendingQty, stock };
+        try {
+            const hr = await pool.query(
+                `SELECT SUM(COALESCE((prod->>'quantity')::numeric,(prod->>'qty')::numeric,0)) AS sold,
+                        SUM(COALESCE((prod->>'quantity')::numeric,(prod->>'qty')::numeric,0))
+                          FILTER (WHERE COALESCE(n.phone,'')='' AND COALESCE(n.address,'')='') AS new_cust
+                 FROM native_orders n, jsonb_array_elements(
+                        CASE WHEN jsonb_typeof(n.products)='array' THEN n.products ELSE '[]'::jsonb END
+                      ) prod
+                 WHERE COALESCE(prod->>'productCode', prod->>'code') = $1 AND n.status = 'draft'`,
+                [unit.productCode]
+            );
+            const sold = Number(hr.rows[0] && hr.rows[0].sold) || 0;
+            metrics = {
+                ncc: pendingQty,
+                sold,
+                newCust: Number(hr.rows[0] && hr.rows[0].new_cust) || 0,
+                con: Math.max(0, pendingQty - sold),
+                stock,
+            };
+        } catch (_) {}
+        res.json({ success: true, unit, product, orders, clearance, metrics });
     } catch (e) {
         console.error('[WEB2-PRODUCT-UNITS] /resolve error:', e);
         res.status(500).json({ error: e.message });

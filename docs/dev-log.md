@@ -2,6 +2,14 @@
 
 ## 2026-06-29
 
+### [unit-scan] Quét tem hiện số liệu live SP (Bán/KH mới/NCC/Còn/Tồn) như live-control
+
+**Files:** `render.com/routes/web2-product-units.js` (`/resolve` +metrics), `web2/unit-scan/js/unit-scan.js` (strip), `web2/unit-scan/index.html` (cache-bust `20260629a`).
+
+Quét QR đơn vị → ngoài STT/đơn/lịch sử, hiện thêm strip số liệu LIVE của SP (giống board live-control): **Bán** (GIỎ = Σ SL món trong giỏ KH draft) · **KH mới** (KH chưa SĐT & địa chỉ) · **NCC** (`web2_products.pending_qty`) · **Còn** (=max(0,NCC−Bán), đỏ khi ≤0) · **Tồn** (stock). Backend `/resolve` thêm `metrics` — cùng query native_orders draft như `/api/web2-campaign-products` (1 nguồn số liệu, self-contained, không cần campaign id).
+
+**Status:** 🔄 Deploy + test.
+
 ### [native-orders] Nới PATCH hook reconcile khi đổi tên/SĐT KH (denorm sync triệt để)
 
 **File:** `render.com/routes/native-orders.js` (PATCH `/:code` hook).

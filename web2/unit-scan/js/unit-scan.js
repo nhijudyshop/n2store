@@ -147,6 +147,7 @@
         const p = data.product || {};
         const orders = data.orders || [];
         const cl = data.clearance || {};
+        const m = data.metrics || {}; // số liệu live SP: bán/mới/NCC/còn/tồn (giống live-control)
         const [stLbl, stCls] = STATUS_LABEL[u.status] || [u.status, ''];
         const img = p.imageUrl
             ? `<img class="prod-img" src="${esc(p.imageUrl)}" alt="" />`
@@ -204,6 +205,12 @@
                   .join('')
             : '<div class="muted">Không có đơn mở nào đặt SP này.</div>';
 
+        // Strip số liệu live SP (giống board live-control): Bán (giỏ) · KH mới · NCC ·
+        // Còn (=max(0,NCC−Bán)) · Tồn. Quét tem là thấy SP đang bán thế nào.
+        const _mCard = (lbl, val, danger) =>
+            `<div style="flex:1;min-width:50px;text-align:center;background:#f7faff;border:1px solid #e7ebf1;border-radius:10px;padding:6px 3px"><div style="font-size:10px;color:#5b6b7d;font-weight:600">${lbl}</div><div style="font-size:17px;font-weight:800;color:${danger ? '#dc2626' : '#16202c'}">${val}</div></div>`;
+        const metricsHtml = `<div style="display:flex;gap:6px;margin-top:8px">${_mCard('Bán', Number(m.sold) || 0)}${_mCard('KH mới', Number(m.newCust) || 0)}${_mCard('NCC', Number(m.ncc) || 0)}${_mCard('Còn', Number(m.con) || 0, (Number(m.con) || 0) <= 0 && Number(m.ncc) > 0)}${_mCard('Tồn', Number(m.stock) || 0)}</div>`;
+
         $('#result').innerHTML = `
             <div class="card">
                 <div class="prod">
@@ -215,6 +222,7 @@
                     </div>
                 </div>
                 <div class="chips">${chips}</div>
+                ${metricsHtml}
                 <button class="reprint-btn" id="reprintBtn"><i data-lucide="printer"></i> In lại tem này</button>
                 ${hero}
             </div>
