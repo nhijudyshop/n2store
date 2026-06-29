@@ -691,6 +691,85 @@
         $('#sheetBack').hidden = true;
     }
 
+    // ── Cài đặt đèn put-to-light (ESP32) ────────────────────────────
+    function openPutwallSettings() {
+        const PW = window.Web2PutWall;
+        if (!PW) {
+            toast('Module đèn LED chưa tải', 'err');
+            return;
+        }
+        const c = PW.cfg();
+        $('#sheetTitle').textContent = '💡 Đèn LED chỉ ô kệ (put-to-light)';
+        const body = $('#sheetBody');
+        const httpsWarn =
+            location.protocol === 'https:'
+                ? `<div class="pw-warn">⚠ Trang đang chạy HTTPS → trình duyệt CHẶN gọi ESP32 (http). Mở trang qua HTTP LAN (vd <code>http://&lt;ip-máy-shop&gt;:8080/web2/unit-scan/</code>) mới dùng được đèn. Xem <b>docs/web2/PUTWALL-LED-SETUP.md</b>.</div>`
+                : '';
+        body.innerHTML = `
+            ${httpsWarn}
+            <label class="pw-row"><input type="checkbox" id="pwEnable" ${c.enabled ? 'checked' : ''}/> <b>Bật đèn LED khi quét</b></label>
+            <div class="pw-lbl">Địa chỉ ESP32 — mỗi dòng 1 controller</div>
+            <textarea id="pwUrls" class="pw-ta" rows="3" placeholder="http://192.168.1.50&#10;http://192.168.1.51">${esc((c.urls || []).join('\n'))}</textarea>
+            <div class="pw-grid">
+                <label class="pw-cell">Màu<input type="color" id="pwColor" value="${esc(c.color || '#1aff5a')}"/></label>
+                <label class="pw-cell">Độ sáng<input type="range" id="pwBright" min="10" max="255" value="${Number(c.brightness) || 160}"/></label>
+                <label class="pw-cell">Tự tắt (ms)<input type="number" id="pwMs" value="${Number(c.ms) || 0}" min="0" step="500"/></label>
+            </div>
+            <div class="pw-btns">
+                <button class="link-btn" id="pwSave"><i data-lucide="save"></i> Lưu</button>
+                <button class="link-btn" id="pwTest"><i data-lucide="zap"></i> Test</button>
+                <button class="link-btn" id="pwClear"><i data-lucide="power"></i> Tắt đèn</button>
+                <button class="link-btn" id="pwHealth"><i data-lucide="activity"></i> Kiểm tra</button>
+            </div>
+            <div class="pw-status" id="pwStatus"></div>
+            <div class="pw-help">Quét tem → ô kệ tương ứng SÁNG. Trong chi tiết kệ, bấm 1 SP → sáng MỌI ô của SP đó (đặt cả sấp 1 lượt). Cài đặt + mua linh kiện: <b>docs/web2/PUTWALL-LED-SETUP.md</b>.</div>
+        `;
+        icons();
+        const readForm = () => ({
+            enabled: $('#pwEnable').checked,
+            urls: $('#pwUrls')
+                .value.split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            color: $('#pwColor').value,
+            brightness: Number($('#pwBright').value) || 160,
+            ms: Number($('#pwMs').value) || 0,
+        });
+        $('#pwSave').addEventListener('click', () => {
+            PW.save(readForm());
+            toast('Đã lưu cấu hình đèn', 'ok');
+        });
+        $('#pwTest').addEventListener('click', () => {
+            PW.save(readForm());
+            PW.test();
+            toast('Đã gửi lệnh test', 'ok');
+        });
+        $('#pwClear').addEventListener('click', () => {
+            PW.save(readForm());
+            PW.clear();
+        });
+        $('#pwHealth').addEventListener('click', async () => {
+            PW.save(readForm());
+            const list = PW.urls();
+            const st = $('#pwStatus');
+            if (!list.length) {
+                st.textContent = 'Chưa có địa chỉ ESP32.';
+                return;
+            }
+            st.textContent = 'Đang kiểm tra…';
+            const rows = await Promise.all(
+                list.map(async (u) => {
+                    const h = await PW.health(u);
+                    return h.ok
+                        ? `${u} → ✅ STT ${h.base}..${h.base + h.num - 1}`
+                        : `${u} → ❌ ${h.error || 'lỗi'}`;
+                })
+            );
+            st.innerHTML = rows.map(esc).join('<br>');
+        });
+        $('#sheetBack').hidden = false;
+    }
+
     // =================================================================
     // scanner, manual, SSE, boot
     // =================================================================
@@ -791,6 +870,7 @@
     function boot() {
         icons();
         $('#torchBtn').addEventListener('click', toggleTorch);
+        $('#putwallBtn')?.addEventListener('click', openPutwallSettings);
         $('#manifestBtn')?.addEventListener('click', openManifest);
         $('#sheetClose')?.addEventListener('click', closeSheet);
         $('#sheetBack')?.addEventListener('click', (e) => {
