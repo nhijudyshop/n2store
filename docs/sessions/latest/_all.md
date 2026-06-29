@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4755323` — auto: session update
-**Last updated**: 2026-06-29 18:15:32 +07
-**Latest session**: [`RESUME:20260629-181532-4755323`](../20260629-181532-4755323.md)
-**Summary**: auto: session update
+**Latest commit**: `be910cb` — fix(nav): purge dead tpos-pancake/ paths → live-chat/ (nav href, permissions-registry, 17 test scripts)
+**Last updated**: 2026-06-29 18:22:15 +07
+**Latest session**: [`RESUME:20260629-182215-be910cb`](../20260629-182215-be910cb.md)
+**Summary**: fix(nav): purge dead tpos-pancake/ paths → live-chat/ (nav href, permissions-registry, 17 test scripts)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 17 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
+- [`user-management/`](./user-management.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -61,9 +63,9 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
 - [`render.com/`](./render.com.md) — updated 2026-06-29 18:15
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-28 20:56
+- [`scripts/`](./scripts.md) — updated 2026-06-29 18:22
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
-- [`shared/`](./shared.md) — updated 2026-06-23 23:09
+- [`shared/`](./shared.md) — updated 2026-06-29 18:22
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
 - [`so-order/`](./so-order.md) — updated 2026-06-29 17:00
@@ -74,7 +76,7 @@
 - [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-20 12:07
 - [`tests/`](./tests.md) — updated 2026-06-10 19:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
-- [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
+- [`user-management/`](./user-management.md) — updated 2026-06-29 18:22
 - [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-22 16:08
 - [`web2-attendance-sync/`](./web2-attendance-sync.md) — updated 2026-06-24 14:02
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
