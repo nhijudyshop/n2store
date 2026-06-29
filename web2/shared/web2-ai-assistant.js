@@ -768,8 +768,11 @@
             }
         }
         if (errored) {
-            if (errored.code === 401 || /unauthor|hết hạn|token/i.test(errored.error || ''))
-                throw authErr();
+            // Phiên hết hạn THẬT = HTTP 401 (đã bắt ở res.status phía trên). Lỗi nằm TRONG
+            // stream là lỗi PROVIDER (quota / "tokens per minute" / request too large) —
+            // KHÔNG phải auth. KHÔNG match chữ "token" nữa (trùng "tokens per minute" →
+            // đăng xuất nhầm + chặn cascade). Chỉ coi auth khi backend gắn code 401 tường minh.
+            if (errored.code === 401) throw authErr();
             throw new Error(errored.error || 'Lỗi AI');
         }
         if (!acc.trim()) throw new Error('rỗng');
@@ -800,7 +803,9 @@
         });
         if (r.status === 401) throw authErr();
         const j = await r.json().catch(() => ({}));
-        if (j && (j.code === 401 || /unauthor|hết hạn|token/i.test(j.error || ''))) throw authErr();
+        // Chỉ code 401 tường minh = phiên hết hạn; lỗi provider (kể cả chứa chữ "token")
+        // giữ nguyên để cascade/hiển thị, KHÔNG đăng xuất nhầm.
+        if (j && j.code === 401) throw authErr();
         if (!r.ok || j.error) throw new Error(j.error || 'AI lỗi (HTTP ' + r.status + ')');
         const text = j.text || j.reply || j.content || (j.message && j.message.content);
         if (!text || !String(text).trim()) throw new Error('AI không trả nội dung.');
