@@ -12,6 +12,12 @@
             (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
         );
     const fmtVnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+    // "HCAO3XCO35-002" → "002" (đuôi seq, gọn để đọc tay khi camera lỗi)
+    const shortCode = (c) => {
+        const s = String(c || '');
+        const i = s.lastIndexOf('-');
+        return i >= 0 ? s.slice(i + 1) : s;
+    };
     function fmtTime(ms) {
         try {
             return new Date(Number(ms)).toLocaleString('vi-VN', {
@@ -493,30 +499,43 @@
         const sttMap = new Map();
         g.orders.forEach((o) => sttMap.set(o.stt, o));
 
-        // SP tóm tắt: cùng 1 mã có thể ở NHIỀU STT → bấm để tô ô.
+        // SP tóm tắt: cùng 1 mã có thể ở NHIỀU STT → MỖI tem (001/002…) gán 1 STT.
+        // byStt: stt → [đuôi mã tem] để chỉ rõ "tem nào vào STT nào".
         const prodMap = new Map();
         g.orders.forEach((o) =>
             (o.products || []).forEach((p) => {
                 let e = prodMap.get(p.code);
                 if (!e) {
-                    e = { code: p.code, name: p.name || p.code, stts: [], qty: 0 };
+                    e = { code: p.code, name: p.name || p.code, qty: 0, byStt: new Map() };
                     prodMap.set(p.code, e);
                 }
-                if (o.stt != null) e.stts.push(o.stt);
                 e.qty += Number(p.qty) || 0;
+                if (o.stt != null) {
+                    const arr = e.byStt.get(o.stt) || [];
+                    (p.codes || []).forEach((c) => arr.push(shortCode(c)));
+                    e.byStt.set(o.stt, arr);
+                }
             })
         );
         const prods = [...prodMap.values()].sort((a, b) => b.qty - a.qty);
-        const multi = prods.some((e) => e.stts.length > 1);
+        const multi = prods.some((e) => e.byStt.size > 1);
+        const sttPartsOf = (e) =>
+            [...e.byStt.entries()]
+                .sort((a, b) => a[0] - b[0])
+                .map(
+                    ([stt, codes]) =>
+                        `STT ${stt}${codes.length ? ' <b>#' + codes.join(',') + '</b>' : ''}`
+                )
+                .join(' · ');
         const sumHtml = prods.length
-            ? `<div class="kp-hint">${multi ? 'Cùng 1 mã ở nhiều STT — bấm 1 SP để TÔ Ô cần bỏ:' : 'Các loại SP trong kệ này:'}</div>` +
+            ? `<div class="kp-hint">${multi ? 'Cùng 1 mã ở nhiều STT — mỗi tem (#001…) vào ĐÚNG 1 STT. Bấm 1 SP để TÔ Ô:' : 'Các loại SP trong kệ này (#mã tem theo STT):'}</div>` +
               `<div class="kp-sum">` +
               prods
                   .map(
                       (e) =>
                           `<button class="kp-item" type="button" data-code="${esc(e.code)}">
-                            <span class="kp-name">${esc(e.name)}</span>
-                            <span class="kp-meta">×${e.qty} · STT ${e.stts.sort((a, b) => a - b).join(', ') || '?'}</span>
+                            <span class="kp-name">${esc(e.name)} <span class="kp-q">×${e.qty}</span></span>
+                            <span class="kp-meta">${sttPartsOf(e)}</span>
                           </button>`
                   )
                   .join('') +
@@ -546,10 +565,13 @@
                 const loc = locate(o.stt);
                 const done = oDone(o);
                 const prodLine = (o.products || [])
-                    .map(
-                        (p) =>
-                            `${esc(p.name || p.code)}${(Number(p.qty) || 1) > 1 ? ' ×' + p.qty : ''}`
-                    )
+                    .map((p) => {
+                        const codes = (p.codes || []).map(shortCode).filter(Boolean);
+                        const tail = codes.length
+                            ? ` <span class="m-codes">#${codes.join(',')}</span>`
+                            : '';
+                        return `${esc(p.name || p.code)}${(Number(p.qty) || 1) > 1 ? ' ×' + p.qty : ''}${tail}`;
+                    })
                     .join(' · ');
                 return `<div class="m-row" id="mrow-${o.stt}" data-stt="${o.stt}">
                 <div class="m-badge" style="${done ? '' : 'background:var(--c-amber)'}">${o.stt != null ? esc(o.stt) : '?'}</div>

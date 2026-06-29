@@ -619,7 +619,7 @@ router.post('/by-orders', requireWeb2AuthSoft, async (req, res) => {
 // GET /sort-manifest — đơn ĐANG CHỜ XẾP KỆ (units status ASSIGNED) gom theo STT.
 // Cho "Bàn chia hàng" (web2/sort-station): quét món → biết STT + theo dõi đủ/thiếu
 // từng kệ → manifest mang ra 1 lượt. → { success, orders:[{orderId, orderCode, stt,
-// customerName, customerPhone, needed, products:[{code,name,qty}], unitIds:[...] }],
+// customerName, customerPhone, needed, products:[{code,name,qty,codes:[unitCode...]}], unitIds:[...] }],
 // totalUnits, totalOrders }. PII (tên/SĐT) → requireWeb2AuthSoft.
 // =====================================================================
 router.get('/sort-manifest', requireWeb2AuthSoft, async (req, res) => {
@@ -630,7 +630,8 @@ router.get('/sort-manifest', requireWeb2AuthSoft, async (req, res) => {
             await pool.query(
                 `SELECT u.order_id, u.order_code, u.order_stt, u.customer_name, u.customer_phone,
                         u.product_code, COALESCE(p.name, u.product_code) AS product_name,
-                        COUNT(*)::int AS cnt, array_agg(u.id ORDER BY u.seq) AS unit_ids
+                        COUNT(*)::int AS cnt, array_agg(u.id ORDER BY u.seq) AS unit_ids,
+                        array_agg(u.unit_code ORDER BY u.seq) AS unit_codes
                    FROM web2_product_units u
                    LEFT JOIN web2_products p ON p.code = u.product_code
                   WHERE u.status = 'ASSIGNED' AND u.order_id IS NOT NULL
@@ -656,7 +657,12 @@ router.get('/sort-manifest', requireWeb2AuthSoft, async (req, res) => {
                 byOrder.set(r.order_id, o);
             }
             o.needed += r.cnt;
-            o.products.push({ code: r.product_code, name: r.product_name, qty: r.cnt });
+            o.products.push({
+                code: r.product_code,
+                name: r.product_name,
+                qty: r.cnt,
+                codes: r.unit_codes || [], // mã tem CỤ THỂ của (đơn, SP) — biết tem nào vào STT này
+            });
             o.unitIds.push(...(r.unit_ids || []).map(Number));
         }
         const orders = [...byOrder.values()]

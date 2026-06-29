@@ -2,6 +2,15 @@
 
 ## 2026-06-29
 
+### [unit-scan] Hiện MÃ TEM theo từng STT (tem nào vào STT nào) + audit logic per-unit
+
+**Files:** `render.com/routes/web2-product-units.js` (`/sort-manifest` thêm `array_agg(unit_code)` → `products[].codes`), `web2/unit-scan/{index.html,js/unit-scan.js,css/unit-scan.css}` + bump css `g→h`, js `f→g`.
+
+User audit: cùng kệ có SP trùng (vd ÁO POLO BASIC ×5 ở STT 1 và STT 6) → nhìn mắt KHÔNG biết tem nào của STT 6. **Đáp:** mã QR per-unit chính là cách phân biệt — mỗi tem 001..009 ràng buộc DUY NHẤT 1 đơn/STT (DB thật: tem-001→STT6 KH Tuyen Thanh; tem-002..005→STT1 KH HK Man; 006..009 IN_STOCK). Bước đối soát/đặt kệ **PHẢI quét từng tem** → màn hiện chính xác STT+ô. KHÔNG đặt bằng mắt với SP trùng.
+
+- **BE** `/sort-manifest`: mỗi `products[]` thêm `codes:[unitCode…]` (mã tem cụ thể của đơn×SP). Thuần additive, backward-compat.
+- **FE** sheet chi tiết kệ: tóm tắt SP giờ hiện **#mã tem theo từng STT** (vd "ÁO POLO BASIC ×5 · STT 1 #002,003,004,005 · STT 6 #001"); mỗi hàng STT cũng liệt kê #mã tem của nó. Đọc tay được khi camera lỗi (fallback). `shortCode()` lấy đuôi seq.
+
 ### [unit-scan] Bỏ 2 tab → 1 VIEW + chi tiết SP theo từng STT trong kệ
 
 **Files:** `web2/unit-scan/{index.html,js/unit-scan.js,css/unit-scan.css}` (bump css `f→g`, js `e→f`).

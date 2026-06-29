@@ -856,7 +856,18 @@ body {
     font-weight: 600;
     color: var(--c-text);
     margin-top: 2px;
-    line-height: 1.3;
+    line-height: 1.4;
+}
+.m-codes,
+.kp-meta b {
+    font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: var(--c-primary-d);
+    background: rgba(0, 104, 255, 0.1);
+    border-radius: 5px;
+    padding: 0 5px;
+    white-space: nowrap;
 }
 .m-row.hot {
     background: rgba(0, 104, 255, 0.08);
@@ -913,10 +924,18 @@ body {
     font-size: 13.5px;
     color: var(--c-text);
 }
+.kp-q {
+    color: var(--c-text-2);
+    font-weight: 700;
+}
 .kp-meta {
     font-size: 11.5px;
     font-weight: 700;
-    color: var(--c-primary-d);
+    color: var(--c-text-2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
