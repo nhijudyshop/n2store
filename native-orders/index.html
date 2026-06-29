@@ -102,89 +102,6 @@
                 border-radius: 999px;
                 padding: 2px 8px;
             }
-            /* Tag filter dropdown panel: mỗi thẻ = hàng [bấm lọc] + nút mắt [chi tiết] */
-            .no-tagf-rowwrap {
-                display: flex;
-                align-items: center;
-                gap: 2px;
-            }
-            .no-tagf-row {
-                flex: 1;
-                min-width: 0;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 7px 9px;
-                border: 0;
-                background: transparent;
-                border-radius: 7px;
-                cursor: pointer;
-                font-size: 13px;
-                color: #334155;
-                text-align: left;
-            }
-            .no-tagf-row:hover {
-                background: #eef5ff;
-            }
-            .no-tagf-row.is-active {
-                background: #e8f2ff;
-                color: #0056d6;
-                font-weight: 700;
-            }
-            .no-tagf-ic {
-                width: 15px;
-                height: 15px;
-                flex: 0 0 auto;
-                color: #0068ff;
-            }
-            .no-tagf-dot {
-                width: 10px;
-                height: 10px;
-                border-radius: 999px;
-                flex: 0 0 auto;
-            }
-            .no-tagf-name {
-                flex: 1;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            .no-tagf-count {
-                flex: 0 0 auto;
-                font-size: 11px;
-                font-weight: 700;
-                color: #64748b;
-                background: #f1f5f9;
-                border-radius: 999px;
-                padding: 1px 8px;
-            }
-            .no-tagf-detail {
-                flex: 0 0 auto;
-                width: 30px;
-                height: 30px;
-                border: 1px solid #e2e8f0;
-                background: #fff;
-                border-radius: 7px;
-                cursor: pointer;
-                color: #0068ff;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .no-tagf-detail:hover {
-                background: #eff6ff;
-                border-color: #bfdbfe;
-            }
-            .no-tagf-detail i {
-                width: 15px;
-                height: 15px;
-            }
-            .no-tagf-empty {
-                padding: 14px 10px;
-                text-align: center;
-                color: #94a3b8;
-                font-size: 12.5px;
-            }
         </style>
 
         <!-- Lucide icons -->
@@ -285,45 +202,8 @@
                             </div>
                         </div>
 
-                        <!-- Tag filter — DANH SÁCH thẻ + chi tiết tổng hợp (autoTags, client-side) -->
-                        <div class="filter-chip-group">
-                            <label class="chip-label chip-label-primary">
-                                <i data-lucide="tag"></i> Thẻ:
-                            </label>
-                            <div class="chip-select-wrapper" style="position: relative">
-                                <button
-                                    id="filterTagBtn"
-                                    class="chip-select chip-select-primary"
-                                    type="button"
-                                    style="text-align: left; min-width: 130px; cursor: pointer"
-                                >
-                                    <span id="filterTagLabel">Tất cả</span>
-                                </button>
-                                <i data-lucide="chevron-down" class="chip-caret"></i>
-                                <!-- Dropdown panel: liệt kê thẻ; bấm thẻ = lọc, nút mắt = chi tiết -->
-                                <div
-                                    id="filterTagDropdown"
-                                    style="
-                                        display: none;
-                                        position: absolute;
-                                        top: calc(100% + 4px);
-                                        left: 0;
-                                        z-index: 55;
-                                        min-width: 244px;
-                                        max-width: 300px;
-                                        max-height: 340px;
-                                        overflow-y: auto;
-                                        background: #fff;
-                                        border: 1px solid #e5e7eb;
-                                        border-radius: 8px;
-                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-                                        padding: 4px;
-                                    "
-                                >
-                                    <div id="filterTagList"></div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Bộ lọc Thẻ + Thống kê → chuyển sang BẢNG ĐIỀU KHIỂN trượt phải
+                             (toggle mép phải màn hình). Xem native-orders-control-drawer.js. -->
 
                         <!-- Campaign filter chip (sync with web2-pancake selection) -->
                         <div class="filter-chip-group" id="campaignChipGroup">
@@ -746,16 +626,16 @@
         <script src="js/native-orders-state.js?v=20260629d"></script>
         <script src="js/native-orders-snapshots.js?v=20260628c"></script>
         <script src="js/native-orders-customer-panel.js?v=20260628c"></script>
-        <script src="js/native-orders-render.js?v=20260629k"></script>
+        <script src="js/native-orders-render.js?v=20260629l"></script>
         <script src="js/native-orders-delivery.js?v=20260628c"></script>
         <script src="js/native-orders-modal-edit.js?v=20260628c"></script>
         <script src="js/native-orders-product-picker.js?v=20260628c"></script>
         <script src="js/native-orders-pbh-bill.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-add.js?v=20260628c"></script>
         <script src="js/native-orders-bulk-operations.js?v=20260629i"></script>
-        <script src="js/native-orders-filters-campaigns.js?v=20260629k"></script>
-        <script src="js/native-orders-tag-aggregate.js?v=20260629k"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260629k"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260629l"></script>
+        <script src="js/native-orders-control-drawer.js?v=20260629m"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260629l"></script>
         <script src="js/native-orders-customer360.js?v=20260628c"></script>
         <script src="js/native-orders-interactions.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-resolve.js?v=20260628c"></script>

@@ -2,6 +2,19 @@
 
 ## 2026-06-29
 
+### [native-orders] Bảng điều khiển trượt phải — tab Thẻ + Sản phẩm + Thống kê (thay chip lọc)
+
+**Files:** `native-orders/js/native-orders-control-drawer.js` (NEW — toggle mép phải + drawer non-modal 3 tab; thay `native-orders-tag-aggregate.js` ĐÃ XOÁ), `native-orders/index.html` (bỏ chip `#filterTagBtn`+dropdown+CSS `.no-tagf-*`; thêm script drawer; bump 4 js `→m`), `native-orders/js/native-orders-filters-campaigns.js` (gọn `applyTagFilter(trigger)`+`clearTagFilter` gọi `refreshControlDrawer`; bỏ render panel/toggle/label; giữ `_visibleOrders`/`_tagSummary`), render.js (`refreshControlDrawer`), realtime-init.js (bỏ wiring chip — drawer tự dựng).
+
+User: bỏ chip "Thẻ" trên toolbar → toggle mép phải mở drawer trượt phải có tab TAG, tab khác tùy phát triển. Sau đó: thêm tab Sản phẩm gom SP mọi giỏ + cho tìm.
+
+- **Toggle** = nút dọc mép phải (ẩn khi drawer mở) + badge khi đang lọc thẻ. Drawer **non-modal** (bảng vẫn thao tác sau lưng), trượt từ phải, ESC/X đóng.
+- **Tab Thẻ**: "Tất cả" + mỗi thẻ (chấm màu + số đơn). Bấm hàng = lọc bảng client-side (bấm lại = bỏ lọc); ▸ = bung chi tiết (đơn STT+KH+SĐT + SP liên quan thẻ SP); bấm 1 đơn → cuộn tới + nhấp nháy.
+- **Tab Sản phẩm**: gom MỌI SP trong tất cả giỏ/đơn trên trang theo mã (mã·tên·×tổng SL·N đơn, sort SL desc) + **ô tìm** (mã/tên, re-render riêng list để giữ focus); ▸ = xem đơn nào chứa SP đó (STT+KH+SL).
+- **Tab Thống kê**: tổng đơn/tiền/SL + theo trạng thái + chip theo thẻ (bấm = lọc). Data 100% client `STATE.orders`. Thêm tab mới = thêm vào TABS + 1 hàm render.
+
+**Test browser (6 đơn):** 3 tab; Sản phẩm gom ÁO POLO BASIC ×5·2đơn / ÁO BLAZER ×4·4đơn / GIÀY BÚP BÊ ×2·2đơn, tìm "polo"→1 SP; Thẻ: bấm Chờ hàng→bảng 2 dòng+badge, bung→STT 6+1; screenshot khớp. Status ✅
+
 ### [native-orders] Bộ lọc Thẻ: bỏ <select> → panel DANH SÁCH + drawer "chi tiết" tổng hợp
 
 **Files:** `native-orders/js/native-orders-tag-aggregate.js` (NEW — drawer slide-in `NO.openTagAggregateDetail`), `native-orders/js/native-orders-filters-campaigns.js` (bỏ `populateTagFilterOptions`/select → `renderTagFilterPanel`+`_tagSummary`+`applyTagFilter(trigger)`+`toggleTagDropdown`+`_renderTagFilterLabel`+`clearTagFilter`; giữ `_visibleOrders`), `native-orders/index.html` (chip select → button `#filterTagBtn`+panel `#filterTagDropdown`/`#filterTagList` + CSS `.no-tagf-*` + script mới + bump 4 js `→k`), `native-orders/js/native-orders-render.js` (gọi `renderTagFilterPanel`), `native-orders/js/native-orders-realtime-init.js` (bỏ listener `#filterTag change`; thêm button toggle + delegation panel + click-ngoài đóng).

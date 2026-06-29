@@ -14,10 +14,10 @@
         NO.load();
     };
 
-    // ---------- Tag filter — DANH SÁCH thẻ + "chi tiết" (client-side, không reload) ----------
-    // Thay <select> cũ: panel xổ xuống liệt kê mọi thẻ trên trang (tên + số đơn). Bấm 1 thẻ
-    // → lọc bảng. Nút "chi tiết" (mắt) cạnh thẻ → drawer tổng hợp (native-orders-tag-aggregate.js).
-    // Tags (autoTags) tính server-side SAU phân trang → lọc trên trang đã tải (giống KPI health).
+    // ---------- Tag filter (client-side) — helpers DÙNG CHUNG với Bảng điều khiển ----------
+    // UI thẻ (danh sách + chi tiết + thống kê) nằm ở BẢNG ĐIỀU KHIỂN trượt phải
+    // (native-orders-control-drawer.js). File này chỉ giữ logic LỌC: _visibleOrders + _tagSummary
+    // + applyTagFilter. Tags (autoTags) tính server-side SAU phân trang → lọc trên trang đã tải.
 
     // orders đang HIỂN THỊ sau khi áp thẻ. tagFilter rỗng → toàn bộ trang.
     NO._visibleOrders = function _visibleOrders() {
@@ -29,7 +29,7 @@
 
     // Gom các thẻ xuất hiện trên trang → [{trigger,label,color,count}] (sort theo count desc).
     // 1 đơn đếm 1 lần / trigger. kpi_user (tên NV động) → 1 nhãn cố định. DÙNG CHUNG cho
-    // panel lọc + drawer chi tiết (native-orders-tag-aggregate.js gọi NO._tagSummary).
+    // Bảng điều khiển (native-orders-control-drawer.js) gọi NO._tagSummary cho tab Thẻ + Thống kê.
     NO._tagSummary = function _tagSummary() {
         const byTrigger = new Map();
         for (const o of NO.STATE.orders || []) {
@@ -51,73 +51,18 @@
         return [...byTrigger.values()].sort((a, b) => b.count - a.count);
     };
 
-    NO._renderTagFilterLabel = function _renderTagFilterLabel() {
-        const lab = NO.$('#filterTagLabel');
-        if (!lab) return;
-        const tf = NO.STATE.tagFilter;
-        if (!tf) {
-            lab.textContent = 'Tất cả';
-            return;
-        }
-        const s = NO._tagSummary().find((x) => x.trigger === tf);
-        lab.textContent = s ? s.label : 'Thẻ';
-    };
-
-    // Dựng panel danh sách thẻ (gọi sau mỗi load + khi mở dropdown). Reset tagFilter nếu
-    // thẻ đang lọc không còn xuất hiện trên trang.
-    NO.renderTagFilterPanel = function renderTagFilterPanel() {
-        const box = NO.$('#filterTagList');
-        if (!box) return;
-        const tags = NO._tagSummary();
-        const cur = NO.STATE.tagFilter || '';
-        if (cur && !tags.some((t) => t.trigger === cur)) NO.STATE.tagFilter = '';
-        const active = NO.STATE.tagFilter || '';
-        const rowAll = `<button type="button" class="no-tagf-row${active === '' ? ' is-active' : ''}" data-trigger="">
-                <i data-lucide="${active === '' ? 'check' : 'layout-list'}" class="no-tagf-ic"></i>
-                <span class="no-tagf-name">Tất cả</span>
-            </button>`;
-        const rows = tags
-            .map(
-                (t) => `<div class="no-tagf-rowwrap">
-                <button type="button" class="no-tagf-row${active === t.trigger ? ' is-active' : ''}" data-trigger="${NO.escapeHtml(t.trigger)}" title="Lọc bảng theo thẻ này">
-                    <span class="no-tagf-dot" style="background:${NO.escapeHtml(t.color)};"></span>
-                    <span class="no-tagf-name">${NO.escapeHtml(t.label)}</span>
-                    <span class="no-tagf-count">${t.count}</span>
-                </button>
-                <button type="button" class="no-tagf-detail" data-detail="${NO.escapeHtml(t.trigger)}" title="Xem chi tiết tất cả đơn mang thẻ '${NO.escapeHtml(t.label)}'">
-                    <i data-lucide="eye"></i>
-                </button>
-            </div>`
-            )
-            .join('');
-        box.innerHTML =
-            rowAll + (rows || '<div class="no-tagf-empty">Trang này chưa có thẻ nào.</div>');
-        if (window.lucide) lucide.createIcons();
-        NO._renderTagFilterLabel();
-    };
-
-    NO.toggleTagDropdown = function toggleTagDropdown(force) {
-        const dd = NO.$('#filterTagDropdown');
-        if (!dd) return;
-        const isOpen = dd.style.display === 'block';
-        const next = typeof force === 'boolean' ? force : !isOpen;
-        dd.style.display = next ? 'block' : 'none';
-        if (next) NO.renderTagFilterPanel();
-    };
-
-    // Bấm 1 thẻ trong panel → lọc bảng (client-side, không reload) + đóng dropdown.
+    // Bấm 1 thẻ (trong Bảng điều khiển trượt phải) → lọc bảng client-side (không reload)
+    // + cập nhật badge/nội dung drawer. UI thẻ nằm ở native-orders-control-drawer.js.
     NO.applyTagFilter = function applyTagFilter(trigger) {
         NO.STATE.tagFilter = trigger || '';
-        NO.toggleTagDropdown(false);
-        NO._renderTagFilterLabel();
         NO.renderRows();
         NO.renderCounters();
+        if (NO.refreshControlDrawer) NO.refreshControlDrawer();
     };
 
     NO.clearTagFilter = function clearTagFilter() {
         NO.STATE.tagFilter = '';
-        NO.toggleTagDropdown(false);
-        NO._renderTagFilterLabel();
+        if (NO.refreshControlDrawer) NO.refreshControlDrawer();
     };
 
     // ---------- Search typeahead (gợi ý KH/đơn, client-side) ----------

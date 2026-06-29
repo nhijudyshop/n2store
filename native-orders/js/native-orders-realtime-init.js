@@ -189,33 +189,8 @@
         // Auto-apply when Status / Limit dropdowns change
         NO.$('#filterStatus')?.addEventListener('change', NO.applyFilters);
         NO.$('#filterLimit')?.addEventListener('change', NO.applyFilters);
-        // Thẻ: panel DANH SÁCH thẻ (client-side, không reload). Bấm nút → xổ panel;
-        // bấm 1 thẻ → lọc bảng; nút mắt → drawer chi tiết tổng hợp; click ngoài → đóng.
-        NO.$('#filterTagBtn')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            NO.toggleTagDropdown();
-        });
-        NO.$('#filterTagList')?.addEventListener('click', (e) => {
-            const detailBtn = e.target.closest('[data-detail]');
-            if (detailBtn) {
-                e.stopPropagation();
-                NO.openTagAggregateDetail(detailBtn.getAttribute('data-detail'));
-                return;
-            }
-            const row = e.target.closest('[data-trigger]');
-            if (row) NO.applyTagFilter(row.getAttribute('data-trigger'));
-        });
-        document.addEventListener('click', (e) => {
-            const dd = NO.$('#filterTagDropdown');
-            if (
-                dd &&
-                dd.style.display === 'block' &&
-                !e.target.closest('#filterTagDropdown') &&
-                !e.target.closest('#filterTagBtn')
-            ) {
-                NO.toggleTagDropdown(false);
-            }
-        });
+        // Thẻ + Thống kê → Bảng điều khiển trượt phải (native-orders-control-drawer.js tự dựng
+        // nút toggle + drawer + wiring). Không còn chip/dropdown trên toolbar.
         // 2026-06-04: tab kênh đơn (Livestream / Inbox) + nút Thêm đơn inbox.
         // Đồng bộ UI (tab active + nút Thêm đơn inbox + ẩn bộ lọc chiến dịch) theo
         // STATE.channel hiện tại. Gọi lúc init (channel restore từ localStorage) và
