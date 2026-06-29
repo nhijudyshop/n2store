@@ -101,6 +101,7 @@
     let torchOn = false;
     let sseUnsub = null;
     let resolving = false;
+    let sibOpen = false; // giữ trạng thái mở/đóng danh sách "tất cả tem" qua các lần re-resolve (SSE)
 
     // ── Resolve ────────────────────────────────────────────────────
     async function resolve(target) {
@@ -226,6 +227,12 @@
                 <button class="reprint-btn" id="reprintBtn"><i data-lucide="printer"></i> In lại tem này</button>
                 ${hero}
             </div>
+            <button class="sib-toggle${sibOpen ? ' open' : ''}" id="sibToggle" type="button" aria-expanded="${sibOpen}">
+                <i data-lucide="layout-list"></i>
+                <span id="sibTitle">Tất cả tem của SP này</span>
+                <i data-lucide="chevron-down" class="sib-chev"></i>
+            </button>
+            <div class="sib-wrap" id="siblings"${sibOpen ? '' : ' hidden'}></div>
             <div class="sec-title">Đơn đang chờ SP này (${orders.length})</div>
             ${ordersHtml}
             <div class="sec-title">Lịch sử đơn vị</div>
@@ -235,6 +242,17 @@
 
         // wire reprint (in lại đúng 1 tem đơn vị này)
         $('#reprintBtn')?.addEventListener('click', () => reprintUnit(u, p));
+        // Toggle + nạp danh sách TẤT CẢ tem của SP này (mỗi tem đang ở kệ/giỏ nào)
+        const sibBtn = $('#sibToggle');
+        sibBtn?.addEventListener('click', () => {
+            const wrap = $('#siblings');
+            if (!wrap) return;
+            sibOpen = wrap.hasAttribute('hidden');
+            wrap.toggleAttribute('hidden', !sibOpen);
+            sibBtn.classList.toggle('open', sibOpen);
+            sibBtn.setAttribute('aria-expanded', String(sibOpen));
+        });
+        loadSiblings(u.productCode, u.id);
         // KHÔNG còn nút "Gán" — unit tự gán STT giỏ khi kéo/thêm SP vào giỏ hàng
         // (auto-assign ở luồng giỏ). Trang quét chỉ HIỂN THỊ STT đã gán + đơn chờ.
     }
@@ -287,6 +305,58 @@
                       .join('')
                 : '<div class="muted" style="padding:8px">Chưa có lịch sử</div>';
         } catch (_) {}
+    }
+
+    // ── Danh sách TẤT CẢ tem của SP này (SP1-001..N → ở kệ/giỏ nào) ──
+    // Data sẵn ở /by-product/:code (mỗi unit kèm status + orderStt). Ẩn mặc
+    // định, bật mới xem; highlight đúng tem đang quét. Mỗi tem 1 STT giỏ.
+    const SIB_ASSIGNED = ['ASSIGNED', 'PACKED', 'SHIPPED'];
+    function sibRow(currentId, x) {
+        const cur = x.id === currentId;
+        const assigned = x.orderStt != null && SIB_ASSIGNED.includes(x.status);
+        let right, sub;
+        if (assigned) {
+            right = `<div class="sib-stt">${esc(x.orderStt)}</div>`;
+            sub = `<div class="sib-sub">${esc(x.customerName || x.orderCode || 'đã vào giỏ')}</div>`;
+        } else if (x.status === 'RETURNED') {
+            right = `<span class="chip amber">trả</span>`;
+            sub = `<div class="sib-sub">đã trả</div>`;
+        } else {
+            right = `<span class="chip blue">kho</span>`;
+            sub = `<div class="sib-sub">còn trong kho</div>`;
+        }
+        return `<div class="sib-row${cur ? ' current' : ''}">
+            <div class="sib-info">
+                <div class="sib-code">${esc(x.unitCode)}${cur ? '<span class="sib-now">đang quét</span>' : ''}</div>
+                ${sub}
+            </div>
+            ${right}
+        </div>`;
+    }
+    async function loadSiblings(productCode, currentId) {
+        const host = $('#siblings');
+        if (!host) return;
+        host.innerHTML = '<div class="muted" style="padding:10px">Đang tải…</div>';
+        try {
+            const data = await api('/by-product/' + encodeURIComponent(productCode));
+            const units = data.units || [];
+            const titleEl = $('#sibTitle');
+            if (titleEl) titleEl.textContent = `Tất cả tem của SP này (${units.length})`;
+            if (!units.length) {
+                host.innerHTML = '<div class="muted" style="padding:10px">Chưa có tem nào.</div>';
+                return;
+            }
+            const assignedN = units.filter(
+                (x) => x.orderStt != null && SIB_ASSIGNED.includes(x.status)
+            ).length;
+            host.innerHTML =
+                `<div class="sib-summary">${assignedN} đã vào giỏ · ${units.length - assignedN} còn kho</div>` +
+                units.map((x) => sibRow(currentId, x)).join('');
+            icons();
+        } catch (_) {
+            host.innerHTML =
+                '<div class="muted" style="padding:10px">Không tải được danh sách tem.</div>';
+        }
     }
 
     // ── Scanner ────────────────────────────────────────────────────

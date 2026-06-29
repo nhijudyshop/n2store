@@ -153,9 +153,13 @@
                     //   • BĂNG TÊN full-width DƯỚI CÙNG (kẻ vạch trên): tên rộng CẢ TEM ⇒
                     //     tên DÀI hiện được nhiều hơn (trước kẹt cột ~12mm cắt cụt).
                     //   • Biến thể rút gọn (bỏ "Màu"/"Size") cho vừa cột phải hẹp.
+                    // 2026-06-29: QR TO HƠN cho DỄ QUÉT (user). 0.46→0.58 (bề ngang)
+                    // + 0.55→0.72 (chiều cao) ⇒ QR ~11mm → ~14mm trên tem 25×21mm
+                    // (paper khác scale theo). Cột phải (biến thể/giá) hẹp lại chút +
+                    // băng tên co qua fitName — ưu tiên QR vì quét tem là chính.
                     const qrMm =
                         Math.round(
-                            Math.min(labelW * 0.46, (labelH - padTop - padBottom) * 0.55) * 10
+                            Math.min(labelW * 0.58, (labelH - padTop - padBottom) * 0.72) * 10
                         ) / 10;
                     const fsCodeOv = Math.max(5, Math.round(fsCode * 0.85));
                     const fsVar = Math.max(5, Math.round(fsCode * 0.9));

@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [unit-scan] Danh sách TẤT CẢ tem của SP (ẩn/bật) + [print] QR TO HƠN
+
+**Files:** `web2/unit-scan/js/unit-scan.js` (+ `sibRow`/`loadSiblings` + state `sibOpen` + toggle), `web2/unit-scan/css/unit-scan.css` (`.sib-*`), `web2/products/js/web2-products-print-render.js` (`qrMm` factors), cache-bust: unit-scan js `20260629a→b`+css `20260628d→20260629a`, print-render `20260628a/b→20260629a` ở products/so-order/unit-scan.
+
+1. **unit-scan — danh sách per-unit → STT** (user spec: SP1 SL8 → `SP1-001..008`; quét 1 tem hiện STT đang ở, + bật danh sách xem MỌI tem ở giỏ/STT nào). renderResult thêm nút toggle "Tất cả tem của SP này (N)" (ẩn mặc định, `sibOpen` giữ trạng thái qua SSE re-resolve) → `loadSiblings(productCode, currentId)` gọi `GET /by-product/:code` (đã trả sẵn `unitCode/status/orderStt/customerName` — KHÔNG đổi backend) → mỗi row: mã + STT badge (ASSIGNED/PACKED/SHIPPED) hoặc chip "kho"/"trả"; highlight tem đang quét ("đang quét"); summary "N đã vào giỏ · M còn kho". Gán/nhả động đã có sẵn (`reconcileOrderUnits`/`freeOrderUnits` từ cart + native-orders).
+2. **print QR to hơn** (shared `buildLabelHTML` → áp dụng CẢ products + so-order + reprint): `qrMm` factors `0.46→0.58` (ngang) + `0.55→0.72` (cao). Tem 25×21mm: QR ~11mm → **14.4mm** (paper8 15.1, paper9 15.8, paper10 20.2). fitName/fitText co tên/giá vừa.
+
+**Test (browser, seed thật qua giỏ):** mint 5 unit TEST-SIB → add giỏ → reconcile gán 4 (STT 1) + 1 IN_STOCK → unit-scan quét TEST-SIB-001: list (5), summary "4 đã vào giỏ · 1 còn kho", hero "Đã ở kệ 1", current highlight ✓. QR render: đo qrMm 14.4mm + screenshot label đủ QR to/biến thể/giá/mã/tên không cắt ✓. Cleanup: cart clear (draft xoá, unit free). `node --check` ✓.
+
+**Status:** ✅ verified local. ⚠ Phát hiện (chưa fix): TV live-control popup giỏ hiện `display_stt` còn tem/unit-scan dùng `campaign_stt` → 2 số STT có thể lệch.
+
 ### [goods-weight] Trang MỚI "Cân Nặng Hàng" ⚖️ (hàng về kiện → cân + ảnh)
 
 **Files:** `render.com/routes/web2-goods-weight.js` (NEW), `render.com/server.js` (mount + SSE wire), `web2/goods-weight/{index.html,js/goods-weight.js,css/goods-weight.css}` (NEW), `web2/shared/web2-sidebar.js` (menu "Mua hàng"), 55 html cache-bust sidebar `20260629b→c`.
