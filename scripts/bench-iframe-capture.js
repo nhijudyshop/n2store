@@ -42,7 +42,7 @@ const BASE = 'https://nhijudy.store';
 
     console.log('\n=== STEP 1: Load page ===');
     const t0 = Date.now();
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
         timeout: 60000,
     });

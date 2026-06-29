@@ -18,7 +18,7 @@ const POSTS = [
     const page = await ctx.newPage();
 
     console.log('Load n2store (cần thời gian load Pancake token)...');
-    await page.goto('https://nhijudy.store/tpos-pancake/index.html', {
+    await page.goto('https://nhijudy.store/live-chat/index.html', {
         waitUntil: 'domcontentloaded',
         timeout: 60000,
     });

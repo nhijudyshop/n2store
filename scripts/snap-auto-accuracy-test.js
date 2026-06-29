@@ -27,7 +27,7 @@ const API = 'https://n2store-fallback.onrender.com';
         }
     });
     console.log('[acc-test] navigating tpos-pancake...');
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     console.log('[acc-test] waiting 12s for TPOS state populate...');

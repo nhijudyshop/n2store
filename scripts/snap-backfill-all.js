@@ -19,7 +19,7 @@ const API = 'https://n2store-fallback.onrender.com';
     });
 
     console.log('Load tpos-pancake...');
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await page.waitForTimeout(10000);

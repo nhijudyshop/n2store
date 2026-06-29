@@ -57,7 +57,7 @@ const BASE = 'https://nhijudy.store';
     phaseStart('Load index.html → DOMContentLoaded');
     const navStart = Date.now();
     reqs.forEach((r) => (r.startedFromNav = r.startedAt - navStart));
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
         timeout: 60000,
     });

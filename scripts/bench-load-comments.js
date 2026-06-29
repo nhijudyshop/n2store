@@ -64,7 +64,7 @@ const POST = {
 
     // Cũng login vào n2store (Pancake token sẵn trong localStorage Pancake)
     console.log('Load n2store để có Pancake token...');
-    await page.goto('https://nhijudy.store/tpos-pancake/index.html', {
+    await page.goto('https://nhijudy.store/live-chat/index.html', {
         waitUntil: 'domcontentloaded',
         timeout: 60000,
     });

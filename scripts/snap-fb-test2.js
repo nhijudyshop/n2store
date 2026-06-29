@@ -29,7 +29,7 @@ const BASE = process.env.BASE || 'http://localhost:8080';
 
     console.log('[test2] Opening tpos-pancake...');
     const tposPage = await ctx.newPage();
-    await tposPage.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await tposPage.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await tposPage.waitForTimeout(5000);

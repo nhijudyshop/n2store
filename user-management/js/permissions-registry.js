@@ -27,247 +27,471 @@ const PAGES_REGISTRY = {
     // REMOVED: livestream (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
 
-
     inbox: {
-        id: "inbox",
-        name: "Inbox Chat",
-        shortName: "Chat",
-        icon: "messages-square",
-        href: "../inbox/index.html",
-        description: "Chat trực tiếp với khách hàng qua Pancake",
+        id: 'inbox',
+        name: 'Inbox Chat',
+        shortName: 'Chat',
+        icon: 'messages-square',
+        href: '../inbox/index.html',
+        description: 'Chat trực tiếp với khách hàng qua Pancake',
         adminOnly: false,
-        category: "sales",
+        category: 'sales',
         detailedPermissions: {
-            manage_labels: { name: "Quản lý nhãn", icon: "tags", description: "Phân nhóm và gắn nhãn hội thoại" },
-            create_order: { name: "Tạo đơn hàng", icon: "shopping-bag", description: "Tạo đơn hàng từ chat" },
-            settings: { name: "Cài đặt Pancake", icon: "settings", description: "Quản lý tài khoản và token Pancake" }
-        }
+            manage_labels: {
+                name: 'Quản lý nhãn',
+                icon: 'tags',
+                description: 'Phân nhóm và gắn nhãn hội thoại',
+            },
+            create_order: {
+                name: 'Tạo đơn hàng',
+                icon: 'shopping-bag',
+                description: 'Tạo đơn hàng từ chat',
+            },
+            settings: {
+                name: 'Cài đặt Pancake',
+                icon: 'settings',
+                description: 'Quản lý tài khoản và token Pancake',
+            },
+        },
     },
 
-    "don-inbox": {
-        id: "don-inbox",
-        name: "Đơn Inbox",
-        shortName: "Đơn Inbox",
-        icon: "inbox",
-        href: "../don-inbox/index.html",
-        description: "Quản lý đơn hàng từ các kênh mạng xã hội",
+    'don-inbox': {
+        id: 'don-inbox',
+        name: 'Đơn Inbox',
+        shortName: 'Đơn Inbox',
+        icon: 'inbox',
+        href: '../don-inbox/index.html',
+        description: 'Quản lý đơn hàng từ các kênh mạng xã hội',
         adminOnly: false,
-        category: "sales",
+        category: 'sales',
         detailedPermissions: {
-            view: { name: "Xem đơn hàng", icon: "eye", description: "Xem danh sách đơn hàng inbox" },
-            create: { name: "Tạo đơn mới", icon: "plus-square", description: "Tạo đơn hàng inbox mới" },
-            edit: { name: "Sửa đơn hàng", icon: "edit", description: "Chỉnh sửa thông tin đơn hàng" },
-            delete: { name: "Xóa đơn hàng", icon: "trash-2", description: "Xóa đơn hàng khỏi danh sách" },
-            manage_tags: { name: "Quản lý tag", icon: "tags", description: "Tạo, sửa, xóa và gán tag cho đơn hàng" },
-            bulk_tag: { name: "Gán tag hàng loạt", icon: "layers", description: "Gán tag cho nhiều đơn cùng lúc" },
-            column_settings: { name: "Cài đặt cột", icon: "columns", description: "Tùy chỉnh hiển thị cột trong bảng" },
-            export: { name: "Xuất dữ liệu", icon: "download", description: "Export danh sách đơn hàng" },
-            create_retail_sale: { name: "Tạo đơn bán lẻ", icon: "shopping-bag", description: "Chuyển đơn inbox sang đơn bán lẻ" }
-        }
+            view: {
+                name: 'Xem đơn hàng',
+                icon: 'eye',
+                description: 'Xem danh sách đơn hàng inbox',
+            },
+            create: {
+                name: 'Tạo đơn mới',
+                icon: 'plus-square',
+                description: 'Tạo đơn hàng inbox mới',
+            },
+            edit: {
+                name: 'Sửa đơn hàng',
+                icon: 'edit',
+                description: 'Chỉnh sửa thông tin đơn hàng',
+            },
+            delete: {
+                name: 'Xóa đơn hàng',
+                icon: 'trash-2',
+                description: 'Xóa đơn hàng khỏi danh sách',
+            },
+            manage_tags: {
+                name: 'Quản lý tag',
+                icon: 'tags',
+                description: 'Tạo, sửa, xóa và gán tag cho đơn hàng',
+            },
+            bulk_tag: {
+                name: 'Gán tag hàng loạt',
+                icon: 'layers',
+                description: 'Gán tag cho nhiều đơn cùng lúc',
+            },
+            column_settings: {
+                name: 'Cài đặt cột',
+                icon: 'columns',
+                description: 'Tùy chỉnh hiển thị cột trong bảng',
+            },
+            export: {
+                name: 'Xuất dữ liệu',
+                icon: 'download',
+                description: 'Export danh sách đơn hàng',
+            },
+            create_retail_sale: {
+                name: 'Tạo đơn bán lẻ',
+                icon: 'shopping-bag',
+                description: 'Chuyển đơn inbox sang đơn bán lẻ',
+            },
+        },
     },
 
     // =====================================================
     // CATEGORY: WAREHOUSE - Kho & Nhận hàng
     // =====================================================
-    "product-warehouse": {
-        id: "product-warehouse",
-        name: "Kho Sản Phẩm",
-        shortName: "Kho SP",
-        icon: "warehouse",
-        href: "../product-warehouse/index.html",
-        description: "Xem và tìm kiếm sản phẩm trong kho. Tất cả user đều có quyền truy cập.",
+    'product-warehouse': {
+        id: 'product-warehouse',
+        name: 'Kho Sản Phẩm',
+        shortName: 'Kho SP',
+        icon: 'warehouse',
+        href: '../product-warehouse/index.html',
+        description: 'Xem và tìm kiếm sản phẩm trong kho. Tất cả user đều có quyền truy cập.',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            view: { name: "Xem sản phẩm", icon: "eye", description: "Xem danh sách sản phẩm trong kho" },
-            search: { name: "Tìm kiếm", icon: "search", description: "Tìm kiếm sản phẩm theo mã, tên" }
-        }
+            view: {
+                name: 'Xem sản phẩm',
+                icon: 'eye',
+                description: 'Xem danh sách sản phẩm trong kho',
+            },
+            search: {
+                name: 'Tìm kiếm',
+                icon: 'search',
+                description: 'Tìm kiếm sản phẩm theo mã, tên',
+            },
+        },
     },
 
     nhanhang: {
-        id: "nhanhang",
-        name: "Cân Nặng Hàng",
-        shortName: "Cân Hàng",
-        icon: "scale",
-        href: "../nhanhang/index.html",
-        description: "Quản lý cân nặng và nhận hàng từ NCC",
+        id: 'nhanhang',
+        name: 'Cân Nặng Hàng',
+        shortName: 'Cân Hàng',
+        icon: 'scale',
+        href: '../nhanhang/index.html',
+        description: 'Quản lý cân nặng và nhận hàng từ NCC',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            view: { name: "Xem đơn nhận", icon: "eye", description: "Xem danh sách đơn nhận hàng" },
-            create: { name: "Tạo đơn nhận", icon: "plus-square", description: "Tạo đơn nhận hàng mới" },
-            confirm: { name: "Xác nhận nhận", icon: "check-circle", description: "Xác nhận đã nhận hàng" },
-            edit: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa đơn nhận" },
-            cancel: { name: "Hủy đơn", icon: "x-circle", description: "Hủy đơn nhận hàng" },
-            weigh: { name: "Cân hàng", icon: "scale", description: "Nhập cân nặng hàng hóa" }
-        }
+            view: { name: 'Xem đơn nhận', icon: 'eye', description: 'Xem danh sách đơn nhận hàng' },
+            create: {
+                name: 'Tạo đơn nhận',
+                icon: 'plus-square',
+                description: 'Tạo đơn nhận hàng mới',
+            },
+            confirm: {
+                name: 'Xác nhận nhận',
+                icon: 'check-circle',
+                description: 'Xác nhận đã nhận hàng',
+            },
+            edit: { name: 'Sửa thông tin', icon: 'edit', description: 'Chỉnh sửa đơn nhận' },
+            cancel: { name: 'Hủy đơn', icon: 'x-circle', description: 'Hủy đơn nhận hàng' },
+            weigh: { name: 'Cân hàng', icon: 'scale', description: 'Nhập cân nặng hàng hóa' },
+        },
     },
 
     inventoryTracking: {
-        id: "inventoryTracking",
-        name: "Theo Dõi Nhập Hàng SL",
-        shortName: "Nhập Hàng",
-        icon: "package-search",
-        href: "../inventory-tracking/index.html",
-        description: "Theo dõi nhập hàng số lượng và công nợ chuyến lấy hàng",
+        id: 'inventoryTracking',
+        name: 'Theo Dõi Nhập Hàng SL',
+        shortName: 'Nhập Hàng',
+        icon: 'package-search',
+        href: '../inventory-tracking/index.html',
+        description: 'Theo dõi nhập hàng số lượng và công nợ chuyến lấy hàng',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            tab_tracking: { name: "Xem tab Theo dõi", icon: "eye", description: "Truy cập tab theo dõi đơn hàng" },
-            tab_congNo: { name: "Xem tab Công nợ", icon: "wallet", description: "Truy cập tab quản lý tài chính" },
-            create_shipment: { name: "Thêm đợt hàng", icon: "plus-circle", description: "Tạo đợt hàng mới" },
-            edit_shipment: { name: "Sửa đợt hàng", icon: "edit", description: "Chỉnh sửa thông tin đợt hàng" },
-            delete_shipment: { name: "Xóa đợt hàng", icon: "trash-2", description: "Xóa đợt hàng khỏi hệ thống" },
-            view_chiPhiHangVe: { name: "Xem chi phí hàng về", icon: "dollar-sign", description: "Xem chi phí vận chuyển" },
-            edit_chiPhiHangVe: { name: "Sửa chi phí hàng về", icon: "edit-3", description: "Chỉnh sửa chi phí vận chuyển" },
-            view_thanhToanCK: { name: "Thanh Toán CK (Stats + Panel)", icon: "wallet", description: "Xem thanh thống kê ngang (Tổng KG/HĐ/CP/TT/Còn Lại), mở & chỉnh sửa panel Thanh Toán CK theo đợt" },
-            view_ghiChuAdmin: { name: "Xem ghi chú Admin", icon: "file-text", description: "Xem ghi chú nội bộ" },
-            edit_ghiChuAdmin: { name: "Sửa ghi chú Admin", icon: "edit-3", description: "Chỉnh sửa ghi chú nội bộ" },
-            edit_soMonThieu: { name: "Cập nhật số thiếu", icon: "clipboard-check", description: "Ghi nhận hàng thiếu" },
-            create_prepayment: { name: "Thêm thanh toán trước", icon: "plus", description: "Tạo khoản thanh toán trước" },
-            edit_prepayment: { name: "Sửa thanh toán trước", icon: "edit", description: "Chỉnh sửa thanh toán trước" },
-            delete_prepayment: { name: "Xóa thanh toán trước", icon: "trash", description: "Xóa khoản thanh toán trước" },
-            create_otherExpense: { name: "Thêm chi phí khác", icon: "plus", description: "Tạo chi phí phát sinh" },
-            edit_otherExpense: { name: "Sửa chi phí khác", icon: "edit", description: "Chỉnh sửa chi phí phát sinh" },
-            delete_otherExpense: { name: "Xóa chi phí khác", icon: "trash", description: "Xóa chi phí phát sinh" },
-            edit_invoice_from_finance: { name: "Sửa HĐ từ Công nợ", icon: "edit-2", description: "Sửa hóa đơn từ tab công nợ" },
-            edit_shipping_from_finance: { name: "Sửa CP từ Công nợ", icon: "edit-2", description: "Sửa chi phí từ tab công nợ" },
-            export_data: { name: "Xuất Excel", icon: "download", description: "Export dữ liệu ra Excel" }
-        }
+            tab_tracking: {
+                name: 'Xem tab Theo dõi',
+                icon: 'eye',
+                description: 'Truy cập tab theo dõi đơn hàng',
+            },
+            tab_congNo: {
+                name: 'Xem tab Công nợ',
+                icon: 'wallet',
+                description: 'Truy cập tab quản lý tài chính',
+            },
+            create_shipment: {
+                name: 'Thêm đợt hàng',
+                icon: 'plus-circle',
+                description: 'Tạo đợt hàng mới',
+            },
+            edit_shipment: {
+                name: 'Sửa đợt hàng',
+                icon: 'edit',
+                description: 'Chỉnh sửa thông tin đợt hàng',
+            },
+            delete_shipment: {
+                name: 'Xóa đợt hàng',
+                icon: 'trash-2',
+                description: 'Xóa đợt hàng khỏi hệ thống',
+            },
+            view_chiPhiHangVe: {
+                name: 'Xem chi phí hàng về',
+                icon: 'dollar-sign',
+                description: 'Xem chi phí vận chuyển',
+            },
+            edit_chiPhiHangVe: {
+                name: 'Sửa chi phí hàng về',
+                icon: 'edit-3',
+                description: 'Chỉnh sửa chi phí vận chuyển',
+            },
+            view_thanhToanCK: {
+                name: 'Thanh Toán CK (Stats + Panel)',
+                icon: 'wallet',
+                description:
+                    'Xem thanh thống kê ngang (Tổng KG/HĐ/CP/TT/Còn Lại), mở & chỉnh sửa panel Thanh Toán CK theo đợt',
+            },
+            view_ghiChuAdmin: {
+                name: 'Xem ghi chú Admin',
+                icon: 'file-text',
+                description: 'Xem ghi chú nội bộ',
+            },
+            edit_ghiChuAdmin: {
+                name: 'Sửa ghi chú Admin',
+                icon: 'edit-3',
+                description: 'Chỉnh sửa ghi chú nội bộ',
+            },
+            edit_soMonThieu: {
+                name: 'Cập nhật số thiếu',
+                icon: 'clipboard-check',
+                description: 'Ghi nhận hàng thiếu',
+            },
+            create_prepayment: {
+                name: 'Thêm thanh toán trước',
+                icon: 'plus',
+                description: 'Tạo khoản thanh toán trước',
+            },
+            edit_prepayment: {
+                name: 'Sửa thanh toán trước',
+                icon: 'edit',
+                description: 'Chỉnh sửa thanh toán trước',
+            },
+            delete_prepayment: {
+                name: 'Xóa thanh toán trước',
+                icon: 'trash',
+                description: 'Xóa khoản thanh toán trước',
+            },
+            create_otherExpense: {
+                name: 'Thêm chi phí khác',
+                icon: 'plus',
+                description: 'Tạo chi phí phát sinh',
+            },
+            edit_otherExpense: {
+                name: 'Sửa chi phí khác',
+                icon: 'edit',
+                description: 'Chỉnh sửa chi phí phát sinh',
+            },
+            delete_otherExpense: {
+                name: 'Xóa chi phí khác',
+                icon: 'trash',
+                description: 'Xóa chi phí phát sinh',
+            },
+            edit_invoice_from_finance: {
+                name: 'Sửa HĐ từ Công nợ',
+                icon: 'edit-2',
+                description: 'Sửa hóa đơn từ tab công nợ',
+            },
+            edit_shipping_from_finance: {
+                name: 'Sửa CP từ Công nợ',
+                icon: 'edit-2',
+                description: 'Sửa chi phí từ tab công nợ',
+            },
+            export_data: {
+                name: 'Xuất Excel',
+                icon: 'download',
+                description: 'Export dữ liệu ra Excel',
+            },
+        },
     },
 
     hanghoan: {
-        id: "hanghoan",
-        name: "Hàng Hoàn",
-        shortName: "Hoàn",
-        icon: "corner-up-left",
-        href: "../hanghoan/index.html",
-        description: "Xử lý hàng hoàn trả từ khách",
+        id: 'hanghoan',
+        name: 'Hàng Hoàn',
+        shortName: 'Hoàn',
+        icon: 'corner-up-left',
+        href: '../hanghoan/index.html',
+        description: 'Xử lý hàng hoàn trả từ khách',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            view: { name: "Xem đơn hoàn", icon: "eye", description: "Xem danh sách hàng hoàn" },
-            approve: { name: "Duyệt hoàn", icon: "check-circle", description: "Phê duyệt yêu cầu hoàn" },
-            reject: { name: "Từ chối", icon: "x-circle", description: "Từ chối yêu cầu hoàn" },
-            refund: { name: "Hoàn tiền", icon: "dollar-sign", description: "Xử lý hoàn tiền" },
-            update: { name: "Cập nhật", icon: "refresh-cw", description: "Cập nhật trạng thái" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export danh sách hoàn" }
-        }
+            view: { name: 'Xem đơn hoàn', icon: 'eye', description: 'Xem danh sách hàng hoàn' },
+            approve: {
+                name: 'Duyệt hoàn',
+                icon: 'check-circle',
+                description: 'Phê duyệt yêu cầu hoàn',
+            },
+            reject: { name: 'Từ chối', icon: 'x-circle', description: 'Từ chối yêu cầu hoàn' },
+            refund: { name: 'Hoàn tiền', icon: 'dollar-sign', description: 'Xử lý hoàn tiền' },
+            update: { name: 'Cập nhật', icon: 'refresh-cw', description: 'Cập nhật trạng thái' },
+            export: {
+                name: 'Xuất báo cáo',
+                icon: 'download',
+                description: 'Export danh sách hoàn',
+            },
+        },
     },
 
-    "product-search": {
-        id: "product-search",
-        name: "Tìm Kiếm Sản Phẩm",
-        shortName: "Tìm SP",
-        icon: "search",
-        href: "../product-search/index.html",
-        description: "Tìm kiếm và tra cứu sản phẩm trong kho",
+    'product-search': {
+        id: 'product-search',
+        name: 'Tìm Kiếm Sản Phẩm',
+        shortName: 'Tìm SP',
+        icon: 'search',
+        href: '../product-search/index.html',
+        description: 'Tìm kiếm và tra cứu sản phẩm trong kho',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            view: { name: "Xem & tìm kiếm", icon: "eye", description: "Tìm kiếm sản phẩm" },
-            viewStock: { name: "Xem tồn kho", icon: "package", description: "Xem số lượng tồn kho" },
-            viewPrice: { name: "Xem giá", icon: "dollar-sign", description: "Xem giá sản phẩm" },
-            export: { name: "Xuất danh sách", icon: "download", description: "Export kết quả tìm kiếm" }
-        }
+            view: { name: 'Xem & tìm kiếm', icon: 'eye', description: 'Tìm kiếm sản phẩm' },
+            viewStock: {
+                name: 'Xem tồn kho',
+                icon: 'package',
+                description: 'Xem số lượng tồn kho',
+            },
+            viewPrice: { name: 'Xem giá', icon: 'dollar-sign', description: 'Xem giá sản phẩm' },
+            export: {
+                name: 'Xuất danh sách',
+                icon: 'download',
+                description: 'Export kết quả tìm kiếm',
+            },
+        },
     },
 
-    "soluong-live": {
-        id: "soluong-live",
-        name: "Số Lượng Live",
-        shortName: "Số Lượng",
-        icon: "package-check",
-        href: "../soluong-live/index.html",
-        description: "Theo dõi số lượng sản phẩm khi livestream và bán qua social",
+    'soluong-live': {
+        id: 'soluong-live',
+        name: 'Số Lượng Live',
+        shortName: 'Số Lượng',
+        icon: 'package-check',
+        href: '../soluong-live/index.html',
+        description: 'Theo dõi số lượng sản phẩm khi livestream và bán qua social',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            livestream: { name: "Bán hàng Livestream", icon: "video", description: "Truy cập trang bán hàng Livestream" },
-            social: { name: "Bán hàng Social", icon: "message-circle", description: "Truy cập trang bán hàng Social (Facebook, etc.)" },
-            viewReport: { name: "Xem báo cáo bán", icon: "bar-chart", description: "Xem báo cáo thống kê bán hàng" }
-        }
+            livestream: {
+                name: 'Bán hàng Livestream',
+                icon: 'video',
+                description: 'Truy cập trang bán hàng Livestream',
+            },
+            social: {
+                name: 'Bán hàng Social',
+                icon: 'message-circle',
+                description: 'Truy cập trang bán hàng Social (Facebook, etc.)',
+            },
+            viewReport: {
+                name: 'Xem báo cáo bán',
+                icon: 'bar-chart',
+                description: 'Xem báo cáo thống kê bán hàng',
+            },
+        },
     },
 
-    "live-order-book": {
-        id: "live-order-book",
-        name: "Sổ Order NCC Live",
-        shortName: "Order NCC",
-        icon: "clipboard-list",
-        href: "../live-order-book/index.html",
-        description: "Quản lý sổ đặt hàng NCC theo đợt live",
+    'live-order-book': {
+        id: 'live-order-book',
+        name: 'Sổ Order NCC Live',
+        shortName: 'Order NCC',
+        icon: 'clipboard-list',
+        href: '../live-order-book/index.html',
+        description: 'Quản lý sổ đặt hàng NCC theo đợt live',
         adminOnly: false,
-        category: "warehouse",
+        category: 'warehouse',
         detailedPermissions: {
-            manage: { name: "Quản lý đợt live", icon: "calendar", description: "Tạo, xóa, đổi tên đợt live" },
-            editQty: { name: "Chỉnh số lượng", icon: "edit", description: "Chỉnh sửa số lượng tổng và đã đặt" },
-            viewDisplay: { name: "Xem trang phóng to", icon: "monitor", description: "Truy cập trang hiển thị grid" }
-        }
+            manage: {
+                name: 'Quản lý đợt live',
+                icon: 'calendar',
+                description: 'Tạo, xóa, đổi tên đợt live',
+            },
+            editQty: {
+                name: 'Chỉnh số lượng',
+                icon: 'edit',
+                description: 'Chỉnh sửa số lượng tổng và đã đặt',
+            },
+            viewDisplay: {
+                name: 'Xem trang phóng to',
+                icon: 'monitor',
+                description: 'Truy cập trang hiển thị grid',
+            },
+        },
     },
 
     // =====================================================
     // CATEGORY: ORDERS - Đơn hàng & Thanh toán
     // =====================================================
-    "order-management": {
-        id: "order-management",
-        name: "Quản Lý Order",
-        shortName: "Order",
-        icon: "package-check",
-        href: "../order-management/index.html",
-        description: "Quản lý đơn hàng tổng hợp",
+    'order-management': {
+        id: 'order-management',
+        name: 'Quản Lý Order',
+        shortName: 'Order',
+        icon: 'package-check',
+        href: '../order-management/index.html',
+        description: 'Quản lý đơn hàng tổng hợp',
         adminOnly: false,
-        category: "orders",
+        category: 'orders',
         detailedPermissions: {
-            view: { name: "Xem đơn hàng", icon: "eye", description: "Xem danh sách đơn" },
-            create: { name: "Tạo đơn", icon: "plus-circle", description: "Tạo đơn hàng mới" },
-            edit: { name: "Sửa đơn", icon: "edit", description: "Chỉnh sửa đơn hàng" },
-            updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi status đơn" },
-            cancel: { name: "Hủy đơn", icon: "x-circle", description: "Hủy đơn hàng" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export đơn hàng" },
-            print: { name: "In đơn", icon: "printer", description: "In phiếu đơn hàng" }
-        }
+            view: { name: 'Xem đơn hàng', icon: 'eye', description: 'Xem danh sách đơn' },
+            create: { name: 'Tạo đơn', icon: 'plus-circle', description: 'Tạo đơn hàng mới' },
+            edit: { name: 'Sửa đơn', icon: 'edit', description: 'Chỉnh sửa đơn hàng' },
+            updateStatus: {
+                name: 'Cập nhật trạng thái',
+                icon: 'refresh-cw',
+                description: 'Thay đổi status đơn',
+            },
+            cancel: { name: 'Hủy đơn', icon: 'x-circle', description: 'Hủy đơn hàng' },
+            export: { name: 'Xuất báo cáo', icon: 'download', description: 'Export đơn hàng' },
+            print: { name: 'In đơn', icon: 'printer', description: 'In phiếu đơn hàng' },
+        },
     },
 
-    "order-log": {
-        id: "order-log",
-        name: "Sổ Order",
-        shortName: "Sổ Order",
-        icon: "book-open",
-        href: "../soorder/index.html",
-        description: "Sổ ghi chép đơn hàng",
+    'order-log': {
+        id: 'order-log',
+        name: 'Sổ Order',
+        shortName: 'Sổ Order',
+        icon: 'book-open',
+        href: '../soorder/index.html',
+        description: 'Sổ ghi chép đơn hàng',
         adminOnly: false,
-        category: "orders",
+        category: 'orders',
         detailedPermissions: {
-            view: { name: "Xem sổ order", icon: "eye", description: "Xem sổ ghi chép" },
-            add: { name: "Thêm ghi chép", icon: "plus-circle", description: "Thêm entry mới" },
-            edit: { name: "Sửa ghi chép", icon: "edit", description: "Chỉnh sửa entry" },
-            delete: { name: "Xóa ghi chép", icon: "trash-2", description: "Xóa entry" },
-            export: { name: "Xuất sổ", icon: "download", description: "Export sổ order" }
-        }
+            view: { name: 'Xem sổ order', icon: 'eye', description: 'Xem sổ ghi chép' },
+            add: { name: 'Thêm ghi chép', icon: 'plus-circle', description: 'Thêm entry mới' },
+            edit: { name: 'Sửa ghi chép', icon: 'edit', description: 'Chỉnh sửa entry' },
+            delete: { name: 'Xóa ghi chép', icon: 'trash-2', description: 'Xóa entry' },
+            export: { name: 'Xuất sổ', icon: 'download', description: 'Export sổ order' },
+        },
     },
 
-    "purchase-orders": {
-        id: "purchase-orders",
-        name: "Quản Lý Đặt Hàng",
-        shortName: "Đặt Hàng",
-        icon: "shopping-bag",
-        href: "../purchase-orders/index.html",
-        description: "Quản lý đơn đặt hàng từ nhà cung cấp",
+    'purchase-orders': {
+        id: 'purchase-orders',
+        name: 'Quản Lý Đặt Hàng',
+        shortName: 'Đặt Hàng',
+        icon: 'shopping-bag',
+        href: '../purchase-orders/index.html',
+        description: 'Quản lý đơn đặt hàng từ nhà cung cấp',
         adminOnly: false,
-        category: "orders",
+        category: 'orders',
         detailedPermissions: {
-            view: { name: "Xem đơn đặt hàng", icon: "eye", description: "Xem danh sách đơn đặt hàng" },
-            create: { name: "Tạo đơn đặt hàng", icon: "plus-circle", description: "Tạo đơn đặt hàng mới" },
-            edit: { name: "Sửa đơn đặt hàng", icon: "edit", description: "Chỉnh sửa đơn đặt hàng" },
-            delete: { name: "Xóa đơn đặt hàng", icon: "trash-2", description: "Xóa đơn đặt hàng" },
-            submit: { name: "Submit đơn", icon: "send", description: "Submit đơn nháp để xử lý" },
-            export: { name: "Xuất Excel", icon: "download", description: "Export đơn đặt hàng ra Excel" },
-            bulkActions: { name: "Thao tác hàng loạt", icon: "check-square", description: "Chọn nhiều đơn để export/xóa" },
-            syncTpos: { name: "Đồng bộ TPOS", icon: "refresh-cw", description: "Đồng bộ sản phẩm lên TPOS" },
-            uploadImages: { name: "Upload ảnh", icon: "image", description: "Tải lên ảnh sản phẩm, giá, hóa đơn" },
-            manageProducts: { name: "Quản lý sản phẩm", icon: "package", description: "Thêm/sửa sản phẩm trong đơn" },
-            receiveGoods: { name: "Nhận hàng", icon: "package-check", description: "Xác nhận nhận hàng từ NCC" },
-            updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi trạng thái đơn hàng" }
-        }
+            view: {
+                name: 'Xem đơn đặt hàng',
+                icon: 'eye',
+                description: 'Xem danh sách đơn đặt hàng',
+            },
+            create: {
+                name: 'Tạo đơn đặt hàng',
+                icon: 'plus-circle',
+                description: 'Tạo đơn đặt hàng mới',
+            },
+            edit: { name: 'Sửa đơn đặt hàng', icon: 'edit', description: 'Chỉnh sửa đơn đặt hàng' },
+            delete: { name: 'Xóa đơn đặt hàng', icon: 'trash-2', description: 'Xóa đơn đặt hàng' },
+            submit: { name: 'Submit đơn', icon: 'send', description: 'Submit đơn nháp để xử lý' },
+            export: {
+                name: 'Xuất Excel',
+                icon: 'download',
+                description: 'Export đơn đặt hàng ra Excel',
+            },
+            bulkActions: {
+                name: 'Thao tác hàng loạt',
+                icon: 'check-square',
+                description: 'Chọn nhiều đơn để export/xóa',
+            },
+            syncTpos: {
+                name: 'Đồng bộ TPOS',
+                icon: 'refresh-cw',
+                description: 'Đồng bộ sản phẩm lên TPOS',
+            },
+            uploadImages: {
+                name: 'Upload ảnh',
+                icon: 'image',
+                description: 'Tải lên ảnh sản phẩm, giá, hóa đơn',
+            },
+            manageProducts: {
+                name: 'Quản lý sản phẩm',
+                icon: 'package',
+                description: 'Thêm/sửa sản phẩm trong đơn',
+            },
+            receiveGoods: {
+                name: 'Nhận hàng',
+                icon: 'package-check',
+                description: 'Xác nhận nhận hàng từ NCC',
+            },
+            updateStatus: {
+                name: 'Cập nhật trạng thái',
+                icon: 'refresh-cw',
+                description: 'Thay đổi trạng thái đơn hàng',
+            },
+        },
     },
 
     // REMOVED: order-live-tracking (module deleted - cleanup task 9.1)
@@ -276,279 +500,535 @@ const PAGES_REGISTRY = {
     // CATEGORY: REPORTS - Báo cáo & Thống kê
     // =====================================================
     baocaosaleonline: {
-        id: "baocaosaleonline",
-        name: "Báo Cáo Sale-Online",
-        shortName: "SaleOnline",
-        icon: "shopping-cart",
-        href: "../orders-report/main.html",
-        description: "Báo cáo bán hàng online tổng hợp",
+        id: 'baocaosaleonline',
+        name: 'Báo Cáo Sale-Online',
+        shortName: 'SaleOnline',
+        icon: 'shopping-cart',
+        href: '../orders-report/main.html',
+        description: 'Báo cáo bán hàng online tổng hợp',
         adminOnly: false,
-        category: "reports",
+        category: 'reports',
         detailedPermissions: {
-            view: { name: "Xem báo cáo", icon: "eye", description: "Xem thống kê sale online" },
-            viewRevenue: { name: "Xem doanh thu", icon: "dollar-sign", description: "Xem số liệu doanh thu" },
-            viewDetails: { name: "Xem chi tiết", icon: "list", description: "Xem báo cáo chi tiết" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo" },
-            compare: { name: "So sánh", icon: "git-compare", description: "So sánh các kỳ báo cáo" },
-            viewAnalysis: { name: "Xem Phân tích hiệu quả", icon: "trending-up", description: "Truy cập tab Phân tích hiệu quả" },
-            editAnalysis: { name: "Chỉnh sửa Phân tích", icon: "edit", description: "Chỉnh sửa thông số trong tab Phân tích" },
-            canMarkOrderChecked: { name: "Xác nhận kiểm tra đơn (KPI)", icon: "check-circle", description: "Thấy và bấm xác nhận 'Đã kiểm tra' khi đóng modal Chi tiết đơn trong tab KPI - HOA HỒNG" }
-        }
+            view: { name: 'Xem báo cáo', icon: 'eye', description: 'Xem thống kê sale online' },
+            viewRevenue: {
+                name: 'Xem doanh thu',
+                icon: 'dollar-sign',
+                description: 'Xem số liệu doanh thu',
+            },
+            viewDetails: {
+                name: 'Xem chi tiết',
+                icon: 'list',
+                description: 'Xem báo cáo chi tiết',
+            },
+            export: { name: 'Xuất báo cáo', icon: 'download', description: 'Export báo cáo' },
+            compare: {
+                name: 'So sánh',
+                icon: 'git-compare',
+                description: 'So sánh các kỳ báo cáo',
+            },
+            viewAnalysis: {
+                name: 'Xem Phân tích hiệu quả',
+                icon: 'trending-up',
+                description: 'Truy cập tab Phân tích hiệu quả',
+            },
+            editAnalysis: {
+                name: 'Chỉnh sửa Phân tích',
+                icon: 'edit',
+                description: 'Chỉnh sửa thông số trong tab Phân tích',
+            },
+            canMarkOrderChecked: {
+                name: 'Xác nhận kiểm tra đơn (KPI)',
+                icon: 'check-circle',
+                description:
+                    "Thấy và bấm xác nhận 'Đã kiểm tra' khi đóng modal Chi tiết đơn trong tab KPI - HOA HỒNG",
+            },
+        },
     },
 
-    "tpos-pancake": {
-        id: "tpos-pancake",
-        name: "Tpos - Pancake",
-        shortName: "Tpos-Pancake",
-        icon: "columns",
-        href: "../tpos-pancake/index.html",
-        description: "Tích hợp và đồng bộ TPOS - Pancake",
+    'tpos-pancake': {
+        id: 'tpos-pancake',
+        name: 'Tpos - Pancake',
+        shortName: 'Tpos-Pancake',
+        icon: 'columns',
+        href: '../live-chat/index.html',
+        description: 'Tích hợp và đồng bộ TPOS - Pancake',
         adminOnly: false,
-        category: "reports",
+        category: 'reports',
         detailedPermissions: {
-            view: { name: "Xem dữ liệu", icon: "eye", description: "Xem dữ liệu đồng bộ" },
-            sync: { name: "Đồng bộ", icon: "refresh-cw", description: "Thực hiện đồng bộ dữ liệu" },
-            import: { name: "Import dữ liệu", icon: "upload", description: "Import từ TPOS/Pancake" },
-            export: { name: "Export dữ liệu", icon: "download", description: "Export dữ liệu" },
-            configure: { name: "Cấu hình", icon: "settings", description: "Cấu hình kết nối" }
-        }
+            view: { name: 'Xem dữ liệu', icon: 'eye', description: 'Xem dữ liệu đồng bộ' },
+            sync: { name: 'Đồng bộ', icon: 'refresh-cw', description: 'Thực hiện đồng bộ dữ liệu' },
+            import: {
+                name: 'Import dữ liệu',
+                icon: 'upload',
+                description: 'Import từ TPOS/Pancake',
+            },
+            export: { name: 'Export dữ liệu', icon: 'download', description: 'Export dữ liệu' },
+            configure: { name: 'Cấu hình', icon: 'settings', description: 'Cấu hình kết nối' },
+        },
     },
 
-    "delivery-report": {
-        id: "delivery-report",
-        name: "Thống Kê Giao Hàng",
-        shortName: "Giao Hàng",
-        icon: "truck",
-        href: "../delivery-report/index.html",
-        description: "Thống kê và báo cáo giao hàng",
+    'delivery-report': {
+        id: 'delivery-report',
+        name: 'Thống Kê Giao Hàng',
+        shortName: 'Giao Hàng',
+        icon: 'truck',
+        href: '../delivery-report/index.html',
+        description: 'Thống kê và báo cáo giao hàng',
         adminOnly: false,
-        category: "orders",
+        category: 'orders',
         detailedPermissions: {
-            view: { name: "Xem thống kê", icon: "eye", description: "Xem báo cáo giao hàng" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo giao hàng" },
-            manage: { name: "Quản lý", icon: "settings", description: "Quản lý cấu hình giao hàng" },
-            canMarkOrderChecked: { name: "Xác nhận kiểm tra đơn", icon: "check-circle", description: "Thấy và bấm xác nhận 'Đã kiểm tra' khi đóng modal chi tiết đơn" }
-        }
+            view: { name: 'Xem thống kê', icon: 'eye', description: 'Xem báo cáo giao hàng' },
+            export: {
+                name: 'Xuất báo cáo',
+                icon: 'download',
+                description: 'Export báo cáo giao hàng',
+            },
+            manage: {
+                name: 'Quản lý',
+                icon: 'settings',
+                description: 'Quản lý cấu hình giao hàng',
+            },
+            canMarkOrderChecked: {
+                name: 'Xác nhận kiểm tra đơn',
+                icon: 'check-circle',
+                description: "Thấy và bấm xác nhận 'Đã kiểm tra' khi đóng modal chi tiết đơn",
+            },
+        },
     },
 
     // =====================================================
     // CATEGORY: ADMIN - Quản trị hệ thống
     // =====================================================
-    "user-management": {
-        id: "user-management",
-        name: "Quản Lý Tài Khoản",
-        shortName: "Users",
-        icon: "users",
-        href: "../user-management/index.html",
-        description: "Quản lý users và phân quyền hệ thống",
+    'user-management': {
+        id: 'user-management',
+        name: 'Quản Lý Tài Khoản',
+        shortName: 'Users',
+        icon: 'users',
+        href: '../user-management/index.html',
+        description: 'Quản lý users và phân quyền hệ thống',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem users", icon: "eye", description: "Xem danh sách tài khoản" },
-            create: { name: "Tạo tài khoản", icon: "user-plus", description: "Tạo user mới" },
-            edit: { name: "Sửa user", icon: "edit", description: "Chỉnh sửa thông tin user" },
-            delete: { name: "Xóa tài khoản", icon: "user-minus", description: "Xóa user khỏi hệ thống" },
-            permissions: { name: "Phân quyền", icon: "shield", description: "Cấp/thu hồi quyền" },
-            resetPassword: { name: "Reset mật khẩu", icon: "key", description: "Đặt lại mật khẩu user" },
-            manageTemplates: { name: "Quản lý Templates", icon: "layout-template", description: "Thêm/sửa/xóa các mẫu phân quyền" }
-        }
+            view: { name: 'Xem users', icon: 'eye', description: 'Xem danh sách tài khoản' },
+            create: { name: 'Tạo tài khoản', icon: 'user-plus', description: 'Tạo user mới' },
+            edit: { name: 'Sửa user', icon: 'edit', description: 'Chỉnh sửa thông tin user' },
+            delete: {
+                name: 'Xóa tài khoản',
+                icon: 'user-minus',
+                description: 'Xóa user khỏi hệ thống',
+            },
+            permissions: { name: 'Phân quyền', icon: 'shield', description: 'Cấp/thu hồi quyền' },
+            resetPassword: {
+                name: 'Reset mật khẩu',
+                icon: 'key',
+                description: 'Đặt lại mật khẩu user',
+            },
+            manageTemplates: {
+                name: 'Quản lý Templates',
+                icon: 'layout-template',
+                description: 'Thêm/sửa/xóa các mẫu phân quyền',
+            },
+        },
     },
 
-    "balance-history": {
-        id: "balance-history",
-        name: "Lịch Sử Biến Động Số Dư",
-        shortName: "Số Dư",
-        icon: "wallet",
-        href: "../balance-history/index.html",
-        description: "Theo dõi lịch sử biến động số dư",
+    'balance-history': {
+        id: 'balance-history',
+        name: 'Lịch Sử Biến Động Số Dư',
+        shortName: 'Số Dư',
+        icon: 'wallet',
+        href: '../balance-history/index.html',
+        description: 'Theo dõi lịch sử biến động số dư',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem lịch sử", icon: "eye", description: "Xem biến động số dư" },
-            viewDetails: { name: "Xem chi tiết", icon: "list", description: "Xem chi tiết giao dịch" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export lịch sử" },
-            adjust: { name: "Điều chỉnh", icon: "sliders", description: "Điều chỉnh số dư" },
-            resolveMatch: { name: "Chọn khách hàng", icon: "user-check", description: "Chọn KH từ danh sách nhiều SĐT khớp" },
-            skipMatch: { name: "Bỏ qua match", icon: "user-x", description: "Bỏ qua khi không khớp KH" },
-            undoSkip: { name: "Hoàn tác bỏ qua", icon: "rotate-ccw", description: "Hoàn tác các match đã bỏ qua" },
-            viewVerificationQueue: { name: "Xem chờ duyệt", icon: "clock", description: "Xem danh sách giao dịch chờ kế toán duyệt" },
-            approveTransaction: { name: "Duyệt giao dịch", icon: "check-circle", description: "Duyệt giao dịch và cộng tiền vào ví" },
-            rejectTransaction: { name: "Từ chối giao dịch", icon: "x-circle", description: "Từ chối giao dịch không hợp lệ" },
-            createWalletAdjustment: { name: "Điều chỉnh ví", icon: "edit-3", description: "Tạo điều chỉnh ví khi sai mapping" },
-            manualTransactionEntry: { name: "Nhập giao dịch tay", icon: "edit", description: "Nhập giao dịch thủ công" },
-            toggleAutoApprove: { name: "Bật/tắt tự động duyệt", icon: "toggle-right", description: "Bật/tắt chế độ tự động duyệt giao dịch QR/SĐT chính xác" }
-        }
+            view: { name: 'Xem lịch sử', icon: 'eye', description: 'Xem biến động số dư' },
+            viewDetails: {
+                name: 'Xem chi tiết',
+                icon: 'list',
+                description: 'Xem chi tiết giao dịch',
+            },
+            export: { name: 'Xuất báo cáo', icon: 'download', description: 'Export lịch sử' },
+            adjust: { name: 'Điều chỉnh', icon: 'sliders', description: 'Điều chỉnh số dư' },
+            resolveMatch: {
+                name: 'Chọn khách hàng',
+                icon: 'user-check',
+                description: 'Chọn KH từ danh sách nhiều SĐT khớp',
+            },
+            skipMatch: {
+                name: 'Bỏ qua match',
+                icon: 'user-x',
+                description: 'Bỏ qua khi không khớp KH',
+            },
+            undoSkip: {
+                name: 'Hoàn tác bỏ qua',
+                icon: 'rotate-ccw',
+                description: 'Hoàn tác các match đã bỏ qua',
+            },
+            viewVerificationQueue: {
+                name: 'Xem chờ duyệt',
+                icon: 'clock',
+                description: 'Xem danh sách giao dịch chờ kế toán duyệt',
+            },
+            approveTransaction: {
+                name: 'Duyệt giao dịch',
+                icon: 'check-circle',
+                description: 'Duyệt giao dịch và cộng tiền vào ví',
+            },
+            rejectTransaction: {
+                name: 'Từ chối giao dịch',
+                icon: 'x-circle',
+                description: 'Từ chối giao dịch không hợp lệ',
+            },
+            createWalletAdjustment: {
+                name: 'Điều chỉnh ví',
+                icon: 'edit-3',
+                description: 'Tạo điều chỉnh ví khi sai mapping',
+            },
+            manualTransactionEntry: {
+                name: 'Nhập giao dịch tay',
+                icon: 'edit',
+                description: 'Nhập giao dịch thủ công',
+            },
+            toggleAutoApprove: {
+                name: 'Bật/tắt tự động duyệt',
+                icon: 'toggle-right',
+                description: 'Bật/tắt chế độ tự động duyệt giao dịch QR/SĐT chính xác',
+            },
+        },
     },
 
-    "customer-hub": {
-        id: "customer-hub",
-        name: "Customer 360°",
-        shortName: "KH 360",
-        icon: "users",
-        href: "../customer-hub/index.html",
-        description: "Hệ thống Customer 360° - Xem toàn diện thông tin khách hàng",
+    'customer-hub': {
+        id: 'customer-hub',
+        name: 'Customer 360°',
+        shortName: 'KH 360',
+        icon: 'users',
+        href: '../customer-hub/index.html',
+        description: 'Hệ thống Customer 360° - Xem toàn diện thông tin khách hàng',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem Customer 360", icon: "eye", description: "Xem tổng quan khách hàng" },
-            viewWallet: { name: "Xem ví tiền", icon: "wallet", description: "Xem số dư và giao dịch ví" },
-            manageWallet: { name: "Quản lý ví", icon: "credit-card", description: "Nạp/rút/cấp công nợ ảo" },
-            viewTickets: { name: "Xem sự vụ", icon: "clipboard-list", description: "Xem lịch sử sự vụ KH" },
-            createTicket: { name: "Tạo sự vụ", icon: "plus-circle", description: "Tạo sự vụ mới cho KH" },
-            viewActivities: { name: "Xem hoạt động", icon: "activity", description: "Xem timeline hoạt động" },
-            addNote: { name: "Thêm ghi chú", icon: "sticky-note", description: "Thêm ghi chú về KH" },
-            editCustomer: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa thông tin KH" },
-            linkTransactions: { name: "Liên kết giao dịch", icon: "link", description: "Liên kết giao dịch ngân hàng với KH" }
-        }
+            view: {
+                name: 'Xem Customer 360',
+                icon: 'eye',
+                description: 'Xem tổng quan khách hàng',
+            },
+            viewWallet: {
+                name: 'Xem ví tiền',
+                icon: 'wallet',
+                description: 'Xem số dư và giao dịch ví',
+            },
+            manageWallet: {
+                name: 'Quản lý ví',
+                icon: 'credit-card',
+                description: 'Nạp/rút/cấp công nợ ảo',
+            },
+            viewTickets: {
+                name: 'Xem sự vụ',
+                icon: 'clipboard-list',
+                description: 'Xem lịch sử sự vụ KH',
+            },
+            createTicket: {
+                name: 'Tạo sự vụ',
+                icon: 'plus-circle',
+                description: 'Tạo sự vụ mới cho KH',
+            },
+            viewActivities: {
+                name: 'Xem hoạt động',
+                icon: 'activity',
+                description: 'Xem timeline hoạt động',
+            },
+            addNote: {
+                name: 'Thêm ghi chú',
+                icon: 'sticky-note',
+                description: 'Thêm ghi chú về KH',
+            },
+            editCustomer: {
+                name: 'Sửa thông tin',
+                icon: 'edit',
+                description: 'Chỉnh sửa thông tin KH',
+            },
+            linkTransactions: {
+                name: 'Liên kết giao dịch',
+                icon: 'link',
+                description: 'Liên kết giao dịch ngân hàng với KH',
+            },
+        },
     },
 
-    "issue-tracking": {
-        id: "issue-tracking",
-        name: "CSKH - Quản Lý Sự Vụ",
-        shortName: "CSKH",
-        icon: "headphones",
-        href: "../issue-tracking/index.html",
-        description: "Chăm sóc khách hàng - Quản lý sự vụ, hoàn tiền, đổi COD",
+    'issue-tracking': {
+        id: 'issue-tracking',
+        name: 'CSKH - Quản Lý Sự Vụ',
+        shortName: 'CSKH',
+        icon: 'headphones',
+        href: '../issue-tracking/index.html',
+        description: 'Chăm sóc khách hàng - Quản lý sự vụ, hoàn tiền, đổi COD',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem sự vụ", icon: "eye", description: "Xem danh sách sự vụ" },
-            create: { name: "Tạo sự vụ", icon: "plus-circle", description: "Tạo sự vụ mới" },
-            edit: { name: "Sửa sự vụ", icon: "edit", description: "Chỉnh sửa thông tin sự vụ" },
-            delete: { name: "Xóa sự vụ", icon: "trash-2", description: "Xóa sự vụ khỏi hệ thống" },
-            searchOrder: { name: "Tìm đơn hàng", icon: "search", description: "Tìm kiếm đơn hàng theo SĐT/mã đơn" },
-            processRefund: { name: "Xử lý hoàn tiền", icon: "dollar-sign", description: "Thực hiện hoàn tiền cho khách" },
-            receiveGoods: { name: "Nhận hàng hoàn", icon: "package-check", description: "Xác nhận nhận hàng hoàn" },
-            updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi trạng thái sự vụ" },
-            viewFinance: { name: "Xem tài chính", icon: "wallet", description: "Xem thông tin tài chính sự vụ" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export danh sách sự vụ" },
-            issueVirtualCredit: { name: "Cấp công nợ ảo", icon: "credit-card", description: "Bấm nút + Công Nợ Ảo để cấp công nợ cho khách" }
-        }
+            view: { name: 'Xem sự vụ', icon: 'eye', description: 'Xem danh sách sự vụ' },
+            create: { name: 'Tạo sự vụ', icon: 'plus-circle', description: 'Tạo sự vụ mới' },
+            edit: { name: 'Sửa sự vụ', icon: 'edit', description: 'Chỉnh sửa thông tin sự vụ' },
+            delete: { name: 'Xóa sự vụ', icon: 'trash-2', description: 'Xóa sự vụ khỏi hệ thống' },
+            searchOrder: {
+                name: 'Tìm đơn hàng',
+                icon: 'search',
+                description: 'Tìm kiếm đơn hàng theo SĐT/mã đơn',
+            },
+            processRefund: {
+                name: 'Xử lý hoàn tiền',
+                icon: 'dollar-sign',
+                description: 'Thực hiện hoàn tiền cho khách',
+            },
+            receiveGoods: {
+                name: 'Nhận hàng hoàn',
+                icon: 'package-check',
+                description: 'Xác nhận nhận hàng hoàn',
+            },
+            updateStatus: {
+                name: 'Cập nhật trạng thái',
+                icon: 'refresh-cw',
+                description: 'Thay đổi trạng thái sự vụ',
+            },
+            viewFinance: {
+                name: 'Xem tài chính',
+                icon: 'wallet',
+                description: 'Xem thông tin tài chính sự vụ',
+            },
+            export: {
+                name: 'Xuất báo cáo',
+                icon: 'download',
+                description: 'Export danh sách sự vụ',
+            },
+            issueVirtualCredit: {
+                name: 'Cấp công nợ ảo',
+                icon: 'credit-card',
+                description: 'Bấm nút + Công Nợ Ảo để cấp công nợ cho khách',
+            },
+        },
     },
 
-    "invoice-compare": {
-        id: "invoice-compare",
-        name: "So Sánh Đơn Hàng",
-        shortName: "So Sánh",
-        icon: "file-check-2",
-        href: "../invoice-compare/index.html",
-        description: "So sánh và đối chiếu đơn hàng",
+    'invoice-compare': {
+        id: 'invoice-compare',
+        name: 'So Sánh Đơn Hàng',
+        shortName: 'So Sánh',
+        icon: 'file-check-2',
+        href: '../invoice-compare/index.html',
+        description: 'So sánh và đối chiếu đơn hàng',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem so sánh", icon: "eye", description: "Xem kết quả so sánh" },
-            compare: { name: "Thực hiện so sánh", icon: "git-compare", description: "So sánh đơn hàng" },
-            import: { name: "Import dữ liệu", icon: "upload", description: "Import đơn để so sánh" },
-            export: { name: "Xuất kết quả", icon: "download", description: "Export kết quả so sánh" },
-            resolve: { name: "Xử lý sai lệch", icon: "check-circle", description: "Giải quyết sai lệch" }
-        }
+            view: { name: 'Xem so sánh', icon: 'eye', description: 'Xem kết quả so sánh' },
+            compare: {
+                name: 'Thực hiện so sánh',
+                icon: 'git-compare',
+                description: 'So sánh đơn hàng',
+            },
+            import: {
+                name: 'Import dữ liệu',
+                icon: 'upload',
+                description: 'Import đơn để so sánh',
+            },
+            export: {
+                name: 'Xuất kết quả',
+                icon: 'download',
+                description: 'Export kết quả so sánh',
+            },
+            resolve: {
+                name: 'Xử lý sai lệch',
+                icon: 'check-circle',
+                description: 'Giải quyết sai lệch',
+            },
+        },
     },
 
-
-    "supplier-debt": {
-        id: "supplier-debt",
-        name: "Công Nợ Nhà Cung Cấp",
-        shortName: "CN NCC",
-        icon: "receipt",
-        href: "../supplier-debt/index.html",
-        description: "Quản lý công nợ nhà cung cấp",
+    'supplier-debt': {
+        id: 'supplier-debt',
+        name: 'Công Nợ Nhà Cung Cấp',
+        shortName: 'CN NCC',
+        icon: 'receipt',
+        href: '../supplier-debt/index.html',
+        description: 'Quản lý công nợ nhà cung cấp',
         adminOnly: false,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem trang", icon: "eye", description: "Xem trang Công Nợ Nhà Cung Cấp" },
-            payment: { name: "Đăng ký thanh toán", icon: "credit-card", description: "Tạo phiếu thanh toán cho NCC" },
-            deletePayment: { name: "Xóa thanh toán", icon: "trash-2", description: "Xóa phiếu thanh toán đã tạo" },
-            editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit", description: "Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)" },
-            editNotePayment: { name: "Sửa ghi chú thanh toán", icon: "edit-3", description: "Sửa ghi chú web cho bút toán CSH2 (thanh toán NCC)" }
-        }
+            view: { name: 'Xem trang', icon: 'eye', description: 'Xem trang Công Nợ Nhà Cung Cấp' },
+            payment: {
+                name: 'Đăng ký thanh toán',
+                icon: 'credit-card',
+                description: 'Tạo phiếu thanh toán cho NCC',
+            },
+            deletePayment: {
+                name: 'Xóa thanh toán',
+                icon: 'trash-2',
+                description: 'Xóa phiếu thanh toán đã tạo',
+            },
+            editNoteBill: {
+                name: 'Sửa ghi chú hóa đơn',
+                icon: 'edit',
+                description: 'Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)',
+            },
+            editNotePayment: {
+                name: 'Sửa ghi chú thanh toán',
+                icon: 'edit-3',
+                description: 'Sửa ghi chú web cho bút toán CSH2 (thanh toán NCC)',
+            },
+        },
     },
 
-    "quy-trinh": {
-        id: "quy-trinh",
-        name: "Quy Trình Nghiệp Vụ",
-        shortName: "Quy Trình",
-        icon: "book-open",
-        href: "../quy-trinh/index.html",
-        description: "Xem quy trình nghiệp vụ của công ty",
+    'quy-trinh': {
+        id: 'quy-trinh',
+        name: 'Quy Trình Nghiệp Vụ',
+        shortName: 'Quy Trình',
+        icon: 'book-open',
+        href: '../quy-trinh/index.html',
+        description: 'Xem quy trình nghiệp vụ của công ty',
         adminOnly: false,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem quy trình", icon: "eye", description: "Xem các quy trình nghiệp vụ" }
-        }
+            view: {
+                name: 'Xem quy trình',
+                icon: 'eye',
+                description: 'Xem các quy trình nghiệp vụ',
+            },
+        },
     },
 
     soquy: {
-        id: "soquy",
-        name: "Sổ Quỹ",
-        shortName: "Sổ Quỹ",
-        icon: "wallet",
-        href: "../soquy/index.html",
-        description: "Quản lý sổ quỹ, thu chi, và báo cáo tài chính",
+        id: 'soquy',
+        name: 'Sổ Quỹ',
+        shortName: 'Sổ Quỹ',
+        icon: 'wallet',
+        href: '../soquy/index.html',
+        description: 'Quản lý sổ quỹ, thu chi, và báo cáo tài chính',
         adminOnly: false,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            tab_soquy: { name: "Xem tab Sổ Quỹ", icon: "wallet", description: "Truy cập tab Sổ Quỹ" },
-            create_receipt: { name: "Tạo phiếu thu", icon: "plus-circle", description: "Tạo phiếu thu mới" },
-            create_payment: { name: "Tạo phiếu chi", icon: "minus-circle", description: "Tạo phiếu chi CN/KD" },
-            manage_categories: { name: "Quản lý loại chi", icon: "tag", description: "Thêm/xóa loại chi" },
-            manage_sources: { name: "Quản lý nguồn giao dịch", icon: "git-branch", description: "Thêm/xóa nguồn giao dịch" },
-            view_all_transactions: { name: "Xem toàn bộ giao dịch", icon: "eye", description: "Xem giao dịch của tất cả nhân viên" },
-            cancel_voucher: { name: "Hủy phiếu", icon: "x-circle", description: "Hủy phiếu thu/chi" },
-            edit_voucher: { name: "Sửa phiếu", icon: "edit-3", description: "Chỉnh sửa phiếu thu/chi" }
-        }
+            tab_soquy: {
+                name: 'Xem tab Sổ Quỹ',
+                icon: 'wallet',
+                description: 'Truy cập tab Sổ Quỹ',
+            },
+            create_receipt: {
+                name: 'Tạo phiếu thu',
+                icon: 'plus-circle',
+                description: 'Tạo phiếu thu mới',
+            },
+            create_payment: {
+                name: 'Tạo phiếu chi',
+                icon: 'minus-circle',
+                description: 'Tạo phiếu chi CN/KD',
+            },
+            manage_categories: {
+                name: 'Quản lý loại chi',
+                icon: 'tag',
+                description: 'Thêm/xóa loại chi',
+            },
+            manage_sources: {
+                name: 'Quản lý nguồn giao dịch',
+                icon: 'git-branch',
+                description: 'Thêm/xóa nguồn giao dịch',
+            },
+            view_all_transactions: {
+                name: 'Xem toàn bộ giao dịch',
+                icon: 'eye',
+                description: 'Xem giao dịch của tất cả nhân viên',
+            },
+            cancel_voucher: {
+                name: 'Hủy phiếu',
+                icon: 'x-circle',
+                description: 'Hủy phiếu thu/chi',
+            },
+            edit_voucher: {
+                name: 'Sửa phiếu',
+                icon: 'edit-3',
+                description: 'Chỉnh sửa phiếu thu/chi',
+            },
+        },
     },
 
     lichsuchinhsua: {
-        id: "lichsuchinhsua",
-        name: "Lịch Sử Chỉnh Sửa",
-        shortName: "Lịch Sử",
-        icon: "history",
-        href: "../lichsuchinhsua/index.html",
-        description: "Xem lịch sử chỉnh sửa và hoạt động trong hệ thống",
+        id: 'lichsuchinhsua',
+        name: 'Lịch Sử Chỉnh Sửa',
+        shortName: 'Lịch Sử',
+        icon: 'history',
+        href: '../lichsuchinhsua/index.html',
+        description: 'Xem lịch sử chỉnh sửa và hoạt động trong hệ thống',
         adminOnly: false,
         publicAccess: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem lịch sử", icon: "eye", description: "Xem lịch sử chỉnh sửa" },
-            export: { name: "Xuất dữ liệu", icon: "download", description: "Export lịch sử ra file" }
-        }
+            view: { name: 'Xem lịch sử', icon: 'eye', description: 'Xem lịch sử chỉnh sửa' },
+            export: {
+                name: 'Xuất dữ liệu',
+                icon: 'download',
+                description: 'Export lịch sử ra file',
+            },
+        },
     },
 
-    "render-data-manager": {
-        id: "render-data-manager",
-        name: "Render Data Manager",
-        shortName: "DB Data",
-        icon: "database",
-        href: "../render-data-manager/index.html",
-        description: "Quản lý và xem dữ liệu PostgreSQL trên Render",
+    'render-data-manager': {
+        id: 'render-data-manager',
+        name: 'Render Data Manager',
+        shortName: 'DB Data',
+        icon: 'database',
+        href: '../render-data-manager/index.html',
+        description: 'Quản lý và xem dữ liệu PostgreSQL trên Render',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem dữ liệu", icon: "eye", description: "Xem các bảng dữ liệu" },
-            edit: { name: "Sửa dữ liệu", icon: "edit-3", description: "Chỉnh sửa dữ liệu trong bảng" },
-            delete: { name: "Xóa dữ liệu", icon: "trash-2", description: "Xóa dữ liệu" },
-            export: { name: "Xuất dữ liệu", icon: "download", description: "Export dữ liệu" },
-            query: { name: "Chạy query", icon: "terminal", description: "Chạy SQL query tùy chỉnh" }
-        }
+            view: { name: 'Xem dữ liệu', icon: 'eye', description: 'Xem các bảng dữ liệu' },
+            edit: {
+                name: 'Sửa dữ liệu',
+                icon: 'edit-3',
+                description: 'Chỉnh sửa dữ liệu trong bảng',
+            },
+            delete: { name: 'Xóa dữ liệu', icon: 'trash-2', description: 'Xóa dữ liệu' },
+            export: { name: 'Xuất dữ liệu', icon: 'download', description: 'Export dữ liệu' },
+            query: {
+                name: 'Chạy query',
+                icon: 'terminal',
+                description: 'Chạy SQL query tùy chỉnh',
+            },
+        },
     },
 
-    "project-tracker": {
-        id: "project-tracker",
-        name: "Theo Dõi Dự Án",
-        shortName: "Dự Án",
-        icon: "list-checks",
-        href: "../project-tracker/index.html",
-        description: "Theo dõi tiến độ phát triển dự án, tính năng và kế hoạch",
+    'project-tracker': {
+        id: 'project-tracker',
+        name: 'Theo Dõi Dự Án',
+        shortName: 'Dự Án',
+        icon: 'list-checks',
+        href: '../project-tracker/index.html',
+        description: 'Theo dõi tiến độ phát triển dự án, tính năng và kế hoạch',
         adminOnly: true,
-        category: "admin",
+        category: 'admin',
         detailedPermissions: {
-            view: { name: "Xem dashboard", icon: "eye", description: "Xem dashboard và tiến độ dự án" },
-            edit_features: { name: "Sửa tính năng", icon: "edit-3", description: "Cập nhật trạng thái tính năng" },
-            manage_plans: { name: "Quản lý kế hoạch", icon: "calendar", description: "Tạo/sửa/xóa kế hoạch và mục tiêu" },
-            manage_tasks: { name: "Quản lý tasks", icon: "check-square", description: "Tạo/sửa/xóa và check tasks" },
-            sync_md: { name: "Đồng bộ MD", icon: "refresh-cw", description: "Đồng bộ dữ liệu từ/ra file Markdown" }
-        }
-    }
+            view: {
+                name: 'Xem dashboard',
+                icon: 'eye',
+                description: 'Xem dashboard và tiến độ dự án',
+            },
+            edit_features: {
+                name: 'Sửa tính năng',
+                icon: 'edit-3',
+                description: 'Cập nhật trạng thái tính năng',
+            },
+            manage_plans: {
+                name: 'Quản lý kế hoạch',
+                icon: 'calendar',
+                description: 'Tạo/sửa/xóa kế hoạch và mục tiêu',
+            },
+            manage_tasks: {
+                name: 'Quản lý tasks',
+                icon: 'check-square',
+                description: 'Tạo/sửa/xóa và check tasks',
+            },
+            sync_md: {
+                name: 'Đồng bộ MD',
+                icon: 'refresh-cw',
+                description: 'Đồng bộ dữ liệu từ/ra file Markdown',
+            },
+        },
+    },
 };
 
 // =====================================================
@@ -556,40 +1036,40 @@ const PAGES_REGISTRY = {
 // =====================================================
 const PAGE_CATEGORIES = {
     sales: {
-        id: "sales",
-        name: "Bán Hàng & Livestream",
-        icon: "shopping-bag",
-        color: "#10b981", // green
-        order: 1
+        id: 'sales',
+        name: 'Bán Hàng & Livestream',
+        icon: 'shopping-bag',
+        color: '#10b981', // green
+        order: 1,
     },
     warehouse: {
-        id: "warehouse",
-        name: "Kho & Nhận Hàng",
-        icon: "package",
-        color: "#f59e0b", // amber
-        order: 2
+        id: 'warehouse',
+        name: 'Kho & Nhận Hàng',
+        icon: 'package',
+        color: '#f59e0b', // amber
+        order: 2,
     },
     orders: {
-        id: "orders",
-        name: "Đơn Hàng & Thanh Toán",
-        icon: "credit-card",
-        color: "#6366f1", // indigo
-        order: 3
+        id: 'orders',
+        name: 'Đơn Hàng & Thanh Toán',
+        icon: 'credit-card',
+        color: '#6366f1', // indigo
+        order: 3,
     },
     reports: {
-        id: "reports",
-        name: "Báo Cáo & Thống Kê",
-        icon: "bar-chart-2",
-        color: "#8b5cf6", // violet
-        order: 4
+        id: 'reports',
+        name: 'Báo Cáo & Thống Kê',
+        icon: 'bar-chart-2',
+        color: '#8b5cf6', // violet
+        order: 4,
     },
     admin: {
-        id: "admin",
-        name: "Quản Trị Hệ Thống",
-        icon: "shield",
-        color: "#ef4444", // red
-        order: 5
-    }
+        id: 'admin',
+        name: 'Quản Trị Hệ Thống',
+        icon: 'shield',
+        color: '#ef4444', // red
+        order: 5,
+    },
 };
 
 // =====================================================
@@ -597,47 +1077,47 @@ const PAGE_CATEGORIES = {
 // =====================================================
 const PERMISSION_TEMPLATES = {
     manager: {
-        id: "manager",
-        name: "Manager - Quản lý",
-        icon: "briefcase",
-        description: "Quản lý nhân viên, không xóa user",
-        color: "#f59e0b"
+        id: 'manager',
+        name: 'Manager - Quản lý',
+        icon: 'briefcase',
+        description: 'Quản lý nhân viên, không xóa user',
+        color: '#f59e0b',
     },
-    "sales-team": {
-        id: "sales-team",
-        name: "Sales Team - Nhóm bán hàng",
-        icon: "shopping-cart",
-        description: "Quyền liên quan đến bán hàng và livestream",
-        color: "#10b981"
+    'sales-team': {
+        id: 'sales-team',
+        name: 'Sales Team - Nhóm bán hàng',
+        icon: 'shopping-cart',
+        description: 'Quyền liên quan đến bán hàng và livestream',
+        color: '#10b981',
     },
-    "warehouse-team": {
-        id: "warehouse-team",
-        name: "Warehouse Team - Nhóm kho",
-        icon: "package",
-        description: "Quyền liên quan đến kho và nhận hàng",
-        color: "#6366f1"
+    'warehouse-team': {
+        id: 'warehouse-team',
+        name: 'Warehouse Team - Nhóm kho',
+        icon: 'package',
+        description: 'Quyền liên quan đến kho và nhận hàng',
+        color: '#6366f1',
     },
     staff: {
-        id: "staff",
-        name: "Staff - Nhân viên",
-        icon: "users",
-        description: "Chỉ xem và chỉnh sửa cơ bản",
-        color: "#3b82f6"
+        id: 'staff',
+        name: 'Staff - Nhân viên',
+        icon: 'users',
+        description: 'Chỉ xem và chỉnh sửa cơ bản',
+        color: '#3b82f6',
     },
     viewer: {
-        id: "viewer",
-        name: "Viewer - Chỉ xem",
-        icon: "eye",
-        description: "Chỉ có quyền xem, không thao tác",
-        color: "#6b7280"
+        id: 'viewer',
+        name: 'Viewer - Chỉ xem',
+        icon: 'eye',
+        description: 'Chỉ có quyền xem, không thao tác',
+        color: '#6b7280',
     },
     custom: {
-        id: "custom",
-        name: "Custom - Tùy chỉnh",
-        icon: "sliders",
-        description: "Quyền được tùy chỉnh riêng",
-        color: "#8b5cf6"
-    }
+        id: 'custom',
+        name: 'Custom - Tùy chỉnh',
+        icon: 'sliders',
+        description: 'Quyền được tùy chỉnh riêng',
+        color: '#8b5cf6',
+    },
 };
 
 // =====================================================
@@ -675,7 +1155,7 @@ function getPageById(pageId) {
  * @returns {Array} Mảng các page thuộc category
  */
 function getPagesByCategory(categoryId) {
-    return Object.values(PAGES_REGISTRY).filter(page => page.category === categoryId);
+    return Object.values(PAGES_REGISTRY).filter((page) => page.category === categoryId);
 }
 
 /**
@@ -685,10 +1165,10 @@ function getPagesByCategory(categoryId) {
 function getPagesGroupedByCategory() {
     const grouped = {};
 
-    Object.values(PAGE_CATEGORIES).forEach(cat => {
+    Object.values(PAGE_CATEGORIES).forEach((cat) => {
         grouped[cat.id] = {
             ...cat,
-            pages: getPagesByCategory(cat.id)
+            pages: getPagesByCategory(cat.id),
         };
     });
 
@@ -700,7 +1180,7 @@ function getPagesGroupedByCategory() {
  * @returns {Array} Mảng các admin-only pages
  */
 function getAdminOnlyPages() {
-    return Object.values(PAGES_REGISTRY).filter(page => page.adminOnly);
+    return Object.values(PAGES_REGISTRY).filter((page) => page.adminOnly);
 }
 
 /**
@@ -708,7 +1188,7 @@ function getAdminOnlyPages() {
  * @returns {Array} Mảng các pages không phải admin-only
  */
 function getNonAdminPages() {
-    return Object.values(PAGES_REGISTRY).filter(page => !page.adminOnly);
+    return Object.values(PAGES_REGISTRY).filter((page) => !page.adminOnly);
 }
 
 /**
@@ -733,7 +1213,7 @@ function getAllDetailedPermissions() {
             name: page.name,
             icon: page.icon,
             description: page.description,
-            subPermissions: page.detailedPermissions
+            subPermissions: page.detailedPermissions,
         };
     });
     return result;
@@ -745,7 +1225,7 @@ function getAllDetailedPermissions() {
  */
 function getTotalPermissionsCount() {
     let count = 0;
-    Object.values(PAGES_REGISTRY).forEach(page => {
+    Object.values(PAGES_REGISTRY).forEach((page) => {
         count += Object.keys(page.detailedPermissions).length;
     });
     return count;
@@ -764,13 +1244,13 @@ function generateTemplatePermissions(templateId) {
         detailedPermissions[pageId] = {};
 
         switch (templateId) {
-            case "manager":
+            case 'manager':
                 // Manager có hầu hết quyền, trừ delete user, restore history, và view_all_transactions (sổ quỹ)
                 pagePermissions.push(pageId);
-                Object.keys(page.detailedPermissions).forEach(subKey => {
-                    if (pageId === "user-management" && subKey === "delete") {
+                Object.keys(page.detailedPermissions).forEach((subKey) => {
+                    if (pageId === 'user-management' && subKey === 'delete') {
                         detailedPermissions[pageId][subKey] = false;
-                    } else if (subKey === "view_all_transactions") {
+                    } else if (subKey === 'view_all_transactions') {
                         detailedPermissions[pageId][subKey] = false;
                     } else {
                         detailedPermissions[pageId][subKey] = true;
@@ -778,104 +1258,102 @@ function generateTemplatePermissions(templateId) {
                 });
                 break;
 
-            case "sales-team":
+            case 'sales-team':
                 // Sales team có quyền ở sales, orders và reports categories
-                if (page.category === "sales" || page.category === "orders") {
+                if (page.category === 'sales' || page.category === 'orders') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
                         // Không có quyền delete
-                        detailedPermissions[pageId][subKey] = subKey !== "delete";
+                        detailedPermissions[pageId][subKey] = subKey !== 'delete';
                     });
                 }
                 // Thêm quyền xem báo cáo cho sales team
-                if (page.category === "reports") {
+                if (page.category === 'reports') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
                         // Chỉ view và export, không có delete/edit
                         detailedPermissions[pageId][subKey] =
-                            subKey === "view" ||
-                            subKey === "export" ||
-                            subKey.startsWith("view");
+                            subKey === 'view' || subKey === 'export' || subKey.startsWith('view');
                     });
                 }
                 // Quy trình nghiệp vụ - mặc định xem cho tất cả
-                if (pageId === "quy-trinh") {
+                if (pageId === 'quy-trinh') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        detailedPermissions[pageId][subKey] = subKey === 'view';
                     });
                 }
                 // Lịch sử chỉnh sửa - mặc định xem cho tất cả
-                if (pageId === "lichsuchinhsua") {
+                if (pageId === 'lichsuchinhsua') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        detailedPermissions[pageId][subKey] = subKey === 'view';
                     });
                 }
                 break;
 
-            case "warehouse-team":
+            case 'warehouse-team':
                 // Warehouse team có quyền ở warehouse category
-                if (page.category === "warehouse") {
+                if (page.category === 'warehouse') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
                         detailedPermissions[pageId][subKey] = true;
                     });
                 }
                 // Thêm quyền xem ở một số trang khác
-                if (page.category === "orders" || page.category === "reports") {
+                if (page.category === 'orders' || page.category === 'reports') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] = subKey === "view" || subKey === "export";
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        detailedPermissions[pageId][subKey] =
+                            subKey === 'view' || subKey === 'export';
                     });
                 }
                 // Quy trình nghiệp vụ - mặc định xem cho tất cả
-                if (pageId === "quy-trinh") {
+                if (pageId === 'quy-trinh') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        detailedPermissions[pageId][subKey] = subKey === 'view';
                     });
                 }
                 // Lịch sử chỉnh sửa - mặc định xem cho tất cả
-                if (pageId === "lichsuchinhsua") {
+                if (pageId === 'lichsuchinhsua') {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        detailedPermissions[pageId][subKey] = subKey === 'view';
                     });
                 }
                 break;
 
-            case "staff":
+            case 'staff':
                 // Staff chỉ có quyền view và edit ở các trang không phải admin
                 // Loại trừ view_all_transactions (chỉ admin mới coi toàn bộ giao dịch sổ quỹ)
                 if (!page.adminOnly) {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        if (subKey === "view_all_transactions") {
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        if (subKey === 'view_all_transactions') {
                             detailedPermissions[pageId][subKey] = false;
                         } else {
                             detailedPermissions[pageId][subKey] =
-                                subKey === "view" ||
-                                subKey === "edit" ||
-                                subKey === "update" ||
-                                subKey.startsWith("view");
+                                subKey === 'view' ||
+                                subKey === 'edit' ||
+                                subKey === 'update' ||
+                                subKey.startsWith('view');
                         }
                     });
                 }
                 break;
 
-            case "viewer":
+            case 'viewer':
                 // Viewer chỉ có quyền view ở các trang không phải admin
                 // Loại trừ view_all_transactions (chỉ admin mới coi toàn bộ giao dịch sổ quỹ)
                 if (!page.adminOnly) {
                     pagePermissions.push(pageId);
-                    Object.keys(page.detailedPermissions).forEach(subKey => {
-                        if (subKey === "view_all_transactions") {
+                    Object.keys(page.detailedPermissions).forEach((subKey) => {
+                        if (subKey === 'view_all_transactions') {
                             detailedPermissions[pageId][subKey] = false;
                         } else {
                             detailedPermissions[pageId][subKey] =
-                                subKey === "view" ||
-                                subKey.startsWith("view");
+                                subKey === 'view' || subKey.startsWith('view');
                         }
                     });
                 }
@@ -889,7 +1367,7 @@ function generateTemplatePermissions(templateId) {
 
     return {
         pagePermissions,
-        detailedPermissions
+        detailedPermissions,
     };
 }
 
@@ -929,12 +1407,12 @@ function getSortedCategories() {
 function validatePermissions(permissions) {
     const cleaned = {
         pagePermissions: [],
-        detailedPermissions: {}
+        detailedPermissions: {},
     };
 
     // Validate page permissions
     if (Array.isArray(permissions.pagePermissions)) {
-        cleaned.pagePermissions = permissions.pagePermissions.filter(pageId =>
+        cleaned.pagePermissions = permissions.pagePermissions.filter((pageId) =>
             isValidPageId(pageId)
         );
     }
@@ -975,7 +1453,7 @@ function hasPageAccess(detailedPermissions, pageId) {
     }
 
     const pagePerms = detailedPermissions[pageId];
-    return Object.values(pagePerms).some(value => value === true);
+    return Object.values(pagePerms).some((value) => value === true);
 }
 
 /**
@@ -989,7 +1467,7 @@ function getAccessiblePages(detailedPermissions) {
 
     return Object.entries(detailedPermissions)
         .filter(([pageId, perms]) => {
-            return Object.values(perms).some(value => value === true);
+            return Object.values(perms).some((value) => value === true);
         })
         .map(([pageId]) => pageId);
 }
@@ -1020,7 +1498,7 @@ function countGrantedPermissions(detailedPermissions) {
     const result = {
         total: getTotalPermissionsCount(),
         granted: 0,
-        pages: 0
+        pages: 0,
     };
 
     if (!detailedPermissions) return result;
@@ -1053,7 +1531,7 @@ function generateFullDetailedPermissions() {
         fullPerms[pageId] = {};
 
         if (page.detailedPermissions) {
-            Object.keys(page.detailedPermissions).forEach(permKey => {
+            Object.keys(page.detailedPermissions).forEach((permKey) => {
                 fullPerms[pageId][permKey] = true;
             });
         }
@@ -1075,7 +1553,7 @@ function generateEmptyDetailedPermissions() {
         emptyPerms[pageId] = {};
 
         if (page.detailedPermissions) {
-            Object.keys(page.detailedPermissions).forEach(permKey => {
+            Object.keys(page.detailedPermissions).forEach((permKey) => {
                 emptyPerms[pageId][permKey] = false;
             });
         }
@@ -1093,12 +1571,12 @@ function generateEmptyDetailedPermissions() {
  * @returns {Array} Mảng config tương thích với page-permissions-ui.js cũ
  */
 function getLegacyPagePermissionsConfig() {
-    return Object.values(PAGES_REGISTRY).map(page => ({
+    return Object.values(PAGES_REGISTRY).map((page) => ({
         id: page.id,
         icon: page.icon,
         name: page.name,
         description: page.description,
-        adminOnly: page.adminOnly
+        adminOnly: page.adminOnly,
     }));
 }
 
@@ -1148,7 +1626,7 @@ if (typeof window !== 'undefined') {
         hasPermission,
         countGrantedPermissions,
         generateFullDetailedPermissions,
-        generateEmptyDetailedPermissions
+        generateEmptyDetailedPermissions,
     };
 }
 
@@ -1159,13 +1637,13 @@ if (typeof window !== 'undefined') {
 // =====================================================
 function syncFromMenuConfig() {
     // MENU_CONFIG có thể ở window.MenuNameUtils.MENU_CONFIG hoặc window.MENU_CONFIG
-    const menuConfig = (window.MenuNameUtils && window.MenuNameUtils.MENU_CONFIG)
-        || window.MENU_CONFIG;
+    const menuConfig =
+        (window.MenuNameUtils && window.MenuNameUtils.MENU_CONFIG) || window.MENU_CONFIG;
     if (!menuConfig || !Array.isArray(menuConfig)) return 0;
 
     let added = 0;
 
-    menuConfig.forEach(item => {
+    menuConfig.forEach((item) => {
         // Dùng permissionRequired nếu có, fallback sang pageIdentifier
         const pageId = item.permissionRequired || item.pageIdentifier;
         if (!pageId) return; // Skip pages without permission (public pages)
@@ -1184,21 +1662,33 @@ function syncFromMenuConfig() {
             category: item.adminOnly ? 'admin' : 'reports',
             autoGenerated: true,
             detailedPermissions: {
-                view: { name: "Xem", icon: "eye", description: `Xem ${item.text || pageId}` },
-                edit: { name: "Chỉnh sửa", icon: "edit-3", description: `Chỉnh sửa ${item.text || pageId}` },
-                export: { name: "Xuất dữ liệu", icon: "download", description: `Export dữ liệu ${item.text || pageId}` }
-            }
+                view: { name: 'Xem', icon: 'eye', description: `Xem ${item.text || pageId}` },
+                edit: {
+                    name: 'Chỉnh sửa',
+                    icon: 'edit-3',
+                    description: `Chỉnh sửa ${item.text || pageId}`,
+                },
+                export: {
+                    name: 'Xuất dữ liệu',
+                    icon: 'download',
+                    description: `Export dữ liệu ${item.text || pageId}`,
+                },
+            },
         };
 
         added++;
-        console.log(`[Permissions Registry] Auto-added page from MENU_CONFIG: ${pageId} (${item.text})`);
+        console.log(
+            `[Permissions Registry] Auto-added page from MENU_CONFIG: ${pageId} (${item.text})`
+        );
     });
 
     if (added > 0) {
         // Re-export updated data
         window.PAGES_REGISTRY = PAGES_REGISTRY;
         window.DETAILED_PERMISSIONS = getAllDetailedPermissions();
-        console.log(`[Permissions Registry] Synced: now ${Object.keys(PAGES_REGISTRY).length} pages, ${getTotalPermissionsCount()} permissions`);
+        console.log(
+            `[Permissions Registry] Synced: now ${Object.keys(PAGES_REGISTRY).length} pages, ${getTotalPermissionsCount()} permissions`
+        );
     }
 
     return added;
@@ -1215,4 +1705,10 @@ if (document.readyState === 'loading') {
     }
 }
 
-console.log("[Permissions Registry] Loaded successfully with", Object.keys(PAGES_REGISTRY).length, "pages and", getTotalPermissionsCount(), "permissions");
+console.log(
+    '[Permissions Registry] Loaded successfully with',
+    Object.keys(PAGES_REGISTRY).length,
+    'pages and',
+    getTotalPermissionsCount(),
+    'permissions'
+);

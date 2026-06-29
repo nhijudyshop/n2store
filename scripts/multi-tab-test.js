@@ -25,7 +25,7 @@ const HTTP_PORT = 9998;
     };
 
     console.log('[multi-tab] Opening 3 tabs…');
-    await pages.tpos.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await pages.tpos.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await pages.products.goto(`${BASE}/web2/products/index.html?t=${Date.now()}`, {

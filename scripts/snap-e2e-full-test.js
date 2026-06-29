@@ -51,7 +51,7 @@ function record(name, ok, detail) {
                 Promise.reject(new DOMException('Permission denied by user', 'NotAllowedError'));
         }
     });
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await page.waitForTimeout(10000); // wait TPOS init + CRM teams load
@@ -630,7 +630,7 @@ function record(name, ok, detail) {
     // Mục tiêu < 8s (TPOS init + chips render).
     const perfStart = Date.now();
     const perfPage = await ctx.newPage();
-    await perfPage.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await perfPage.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     // Trigger CRM team change ngay khi state ready (poll)

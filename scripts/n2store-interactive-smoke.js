@@ -53,7 +53,7 @@ const PAGES = [
     '/soluong-live/index.html',
     '/customer-hub/index.html',
     '/inventory-tracking/index.html',
-    '/tpos-pancake/index.html',
+    '/live-chat/index.html',
     '/web2/products/index.html',
     '/balance-history/index.html',
     '/native-orders/index.html',

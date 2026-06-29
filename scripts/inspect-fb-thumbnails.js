@@ -11,7 +11,7 @@ const BASE = process.env.BASE || 'http://localhost:8080';
     const ctx = await browser.newContext();
     await restoreLoginSession(ctx, { base: BASE });
     const page = await ctx.newPage();
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await page.waitForTimeout(10000);

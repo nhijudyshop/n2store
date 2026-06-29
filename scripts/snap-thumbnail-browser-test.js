@@ -20,7 +20,7 @@ const API = 'https://n2store-fallback.onrender.com';
         }
     });
     console.log('[thumb-test] Open tpos-pancake (cache-bust)...');
-    await page.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     console.log('[thumb-test] Waiting 20s for TPOS state populate (campaigns + comments)...');

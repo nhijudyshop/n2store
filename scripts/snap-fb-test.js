@@ -47,7 +47,7 @@ const BASE = process.env.BASE || 'http://localhost:8080';
 
     console.log('[snap-fb-test] opening tpos-pancake tab...');
     const tposPage = await ctx.newPage();
-    await tposPage.goto(`${BASE}/tpos-pancake/index.html?t=${Date.now()}`, {
+    await tposPage.goto(`${BASE}/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await tposPage.waitForTimeout(8000); // wait scripts load + TPOS state populate

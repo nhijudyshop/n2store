@@ -80,7 +80,7 @@ const HTTP_PORT = 9998;
 
     // Navigate to tpos-pancake
     console.log('[test-ext] Navigating to tpos-pancake...');
-    await page.goto(`http://localhost:8080/tpos-pancake/index.html?t=${Date.now()}`, {
+    await page.goto(`http://localhost:8080/live-chat/index.html?t=${Date.now()}`, {
         waitUntil: 'domcontentloaded',
     });
     await page.waitForTimeout(15000); // 15s — let auto-snap poll fire

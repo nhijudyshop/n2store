@@ -135,7 +135,7 @@ const MENU_CONFIG = [
         permissionRequired: 'don-inbox',
     },
     {
-        href: '../tpos-pancake/index.html',
+        href: '../live-chat/index.html',
         icon: 'columns',
         text: 'Tpos - Pancake',
         shortText: 'Tpos-Pancake',
