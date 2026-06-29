@@ -72,6 +72,15 @@
         return data.units || [];
     }
 
+    // GET /sort-manifest → { orders, totalUnits, totalOrders } — đơn chờ xếp kệ (units
+    // ASSIGNED) gom theo STT, cho "Bàn chia hàng".
+    async function sortManifest() {
+        const r = await fetch(URL_() + '/sort-manifest', { headers: headers() });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
+        return data;
+    }
+
     // POST /ensure {productCodes} → { byCode } (top-up units = SL kho, server đọc stock+pending)
     async function ensure(productCodes) {
         const codes = Array.isArray(productCodes) ? productCodes : [productCodes];
@@ -136,6 +145,7 @@
         resolve,
         events,
         byProduct,
+        sortManifest,
         ensure,
         reprint,
         attachForPrint,

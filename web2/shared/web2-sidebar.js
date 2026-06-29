@@ -220,6 +220,10 @@
                     our: '../web2/unit-scan/index.html',
                 },
                 {
+                    label: 'Bàn chia hàng 📱',
+                    our: '../web2/sort-station/index.html',
+                },
+                {
                     label: 'Trả hàng',
                     our: '../web2/fastsaleorder-refund/index.html',
                 },

@@ -1,13 +1,13 @@
 {
-    "generatedAt": "2026-06-29T06:13:17.459Z",
+    "generatedAt": "2026-06-29T09:15:25.879Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
         "sharedModules": 147,
-        "pages": 48,
+        "pages": 49,
         "backendRoutes": 63,
         "backendServices": 35,
-        "frontendFiles": 456,
-        "functions": 3742
+        "frontendFiles": 457,
+        "functions": 3747
     },
     "sharedByCategory": {
         "other": 50,
@@ -409,8 +409,8 @@
             "purpose": "On-device barcode/QR scanning via camera",
             "api": [],
             "lines": 443,
-            "consumerCount": 4,
-            "consumerPages": ["web2/reconcile", "web2/unit-scan"],
+            "consumerCount": 5,
+            "consumerPages": ["web2/reconcile", "web2/sort-station", "web2/unit-scan"],
             "category": "qr-barcode"
         },
         {
@@ -1323,9 +1323,9 @@
             "globals": ["Web2ProductUnits"],
             "purpose": "WEB2.0 shared.",
             "api": [],
-            "lines": 148,
-            "consumerCount": 4,
-            "consumerPages": ["so-order", "web2/products", "web2/unit-scan"],
+            "lines": 158,
+            "consumerCount": 5,
+            "consumerPages": ["so-order", "web2/products", "web2/sort-station", "web2/unit-scan"],
             "category": "other"
         },
         {
@@ -1435,7 +1435,7 @@
             "globals": ["Web2Sidebar"],
             "purpose": "Main sidebar navigation",
             "api": [],
-            "lines": 981,
+            "lines": 985,
             "consumerCount": 17,
             "consumerPages": [
                 "web2/cham-cong",
@@ -1544,7 +1544,7 @@
             "purpose": "SSE bridge for realtime updates",
             "api": [],
             "lines": 289,
-            "consumerCount": 69,
+            "consumerCount": 70,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1573,6 +1573,7 @@
                 "web2/purchase-refund",
                 "web2/reconcile",
                 "web2/returns",
+                "web2/sort-station",
                 "web2/supplier-debt",
                 "web2/supplier-wallet",
                 "web2/unit-scan",
@@ -3585,7 +3586,7 @@
         {
             "page": "web2/products",
             "fileCount": 13,
-            "totalLines": 4693,
+            "totalLines": 4698,
             "globals": [
                 "Web2ProductDetail",
                 "Web2ProductsCore",
@@ -3864,7 +3865,7 @@
         {
             "page": "web2/shared",
             "fileCount": 147,
-            "totalLines": 45009,
+            "totalLines": 45023,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -3906,7 +3907,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 981
+                    "lines": 985
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
@@ -3915,6 +3916,28 @@
             ],
             "usesShared": [],
             "usesSharedCount": 0
+        },
+        {
+            "page": "web2/sort-station",
+            "fileCount": 1,
+            "totalLines": 399,
+            "globals": [],
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2BarcodeScanner",
+                    "category": "qr-barcode"
+                },
+                {
+                    "name": "Web2ProductUnits",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2SSE",
+                    "category": "sse-realtime"
+                }
+            ],
+            "usesSharedCount": 3
         },
         {
             "page": "web2/supplier-debt",
@@ -4518,7 +4541,7 @@
                 "file": "render.com/routes/web2-product-units.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — PER-UNIT PRODUCT TRACKING (mã đơn vị + QR riêng/món)",
-                "lines": 1163
+                "lines": 1217
             },
             {
                 "file": "render.com/routes/web2-products.js",
@@ -4812,7 +4835,7 @@
                 "file": "render.com/services/web2-order-tags-service.js",
                 "kind": "service",
                 "purpose": "Web 2.0 — Order auto-tag ENGINE (single source of truth).",
-                "lines": 741
+                "lines": 848
             },
             {
                 "file": "render.com/services/web2-pancake-creds.js",

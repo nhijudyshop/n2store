@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [sort-station] Trang MỚI "Bàn chia hàng" 📱 (put-wall sortation guided)
+
+**Files:** `render.com/routes/web2-product-units.js` (`GET /sort-manifest`), `web2/shared/web2-product-units.js` (`sortManifest()`), `web2/sort-station/{index.html,js/sort-station.js,css/sort-station.css}` (NEW), `web2/shared/web2-sidebar.js` (menu Bán Hàng "Bàn chia hàng 📱") + bump sidebar 54 html `20260629c→d`.
+
+Tối ưu khâu NV ngồi chia đống hàng theo STT rồi mang ra kệ (user chọn ý tưởng A+B). Màn hình trạm chia: quét QR từng món → **KỆ to + tên KH + beep/rung** + theo dõi **đủ/thiếu từng STT** (grid) + **manifest "mang ra kệ"** (gom theo STT, mang 1 lượt). Hợp luồng B (xe khay đánh số = STT).
+
+- **Backend** `GET /api/web2-product-units/sort-manifest` (soft-auth, PII): units status `ASSIGNED` gom theo đơn → `{orders:[{stt,customerName,needed,products,unitIds}],totalUnits}`, sort theo STT. Pool web2Db.
+- **Frontend** mobile-native (khuôn unit-scan): scanner liên tục + camera-retry; quét → tra `unitToOrder` map (tức thì, không cần mạng) hoặc fallback `Web2ProductUnits.resolve`; chống double-scan (`scanned` Set, giữ qua SSE reload); STT card xanh khi đủ; WebAudio beep (done 2 nốt cao / warn trầm) + vibrate. Client units = `Web2ProductUnits.sortManifest()` (1 nguồn). SSE `web2:product-units` → reload.
+- Idea source: put-wall / put-to-cart (cluster picking). Đặc tả đầy đủ trong KB.
+
+**Status:** code xong, `node --check` ✓. ⚠ Backend chạy web2-api → verify e2e SAU deploy (seed đơn → quét → STT + tiến độ + manifest).
+
 ### [order-tags] Activate + fix co_coc + ship_tinh/ship_tp (trigger dormant)
 
 **Files:** `render.com/services/web2-order-tags-service.js` + `render.com/routes/native-orders.js`.
