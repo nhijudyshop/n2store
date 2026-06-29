@@ -157,8 +157,12 @@
                     </div>
                     <div class="field-row-grid field-row-grid-2">
                         <div class="field-row">
-                            <label>Nhóm (tùy chọn)</label>
-                            <input id="vmGroup" placeholder="VD: Màu / Size" autocomplete="off" />
+                            <label>Nhóm *</label>
+                            <select id="vmGroup">
+                                <option value="">— Chọn —</option>
+                                <option value="Màu">Màu</option>
+                                <option value="Size">Size</option>
+                            </select>
                         </div>
                         <div class="field-row">
                             <label>Thứ tự</label>
@@ -236,6 +240,6 @@
         <script src="../shared/web2-product-code.js?v=20260521b"></script>
         <script src="js/web2-variants-api.js?v=20260615auth"></script>
         <script src="../shared/web2-variants-cache.js?v=20260623sc"></script>
-        <script src="js/web2-variants-app.js?v=20260620c"></script>
+        <script src="js/web2-variants-app.js?v=20260629a"></script>
     </body>
 </html>

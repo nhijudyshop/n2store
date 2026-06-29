@@ -235,6 +235,7 @@
             isActive: $('#vmIsActive').value === 'true',
         };
         if (!fields.value) return _reenable('Thiếu giá trị biến thể');
+        if (!fields.groupName) return _reenable('Cần chọn nhóm: Màu hoặc Size');
         if (!fields.shortCode) return _reenable('Thiếu viết tắt — bấm Gợi ý hoặc nhập tay');
         if (!/^[A-Z0-9]{1,20}$/.test(fields.shortCode)) {
             return _reenable('Viết tắt phải gồm A-Z và 0-9, 1-20 ký tự');

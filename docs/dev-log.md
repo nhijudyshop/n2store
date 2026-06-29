@@ -2,6 +2,15 @@
 
 ## 2026-06-29
 
+### [web2-variants] Trường "Nhóm" modal biến thể → SELECT bắt buộc (Màu / Size)
+
+**Files:** `web2/variants/index.html` (input#vmGroup → select 3 option `""`/`Màu`/`Size`, label `Nhóm (tùy chọn)`→`Nhóm *`, bump app js `→20260629a`), `web2/variants/js/web2-variants-app.js` (saveModal: thêm guard `if(!fields.groupName) _reenable('Cần chọn nhóm: Màu hoặc Size')`).
+
+User: trường Nhóm bắt buộc chọn 1 trong 2 (Màu hoặc Size).
+
+- Đổi free-text optional → `<select>` native (khớp `#vmIsActive` cùng modal). Setter `$('#vmGroup').value=...` ở openCreate/openEdit hoạt động y hệt input — không sửa. Biến thể legacy có groupName khác → select rơi về placeholder, buộc chọn lại (đúng ý beta).
+- **Test browser (web2 login):** field `tag=SELECT options=["","Màu","Size"] label="Nhóm *"`; lưu khi để trống → modal vẫn mở + toast `error:Cần chọn nhóm: Màu hoặc Size` + nút Lưu re-enable. Status ✅
+
 ### [native-orders] Bảng điều khiển trượt phải — tab Thẻ + Sản phẩm + Thống kê (thay chip lọc)
 
 **Files:** `native-orders/js/native-orders-control-drawer.js` (NEW — toggle mép phải + drawer non-modal 3 tab; thay `native-orders-tag-aggregate.js` ĐÃ XOÁ), `native-orders/index.html` (bỏ chip `#filterTagBtn`+dropdown+CSS `.no-tagf-*`; thêm script drawer; bump 4 js `→m`), `native-orders/js/native-orders-filters-campaigns.js` (gọn `applyTagFilter(trigger)`+`clearTagFilter` gọi `refreshControlDrawer`; bỏ render panel/toggle/label; giữ `_visibleOrders`/`_tagSummary`), render.js (`refreshControlDrawer`), realtime-init.js (bỏ wiring chip — drawer tự dựng).
