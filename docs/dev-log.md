@@ -18,7 +18,7 @@
 
 Audit 1 vòng hệ thống mã đơn vị: core flow (create-manual/PATCH/cancel reconcile) VỮNG; split-order tạo đơn mới empty-products (PATCH-driven, OK); merge-to-pbh giữ products (OK); PACKED have-count = N/A (không code set PACKED). **1 finding LOW**: unit lưu denorm order_stt/customer lúc gán → sửa SĐT/tên đơn sau đó → quét hiện hero snapshot cũ (orders list dưới vẫn tươi; STT ổn định vì campaign_stt bất biến, reset-stt chỉ đụng display_stt). **Fix**: reconcile thêm 1 UPDATE sync denorm (order_stt/code/customer) cho unit đã gán khi khác (IS DISTINCT → idempotent) → quét luôn ra dữ liệu tươi.
 
-**Status:** 🔄 Deploy + test.
+**Status:** ✅ Done + verified live (DENORM-SYNC PASS: tạo "AUDIT OLD" → PATCH tên+giỏ → unit sync "AUDIT NEW").
 
 ### [web2/ai-assistant + login] Fix UX widget AI báo "Phiên Web 2.0 hết hạn" + thông báo rõ ở trang login
 
