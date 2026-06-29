@@ -16,6 +16,8 @@ User: (1) tối ưu **quét 1 lượt** (đống hàng giữa, 8 kệ quây vuô
 
 **Test browser (mock ESP32 log hits, HTTP localhost):** quét unit STT 1 → `/stt?n=1&c=1aff5a&b=160&ms=0` ✓; Test → `/test` ✓; lightMany([1,6]) → `/clear` + 2× `/stt…keep=1` ✓; health → đọc JSON {ok,base,num} (CORS) ✓; panel render đủ field, willBlock=false trên HTTP ✓; `node --check` + ino braces balanced ✓.
 
+**BOM chi tiết (bổ sung):** doc §0 thêm bảng mua đầy đủ — **1 kệ = 90 bóng/~9m/1 ESP32 ≈ 540k**; **full 9 kệ = 810 bóng (mua 18 string 50 = 900)/~81m/3 ESP32 ≈ 3.0–3.5tr** + link tìm kiếm Shopee + tổng giá. WS2811 5V bán theo string 50 bóng (~5m); khoảng cách bóng = bề rộng ô.
+
 ### [web2/system] Thêm nút "Mở giao diện Gemini" vào card máy shop (tab Services)
 
 **Files:** `web2/system/js/system-services.js` (`renderGeminiMachines` card template), `web2/system/index.html` (bump `system-services.js?v` → `20260629gemlink`).

@@ -6,20 +6,44 @@
 
 ---
 
-## 0. Tóm tắt nhanh (TL;DR mua gì)
+## 0. Cần bao nhiêu? (số bóng · độ dài · controller)
 
-| Món                                     | Số lượng (1 kệ = 90 ô) | Từ khoá Shopee                                              | Giá tham khảo\* |
-| --------------------------------------- | ---------------------- | ----------------------------------------------------------- | --------------- |
-| ESP32 DevKit (WROOM-32, 38 chân)        | 1 / nhóm kệ            | `ESP32 DevKit WROOM 38 chân`                                | 90–150k         |
-| LED pixel **WS2811 5V** đục lỗ (string) | 90 bóng/kệ             | `led ws2811 5v 12mm đục lỗ` hoặc `dây led ws2811 5v module` | ~1.5–3k/bóng    |
-| Nguồn 5V (tổ ong)                       | 1                      | `nguồn tổ ong 5V 10A` (hoặc 5A nếu prototype)               | 90–160k         |
-| Tụ 1000µF/16V + điện trở 330–470Ω       | 1 mỗi controller       | `tụ 1000uF 16V`, `điện trở 470 ohm`                         | vài k           |
-| Dây điện 2 màu + jack JST 3 chân        | theo nhu cầu           | `dây led ws2812`, `jack JST SM 3 pin`                       | vài k           |
-| (Tuỳ chọn) Level shifter 74AHCT125      | 1                      | `74AHCT125`                                                 | ~10k            |
+**Quy mô** (sơ đồ kệ: 9 kệ × 15 cột × 6 hàng):
 
-\*Giá biến động theo shop/thời điểm — chỉ tham khảo. **Mua dư 5–10% LED** phòng hư.
+|                         | 1 ô = 1 bóng | Bóng                            | Độ dài dải LED\*\*                        | Controller (ESP32)              | Nguồn 5V  |
+| ----------------------- | ------------ | ------------------------------- | ----------------------------------------- | ------------------------------- | --------- |
+| **1 kệ** (90 ô)         | ✔            | **90 bóng**                     | **~9 m**                                  | **1**                           | 1× 5V/5A  |
+| **9 kệ (full)** (810 ô) | ✔            | **810 bóng** (mua dư → **900**) | **~81 m** (mua **18 cuộn 50 bóng** = 90m) | **3** (mỗi con 3 kệ = 270 bóng) | 3× 5V/10A |
 
-> 💡 **Bắt đầu nhỏ**: lắp **1 kệ (90 bóng)** chạy thử trước, chạy ổn mới nhân ra 9 kệ.
+\*\***Khoảng cách bóng = bề rộng 1 ô** — đo kệ thật rồi chọn. Mặc định ví dụ **10 cm/bóng** → 90 bóng = 9 m/kệ. Mua loại spacing 5/10/13/15 cm tuỳ ô. WS2811 bán theo **string 50 bóng** (~5 m/string).
+
+> **Controller**: 1 ESP32 ôm an toàn **≤ ~270 bóng**. Full 9 kệ → **3 ESP32**.
+> Cách dễ lắp hơn cho 5V (ít sụt áp, mở rộng từng kệ): **9 ESP32, mỗi con 1 kệ** — dây ngắn 9m, bơm nguồn 2 đầu. Nhiều board hơn nhưng chống lỗi tốt hơn cho dải dài.
+
+### 💰 Bảng mua — PROTOTYPE 1 kệ (90 ô) ≈ **480–560k**
+
+| Món                                         | SL            | Đơn giá\* | Thành tiền | Link Shopee (tìm)                                                                                                                                                                                                         |
+| ------------------------------------------- | ------------- | --------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESP32 DevKit WROOM-32 (38 chân)             | 1             | ~110k     | 110k       | [tìm](https://shopee.vn/search?keyword=esp32%20devkit%20wroom%2032)                                                                                                                                                       |
+| WS2811 5V 12mm đục lỗ, string 50 bóng       | 2 (=100 bóng) | ~130k     | 260k       | [tìm](https://shopee.vn/search?keyword=led%20ws2811%205v%20%C4%91%E1%BB%A5c%20l%E1%BB%97)                                                                                                                                 |
+| Nguồn tổ ong 5V/5A                          | 1             | ~90k      | 90k        | [tìm](https://shopee.vn/search?keyword=ngu%E1%BB%93n%20t%E1%BB%95%20ong%205v%205a)                                                                                                                                        |
+| Tụ 1000µF/16V + trở 470Ω + dây + JST 3 chân | 1 bộ          | ~80k      | 80k        | [tụ](https://shopee.vn/search?keyword=t%E1%BB%A5%201000uf%2016v) · [trở](https://shopee.vn/search?keyword=%C4%91i%E1%BB%87n%20tr%E1%BB%9F%20470%20ohm) · [JST](https://shopee.vn/search?keyword=jst%20sm%203%20ch%C3%A2n) |
+|                                             |               |           | **≈ 540k** |                                                                                                                                                                                                                           |
+
+### 💰 Bảng mua — FULL 9 kệ (810 ô) ≈ **3.0–3.5 triệu**
+
+| Món                                                   | SL             | Đơn giá\* | Thành tiền   | Link Shopee (tìm)                                                                         |
+| ----------------------------------------------------- | -------------- | --------- | ------------ | ----------------------------------------------------------------------------------------- |
+| ESP32 DevKit WROOM-32                                 | 3              | ~110k     | 330k         | [tìm](https://shopee.vn/search?keyword=esp32%20devkit%20wroom%2032)                       |
+| WS2811 5V 12mm đục lỗ, string 50 bóng                 | 18 (=900 bóng) | ~130k     | 2.340k       | [tìm](https://shopee.vn/search?keyword=led%20ws2811%205v%20%C4%91%E1%BB%A5c%20l%E1%BB%97) |
+| Nguồn tổ ong 5V/10A                                   | 3              | ~140k     | 420k         | [tìm](https://shopee.vn/search?keyword=ngu%E1%BB%93n%20t%E1%BB%95%20ong%205v%2010a)       |
+| Phụ kiện: tụ ×3, trở, dây silicon 2 cuộn, JST, hộp ×3 | 1 bộ           | ~200k     | 200k         | [dây](https://shopee.vn/search?keyword=d%C3%A2y%20silicon%20%C4%91i%E1%BB%87n)            |
+| (Tuỳ chọn) Level shifter 74AHCT125                    | 3              | ~10k      | 30k          | [tìm](https://shopee.vn/search?keyword=74AHCT125)                                         |
+|                                                       |                |           | **≈ 3.290k** |                                                                                           |
+
+\*Giá **tham khảo Shopee 2026, dao động theo shop** — link là **trang tìm kiếm**, tự chọn shop uy tín (xem đánh giá). **Mua dư ~10% bóng** phòng hư.
+
+> 💡 **Bắt đầu**: mua bộ **PROTOTYPE 1 kệ (~540k)** chạy thật 1 kệ trước; ổn rồi nhân ra full 9 kệ.
 
 ---
 
