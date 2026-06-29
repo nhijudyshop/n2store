@@ -291,6 +291,12 @@
                     errText.textContent = '';
                 }
 
+                // Bị chuyển về đây do phiên Web 2.0 hết hạn (401 từ web2-auth.handleAuthExpired)
+                // → báo rõ lý do để user không tưởng là lỗi. Token đã được clear trước khi tới đây.
+                if (new URLSearchParams(location.search).get('expired') === '1') {
+                    showError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.');
+                }
+
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     clearError();

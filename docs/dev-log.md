@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [web2/ai-assistant + login] Fix UX widget AI báo "Phiên Web 2.0 hết hạn" + thông báo rõ ở trang login
+
+**Files:** `web2/shared/web2-ai-assistant.js` (+`onAuthExpired()` helper, 2 chỗ catch 401), `web2/shared/web2-sidebar.js` (inject assistant `20260629a`), 54 file `*.html` (cache-bust `web2-sidebar.js?v=20260629a`), `web2/login/index.html` (notice khi `?expired=1`).
+
+- **Nguyên nhân (đã xác minh)**: widget AI gọi `/api/web2-ai/*` với `WEB2_AUTH_ENFORCE=1` → token chết server-side (hết hạn 7d / bị wipe) nhưng còn client-valid (`expiresAt` tương lai) → page guard KHÔNG redirect → mọi call enforced 401. **Backend/worker/auth ĐÚNG** (token hợp lệ → chat/stream 200, verified bằng login test account). Không phải bug backend, là phiên hết hạn + UX khó hiểu.
+- **Fix widget**: 2 chỗ catch 401 (loadDbThenAsk + ask) gộp về `onAuthExpired()` — message rõ "🔐 Phiên đăng nhập Web 2.0 đã hết hạn. Đang chuyển sang trang đăng nhập…" + redirect bằng handler CHUẨN `Web2Auth.handleAuthExpired()` (clear token + login?expired=1, tin cậy hơn `requireAuth` vì không cần round-trip /me). Bỏ message cũ cộc lốc + setTimeout(requireAuth,1500).
+- **Fix login**: trang login đọc `?expired=1` → hiện "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." (trước đây bị bounce về login form trống, không rõ lý do → tưởng bug).
+- **Luồng sau fix**: widget 401 (hoặc bất kỳ web2 WRITE) → handleAuthExpired → login?expired=1 (báo rõ) → đăng nhập lại → quay lại trang, widget chạy.
+
+**Status:** ✅ Done + verified browser (corrupt token client-valid → ask → redirect login?expired=1; login hiện notice; valid token → chat/stream 200).
+
 ### [native-orders] Badge "⚠ thiếu N tem" khi đơn gán 1 phần (serial < SL)
 
 **Files:** `native-orders/js/native-orders-render.js` (`_renderExpandRow`), `native-orders/index.html` (cache-bust `b`).
