@@ -892,6 +892,27 @@ async function reconcileOrderUnits(pool, orderId) {
                 }
             }
         }
+        // Sync denorm (STT/code/customer) cho unit ĐÃ gán nếu đơn đổi SAU khi gán (sửa
+        // SĐT/tên/STT) → quét luôn ra dữ liệu TƯƠI, không snapshot cũ. Chỉ update khi
+        // khác (IS DISTINCT) → idempotent, không ghi thừa mỗi reconcile.
+        if (!cancelled) {
+            await client.query(
+                `UPDATE web2_product_units
+                    SET order_stt=$2, order_code=$3, customer_name=$4, customer_phone=$5,
+                        updated_at=$6
+                  WHERE order_id=$1 AND status='ASSIGNED'
+                    AND (order_stt IS DISTINCT FROM $2 OR order_code IS DISTINCT FROM $3
+                         OR customer_name IS DISTINCT FROM $4 OR customer_phone IS DISTINCT FROM $5)`,
+                [
+                    orderId,
+                    stt,
+                    order.order_code,
+                    order.customer_name || null,
+                    order.phone || null,
+                    Date.now(),
+                ]
+            );
+        }
         await client.query('COMMIT');
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});

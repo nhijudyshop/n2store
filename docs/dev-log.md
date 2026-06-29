@@ -2,6 +2,14 @@
 
 ## 2026-06-29
 
+### [web2-product-units] Audit per-unit + fix denorm staleness (reconcile sync STT/customer)
+
+**File:** `render.com/routes/web2-product-units.js` (`reconcileOrderUnits`).
+
+Audit 1 vòng hệ thống mã đơn vị: core flow (create-manual/PATCH/cancel reconcile) VỮNG; split-order tạo đơn mới empty-products (PATCH-driven, OK); merge-to-pbh giữ products (OK); PACKED have-count = N/A (không code set PACKED). **1 finding LOW**: unit lưu denorm order_stt/customer lúc gán → sửa SĐT/tên đơn sau đó → quét hiện hero snapshot cũ (orders list dưới vẫn tươi; STT ổn định vì campaign_stt bất biến, reset-stt chỉ đụng display_stt). **Fix**: reconcile thêm 1 UPDATE sync denorm (order_stt/code/customer) cho unit đã gán khi khác (IS DISTINCT → idempotent) → quét luôn ra dữ liệu tươi.
+
+**Status:** 🔄 Deploy + test.
+
 ### [web2/ai-assistant + login] Fix UX widget AI báo "Phiên Web 2.0 hết hạn" + thông báo rõ ở trang login
 
 **Files:** `web2/shared/web2-ai-assistant.js` (+`onAuthExpired()` helper, 2 chỗ catch 401), `web2/shared/web2-sidebar.js` (inject assistant `20260629a`), 54 file `*.html` (cache-bust `web2-sidebar.js?v=20260629a`), `web2/login/index.html` (notice khi `?expired=1`).
