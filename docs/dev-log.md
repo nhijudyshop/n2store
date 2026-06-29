@@ -10,7 +10,7 @@
 
 **Fix:** hook 4 endpoint cart sau commit (fire-and-forget): `/add`→reconcile (gán), `/remove`→free nếu xoá đơn / reconcile nếu còn, `/clear`→free (nhả hết), PATCH qty→reconcile. Thêm `freeOrderUnits(pool,orderId)` (nhả hết unit ASSIGNED→IN_STOCK+UNASSIGN) cho case xoá đơn (reconcile không thấy đơn đã DELETE).
 
-**Status:** 🔄 Deploy + test.
+**Status:** ✅ Done + verified live (CART RECONCILE PASS: add qty2→2 gán, patch qty1→nhả về 1, remove→nhả hết 0).
 
 ### [web2/ai-assistant] FIX GỐC: lỗi provider chứa chữ "token" bị nhầm là "Phiên hết hạn" → đăng xuất oan
 
