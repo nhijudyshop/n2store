@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [native-orders] Phiếu Soạn Hàng tự tick SP "Chờ Hàng"
+
+**Files:** `native-orders/js/native-orders-packing-slip.js` (`_waitingCodes`/`_isWaiting` + attr `checked` checkbox) + bump version trong index.html.
+
+User: "Phiếu soạn hàng tự check vào sản phẩm chờ hàng".
+
+- Nguồn SP chờ hàng = autoTag `cho_hang` `detail.products[].code` (server đính ở /load, SP status `CHO_MUA`). `_waitingCodes(order)` → Set mã; `_isWaiting(p,set)` so `p.productCode`. Checkbox CHỜ HÀNG render `checked` khi khớp.
+- KHÔNG fork logic chờ hàng — dùng đúng nguồn engine `web2-order-tags-service` (cùng cái pill "Chờ hàng" cột Thẻ).
+
+**Test browser (NJ-20260629-0007, SP HCAO3XCO35 "ÁO POLO BASIC" status CHO_MUA):** mở Phiếu Soạn Hàng → checkbox CHỜ HÀNG tự tick ✓ (screenshot khớp). In ra vẫn đậm "CHỜ HÀNG" như cũ (đọc checkbox.checked). Status ✅
+
 ### [native-orders] Bỏ nút "PBH SHOP" bulk + gỡ content-visibility (giật khi expand+search)
 
 **Files:** `native-orders/index.html` (xóa button `#ordersBulkPbhShop` + gỡ rule `content-visibility` + bump bulk-operations/realtime-init `→i`), `native-orders/js/native-orders-bulk-operations.js` (xóa hàm chết `bulkCreatePbhShop` ~100 dòng), `native-orders/js/native-orders-realtime-init.js` (gỡ listener).

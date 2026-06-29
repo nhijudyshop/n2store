@@ -91,6 +91,24 @@
         return ov;
     }
 
+    // Set mã SP đang CHỜ HÀNG (web2_products.status = CHO_MUA) — lấy từ autoTag 'cho_hang'
+    // detail.products (server đính ở /load). Phiếu soạn hàng TỰ TICK các SP này.
+    function _waitingCodes(o) {
+        const set = new Set();
+        const tag = ((o && o.autoTags) || []).find((t) => t && t.trigger === 'cho_hang');
+        const prods =
+            tag && tag.detail && Array.isArray(tag.detail.products) ? tag.detail.products : [];
+        for (const p of prods) {
+            const c = p && (p.code || p.productCode);
+            if (c) set.add(String(c));
+        }
+        return set;
+    }
+    function _isWaiting(p, waitSet) {
+        const code = p.productCode || p.product_code || p.code || '';
+        return code ? waitSet.has(String(code)) : false;
+    }
+
     function _renderRows() {
         const tbody = _modal.querySelector('#noPsBody');
         if (!_products.length) {
@@ -98,6 +116,7 @@
                 '<tr><td colspan="5" style="text-align:center;padding:22px;color:#9ca3af;">Không có sản phẩm</td></tr>';
             return;
         }
+        const waitSet = _waitingCodes(_order);
         let totalQty = 0;
         const rows = _products
             .map((p, idx) => {
@@ -106,11 +125,12 @@
                 const qty = parseFloat(p.quantity) || 1;
                 totalQty += qty;
                 const channel = _order.channel || p.source || '';
+                const isWaiting = _isWaiting(p, waitSet);
                 return `
                 <tr style="border-bottom:1px solid #f3f4f6;">
                     <td style="padding:10px 6px;text-align:center;font-weight:600;">${idx + 1}</td>
                     <td style="padding:10px 6px;text-align:center;">
-                        <input type="checkbox" data-ps-wait="${idx}"
+                        <input type="checkbox" data-ps-wait="${idx}" ${isWaiting ? 'checked' : ''}
                             style="width:18px;height:18px;cursor:pointer;accent-color:#f59e0b;" />
                     </td>
                     <td style="padding:10px 6px;text-align:left;word-break:break-word;">
