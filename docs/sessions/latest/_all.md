@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1f56a64` — docs(web2): KB cách vận hành mã SP & per-unit QR (mint→so-order→Kho SP→unit-scan)
-**Last updated**: 2026-06-29 12:52:15 +07
-**Latest session**: [`RESUME:20260629-125215-1f56a64`](../20260629-125215-1f56a64.md)
-**Summary**: Mint theo SL kho (SP-001..SP-N lúc tạo SP) + gán seq nhỏ nhất/tái dùng freed + KB mã SP; verified online
+**Latest commit**: `04b6612` — fix(native-orders): expand hiện mã đơn vị "-xxx" (o.id string → ép Number)
+**Last updated**: 2026-06-29 13:01:46 +07
+**Latest session**: [`RESUME:20260629-130146-04b6612`](../20260629-130146-04b6612.md)
+**Summary**: fix(native-orders): expand hiện mã đơn vị "-xxx" (o.id string → ép Number)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 12:52
+- [`docs/`](./docs.md) — updated 2026-06-29 13:01
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -50,7 +48,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-29 12:01
+- [`native-orders/`](./native-orders.md) — updated 2026-06-29 13:01
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
