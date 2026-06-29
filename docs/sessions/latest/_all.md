@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8711499` — fix(order-tags): TAG "Có ghi chú đơn" chỉ tính userNote, bỏ note=log comment auto
-**Last updated**: 2026-06-29 14:12:19 +07
-**Latest session**: [`RESUME:20260629-141219-8711499`](../20260629-141219-8711499.md)
-**Summary**: fix order-tags: Có ghi chú đơn chỉ tính userNote
+**Latest commit**: `a58e9b4` — fix(order-tags): pbh_created chỉ tính PBH thật + gỡ tag co_tin_nhan (trùng co_binh_luan)
+**Last updated**: 2026-06-29 14:47:01 +07
+**Latest session**: [`RESUME:20260629-144701-a58e9b4`](../20260629-144701-a58e9b4.md)
+**Summary**: order-tags: fix pbh_created + gỡ co_tin_nhan; CK flow verified
 
 ## Folders affected in this commit
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 14:12
+- [`docs/`](./docs.md) — updated 2026-06-29 14:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -60,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-29 14:12
+- [`render.com/`](./render.com.md) — updated 2026-06-29 14:47
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-28 20:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
