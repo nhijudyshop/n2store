@@ -13,7 +13,7 @@ ENFORCE=1 prod nhưng cart `/api/v2/cart/*` + `/from-comment` ungated → ai cũ
 
 Giờ chuỗi: cart frontend gửi token → cart write gated nhận → tạo draft qua from-comment (forward token) → from-comment gated nhận. KH mới (chưa draft) vẫn chạy.
 
-**Status:** 🔄 Deploy + test (no-token→401, token→full flow OK).
+**Status:** ✅ Verified prod (`8ac52493a`). Test live: no-token cart add→**401**; token cart add KH mới (chưa draft → from-comment forward)→**200 success, ASSIGNED=2** (reconcile gán unit); from-comment token→**200**.
 
 ### [order-creation + clearance] Fix audit findings #3-#7 + clearance bug (#2a defer)
 
