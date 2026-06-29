@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a607846` — feat(native-orders): nhả đơn vị (per-unit) khi HUỶ đơn (POST /:code/cancel)
-**Last updated**: 2026-06-29 07:03:05 +07
-**Latest session**: [`RESUME:20260629-070305-a607846`](../20260629-070305-a607846.md)
-**Summary**: feat(native-orders): nhả đơn vị (per-unit) khi HUỶ đơn (POST /:code/cancel)
+**Latest commit**: `de4e10e` — docs(dev-log): cancel-free hook verified live (huỷ đơn → unit nhả IN_STOCK)
+**Last updated**: 2026-06-29 07:05:03 +07
+**Latest session**: [`RESUME:20260629-070503-de4e10e`](../20260629-070503-de4e10e.md)
+**Summary**: docs(dev-log): cancel-free hook verified live (huỷ đơn → unit nhả IN_STOCK)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 07:03
+- [`docs/`](./docs.md) — updated 2026-06-29 07:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
