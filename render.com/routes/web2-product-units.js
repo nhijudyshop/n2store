@@ -203,6 +203,106 @@ function mapUnit(r) {
 }
 
 // =====================================================================
+// ensureUnits(pool, productCode, target, opts) — ĐẢM BẢO tổng unit của SP = target.
+// Logic SL (user chốt 2026-06-29): có bao nhiêu số lượng SP → SP-001..SP-target.
+// TOP-UP ONLY: thiếu thì mint thêm (seq tiếp theo), ĐỦ rồi → no-op, KHÔNG xoá
+// (unit là tem vật lý + có thể đã gán đơn). Serial global per product_code, 3 số
+// (SL < 1000). Advisory-lock per product_code → race-free. Idempotent (gọi nhiều
+// lần an toàn). Dùng bởi web2-products (tạo/sửa SP) + so-order + Kho SP print.
+// ⚠ Giả định units liền mạch (count == maxSeq) — đúng vì KHÔNG có endpoint xoá unit.
+// =====================================================================
+async function ensureUnits(pool, productCode, target, opts = {}) {
+    productCode = String(productCode || '').trim();
+    target = Math.max(0, Math.min(MAX_MINT_QTY, Math.round(Number(target) || 0)));
+    if (!productCode || !target) return { created: 0, total: 0, units: [] };
+    const supplier = (opts.supplier || '').trim() || null;
+    const createdBy = (opts.createdBy || '').trim() || null;
+    const shipmentId = (opts.shipmentId || '').trim() || null;
+    const note = opts.note || 'auto theo SL';
+    await ensureTables(pool);
+    const client = await pool.connect();
+    let created = 0;
+    try {
+        await client.query('BEGIN');
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, ['w2pu:' + productCode]);
+        const agg = (
+            await client.query(
+                `SELECT COUNT(*)::int AS c, COALESCE(MAX(seq),0)::int AS m
+                   FROM web2_product_units WHERE product_code = $1`,
+                [productCode]
+            )
+        ).rows[0];
+        let total = agg.c || 0;
+        let maxSeq = agg.m || 0;
+        if (total < target) {
+            const now = Date.now();
+            const need = target - total;
+            for (let i = 1; i <= need; i++) {
+                const seq = maxSeq + i;
+                const unitCode = `${productCode}-${_pad(seq)}`;
+                const r = await client.query(
+                    `INSERT INTO web2_product_units
+                        (unit_code, product_code, seq, supplier, shipment_id, created_by, created_at, updated_at)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
+                     ON CONFLICT (unit_code) DO NOTHING RETURNING *`,
+                    [unitCode, productCode, seq, supplier, shipmentId, createdBy, now]
+                );
+                if (r.rows[0]) {
+                    await _logEvent(client, r.rows[0], 'MINT', { note, user_name: createdBy });
+                    created++;
+                    total++;
+                }
+            }
+        }
+        await client.query('COMMIT');
+        if (created) _notify('mint', { productCode, created, total });
+        const units = (
+            await pool.query(
+                `SELECT * FROM web2_product_units WHERE product_code = $1 ORDER BY seq ASC`,
+                [productCode]
+            )
+        ).rows.map(mapUnit);
+        return { created, total, units };
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[WEB2-PRODUCT-UNITS] ensureUnits error:', productCode, e.message);
+        return { created: 0, total: 0, units: [], error: e.message };
+    } finally {
+        client.release();
+    }
+}
+
+// ensureUnitsForCodes(pool, codes) — đọc SL (stock+pending_qty) từ web2_products
+// cho từng mã rồi ensureUnits(code, SL). Bỏ qua SP cha (units theo SKU con). Gọi
+// fire-and-forget sau COMMIT ở web2-products (tạo/sửa SL) → units có sẵn TRƯỚC khi
+// SP vào giỏ (reconcile cần unit để gán STT).
+async function ensureUnitsForCodes(pool, codes) {
+    const list = [...new Set((codes || []).map((c) => String(c || '').trim()).filter(Boolean))];
+    if (!list.length) return;
+    try {
+        await ensureTables(pool);
+        const rows = (
+            await pool.query(
+                `SELECT code, COALESCE(stock,0) + COALESCE(pending_qty,0) AS total, supplier
+                   FROM web2_products
+                  WHERE code = ANY($1::text[]) AND COALESCE(is_parent,false) = false`,
+                [list]
+            )
+        ).rows;
+        for (const r of rows) {
+            const target = Number(r.total) || 0;
+            if (target > 0)
+                await ensureUnits(pool, r.code, target, {
+                    supplier: r.supplier,
+                    note: 'auto theo SL kho',
+                });
+        }
+    } catch (e) {
+        console.error('[WEB2-PRODUCT-UNITS] ensureUnitsForCodes error:', e.message);
+    }
+}
+
+// =====================================================================
 // POST /mint — cấp N unit cho (product_code, shipment_id). IDEMPOTENT.
 // body: { product_code, supplier?, shipment_id?, qty, createdBy? }
 // → { success, units:[{id, unitCode, seq, ...}], created, reused }
@@ -277,6 +377,36 @@ router.post('/mint', requireWeb2AuthSoft, async (req, res) => {
         res.status(500).json({ error: e.message });
     } finally {
         client.release();
+    }
+});
+
+// =====================================================================
+// POST /ensure — đảm bảo units = SL (stock+pending) của SP, đọc TỪ web2_products.
+// body: { product_code } hoặc { productCodes:[...] }. Server tự tính target (SL kho)
+// → top-up mint → trả units. Dùng bởi Kho SP / so-order khi in (self-heal nếu SP
+// tạo trước feature này hoặc SL vừa tăng). KHÔNG cần truyền qty (1 nguồn = SL kho).
+// =====================================================================
+router.post('/ensure', requireWeb2AuthSoft, async (req, res) => {
+    const pool = _getDb(req);
+    const b = req.body || {};
+    const codes = Array.isArray(b.productCodes)
+        ? b.productCodes
+        : [b.product_code || b.productCode].filter(Boolean);
+    if (!codes.length) return res.status(400).json({ error: 'Thiếu product_code' });
+    try {
+        await ensureUnitsForCodes(pool, codes);
+        const list = [...new Set(codes.map((c) => String(c || '').trim()).filter(Boolean))];
+        const rows = (
+            await pool.query(
+                `SELECT * FROM web2_product_units WHERE product_code = ANY($1::text[]) ORDER BY product_code, seq ASC`,
+                [list]
+            )
+        ).rows.map(mapUnit);
+        const byCode = {};
+        for (const u of rows) (byCode[u.productCode] = byCode[u.productCode] || []).push(u);
+        res.json({ success: true, byCode, units: rows });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
@@ -876,22 +1006,21 @@ async function reconcileOrderUnits(pool, orderId) {
             const want = cart[code] || 0;
             const have = (curByCode[code] || []).length;
             if (have < want) {
-                // GÁN THÊM: chọn unit available (ít lịch sử ASSIGN → seq nhỏ). Available =
-                // chưa gán cho đơn MỞ nào khác (IN_STOCK / đơn cũ đã huỷ). SKIP LOCKED →
-                // 2 giỏ thêm cùng SP song song không giành trùng unit.
+                // GÁN THÊM: chọn unit available SEQ NHỎ NHẤT trước (user 2026-06-29:
+                // lấy AO-001..AO-max theo thứ tự; unit bị bỏ khỏi giỏ → quay lại pool →
+                // lần gán sau TÁI DÙNG seq nhỏ đó TRƯỚC số chưa dùng cao hơn — vd 002
+                // freed thì add tiếp lấy 002, không nhảy 007). Available = IN_STOCK hoặc
+                // gán cho đơn đã huỷ. SKIP LOCKED → 2 giỏ thêm cùng SP song song không
+                // giành trùng unit.
                 const pick = (
                     await client.query(
                         `SELECT u.* FROM web2_product_units u
-                         LEFT JOIN LATERAL (
-                            SELECT COUNT(*) AS hist FROM web2_product_unit_events e
-                             WHERE e.unit_id=u.id AND e.event='ASSIGN'
-                         ) h ON true
                          WHERE u.product_code=$1 AND u.status IN ('IN_STOCK','ASSIGNED')
                            AND u.order_id IS DISTINCT FROM $2
                            AND NOT EXISTS (
                              SELECT 1 FROM native_orders o
                               WHERE o.id=u.order_id AND o.status NOT IN ('cancelled'))
-                         ORDER BY h.hist ASC, u.seq ASC
+                         ORDER BY u.seq ASC
                          LIMIT $3 FOR UPDATE OF u SKIP LOCKED`,
                         [code, orderId, want - have]
                     )
@@ -1028,4 +1157,6 @@ router.initializeNotifiers = initializeNotifiers;
 router.ensureTables = ensureTables;
 router.reconcileOrderUnits = reconcileOrderUnits;
 router.freeOrderUnits = freeOrderUnits;
+router.ensureUnits = ensureUnits;
+router.ensureUnitsForCodes = ensureUnitsForCodes;
 module.exports = router;

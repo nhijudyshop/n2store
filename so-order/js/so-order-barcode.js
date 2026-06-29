@@ -6,10 +6,11 @@
 
     const SO = (window.SoOrder = window.SoOrder || {});
 
-    // PER-UNIT (2026-06-28): cấp mã ĐƠN VỊ + QR riêng/món lúc in tem.
-    // Mint server-side (idempotent theo product_code+shipment_id) → mỗi tem 1 mã
-    // (KHOAODEN-017) + QR = URL trace .../web2/unit-scan/?u=<id>. Lỗi mint → fallback
-    // hành vi cũ (in mã SP lặp). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md.
+    // PER-UNIT (2026-06-29): mỗi tem 1 mã ĐƠN VỊ + QR riêng/món.
+    // Units MINT theo SL kho ở web2-products (tạo/nhận SP → SP-001..SP-SL, hook
+    // _syncUnits). Ở đây CHỈ /ensure (server đọc SL → top-up nếu thiếu) rồi gắn units
+    // vào tem. KHÔNG mint per-shipment nữa (tránh DOUBLE với hook web2-products).
+    // Lỗi → fallback in mã SP lặp. QR = .../web2/unit-scan/?u=<id>. docs/web2/PER-UNIT-QR-PLAN.md.
     function _unitsApiBase() {
         return (
             window.API_CONFIG?.WORKER_URL ||
@@ -24,24 +25,21 @@
             return '';
         }
     }
-    async function _mintUnits(productCode, supplier, shipmentId, qty) {
+    // /ensure batch: server đọc SL (stock+pending) từ web2_products → top-up mint →
+    // trả { byCode: { [code]: [units...] } }. 1 nguồn SL = kho, KHÔNG truyền qty.
+    async function _ensureUnits(productCodes) {
         const token = _web2Token();
-        const res = await fetch(`${_unitsApiBase()}/api/web2-product-units/mint`, {
+        const res = await fetch(`${_unitsApiBase()}/api/web2-product-units/ensure`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...(token ? { 'x-web2-token': token } : {}),
             },
-            body: JSON.stringify({
-                product_code: productCode,
-                supplier: supplier || null,
-                shipment_id: shipmentId || null,
-                qty,
-            }),
+            body: JSON.stringify({ productCodes }),
         });
-        if (!res.ok) throw new Error('mint HTTP ' + res.status);
+        if (!res.ok) throw new Error('ensure HTTP ' + res.status);
         const data = await res.json();
-        return Array.isArray(data.units) ? data.units : [];
+        return data.byCode || {};
     }
     async function _bumpReprint(unitIds) {
         if (!unitIds.length) return;
@@ -60,27 +58,31 @@
         }
     }
     // Gắn item.units = [{unitCode, qrUrl}] cho mỗi product (in-place). Best-effort.
+    // /ensure (top-up theo SL kho) 1 lần cho cả batch → lấy units 001..SL → in.
     SO._attachUnitCodes = async function _attachUnitCodes(products) {
         const scanBase = location.origin; // vd https://nhijudy.store
+        const list = (products || []).filter((p) => p.code);
+        if (!list.length) return products;
+        let byCode = {};
+        try {
+            byCode = await _ensureUnits([...new Set(list.map((p) => p.code))]);
+        } catch (e) {
+            console.warn('[so-order] ensure units fail', e.message || e);
+            return products; // fallback: không units → in mã SP lặp
+        }
         const minted = [];
-        await Promise.all(
-            (products || []).map(async (p) => {
-                const qty = Math.max(1, Number(p.quantity || p.qtyReceived) || 1);
-                if (!p.code) return;
-                try {
-                    const units = await _mintUnits(p.code, p.supplier, p.shipmentId, qty);
-                    if (units.length) {
-                        p.units = units.slice(0, qty).map((u) => ({
-                            unitCode: u.unitCode,
-                            qrUrl: `${scanBase}/web2/unit-scan/?u=${u.id}`,
-                        }));
-                        units.slice(0, qty).forEach((u) => minted.push(u.id));
-                    }
-                } catch (e) {
-                    console.warn('[so-order] mint units fail cho', p.code, e.message || e);
-                }
-            })
-        );
+        for (const p of list) {
+            const units = byCode[p.code] || [];
+            if (!units.length) continue;
+            // In theo SL nhập/nhận (mặc định cả lô = tổng units). Lấy 001..qty.
+            const qty = Math.max(1, Number(p.quantity || p.qtyReceived) || units.length);
+            const slice = units.slice(0, qty);
+            p.units = slice.map((u) => ({
+                unitCode: u.unitCode,
+                qrUrl: `${scanBase}/web2/unit-scan/?u=${u.id}`,
+            }));
+            slice.forEach((u) => minted.push(u.id));
+        }
         if (minted.length) _bumpReprint(minted); // fire-and-forget print_count++
         return products;
     };

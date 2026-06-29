@@ -10,7 +10,17 @@ const express = require('express');
 // Audit 2026-06-20: gate MỌI handler mutating (POST/PATCH/DELETE) bằng requireWeb2AuthSoft
 // (401 khi WEB2_AUTH_ENFORCE=1 đang BẬT). Đọc/GET vẫn mở.
 const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
+// PER-UNIT (2026-06-29): sau khi SL (stock/pending) đổi → ĐẢM BẢO units = SL (mint
+// top-up SP-001..SP-SL) để quét tem + gán giỏ chạy. Units cần có TRƯỚC khi SP vào
+// giỏ (reconcile gán STT). web2-product-units KHÔNG require ngược → không vòng lặp.
+const { ensureUnitsForCodes } = require('./web2-product-units');
 const router = express.Router();
+// Fire-and-forget: KHÔNG chặn/làm fail response (mint là phụ trợ). idempotent top-up.
+function _syncUnits(pool, codes) {
+    Promise.resolve()
+        .then(() => ensureUnitsForCodes(pool, Array.isArray(codes) ? codes : [codes]))
+        .catch((e) => console.error('[WEB2-PRODUCTS] _syncUnits error:', e.message));
+}
 
 // audit r6 (2026-06-21): trần số mục/lần cho bulk-write — mỗi item chạy
 // SELECT FOR UPDATE + UPDATE trong 1 transaction nối tiếp. KHÔNG cap → client
@@ -885,6 +895,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             // Con mới (có parent_code) → đồng bộ tồn cha.
             if (b.parentCode) await _recomputeParent(pool, String(b.parentCode).trim());
             _notify('create', r.rows[0].code);
+            _syncUnits(pool, r.rows[0].code);
             await _logHistory(
                 pool,
                 r.rows[0].code,
@@ -1181,6 +1192,7 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             }
         }
         _notify('update', r.rows[0].code);
+        _syncUnits(pool, r.rows[0].code);
         // Migration 070: sửa con (tồn/giá) → đồng bộ tồn cha.
         if (r.rows[0].parent_code) await _recomputeParent(pool, r.rows[0].parent_code);
         // Audit 2026-06-20 (low): PATCH dùng action 'update' KHÔNG nằm trong
@@ -1309,6 +1321,11 @@ router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
         if (results.length)
             _notify(
                 'adjust-stock',
+                results.map((r) => r.code)
+            );
+        if (results.length)
+            _syncUnits(
+                pool,
                 results.map((r) => r.code)
             );
         res.json({ success: true, results, warnings });
@@ -1553,6 +1570,11 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
         if (results.length)
             _notify(
                 'adjust-pending',
+                results.map((r) => r.code)
+            );
+        if (results.length)
+            _syncUnits(
+                pool,
                 results.map((r) => r.code)
             );
         res.json({ success: true, results, warnings });
@@ -1801,6 +1823,10 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                 'upsert-pending',
                 results.map((r) => r.code)
             );
+        _syncUnits(
+            pool,
+            results.map((r) => r.code)
+        );
         res.json({ success: true, created, updated, items: results });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -1868,6 +1894,11 @@ router.post('/confirm-purchase', requireWeb2AuthSoft, async (req, res) => {
         if (r.rows.length)
             _notify(
                 'confirm-purchase',
+                r.rows.map((x) => x.code)
+            );
+        if (r.rows.length)
+            _syncUnits(
+                pool,
                 r.rows.map((x) => x.code)
             );
         res.json({
@@ -2005,6 +2036,7 @@ router.post('/confirm-purchase-partial', requireWeb2AuthSoft, async (req, res) =
         // Migration 070: con vừa nhận hàng → đồng bộ tồn cha.
         await _recomputeParentsForCodes(pool, partialCodes);
         if (partialCodes.length) _notify('confirm-purchase-partial', partialCodes);
+        if (partialCodes.length) _syncUnits(pool, partialCodes);
         res.json({ success: true, processed: partialCodes.length, items: results });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});

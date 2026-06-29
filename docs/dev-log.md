@@ -2,6 +2,19 @@
 
 ## 2026-06-29
 
+### [units] MINT theo SL kho (SP-001..SP-SL) + gán seq nhỏ nhất / tái dùng freed
+
+**Files:** `render.com/routes/web2-product-units.js` (`ensureUnits`+`ensureUnitsForCodes`+`POST /ensure`, export; reconcile đổi ORDER BY), `render.com/routes/web2-products.js` (`_syncUnits` hook 7 handler: create/patch/adjust-stock/adjust-pending/upsert-pending/confirm-purchase/confirm-purchase-partial), `so-order/js/so-order-barcode.js` (mint→/ensure), `web2/products/js/web2-products-render.js` (`_attachUnitsForPrint`→/ensure self-heal), cache-bust 2 FE.
+
+User chốt: **SP có SL N → tự tạo SP-001..SP-N** lúc TẠO SP (so-order hoặc Kho SP), không chỉ lúc nhận hàng.
+
+- **`ensureUnits(pool, code, target, opts)`**: TOP-UP tổng unit = target (thiếu mint thêm seq tiếp; đủ → no-op; KHÔNG xoá — tem vật lý/đã gán). Serial global, 3 số. Advisory-lock per code. `ensureUnitsForCodes` đọc target = `stock+pending_qty` từ web2_products. `POST /ensure {productCodes}` cho client.
+- **Hook web2-products**: mọi handler đổi SL → `_syncUnits` (fire-and-forget) → units có sẵn TRƯỚC khi SP vào giỏ (reconcile cần unit để gán STT). so-order tạo SP đi qua `upsert-pending` → cũng mint. **Bỏ mint per-shipment ở so-order** (dùng `/ensure`, tránh double). Kho SP "In tem" → `/ensure` (self-heal SP cũ/ SL tăng).
+- **Gán seq nhỏ nhất trước (user spec)**: reconcile đổi `ORDER BY h.hist ASC, u.seq ASC` → `ORDER BY u.seq ASC`. Unit bị bỏ khỏi giỏ → quay lại pool → lần gán sau TÁI DÙNG seq nhỏ đó TRƯỚC số chưa dùng cao hơn (vd 002 freed → add lấy 002, không nhảy 007). Nhả vẫn highest-seq-first (giữ 001 ổn định).
+- Lifecycle: bán/ship → unit vẫn tồn (top-up-only, không shrink); target=stock+pending nên sau khi bán units≥target → no-op (đúng, tem trên hàng đã gửi không mất).
+
+**Test:** `node --check` 3 backend + so-order ✓. ⚠ Backend chạy web2-api (deploy) → verify online sau push (tạo SP SL N → units 001..N; add/remove giỏ → seq nhỏ nhất + tái dùng freed). Tuân thủ KB-SYSTEM-SERVICES: pool web2Db||chatDb, SSE hub web2, không require ngược.
+
 ### [native-orders] Đơn GỘP hiện STT kệ MỚI (khớp tem) thay vì "1 + 2"
 
 **Files:** `native-orders/js/native-orders-render.js` (`computeOrderStt` bỏ nhánh `mergedDisplayStt` join → dùng `campaign_stt`; badge thêm title + dấu ⛓), `native-orders/index.html` (cache-bust render `20260629b→c`).
