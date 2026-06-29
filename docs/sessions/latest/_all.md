@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d4e7e14` — fix(order-creation,clearance): audit #3-#7 + clearance open_recent bug (#2a defer)
-**Last updated**: 2026-06-29 09:54:51 +07
-**Latest session**: [`RESUME:20260629-095451-d4e7e14`](../20260629-095451-d4e7e14.md)
-**Summary**: fix(order-creation,clearance): audit #3-#7 + clearance open_recent bug (#2a defer)
+**Latest commit**: `9885388` — chore(session): RESUME:20260629-095451-d4e7e14
+**Last updated**: 2026-06-29 09:55:20 +07
+**Latest session**: [`RESUME:20260629-095520-9885388`](../20260629-095520-9885388.md)
+**Summary**: Audit tạo đơn: fix #3-#7 + clearance bug + cart reconcile — verified; #2a auth defer
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 6 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
