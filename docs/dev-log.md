@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [native-orders] Bỏ nút "PBH SHOP" bulk + gỡ content-visibility (giật khi expand+search)
+
+**Files:** `native-orders/index.html` (xóa button `#ordersBulkPbhShop` + gỡ rule `content-visibility` + bump bulk-operations/realtime-init `→i`), `native-orders/js/native-orders-bulk-operations.js` (xóa hàm chết `bulkCreatePbhShop` ~100 dòng), `native-orders/js/native-orders-realtime-init.js` (gỡ listener).
+
+User: (1) "bỏ nút PBH SHOP vì modal Tạo PBH + picker giao hàng đã có 'BÁN HÀNG SHOP'/'Shop' tạo PBH shop rồi" → redundant. (2) "khi mở expand mà tìm kiếm nó giật giật".
+
+- **Bỏ PBH SHOP bulk**: xóa button + listener + hàm `bulkCreatePbhShop` (chỉ button gọi, grep confirm 0 ref khác). Chức năng vẫn còn ở modal Tạo PBH (`createPbh(code,{shopMode})`) + DeliveryMethodPicker option Shop. Verify: button mất, hàm undefined, các nút bulk khác còn đủ (Gộp/PBH/In bill/Gửi tin/Bỏ chọn).
+- **Gỡ `content-visibility:auto`** trên `.order-row`: thêm hôm nay cho cuộn (+6fps) nhưng gây paint pop-in off-screen lúc re-render/scroll. Đo CLS khi expand+search: CV on 0.044 / CV off 0.044 (shift còn lại = search reload đổi kết quả lúc đơn mở expand, KHÔNG phải CV) — nhưng CV gây bất ổn paint nên gỡ (lợi ích marginal). Chống freeze list lớn vẫn dùng **chunked render** (đủ). Cuộn 1000 về ~35fps (vẫn dùng được).
+
+**Test browser:** PBH SHOP button gone, fn undefined, bulk bar còn 5 nút đúng; content-visibility=visible. Status ✅ — ⏳ chờ user xác nhận expand+search còn giật không (shift còn lại từ reload kết quả, sẽ đào tiếp nếu cần).
+
 ### [native-orders] Render chunked + content-visibility — hết freeze list lớn (1000 dòng)
 
 **Files:** `native-orders/js/native-orders-render.js` (renderRows: chunked + `_iconsIn` scoped + `_finalizeRender` + quyết định chunk theo `rebuildCount`), `native-orders/index.html` (CSS `content-visibility:auto` cho `.order-row` + bump render.js `f→i`).

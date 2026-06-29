@@ -31,13 +31,10 @@
                     min-width: 44px;
                 }
             }
-            /* Cuộn mượt list lớn: off-screen rows bỏ qua layout/paint. contain-intrinsic-size
-               'auto 98px' = chiều cao thực 1 dòng (browser nhớ size thật sau render đầu → không
-               nhảy scrollbar). Đã verify KHÔNG lệch cột dù table-layout:auto. */
-            #ordersTbody tr.order-row {
-                content-visibility: auto;
-                contain-intrinsic-size: auto 98px;
-            }
+            /* ĐÃ BỎ content-visibility trên .order-row (2026-06-29): nó gây NHẢY LAYOUT giật
+               khi gõ tìm kiếm lúc đơn đang mở expand (CLS 0.044, user thấy "giật giật") — vì CV
+               tự đánh giá lại off-screen rows + nhớ/áp lại size mỗi lần re-render. Lợi ích chỉ ~+6fps
+               cuộn → KHÔNG đáng. Chống freeze list lớn DÙNG chunked render (renderRows) là đủ. */
             /* Search typeahead — gợi ý KH/đơn khớp text đã nhập */
             .no-search-suggest {
                 position: absolute;
@@ -452,14 +449,6 @@
                         Tạo PBH hàng loạt
                     </button>
                     <button
-                        class="web2-btn web2-btn-warning web2-btn-sm"
-                        id="ordersBulkPbhShop"
-                        title="Bán tại shop: tạo PBH ship 0, phương thức 'PBH SHOP' (vẫn thu hộ qua ví)"
-                    >
-                        <i data-lucide="store" style="width: 12px; height: 12px"></i>
-                        PBH SHOP
-                    </button>
-                    <button
                         class="web2-btn web2-btn-default web2-btn-sm"
                         id="ordersBulkPrintBill"
                         title="In bill thermal 80mm cho các đơn (preview — không lưu DB)"
@@ -653,9 +642,9 @@
         <script src="js/native-orders-product-picker.js?v=20260628c"></script>
         <script src="js/native-orders-pbh-bill.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-add.js?v=20260628c"></script>
-        <script src="js/native-orders-bulk-operations.js?v=20260628c"></script>
+        <script src="js/native-orders-bulk-operations.js?v=20260629i"></script>
         <script src="js/native-orders-filters-campaigns.js?v=20260629f"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260629f"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260629i"></script>
         <script src="js/native-orders-customer360.js?v=20260628c"></script>
         <script src="js/native-orders-interactions.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-resolve.js?v=20260628c"></script>

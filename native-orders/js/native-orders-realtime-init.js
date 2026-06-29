@@ -306,7 +306,6 @@
             if (e.target?.classList?.contains('row-check')) NO.updateBulkBar();
         });
         NO.$('#ordersBulkPbh')?.addEventListener('click', NO.bulkCreatePbh);
-        NO.$('#ordersBulkPbhShop')?.addEventListener('click', NO.bulkCreatePbhShop);
         NO.$('#ordersBulkMerge')?.addEventListener('click', NO.bulkMergeOrders);
         NO.$('#ordersBulkPrintBill')?.addEventListener('click', NO.bulkPrintBills);
         NO.$('#ordersBulkSendMessage')?.addEventListener('click', NO.bulkSendMessage);
