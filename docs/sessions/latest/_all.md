@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a45a54a` — docs(dev-log): scan metrics verified live (Bán=8, KH mới=5)
-**Last updated**: 2026-06-29 08:57:55 +07
-**Latest session**: [`RESUME:20260629-085755-a45a54a`](../20260629-085755-a45a54a.md)
-**Summary**: Quét tem hiện số liệu live SP (Bán/mới/NCC/còn/tồn) như live-control — verified
+**Latest commit**: `b95677b` — auto: session update
+**Last updated**: 2026-06-29 09:16:41 +07
+**Latest session**: [`RESUME:20260629-091641-b95677b`](../20260629-091641-b95677b.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -81,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-29 08:54
+- [`web2/`](./web2.md) — updated 2026-06-29 09:16
