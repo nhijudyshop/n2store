@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2cd874f` — chore(session): RESUME:20260629-170022-5050372
-**Last updated**: 2026-06-29 17:00:28 +07
-**Latest session**: [`RESUME:20260629-170028-2cd874f`](../20260629-170028-2cd874f.md)
-**Summary**: Gộp sort-station vào unit-scan (2 chế độ Tra/Chia hàng) + Web2ShelfMap (STT→Kệ·Hàng·Cột) + shelf-labels in nhãn ô + fix overlay [hidden]
+**Latest commit**: `f535f7c` — feat(goods-weight): bộ lọc 12 tháng (mặc định tháng hiện tại) cho báo cáo
+**Last updated**: 2026-06-29 17:45:16 +07
+**Latest session**: [`RESUME:20260629-174516-f535f7c`](../20260629-174516-f535f7c.md)
+**Summary**: feat(goods-weight): bộ lọc 12 tháng (mặc định tháng hiện tại) cho báo cáo
 
 ## Folders affected in this commit
 
-_(no folders affected — chỉ commit session file)_
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@ _(no folders affected — chỉ commit session file)_
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 17:00
+- [`docs/`](./docs.md) — updated 2026-06-29 17:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -81,4 +82,4 @@ _(no folders affected — chỉ commit session file)_
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-29 17:00
+- [`web2/`](./web2.md) — updated 2026-06-29 17:45
