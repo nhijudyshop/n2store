@@ -278,6 +278,68 @@
         dt.setUTCDate(dt.getUTCDate() + delta);
         return dt.toISOString().slice(0, 10);
     }
+    function currentMonth() {
+        return todayHCM().slice(0, 7); // 'YYYY-MM' theo GMT+7
+    }
+    // 12 tháng gần nhất (cũ→mới), tháng hiện tại ở cuối.
+    function last12Months() {
+        const [y, m] = currentMonth().split('-').map(Number);
+        const arr = [];
+        for (let i = 11; i >= 0; i--) {
+            let mm = m - i,
+                yy = y;
+            while (mm <= 0) {
+                mm += 12;
+                yy -= 1;
+            }
+            arr.push({ ym: `${yy}-${String(mm).padStart(2, '0')}`, y: yy, m: mm });
+        }
+        return arr;
+    }
+    // 'YYYY-MM' → khoảng {from,to}. Tháng hiện tại: to = hôm nay (không kéo sang tương lai).
+    function monthRange(ym) {
+        const from = ym + '-01';
+        if (ym === currentMonth()) return { from, to: todayHCM() };
+        const [y, m] = ym.split('-').map(Number);
+        const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        return { from, to: `${ym}-${String(last).padStart(2, '0')}` };
+    }
+    function clearMonthActive() {
+        document
+            .querySelectorAll('#rpMonths .is-active')
+            .forEach((b) => b.classList.remove('is-active'));
+    }
+    function buildMonths() {
+        const wrap = $('#rpMonths');
+        if (!wrap) return;
+        wrap.innerHTML = last12Months()
+            .map(
+                (mo) =>
+                    `<button class="rp-month" type="button" data-ym="${mo.ym}"><b>Th${mo.m}</b><span>${mo.y}</span></button>`
+            )
+            .join('');
+        wrap.querySelectorAll('[data-ym]').forEach((b) =>
+            b.addEventListener('click', () => selectMonth(b.dataset.ym))
+        );
+    }
+    function selectMonth(ym) {
+        const { from, to } = monthRange(ym);
+        $('#rpFrom').value = from; // set .value programmatically → KHÔNG fire change (không clear chip)
+        $('#rpTo').value = to;
+        let active = null;
+        $('#rpMonths')
+            .querySelectorAll('[data-ym]')
+            .forEach((b) => {
+                const on = b.dataset.ym === ym;
+                b.classList.toggle('is-active', on);
+                if (on) active = b;
+            });
+        if (active)
+            try {
+                active.scrollIntoView({ inline: 'center', block: 'nearest' });
+            } catch (_) {}
+        loadReport();
+    }
 
     async function loadReport() {
         const qs = new URLSearchParams();
@@ -367,6 +429,7 @@
     }
 
     function setPreset(range) {
+        clearMonthActive();
         const today = todayHCM();
         let from = '',
             to = today;
@@ -386,16 +449,22 @@
         $('#tabLog').classList.toggle('is-active', log);
         $('#tabReport').classList.toggle('is-active', !log);
         document.body.classList.toggle('rp-mode', !log);
-        if (!log && !REPORT) loadReport();
+        if (!log && !REPORT) selectMonth(currentMonth()); // mặc định: tháng hiện tại
     }
 
     function setupReport() {
+        buildMonths();
+        const onDateChange = () => {
+            clearMonthActive(); // sửa ngày tay → bỏ chọn tab tháng
+            loadReport();
+        };
         $('#tabLog').addEventListener('click', () => showTab('log'));
         $('#tabReport').addEventListener('click', () => showTab('report'));
-        $('#rpFrom').addEventListener('change', loadReport);
-        $('#rpTo').addEventListener('change', loadReport);
-        $('#rpUser').addEventListener('change', loadReport);
+        $('#rpFrom').addEventListener('change', onDateChange);
+        $('#rpTo').addEventListener('change', onDateChange);
+        $('#rpUser').addEventListener('change', loadReport); // lọc NV độc lập tháng
         $('#rpReset').addEventListener('click', () => {
+            clearMonthActive();
             $('#rpFrom').value = '';
             $('#rpTo').value = '';
             $('#rpUser').value = '';

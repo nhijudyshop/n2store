@@ -24,7 +24,9 @@ Công thức: **tiền ship = kg×25.000 + kiện×10.000**. Thêm tab "📊 Bá
 - **Backend** `GET /api/web2-goods-weight/report?from&to&username` (soft-auth): GROUP BY ngày GMT+7 (`to_timestamp(created_at/1000) AT TIME ZONE 'Asia/Ho_Chi_Minh'`, so chuỗi 'YYYY-MM-DD' → độc lập TZ server), tính ship server-side (nguồn-chân-lý), trả `rows/totals/users/rates`. LIMIT 366 ngày. Pool web2Db.
 - **Frontend** tab toggle (Cân hàng ⇄ Báo cáo). Báo cáo: filter Từ/Đến ngày (`<input type=date>` native) + chọn Nhân viên (distinct) + preset Hôm nay/7/30/Tháng này + Xoá lọc; bảng 7 cột (Ngày · Lần cân · kg · kiện · Tiền kg · Tiền kiện · Tổng ship) + summary cards + hàng Tổng cộng. Card lịch sử thêm chip 🚚 ship/lần. SSE `web2:goods-weight` reload cả 2 tab. Bảng rộng tới 1120px, mobile scroll-x + summary 2 cột.
 
-**Status:** code xong, `node --check` ✓ cả 2 file. ⚠ `/report` chạy web2-api → verify e2e SAU deploy.
+- **12 tháng (filter ưu tiên)**: strip 12 nút tháng gần nhất (cũ→mới) đầu rp-bar; click → set Từ/Đến = đầu↔cuối tháng (tháng hiện tại to=hôm nay). Mở tab Báo cáo **mặc định chọn THÁNG HIỆN TẠI** (không còn load all). Sửa ngày tay / preset / xoá lọc → bỏ chọn tab tháng; lọc NV độc lập. Bump css `d→e`, js `c→d`. Self-check date-math (12 mục, Feb→28, Dec→31, cur→today) ✓.
+
+**Status:** verified live — `/report` 25k/kg·10k/kiện, gộp ngày GMT+7, totals đúng (20kg×5kiện→550k). 12-tháng frontend-only (GH Pages). `node --check` ✓.
 
 ### [sort-station] Trang MỚI "Bàn chia hàng" 📱 (put-wall sortation guided)
 
