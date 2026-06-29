@@ -2,6 +2,20 @@
 
 ## 2026-06-29
 
+### [unit-scan] Put-to-light (đèn LED chỉ ô kệ) — ESP32 + WS2811 + chia hàng 1 lượt
+
+**Files:** `web2/shared/web2-putwall.js` (NEW — client `Web2PutWall`), `web2/putwall/firmware/putwall-esp32.ino` (NEW — firmware FastLED), `web2/unit-scan/{index.html,js/unit-scan.js,css/unit-scan.css}` (nút 💡 + light-on-scan + panel cài đặt; bump css `h→i`, js `g→h`), `docs/web2/PUTWALL-LED-SETUP.md` (NEW — BOM/Shopee/sơ đồ nối/flash/troubleshoot/GitHub).
+
+User: (1) tối ưu **quét 1 lượt** (đống hàng giữa, 8 kệ quây vuông) → bỏ thẳng vào STT; (2) thêm chức năng đèn LED + tài liệu mua/lắp.
+
+- **Put-to-light**: quét tem → `Web2PutWall.light(STT)` → ESP32 sáng đúng ô kệ → đặt thẳng, không đọc số (giải 1 lượt). Bấm 1 SP trong chi tiết kệ → `lightMany` sáng MỌI ô của SP đó (đặt cả sấp).
+- **Client** `web2/shared/web2-putwall.js`: cấu hình localStorage (enabled/urls/color/brightness/ms), gửi `GET /stt?n=<STT toàn cục>` fire-and-forget tới mọi controller (self-filter theo dải), `/clear` `/test` `/health`. Panel cài đặt mở từ nút 💡 header.
+- **Firmware** ESP32 + FastLED: map STT→LED (STT_BASE + serpentine + COLS), HTTP `/stt /clear /test /health` (CORS \*), auto-off `ms`.
+- ⚠ **Mixed content**: trang HTTPS KHÔNG gọi được ESP32 HTTP → khuyên mở qua **HTTP LAN** (`python3 -m http.server`); cầu SSE cho HTTPS để dành (chưa làm). Cảnh báo hiện ngay trong panel khi đang HTTPS.
+- **Mua gì**: ESP32 DevKit + LED WS2811 5V đục lỗ (1 bóng/ô) + nguồn 5V + tụ/điện trở — từ khoá Shopee + GitHub refs (FastLED/WLED/...) trong doc.
+
+**Test browser (mock ESP32 log hits, HTTP localhost):** quét unit STT 1 → `/stt?n=1&c=1aff5a&b=160&ms=0` ✓; Test → `/test` ✓; lightMany([1,6]) → `/clear` + 2× `/stt…keep=1` ✓; health → đọc JSON {ok,base,num} (CORS) ✓; panel render đủ field, willBlock=false trên HTTP ✓; `node --check` + ino braces balanced ✓.
+
 ### [web2/system] Thêm nút "Mở giao diện Gemini" vào card máy shop (tab Services)
 
 **Files:** `web2/system/js/system-services.js` (`renderGeminiMachines` card template), `web2/system/index.html` (bump `system-services.js?v` → `20260629gemlink`).
