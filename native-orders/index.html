@@ -124,6 +124,19 @@
                             </div>
                         </div>
 
+                        <!-- Tag filter pill — lọc theo cột "Thẻ" (autoTags), client-side -->
+                        <div class="filter-chip-group">
+                            <label class="chip-label chip-label-primary">
+                                <i data-lucide="tag"></i> Thẻ:
+                            </label>
+                            <div class="chip-select-wrapper">
+                                <select id="filterTag" class="chip-select chip-select-primary">
+                                    <option value="">Tất cả</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="chip-caret"></i>
+                            </div>
+                        </div>
+
                         <!-- Campaign filter chip (sync with web2-pancake selection) -->
                         <div class="filter-chip-group" id="campaignChipGroup">
                             <label class="chip-label chip-label-primary">
@@ -550,18 +563,18 @@
              shared namespace window.NativeOrders). Load THEO THỨ TỰ phụ thuộc:
              state/config → render/feature → chat → init → public-api (build
              window.NativeOrdersApp CUỐI). KHÔNG đổi thứ tự. -->
-        <script src="js/native-orders-state.js?v=20260628c"></script>
+        <script src="js/native-orders-state.js?v=20260629d"></script>
         <script src="js/native-orders-snapshots.js?v=20260628c"></script>
         <script src="js/native-orders-customer-panel.js?v=20260628c"></script>
-        <script src="js/native-orders-render.js?v=20260629c"></script>
+        <script src="js/native-orders-render.js?v=20260629d"></script>
         <script src="js/native-orders-delivery.js?v=20260628c"></script>
         <script src="js/native-orders-modal-edit.js?v=20260628c"></script>
         <script src="js/native-orders-product-picker.js?v=20260628c"></script>
         <script src="js/native-orders-pbh-bill.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-add.js?v=20260628c"></script>
         <script src="js/native-orders-bulk-operations.js?v=20260628c"></script>
-        <script src="js/native-orders-filters-campaigns.js?v=20260628c"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260628c"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260629d"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260629d"></script>
         <script src="js/native-orders-customer360.js?v=20260628c"></script>
         <script src="js/native-orders-interactions.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-resolve.js?v=20260628c"></script>

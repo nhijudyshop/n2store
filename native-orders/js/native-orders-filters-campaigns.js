@@ -14,10 +14,63 @@
         NO.load();
     };
 
+    // ---------- Tag filter (client-side, không reload) ----------
+    // Tags (autoTags) tính server-side SAU phân trang → không lọc DB được. Lọc trên
+    // trang đã tải, giống KPI health bar. Đổi thẻ → chỉ re-render, KHÔNG gọi load().
+    NO.applyTagFilter = function applyTagFilter() {
+        NO.STATE.tagFilter = NO.$('#filterTag')?.value || '';
+        NO.renderRows();
+        NO.renderCounters();
+    };
+
+    // orders đang HIỂN THỊ sau khi áp thẻ. tagFilter rỗng → toàn bộ trang.
+    NO._visibleOrders = function _visibleOrders() {
+        const orders = NO.STATE.orders || [];
+        const tf = NO.STATE.tagFilter;
+        if (!tf) return orders;
+        return orders.filter((o) => (o.autoTags || []).some((t) => t && t.trigger === tf));
+    };
+
+    // Dựng lại options #filterTag từ autoTags của orders đã tải (gọi sau mỗi load).
+    // Gom theo trigger; kpi_user (tên NV động) → 1 nhãn cố định. Giữ lựa chọn hiện tại
+    // nếu trigger còn xuất hiện, ngược lại reset về "Tất cả".
+    NO.populateTagFilterOptions = function populateTagFilterOptions() {
+        const sel = NO.$('#filterTag');
+        if (!sel) return;
+        const byTrigger = new Map(); // trigger -> { label, count }
+        for (const o of NO.STATE.orders || []) {
+            const seen = new Set(); // 1 đơn đếm 1 lần / trigger
+            for (const t of o.autoTags || []) {
+                if (!t || !t.trigger || seen.has(t.trigger)) continue;
+                seen.add(t.trigger);
+                const prev = byTrigger.get(t.trigger);
+                const label = t.trigger === 'kpi_user' ? 'KPI (người nhận)' : t.name || t.trigger;
+                if (prev) prev.count++;
+                else byTrigger.set(t.trigger, { label, count: 1 });
+            }
+        }
+        const opts = [...byTrigger.entries()].sort((a, b) => b[1].count - a[1].count);
+        const cur = NO.STATE.tagFilter || '';
+        const stillValid = cur === '' || byTrigger.has(cur);
+        sel.innerHTML =
+            '<option value="">Tất cả</option>' +
+            opts
+                .map(
+                    ([trigger, { label, count }]) =>
+                        `<option value="${NO.escapeHtml(trigger)}">${NO.escapeHtml(label)} (${count})</option>`
+                )
+                .join('');
+        if (!stillValid) NO.STATE.tagFilter = '';
+        sel.value = NO.STATE.tagFilter || '';
+    };
+
     NO.clearFilters = function clearFilters() {
         NO.$('#filterSearch').value = '';
         NO.$('#filterStatus').value = 'all';
         NO.$('#filterLimit').value = '200';
+        const tagSel = NO.$('#filterTag');
+        if (tagSel) tagSel.value = '';
+        NO.STATE.tagFilter = '';
         NO.STATE.search = '';
         NO.STATE.status = 'all';
         NO.STATE.limit = 200;

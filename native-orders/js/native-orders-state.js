@@ -107,6 +107,10 @@
         page: 1,
         limit: 200,
         status: 'all',
+        // 2026-06-29: lọc theo THẺ (autoTags) — client-side. '' = tất cả, else = trigger.
+        // Tags tính server-side SAU phân trang nên không lọc DB được → lọc trên trang đã tải
+        // (giống KPI health bar). Options tự dựng từ autoTags của orders đã tải.
+        tagFilter: '',
         // 2026-06-04: tab kênh đơn — 'web2_livestream' (mặc định) | 'web2_inbox'.
         // (2026-06-05: prefix web2_ — 'inbox'/'livestream' trần dễ nhầm Pancake/
         // icon/field source/hệ khác. Phải khớp data-channel ở index.html.)

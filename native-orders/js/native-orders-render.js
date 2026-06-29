@@ -624,13 +624,15 @@
     };
 
     NO.renderRows = function renderRows() {
-        const orders = NO.STATE.orders;
+        // _visibleOrders áp thẻ (client-side); rỗng/chưa load module filters → toàn bộ.
+        const orders = NO._visibleOrders ? NO._visibleOrders() : NO.STATE.orders;
         const tb = NO.tbody();
         if (!orders.length) {
             tb.replaceChildren();
             const hasFilter = !!(
                 NO.STATE.search ||
                 (NO.STATE.status && NO.STATE.status !== 'all') ||
+                NO.STATE.tagFilter ||
                 (NO.STATE.selectedCampaignIds && NO.STATE.selectedCampaignIds.length)
             );
             const clearBtn = hasFilter
@@ -825,6 +827,14 @@
     NO.renderCounters = function renderCounters() {
         const totalStr = NO.STATE.total.toLocaleString('vi-VN');
         NO.counter().textContent = `${totalStr} đơn`;
+        // Lọc thẻ (client-side) → "kết quả" hiện số đơn KHỚP THẺ trên trang, không phải
+        // tổng server (animate count-up không hợp lý cho lọc cục bộ → set thẳng).
+        if (NO.STATE.tagFilter) {
+            const n = NO._visibleOrders ? NO._visibleOrders().length : NO.STATE.orders.length;
+            NO.searchCount().textContent = n.toLocaleString('vi-VN');
+            NO._prevTotal = NO.STATE.total;
+            return;
+        }
         // Count-up animation on the searchCount pill (numeric-only — keeps the
         // suffix safe). Only when delta exists and not the first render.
         if (window.Web2Effects?.countUp && NO._prevTotal > 0 && NO._prevTotal !== NO.STATE.total) {
@@ -917,6 +927,8 @@
             });
             NO.STATE.orders = resp.orders || [];
             NO.STATE.total = resp.total || 0;
+            // Dựng lại options thẻ từ data mới (giữ lựa chọn nếu trigger còn xuất hiện).
+            if (NO.populateTagFilterOptions) NO.populateTagFilterOptions();
             NO.renderRows();
             NO.renderPagination();
             NO.renderCounters();

@@ -166,6 +166,8 @@
         // Auto-apply when Status / Limit dropdowns change
         NO.$('#filterStatus')?.addEventListener('change', NO.applyFilters);
         NO.$('#filterLimit')?.addEventListener('change', NO.applyFilters);
+        // Thẻ: lọc client-side trên trang đã tải → KHÔNG reload, chỉ re-render.
+        NO.$('#filterTag')?.addEventListener('change', NO.applyTagFilter);
         // 2026-06-04: tab kênh đơn (Livestream / Inbox) + nút Thêm đơn inbox.
         // Đồng bộ UI (tab active + nút Thêm đơn inbox + ẩn bộ lọc chiến dịch) theo
         // STATE.channel hiện tại. Gọi lúc init (channel restore từ localStorage) và

@@ -2,6 +2,18 @@
 
 ## 2026-06-29
 
+### [native-orders] Bộ lọc THẺ (autoTags) — client-side trên trang đã tải
+
+**Files:** `native-orders/index.html` (chip `#filterTag` giữa Trạng thái↔Chiến dịch + bump 4 js `c→d`), `native-orders/js/native-orders-state.js` (`STATE.tagFilter`), `native-orders/js/native-orders-filters-campaigns.js` (`applyTagFilter`/`_visibleOrders`/`populateTagFilterOptions` + reset trong `clearFilters`), `native-orders/js/native-orders-render.js` (`renderRows` lặp `_visibleOrders`, empty-state + `renderCounters` theo lọc, `load` gọi populate), `native-orders/js/native-orders-realtime-init.js` (wire `change`).
+
+User: "Thêm filter tag" cho trang Đơn Web (đã đọc `web2/order-tags` + `web2/system?tab=services`).
+
+- **Client-side, KHÔNG reload**: tags (`o.autoTags`) tính server-side SAU phân trang → không lọc DB được; lọc trên trang đã tải (giống KPI health bar). Đổi thẻ → chỉ re-render.
+- **Options tự dựng** từ autoTags của orders đã tải, gom theo `trigger` (1 trigger = 1 thẻ, khớp `web2/order-tags`), nhãn = `tag.name` (kpi_user động → "KPI (người nhận)"), kèm count, sort desc. Giữ lựa chọn nếu trigger còn xuất hiện sau reload.
+- **Đếm "kết quả"** = số đơn khớp thẻ khi đang lọc; clear → về tổng server. Empty-state nhận biết tagFilter.
+
+**Test browser (admin, localhost, data thật 6 đơn):** options `["Tất cả","Chờ hàng (2)","Thiếu địa chỉ (2)","Giỏ trống (1)","Khách lạ (1)"]` khớp `tagCounts` ✓; chọn `cho_hang` → 2 row đúng (NJ-...0007/0001) + count "2" ✓; clear → 6 row + "6" ✓; `node --check` 4 file ✓; screenshot chip render đúng vị trí/style ✓. Status ✅
+
 ### [unit-scan] Put-to-light (đèn LED chỉ ô kệ) — ESP32 + WS2811 + chia hàng 1 lượt
 
 **Files:** `web2/shared/web2-putwall.js` (NEW — client `Web2PutWall`), `web2/putwall/firmware/putwall-esp32.ino` (NEW — firmware FastLED), `web2/unit-scan/{index.html,js/unit-scan.js,css/unit-scan.css}` (nút 💡 + light-on-scan + panel cài đặt; bump css `h→i`, js `g→h`), `docs/web2/PUTWALL-LED-SETUP.md` (NEW — BOM/Shopee/sơ đồ nối/flash/troubleshoot/GitHub).
