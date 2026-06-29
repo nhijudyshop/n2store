@@ -18,7 +18,18 @@ const router = express.Router();
 const {
     getOrCreateWeb2OrderCustomer,
     lookupCustomerIdByPhone,
+    normalizePhone: _normPhoneWeb2,
 } = require('../services/web2-order-customer-service');
+
+// #6 (2026-06-29): cột native_orders.phone trước đây lưu b.phone RAW → có thể
+// chứa '+84…', khoảng trắng, fb_id, số rác. Chuẩn hoá về canonical VN ^0\d{9}$
+// (bỏ +84→0, lấy 10 số cuối nếu hợp lệ) DÙNG CHUNG với link KH
+// (getOrCreateWeb2OrderCustomer cũng normPhone qua cùng nguồn) → cột phone và
+// customer_id luôn nhất quán. Trả '' nếu không hợp lệ (KHÔNG dùng làm SĐT chuẩn).
+// ponytail: wrap normPhoneWeb2 (đã có) thay vì viết lại regex — 1 nguồn chuẩn hoá.
+function _normVnPhone(p) {
+    return _normPhoneWeb2(p) || '';
+}
 const web2WalletService = require('../services/web2-wallet-service');
 // Gate admin cho thao tác KPI nhạy cảm (chốt base = khóa bất biến → chỉ admin).
 // requireWeb2AuthSoft: gate mềm → 401 khi WEB2_AUTH_ENFORCE=1 (ĐANG BẬT prod). Áp cho
@@ -1117,7 +1128,9 @@ router.post('/from-comment', async (req, res) => {
                         sessionIndex,
                         // Use enriched values (from fb_id lookup) nếu body không có
                         b.customerName || enrichedName || null,
-                        enrichedPhone,
+                        // #6: chuẩn hoá SĐT trước khi lưu cột (RAW → ^0\d{9}$ hoặc '').
+                        // DB-sourced enrichedPhone đã normalized → idempotent.
+                        _normVnPhone(enrichedPhone) || null,
                         enrichedAddress,
                         note,
                         b.fbUserId,
@@ -1149,7 +1162,11 @@ router.post('/from-comment', async (req, res) => {
         // data so future orders/customer queries can find them. Non-blocking —
         // wrap in IIFE so any error doesn't kill the create-order response.
         upsertCustomerFromOrder(pool, {
-            phone: b.phone,
+            // #5: cùng phone đã normalize với getOrCreateWeb2OrderCustomer ở trên
+            // (primary link). Trước đây path này dùng b.phone RAW (replace \s) →
+            // query/insert web2_customers bằng phone khác chuẩn → miss match hoặc
+            // tạo bản ghi rác. '' cho phone không hợp lệ → upsert rơi sang fb_id.
+            phone: _normVnPhone(b.phone) || null,
             customerName: b.customerName || b.fbUserName,
             fbUserId: b.fbUserId,
             fbPageId: b.fbPageId,
@@ -1201,15 +1218,24 @@ router.post('/create-manual', requireWeb2AuthSoft, async (req, res) => {
         if (!customerName && !phone) {
             return res.status(400).json({ error: 'Cần tên hoặc SĐT khách hàng' });
         }
+        // #6: cột phone lưu canonical ^0\d{9}$ (RAW → '' nếu không hợp lệ). Giữ
+        // `phone` raw cho guard "có tên hoặc SĐT" ở trên (đơn tay được điền SĐT sau).
+        const normPhone = _normVnPhone(phone);
         // Mã đơn sinh trong insertWithCodeRetry (retry nếu đụng mã do race).
         const now = Date.now();
-        const products = Array.isArray(b.products) ? b.products : [];
-        const totalQty = products.reduce((s, p) => s + (Number(p.quantity || p.qty) || 0), 0);
-        const totalAmt = products.reduce(
-            (s, p) =>
-                s + (Number(p.quantity || p.qty) || 0) * (Number(p.price ?? p.priceUnit) || 0),
-            0
-        );
+        // LOW-validate (2026-06-29): clamp qty/price âm về 0 — input từ modal có thể
+        // gửi số âm (paste/typo) → tổng tiền/SL âm làm hỏng KPI + PBH. Chuẩn hoá line
+        // luôn (rẻ) để cột products lưu giá trị đã clamp, nhất quán với total.
+        const _qty = (p) => Math.max(0, Number(p.quantity ?? p.qty) || 0);
+        const _price = (p) => Math.max(0, Number(p.price ?? p.priceUnit) || 0);
+        const rawProducts = Array.isArray(b.products) ? b.products : [];
+        const products = rawProducts.map((p) => ({
+            ...p,
+            quantity: _qty(p),
+            price: _price(p),
+        }));
+        const totalQty = products.reduce((s, p) => s + p.quantity, 0);
+        const totalAmt = products.reduce((s, p) => s + p.quantity * p.price, 0);
         // customer_id do frontend truyền (từ /api/web2/customers/search — Web 2.0,
         // KHÔNG đụng customers Web 1.0). Không có → null.
         const customerId = b.customerId ? parseInt(b.customerId, 10) || null : null;
@@ -1258,7 +1284,7 @@ router.post('/create-manual', requireWeb2AuthSoft, async (req, res) => {
                     [
                         code,
                         customerName || null,
-                        phone || null,
+                        normPhone || null,
                         (b.address || '').trim() || null,
                         (b.note || '').trim() || null,
                         JSON.stringify(products),
