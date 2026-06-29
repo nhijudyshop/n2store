@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bc8640b` — feat(clearance): admin-only chuyển SP rớt xả ↔ kho chính (gate POST /:id/clearance + ẩn nút non-admin)
-**Last updated**: 2026-06-29 10:39:54 +07
-**Latest session**: [`RESUME:20260629-103954-bc8640b`](../20260629-103954-bc8640b.md)
-**Summary**: feat(clearance): admin-only chuyển SP rớt xả ↔ kho chính (gate POST /:id/clearance + ẩn nút non-admin)
+**Latest commit**: `785bbd7` — docs(dev-log): clearance campaign + admin gate verified
+**Last updated**: 2026-06-29 10:41:10 +07
+**Latest session**: [`RESUME:20260629-104110-785bbd7`](../20260629-104110-785bbd7.md)
+**Summary**: clearance theo chiến dịch (70%+most-recent+1ngày) + admin-only sửa nhầm
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 10:39
+- [`docs/`](./docs.md) — updated 2026-06-29 10:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
