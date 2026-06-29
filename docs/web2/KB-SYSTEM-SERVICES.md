@@ -226,6 +226,16 @@ Quy tắc: cần capability → tra registry TRƯỚC, tái dùng KHÔNG viết 
 
 ---
 
+## 8. Mã sản phẩm & Per-Unit QR (cách thức vận hành — tham chiếu)
+
+> Chi tiết đầy đủ: [`KB-PRODUCT-CODE-UNITS.md`](KB-PRODUCT-CODE-UNITS.md). Đây là **cách thức vận hành mã SP của Web 2.0** — đọc TRƯỚC khi đụng mint / mã SP / Sổ Order / Kho SP / unit-scan.
+
+- **2 con số đừng nhầm**: mã SP (`KHOAODEN`, `Web2ProductCode`) · mã đơn vị (`KHOAODEN-001`, 1/món) · STT kệ (`campaign_stt`).
+- **MINT theo SL kho (2026-06-29)**: SP có SL N → tự tạo `<code>-001..<code>-N` lúc **TẠO SP** (so-order qua `upsert-pending`, Kho SP qua create/adjust). Cơ chế: `ensureUnits` (top-up, KHÔNG shrink) + hook `_syncUnits` ở 7 handler `web2-products` + `POST /ensure` cho client. so-order/Kho SP print dùng `/ensure` (bỏ mint per-shipment cũ).
+- **Gán giỏ**: `reconcileOrderUnits` chọn **seq nhỏ nhất** (`ORDER BY u.seq`), unit bỏ khỏi giỏ → tái dùng số nhỏ trước. STT kệ = `shelfStt()` (`lib/web2-shelf-stt.js`, 1 nguồn).
+- **In tem dùng chung** `Web2ProductsPrint` (QR `?u=<id>`); quét ở **unit-scan**. ⚠ Kho SP có 3 nút in (per-row/bulk/in-lại) **có thể gộp bớt** sau khi model "units = SL" — xem §6 KB-PRODUCT-CODE-UNITS.
+- **Backend**: `/api/web2-product-units` chạy web2-api · pool `web2Db||chatDb` · SSE `web2:product-units`.
+
 ## Cách dùng tài liệu này
 
 - **(a) NotebookLM:** upload file `.md` này lên NotebookLM làm **nguồn** để hỏi-đáp (vd "Web 2.0 tốn bao nhiêu /tháng?", "web2-api khác n2store-fallback chỗ nào?", "topic SSE nào dùng cho ví?"). Mọi con số/tên service/chi phí trong file lấy nguyên từ báo cáo nội bộ.
