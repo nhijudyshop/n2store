@@ -196,12 +196,6 @@ const TRIGGERS = [
         desc: 'Đơn/giỏ có ≥1 DÒNG SẢN PHẨM kèm ghi chú riêng (vd size/màu/yêu cầu KH cho từng SP). Khác với "Có ghi chú đơn" (ghi chú cấp đơn).',
     },
     {
-        id: 'co_tin_nhan',
-        label: 'Có tin nhắn',
-        group: 'Nội dung / Tương tác',
-        desc: 'Đơn/giỏ có ≥1 tin nhắn từ khách (messageCount > 0).',
-    },
-    {
         id: 'co_binh_luan',
         label: 'Có bình luận',
         group: 'Nội dung / Tương tác',
@@ -229,7 +223,10 @@ const PREDICATES = {
     het_hang: (o, f) => f.hetHang,
     mua_1_phan: (o, f) => f.mua1Phan,
 
-    pbh_created: (o) => o.status === 'confirmed' || Number(o.pbhTotal || 0) > 0,
+    // PBH đã tạo: CHỈ khi có fast_sale_order (pbhTotal>0). KHÔNG tính
+    // status==='confirmed' — đơn confirm qua /confirm KHÔNG tạo PBH (PBH lập sau)
+    // → nhánh status fire nhầm "Phiếu bán hàng" + trùng is_confirmed (bug 2026-06-29).
+    pbh_created: (o) => Number(o.pbhTotal || 0) > 0,
     pbh_chua_tt: (o) => Number(o.pbhTotal || 0) > 0 && Number(o.pbhResidual || 0) > 0,
     is_draft: (o) => o.status === 'draft',
     is_confirmed: (o) => o.status === 'confirmed',
@@ -256,8 +253,10 @@ const PREDICATES = {
     // JSONB, mỗi line lưu field `note` (client setLineNote → line.note).
     co_ghi_chu_sp: (o) =>
         Array.isArray(o.products) && o.products.some((p) => p && _hasText(p.note)),
-    // Có tin nhắn từ khách.
-    co_tin_nhan: (o) => Number(o.messageCount || 0) > 0,
+    // 'co_tin_nhan' (Có tin nhắn) ĐÃ GỠ 2026-06-29: message_count chỉ tăng theo
+    // COMMENT merge (không có nguồn tin nhắn riêng trong native_orders) → fire y hệt
+    // 'co_binh_luan' (trùng tag). Cột "Tin nhắn" (count pill) vẫn dùng message_count
+    // ở client — không đụng. Predicate/trigger/seed gỡ, row xoá qua migration ensureTable.
     // Có bình luận bổ sung. comment_count mặc định 1 (bình luận gốc) → ngưỡng > 1.
     co_binh_luan: (o) => Number(o.commentCount || 0) > 1,
 
@@ -647,7 +646,6 @@ async function ensureTable(pool) {
                ('khach_la',     'Khách lạ',     'khach_la',     '#f59e0b', 'user-x',          8, 'system', $1, $1),
                ('co_ghi_chu',    'Có ghi chú đơn', 'co_ghi_chu',    '#0ea5e9', 'sticky-note',    40, 'system', $1, $1),
                ('co_ghi_chu_sp', 'Có ghi chú SP',  'co_ghi_chu_sp', '#0d9488', 'notebook-pen',   43, 'system', $1, $1),
-               ('co_tin_nhan',   'Có tin nhắn',    'co_tin_nhan',   '#6366f1', 'message-circle', 41, 'system', $1, $1),
                ('co_binh_luan',  'Có bình luận',   'co_binh_luan',  '#8b5cf6', 'message-square', 42, 'system', $1, $1)
              ON CONFLICT (code) DO NOTHING`,
             [Date.now()]
@@ -675,6 +673,11 @@ async function ensureTable(pool) {
              WHERE code = 'co_ghi_chu' AND name = 'Có ghi chú'`,
             [Date.now()]
         );
+        // 2026-06-29: GỠ HẲN thẻ 'Có tin nhắn' — message_count chỉ tăng theo COMMENT
+        // merge (không có nguồn tin nhắn riêng) → fire trùng y hệt 'Có bình luận'.
+        // Predicate + trigger + seed đã gỡ; xoá row để admin không thấy trigger chết.
+        // Idempotent (no-op nếu đã xoá).
+        await pool.query(`DELETE FROM web2_order_tags WHERE code = 'co_tin_nhan'`);
     } catch (e) {
         console.warn('[WEB2-ORDER-TAGS] seed warn:', e.message);
     }

@@ -2,6 +2,21 @@
 
 ## 2026-06-29
 
+### [order-tags] Audit toàn bộ predicate — fix pbh_created + gỡ co_tin_nhan
+
+**File:** `render.com/services/web2-order-tags-service.js`.
+
+Audit 28 predicate (workflow 6-reader + adversarial verify). Trong 12 tag ĐANG ACTIVE (web2_order_tags), tìm thêm 2 tag nhầm (ngoài co_ghi_chu đã fix):
+
+- **pbh_created** (BUG): `o.status==='confirmed' || pbhTotal>0` → nhánh `confirmed` fire cả khi đơn confirm mà CHƯA tạo PBH (/confirm tạo PBH sau) → trùng `is_confirmed`. Fix: chỉ `Number(o.pbhTotal||0)>0`.
+- **co_tin_nhan** (BUG): `messageCount>0` nhưng `message_count` chỉ +1 khi merge COMMENT (native-orders.js:926,1068) — không có nguồn tin nhắn riêng → fire trùng y hệt `co_binh_luan`. GỠ HẲN: predicate + trigger + seed + migration `DELETE web2_order_tags WHERE code='co_tin_nhan'` (idempotent). Cột "Tin nhắn" (count pill client) vẫn dùng message_count — KHÔNG đụng.
+
+Phát hiện phụ: `co_coc`, `ship_tinh`, `ship_tp`, `chua_nhan_ck`, `da_nhan_ck` là TRIGGER có sẵn nhưng KHÔNG active (admin chưa bật) → không render ở cột Thẻ. CK status thực tế = badge client `⚠ Chưa nhận CK` / `💸 KH báo đã CK` (native-orders-render.js:240-262), chạy theo `walletBalance`+`ckSignal`, KHÔNG phải autoTag. co*coc DEAD (deposit không enrich), ship*\* silently-false (delivery_method chỉ set tay) — chờ user quyết activate+fix / xoá / để nguyên.
+
+**CK flow verified (live sim, clone 0123456788):** GIỎ draft total 200k, ví 0 → badge "Chưa nhận CK" SHOW → assign web2 tx 200k (PATCH /api/web2/balance-history/:id/link) → ví 200k ≥ total → badge HIDDEN (đã nhận CK). Auto-matcher đúng-đắn TỪ CHỐI test phone (`isObviousTestPhone`).
+
+**Test:** assert predicate (pbh_created PBH-only, co_tin_nhan gone) ✓. `node --check` ✓.
+
 ### [order-tags] Fix TAG "Có ghi chú đơn" firing trên MỌI đơn live
 
 **File:** `render.com/services/web2-order-tags-service.js` (predicate `co_ghi_chu` + desc/comment).
