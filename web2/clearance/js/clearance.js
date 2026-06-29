@@ -17,9 +17,22 @@
     }
     function userName() {
         try {
-            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.username || '';
+            return JSON.parse(localStorage.getItem('web2_auth') || 'null')?.user?.username || '';
         } catch (_) {
             return '';
+        }
+    }
+    // Chỉ admin được chuyển SP rớt xả ↔ kho chính (sửa nhầm). Pattern canonical
+    // so-order _isAdmin: web2_auth = { token, expiresAt, user:{role} }.
+    function _isAdmin() {
+        try {
+            const u =
+                (window.Web2Auth?.getStored && window.Web2Auth.getStored()?.user) ||
+                JSON.parse(localStorage.getItem('web2_auth') || 'null')?.user ||
+                null;
+            return !!(u && (u.role === 'admin' || u.isAdmin === true));
+        } catch (_) {
+            return false;
         }
     }
     async function api(path, opts = {}) {
@@ -142,6 +155,7 @@
                 '. Kho sạch!</div>';
             return;
         }
+        const admin = _isAdmin();
         host.innerHTML = groups
             .map((g) => {
                 const gValue = g.units.length * (Number(g.price) || 0);
@@ -154,7 +168,7 @@
                             <span class="uc">${esc(u.unitCode)}</span>
                             <span class="tier-badge">${TIER[u.tier]?.label || u.tier}</span>
                             <span class="meta">tồn ${u.days}d${u.shipmentId ? ' · đợt ' + esc(String(u.shipmentId).slice(-6)) : ''}${u.manual ? ' · ép xả' : ''}</span>
-                            <button class="keep" data-keep="${u.id}" title="Giữ kho chính (đưa ngược)"><i data-lucide="undo-2"></i></button>
+                            ${admin ? `<button class="keep" data-keep="${u.id}" title="Giữ kho chính (đưa ngược)"><i data-lucide="undo-2"></i></button>` : ''}
                         </span>`
                     )
                     .join('');
@@ -166,7 +180,7 @@
                             <span class="clr-gcode">${esc(g.productCode)}</span> · ${fmtVnd(g.price)}/món
                         </div>
                         <div class="clr-gval"><div class="n">${fmtVnd(gValue)}</div><div class="c">${g.units.length} tem</div></div>
-                        <button class="clr-gkeep" data-keepall="${esc(g.productCode)}">Giữ cả SP</button>
+                        ${admin ? `<button class="clr-gkeep" data-keepall="${esc(g.productCode)}">Giữ cả SP</button>` : ''}
                     </div>
                     <div class="clr-units">${units}</div>
                 </div>`;
@@ -182,6 +196,7 @@
     }
 
     async function keepUnit(id) {
+        if (!_isAdmin()) return toast('Chỉ admin được đưa SP về kho chính', 'err');
         try {
             await api('/' + id + '/clearance', {
                 method: 'POST',
@@ -194,6 +209,7 @@
         }
     }
     async function keepGroup(code) {
+        if (!_isAdmin()) return toast('Chỉ admin được đưa SP về kho chính', 'err');
         const g = (DATA.groups || []).find((x) => x.productCode === code);
         if (!g) return;
         const units = filter ? g.units.filter((u) => u.tier === filter) : g.units;

@@ -20,7 +20,7 @@
 // =====================================================
 
 const express = require('express');
-const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 const router = express.Router();
 
 const MAX_MINT_QTY = 500; // trần qty/lần mint (SL/SP hiếm khi >100; 500 là biên an toàn)
@@ -795,7 +795,8 @@ router.get('/clearance', async (req, res) => {
 
 // POST /:id/clearance — ép cờ: { state: 'KEEP' | 'CLEARANCE' | 'AUTO' }
 //   KEEP = giữ kho chính (đưa ngược về); CLEARANCE = ép xả; AUTO/null = tính tự động.
-router.post('/:id/clearance', requireWeb2AuthSoft, async (req, res) => {
+// ADMIN-ONLY (2026-06-29): công cụ sửa nhầm — chỉ admin chuyển SP rớt xả ↔ bình thường.
+router.post('/:id/clearance', requireWeb2Admin, async (req, res) => {
     const pool = _getDb(req);
     const id = Number(req.params.id);
     let state = req.body?.state;
