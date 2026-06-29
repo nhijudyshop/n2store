@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8ac5249` — hardening(cart): Phase 2 — gate 5 cart write + forward token + gate from-comment (#2a)
-**Last updated**: 2026-06-29 10:09:17 +07
-**Latest session**: [`RESUME:20260629-100917-8ac5249`](../20260629-100917-8ac5249.md)
-**Summary**: hardening(cart): Phase 2 — gate 5 cart write + forward token + gate from-comment (#2a)
+**Latest commit**: `1a1adf6` — docs(dev-log): cart auth hardening verified prod (no-token→401, token→full flow)
+**Last updated**: 2026-06-29 10:13:30 +07
+**Latest session**: [`RESUME:20260629-101330-1a1adf6`](../20260629-101330-1a1adf6.md)
+**Summary**: cart auth hardening verified prod — gate chuỗi cart + đóng #2a from-comment
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-29 10:09
+- [`docs/`](./docs.md) — updated 2026-06-29 10:13
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
