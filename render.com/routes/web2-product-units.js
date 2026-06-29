@@ -377,6 +377,40 @@ router.get('/by-product/:code', async (req, res) => {
 });
 
 // =====================================================================
+// POST /by-orders { orderIds:[...] } — serials đơn vị ĐÃ GÁN theo (đơn, SP).
+// → { success, byOrder: { [orderId]: { [productCode]: ['001','002'] } } }
+// Cho native-orders hiển thị "-xxx" sau mã SP (khớp STT khi quét tem).
+// =====================================================================
+router.post('/by-orders', requireWeb2AuthSoft, async (req, res) => {
+    const pool = _getDb(req);
+    const ids = Array.isArray(req.body?.orderIds)
+        ? req.body.orderIds.map(Number).filter(Number.isInteger).slice(0, 500)
+        : [];
+    if (!ids.length) return res.json({ success: true, byOrder: {} });
+    try {
+        await ensureTables(pool);
+        const rows = (
+            await pool.query(
+                `SELECT order_id, product_code, seq FROM web2_product_units
+                 WHERE order_id = ANY($1::int[]) AND status IN ('ASSIGNED','PACKED','SHIPPED')
+                 ORDER BY product_code, seq`,
+                [ids]
+            )
+        ).rows;
+        const byOrder = {};
+        for (const r of rows) {
+            byOrder[r.order_id] = byOrder[r.order_id] || {};
+            (byOrder[r.order_id][r.product_code] = byOrder[r.order_id][r.product_code] || []).push(
+                _pad(r.seq)
+            );
+        }
+        res.json({ success: true, byOrder });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================================
 // GET /:id/events — lịch sử 1 unit (MINT/PRINT/ASSIGN/...) — "tất cả đơn của qrN"
 // =====================================================================
 router.get('/:id/events', async (req, res) => {

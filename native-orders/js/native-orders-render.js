@@ -35,13 +35,26 @@
                    <span class="expand-img-ph" style="display:none;"><i data-lucide="image"></i></span>`
                     : `<span class="expand-img-ph"><i data-lucide="image"></i></span>`;
                 const sourceBadge = NO._renderSourceBadge(l.source);
+                // Mã đơn vị "-xxx" đã AUTO-GÁN cho đơn này (NO._unitSerials, fetch theo
+                // order id). Quét tem -xxx → ra STT đơn này → khớp. Số serial < SL = đơn
+                // còn THIẾU unit (chưa đủ hàng vật lý gán vào giỏ).
+                const _ser =
+                    (NO._unitSerials &&
+                        NO._unitSerials[o.id] &&
+                        NO._unitSerials[o.id][l.productCode]) ||
+                    [];
+                const _unitTag = _ser.length
+                    ? ` <span class="expand-unit-codes" title="Mã đơn vị đã gán (auto theo giỏ) — quét tem ra STT đơn này" style="font-family:ui-monospace,monospace;font-weight:700;color:#0068ff;font-size:11.5px;">${_ser
+                          .map((s) => '-' + s)
+                          .join(' ')}</span>`
+                    : '';
                 return `
                 <tr>
                     <td>${i + 1}</td>
                     <td>${img}</td>
                     <td>
                         <div class="expand-name">${NO.escapeHtml(l.name || '—')}</div>
-                        <div class="expand-code">${NO.escapeHtml(l.productCode || '')}${sourceBadge}</div>
+                        <div class="expand-code">${NO.escapeHtml(l.productCode || '')}${_unitTag}${sourceBadge}</div>
                     </td>
                     <td class="expand-qty">${qty}</td>
                     <td class="expand-price">${price.toLocaleString('vi-VN')}đ</td>

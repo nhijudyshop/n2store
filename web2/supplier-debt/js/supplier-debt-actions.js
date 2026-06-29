@@ -49,6 +49,23 @@
     // Bút toán vẫn qua SD.recordPayment (ledger /tx, idempotent txId). Money op:
     // component giữ await + loading + rollback toast.
     function openPayModal(supplierKey) {
+        // 2026-06-29: CHỈ ADMIN được thanh toán NCC — gate CLIENT y hệt so-order
+        // (so-order-state.js _isAdmin). Server /tx GIỮ soft (KHÔNG admin) để SePay
+        // auto-credit chạy được ở browser NV non-admin; đây chỉ chặn thao tác THỦ CÔNG.
+        var _u = window.Web2Auth && window.Web2Auth.getStored && window.Web2Auth.getStored();
+        _u = _u && _u.user;
+        if (!_u) {
+            try {
+                _u = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+                _u = _u && _u.user;
+            } catch (e) {
+                _u = null;
+            }
+        }
+        if (!(_u && (_u.role === 'admin' || _u.isAdmin === true))) {
+            notify('Chỉ admin được thanh toán NCC', 'warning');
+            return;
+        }
         if (!window.Web2SupplierPay) {
             notify('Module thanh toán chưa load — refresh trang', 'error');
             return;
