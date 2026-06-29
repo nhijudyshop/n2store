@@ -67,6 +67,21 @@
     });
     const fmtTime = (ms) => (ms ? FMT.format(new Date(Number(ms))) : '');
 
+    // Đơn giá tiền ship (đồng bộ với render.com/routes/web2-goods-weight.js).
+    // Server /report là nguồn-chân-lý cho báo cáo; hằng số này chỉ để hiện ship/lần cân.
+    const RATE_KG = 25000; // đ / kg
+    const RATE_BALE = 10000; // đ / kiện
+    const VND = new Intl.NumberFormat('vi-VN');
+    const money = (n) => VND.format(Math.round(Number(n) || 0)) + 'đ';
+    const fmtInt = (n) => VND.format(Math.round(Number(n) || 0));
+    const fmtKg = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 1 });
+    // 'YYYY-MM-DD' (GMT+7) → { wd:'T2', date:'29/06/2026' }. Tách chuỗi, không new Date(str) (tránh lệch UTC).
+    function dayLabel(d) {
+        const [y, m, dd] = String(d).split('-').map(Number);
+        const wd = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date(y, m - 1, dd).getDay()];
+        return { wd, date: `${String(dd).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}` };
+    }
+
     let toastTimer = null;
     function toast(msg, kind) {
         let el = $('#gwToast');
@@ -186,6 +201,8 @@
         $('#gwList').innerHTML = items
             .map((it) => {
                 const img = it.hasImage ? `${GW}/img/${esc(it.id)}` : '';
+                const ship =
+                    (Number(it.weightKg) || 0) * RATE_KG + (Number(it.baleCount) || 0) * RATE_BALE;
                 return `<div class="gw-card">
                     ${
                         img
@@ -196,6 +213,7 @@
                         <div class="gw-card-top">
                             <span class="gw-kg">${esc(it.weightKg)} <small>kg</small></span>
                             <span class="gw-bales">${esc(it.baleCount)} kiện</span>
+                            <span class="gw-ship"><i data-lucide="truck"></i> ${money(ship)}</span>
                         </div>
                         ${it.note ? `<div class="gw-note">${esc(it.note)}</div>` : ''}
                         <div class="gw-card-meta">
@@ -244,6 +262,150 @@
         }
     }
 
+    // ---- BÁO CÁO theo ngày (PC) ----
+    let REPORT = null;
+
+    function todayHCM() {
+        // 'YYYY-MM-DD' hôm nay theo GMT+7 (độc lập TZ máy).
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(
+            new Date()
+        );
+    }
+    function addDays(ymd, delta) {
+        // Cộng ngày trên 'YYYY-MM-DD' bằng UTC (VN không có DST → an toàn).
+        const [y, m, d] = ymd.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        dt.setUTCDate(dt.getUTCDate() + delta);
+        return dt.toISOString().slice(0, 10);
+    }
+
+    async function loadReport() {
+        const qs = new URLSearchParams();
+        const from = $('#rpFrom').value,
+            to = $('#rpTo').value,
+            user = $('#rpUser').value;
+        if (from) qs.set('from', from);
+        if (to) qs.set('to', to);
+        if (user) qs.set('username', user);
+        $('#rpBody').innerHTML = '<tr><td colspan="7" class="rp-muted">Đang tải…</td></tr>';
+        try {
+            REPORT = await api('/report?' + qs.toString());
+            renderReport();
+        } catch (e) {
+            $('#rpBody').innerHTML = `<tr><td colspan="7" class="rp-muted">Lỗi: ${esc(
+                e.message
+            )}</td></tr>`;
+            $('#rpFoot').innerHTML = '';
+        }
+    }
+
+    function fillUserOptions(users) {
+        const sel = $('#rpUser');
+        const cur = sel.value;
+        sel.innerHTML =
+            '<option value="">Tất cả</option>' +
+            (users || []).map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
+        if (cur && (users || []).includes(cur)) sel.value = cur;
+    }
+
+    function renderReport() {
+        if (!REPORT) return;
+        const rates = REPORT.rates || { kg: RATE_KG, bale: RATE_BALE };
+        $('#rpRate').innerHTML = `Đơn giá ship: <b>${money(rates.kg)}</b>/kg · <b>${money(
+            rates.bale
+        )}</b>/kiện`;
+        fillUserOptions(REPORT.users);
+
+        const rows = REPORT.rows || [];
+        const t = REPORT.totals || { count: 0, kg: 0, bales: 0, shipKg: 0, shipBale: 0, ship: 0 };
+
+        $('#rpSummary').innerHTML = [
+            { lb: 'Số ngày', v: fmtInt(rows.length) },
+            { lb: 'Lần cân', v: fmtInt(t.count) },
+            { lb: 'Tổng kg', v: fmtKg(t.kg) },
+            { lb: 'Tổng kiện', v: fmtInt(t.bales) },
+            { lb: 'Tổng tiền ship', v: money(t.ship), big: true },
+        ]
+            .map(
+                (c) =>
+                    `<div class="rp-stat${c.big ? ' rp-stat-hl' : ''}"><span>${c.lb}</span><b>${
+                        c.v
+                    }</b></div>`
+            )
+            .join('');
+
+        if (!rows.length) {
+            $('#rpBody').innerHTML =
+                '<tr><td colspan="7" class="rp-muted">Không có dữ liệu trong khoảng lọc.</td></tr>';
+            $('#rpFoot').innerHTML = '';
+            return;
+        }
+        $('#rpBody').innerHTML = rows
+            .map((d) => {
+                const dl = dayLabel(d.day);
+                return `<tr>
+                    <td class="rp-day"><b>${dl.date}</b><span>${dl.wd}</span></td>
+                    <td class="num">${fmtInt(d.count)}</td>
+                    <td class="num">${fmtKg(d.kg)}</td>
+                    <td class="num">${fmtInt(d.bales)}</td>
+                    <td class="num">${money(d.shipKg)}</td>
+                    <td class="num">${money(d.shipBale)}</td>
+                    <td class="num rp-ship">${money(d.ship)}</td>
+                </tr>`;
+            })
+            .join('');
+        $('#rpFoot').innerHTML = `<tr class="rp-total">
+            <td>Tổng cộng</td>
+            <td class="num">${fmtInt(t.count)}</td>
+            <td class="num">${fmtKg(t.kg)}</td>
+            <td class="num">${fmtInt(t.bales)}</td>
+            <td class="num">${money(t.shipKg)}</td>
+            <td class="num">${money(t.shipBale)}</td>
+            <td class="num rp-ship">${money(t.ship)}</td>
+        </tr>`;
+        icons($('#panelReport'));
+    }
+
+    function setPreset(range) {
+        const today = todayHCM();
+        let from = '',
+            to = today;
+        if (range === 'today') from = today;
+        else if (range === '7') from = addDays(today, -6);
+        else if (range === '30') from = addDays(today, -29);
+        else if (range === 'month') from = today.slice(0, 7) + '-01';
+        $('#rpFrom').value = from;
+        $('#rpTo').value = to;
+        loadReport();
+    }
+
+    function showTab(which) {
+        const log = which !== 'report';
+        $('#panelLog').hidden = !log;
+        $('#panelReport').hidden = log;
+        $('#tabLog').classList.toggle('is-active', log);
+        $('#tabReport').classList.toggle('is-active', !log);
+        document.body.classList.toggle('rp-mode', !log);
+        if (!log && !REPORT) loadReport();
+    }
+
+    function setupReport() {
+        $('#tabLog').addEventListener('click', () => showTab('log'));
+        $('#tabReport').addEventListener('click', () => showTab('report'));
+        $('#rpFrom').addEventListener('change', loadReport);
+        $('#rpTo').addEventListener('change', loadReport);
+        $('#rpUser').addEventListener('change', loadReport);
+        $('#rpReset').addEventListener('click', () => {
+            $('#rpFrom').value = '';
+            $('#rpTo').value = '';
+            $('#rpUser').value = '';
+            loadReport();
+        });
+        $('#rpPresets')
+            .querySelectorAll('[data-range]')
+            .forEach((b) => b.addEventListener('click', () => setPreset(b.dataset.range)));
+    }
+
     // ---- clock (GMT+7 live) ----
     function tickClock() {
         const el = $('#gwClock')?.querySelector('b');
@@ -256,7 +418,10 @@
         if (!window.Web2SSE?.subscribe) return;
         Web2SSE.subscribe('web2:goods-weight', () => {
             clearTimeout(sseDebounce);
-            sseDebounce = setTimeout(load, 500);
+            sseDebounce = setTimeout(() => {
+                load();
+                if (!$('#panelReport').hidden) loadReport();
+            }, 500);
         });
     }
 
@@ -268,6 +433,7 @@
         $('#gwPreviewX').addEventListener('click', clearPhoto);
         $('#gwSave').addEventListener('click', save);
         $('#gwRefresh').addEventListener('click', load);
+        setupReport();
         tickClock();
         setInterval(tickClock, 1000 * 30);
         icons();

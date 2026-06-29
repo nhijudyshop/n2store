@@ -2,6 +2,30 @@
 
 ## 2026-06-29
 
+### [unit-scan] GỘP sort-station vào "Quét tem" (2 chế độ) + sơ đồ kệ vật lý + nhãn ô
+
+**Files:** `web2/shared/web2-shelf-map.js` (NEW — STT→Kệ·Hàng·Cột), `web2/unit-scan/{index.html,js,css}` (gộp 2 chế độ), `web2/shelf-labels/index.html` (NEW — in nhãn ô), `web2/sort-station/index.html` (→ redirect), XOÁ `web2/sort-station/{js,css}`, `web2/shared/web2-sidebar.js` (gộp menu "Quét tem"), bump sidebar 54 html `d→e`. `web2-product-units.js` +`GET /sort-manifest` +`sortManifest()`.
+
+User: unit-scan & sort-station TRÙNG lõi (quét QR→ra kệ) → **GỘP 1 trang "Quét tem" 2 chế độ** (giữ URL unit-scan): **Tra/Đóng gói** (card 1 món + reprint + sibling + vị trí) & **Chia hàng** (9 KỆ=9 xe + tiến độ + manifest + sơ đồ). Scanner/Web2ProductUnits/ShelfMap dùng chung, dispatch theo `MODE`. sort-station → redirect `unit-scan?mode=sort`; sidebar 1 mục.
+
+- **Sơ đồ kệ** (`Web2ShelfMap`, user chốt layout): 9 kệ × 15 cột × 6 hàng = 810 ô; STT tuần tự Kệ1→9 (90/kệ), hàng-major; tường trái(1-2)/giữa(3-6)/phải(7-8)/lẻ(9). `locate(stt)`→{ke,hang,cot}. **9 xe = 9 kệ**: quét→KỆ (xe nào) bỏ vào; ra kệ đặt theo ô (Hàng·Cột) + nhãn.
+- **Nhãn ô** `web2/shelf-labels`: in lưới STT 15×6/kệ (810 ô) dán lên ô. Link từ header (chế độ Chia hàng).
+- unit-scan + sort hiện **"📍 Kệ·Hàng·Cột"**.
+- **Fix CSS**: `.sheet-back`/`.flash` `display:flex` (author) đè UA `[hidden]` → overlay phủ mờ cả trang; thêm `[hidden]{display:none!important}` (gotcha CLAUDE.md).
+
+**Test browser:** 2 chế độ toggle ✓; Tra quét → card + "📍 Kệ 1·H1·C4" ✓; Chia hàng quét → flash "KỆ 1 · STT·vị trí" + grid + kệ-detail + sơ đồ ✓; shelf-labels 9 kệ/810 ô ✓; redirect ✓; overlay hết ✓. `node --check` + self-check ShelfMap ✓.
+
+### [goods-weight] Tiền ship + Báo cáo theo NGÀY (filter chi tiết, PC)
+
+**Files:** `render.com/routes/web2-goods-weight.js` (`GET /report` + hằng `RATE_KG=25000`/`RATE_BALE=10000`), `web2/goods-weight/{index.html,js/goods-weight.js,css/goods-weight.css}` (tab Báo cáo + ship/lần cân) + bump css `20260629c→d`, js `b→c`.
+
+Công thức: **tiền ship = kg×25.000 + kiện×10.000**. Thêm tab "📊 Báo cáo" (chủ yếu xem PC) — mỗi hàng = 1 ngày.
+
+- **Backend** `GET /api/web2-goods-weight/report?from&to&username` (soft-auth): GROUP BY ngày GMT+7 (`to_timestamp(created_at/1000) AT TIME ZONE 'Asia/Ho_Chi_Minh'`, so chuỗi 'YYYY-MM-DD' → độc lập TZ server), tính ship server-side (nguồn-chân-lý), trả `rows/totals/users/rates`. LIMIT 366 ngày. Pool web2Db.
+- **Frontend** tab toggle (Cân hàng ⇄ Báo cáo). Báo cáo: filter Từ/Đến ngày (`<input type=date>` native) + chọn Nhân viên (distinct) + preset Hôm nay/7/30/Tháng này + Xoá lọc; bảng 7 cột (Ngày · Lần cân · kg · kiện · Tiền kg · Tiền kiện · Tổng ship) + summary cards + hàng Tổng cộng. Card lịch sử thêm chip 🚚 ship/lần. SSE `web2:goods-weight` reload cả 2 tab. Bảng rộng tới 1120px, mobile scroll-x + summary 2 cột.
+
+**Status:** code xong, `node --check` ✓ cả 2 file. ⚠ `/report` chạy web2-api → verify e2e SAU deploy.
+
 ### [sort-station] Trang MỚI "Bàn chia hàng" 📱 (put-wall sortation guided)
 
 **Files:** `render.com/routes/web2-product-units.js` (`GET /sort-manifest`), `web2/shared/web2-product-units.js` (`sortManifest()`), `web2/sort-station/{index.html,js/sort-station.js,css/sort-station.css}` (NEW), `web2/shared/web2-sidebar.js` (menu Bán Hàng "Bàn chia hàng 📱") + bump sidebar 54 html `20260629c→d`.

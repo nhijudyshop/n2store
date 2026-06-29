@@ -381,6 +381,287 @@ body {
     color: var(--c-red);
 }
 
+/* ── Tabs (Cân hàng / Báo cáo) ──────────────────────── */
+.gw-tabs {
+    max-width: 560px;
+    margin: 12px auto 0;
+    padding: 0 12px;
+    display: flex;
+    gap: 8px;
+}
+.gw-tab {
+    flex: 1;
+    height: 42px;
+    border: 1.5px solid var(--c-line);
+    border-radius: 12px;
+    background: var(--c-surface);
+    color: var(--c-text-2);
+    font-weight: 800;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s;
+}
+.gw-tab i {
+    width: 17px;
+    height: 17px;
+}
+.gw-tab.is-active {
+    background: var(--c-primary);
+    border-color: var(--c-primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 104, 255, 0.24);
+}
+
+/* ship chip trên card lịch sử */
+.gw-ship {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--c-green);
+    background: #e7f6ee;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.gw-ship i {
+    width: 14px;
+    height: 14px;
+}
+
+/* ── BÁO CÁO (rộng, ưu tiên PC) ─────────────────────── */
+.gw-report {
+    max-width: 1120px;
+    margin: 14px auto 0;
+    padding: 0 12px calc(28px + var(--sab));
+}
+.rp-bar {
+    background: var(--c-surface);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.rp-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+.rp-f {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--c-text-2);
+}
+.rp-f input,
+.rp-f select {
+    height: 42px;
+    border: 1.5px solid var(--c-line);
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--c-surface);
+    color: var(--c-text);
+}
+.rp-f input:focus,
+.rp-f select:focus {
+    outline: none;
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.14);
+}
+.rp-reset {
+    height: 42px;
+    padding: 0 14px;
+    border: 1.5px solid var(--c-line);
+    border-radius: 10px;
+    background: var(--c-surface);
+    color: var(--c-text-2);
+    font-weight: 800;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.rp-reset i {
+    width: 15px;
+    height: 15px;
+}
+.rp-reset:active {
+    background: var(--c-bg);
+}
+.rp-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.rp-chip {
+    height: 34px;
+    padding: 0 14px;
+    border: 1.5px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-text-2);
+    font-weight: 800;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        color 0.12s,
+        border-color 0.12s;
+}
+.rp-chip:hover {
+    border-color: #b9d2ff;
+    color: var(--c-primary);
+}
+.rp-chip:active {
+    background: #eaf2ff;
+}
+.rp-rate {
+    font-size: 13px;
+    color: var(--c-text-2);
+}
+.rp-rate b {
+    color: var(--c-text);
+}
+
+/* summary stats */
+.rp-summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+}
+.rp-stat {
+    background: var(--c-surface);
+    border-radius: 12px;
+    box-shadow: var(--c-shadow);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.rp-stat span {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--c-text-3);
+}
+.rp-stat b {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.rp-stat-hl {
+    background: #eaf2ff;
+}
+.rp-stat-hl b {
+    color: var(--c-primary);
+}
+
+/* bảng */
+.rp-table-wrap {
+    background: var(--c-surface);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    overflow-x: auto;
+}
+.rp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 640px;
+}
+.rp-table th,
+.rp-table td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--c-line);
+    white-space: nowrap;
+}
+.rp-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f5f8fd;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--c-text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    z-index: 1;
+}
+.rp-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.rp-table tbody tr:hover {
+    background: #f7faff;
+}
+.rp-day {
+    line-height: 1.25;
+}
+.rp-day b {
+    font-weight: 800;
+}
+.rp-day span {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--c-text-3);
+}
+.rp-ship {
+    font-weight: 800;
+    color: var(--c-green);
+}
+.rp-total td {
+    border-top: 2px solid var(--c-line);
+    border-bottom: none;
+    background: #f5f8fd;
+    font-weight: 800;
+    font-size: 15px;
+}
+.rp-total .rp-ship {
+    color: var(--c-primary);
+}
+.rp-muted {
+    color: var(--c-text-3);
+    text-align: center;
+    padding: 24px;
+}
+
+/* mobile: summary xuống 2 cột, ô tổng tiền chiếm hết hàng */
+@media (max-width: 720px) {
+    .rp-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .rp-stat-hl {
+        grid-column: 1 / -1;
+    }
+    .rp-f,
+    .rp-f input,
+    .rp-f select {
+        flex: 1 1 140px;
+        min-width: 0;
+    }
+}
+
 /* ── Toast ──────────────────────────────────────────── */
 .gw-toast {
     position: fixed;

@@ -21,6 +21,10 @@ const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-au
 // Ảnh dataUrl base64 (~nén). 12mb dư an toàn.
 const jsonBody = express.json({ limit: '12mb' });
 
+// Đơn giá tiền ship: tổng = kg*RATE_KG + kiện*RATE_BALE. Cố định (chốt với shop).
+const RATE_KG = 25000; // đ / kg
+const RATE_BALE = 10000; // đ / kiện
+
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
     _notifyClients = notifyClients;
@@ -105,6 +109,74 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         res.json({ success: true, total, items: r.rows.map(mapRow) });
     } catch (e) {
         console.error('[WEB2-GOODS-WEIGHT] list:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /report — gộp theo NGÀY (GMT+7), mỗi hàng = 1 ngày. Tính tiền ship server-side.
+//   Query (đều optional): from=YYYY-MM-DD, to=YYYY-MM-DD, username.
+//   Trả: rows[], totals, users (để fill dropdown lọc), rates.
+router.get('/report', requireWeb2AuthSoft, async (req, res) => {
+    try {
+        const pool = getPool(req);
+        await ensureTables(pool);
+        const dayRe = /^\d{4}-\d{2}-\d{2}$/;
+        const from = dayRe.test(req.query.from || '') ? req.query.from : null;
+        const to = dayRe.test(req.query.to || '') ? req.query.to : null;
+        const user = req.query.username ? String(req.query.username) : null;
+        // So sánh chuỗi 'YYYY-MM-DD' == so sánh ngày; day tính theo GMT+7 nên độc lập TZ server.
+        const r = await pool.query(
+            `WITH base AS (
+                SELECT to_char(to_timestamp(created_at/1000.0) AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS day,
+                       weight_kg, bale_count, username
+                FROM web2_goods_weight
+             )
+             SELECT day, COUNT(*)::int AS count,
+                    COALESCE(SUM(weight_kg),0)::float8 AS kg,
+                    COALESCE(SUM(bale_count),0)::int AS bales
+             FROM base
+             WHERE ($1::text IS NULL OR username = $1)
+               AND ($2::text IS NULL OR day >= $2)
+               AND ($3::text IS NULL OR day <= $3)
+             GROUP BY day
+             ORDER BY day DESC
+             LIMIT 366`, // ponytail: 1 năm gần nhất; thêm phân trang khi shop cần xa hơn
+            [user, from, to]
+        );
+        const rows = r.rows.map((x) => {
+            const kg = Number(x.kg) || 0;
+            const bales = Number(x.bales) || 0;
+            const shipKg = kg * RATE_KG;
+            const shipBale = bales * RATE_BALE;
+            return {
+                day: x.day,
+                count: x.count,
+                kg,
+                bales,
+                shipKg,
+                shipBale,
+                ship: shipKg + shipBale,
+            };
+        });
+        const totals = rows.reduce(
+            (a, d) => ({
+                count: a.count + d.count,
+                kg: a.kg + d.kg,
+                bales: a.bales + d.bales,
+                shipKg: a.shipKg + d.shipKg,
+                shipBale: a.shipBale + d.shipBale,
+                ship: a.ship + d.ship,
+            }),
+            { count: 0, kg: 0, bales: 0, shipKg: 0, shipBale: 0, ship: 0 }
+        );
+        const users = (
+            await pool.query(
+                `SELECT DISTINCT username FROM web2_goods_weight WHERE username <> '' ORDER BY username`
+            )
+        ).rows.map((u) => u.username);
+        res.json({ success: true, rows, totals, users, rates: { kg: RATE_KG, bale: RATE_BALE } });
+    } catch (e) {
+        console.error('[WEB2-GOODS-WEIGHT] report:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
