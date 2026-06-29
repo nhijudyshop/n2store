@@ -2,6 +2,17 @@
 
 ## 2026-06-29
 
+### [web2/ai-assistant] FIX GỐC: lỗi provider chứa chữ "token" bị nhầm là "Phiên hết hạn" → đăng xuất oan
+
+**Files:** `web2/shared/web2-ai-assistant.js` (`_streamOne` L771 + `_postAi` L803 bỏ regex), `web2/shared/web2-sidebar.js` (inject `20260629b`), 54 `*.html` (cache-bust `web2-sidebar.js?v=20260629b`).
+
+- **Đây mới là bug thật user báo** (browser-test bằng click như user thật phát hiện): bấm "Lấy full dữ liệu mới nhất" → chat trả **HTTP 200** nhưng trong SSE stream có `event: error` từ provider — Groq "Request too large ... **tokens** per minute (TPM): Limit 8000, Requested 8839 ... Need more **tokens**". `_streamOne` cũ test `/unauthor|hết hạn|token/i` → khớp chữ "tokens" → ném `authErr()` (giả 401) → `onAuthExpired` → đăng xuất + redirect login?expired=1. **Phiên KHÔNG hề hết hạn** (token verify 90 ngày, /me 200 liên tục).
+- **Fix**: bỏ heuristic text regex ở cả 2 chỗ; phiên hết hạn THẬT = HTTP 401 (đã bắt ở `res.status`/`r.status`), lỗi trong stream/json là lỗi provider → giữ nguyên. Chỉ `code===401` tường minh mới coi là auth. **Lợi kép**: token-limit/quota error giờ **cascade** đúng sang model kế (mạnh→yếu) thay vì đăng xuất → AI vẫn trả lời.
+- **Verified browser (click thật)**: native-orders → ✨ → "Đơn chưa nhận CK" → "Lấy full dữ liệu" → **AI trả lời 491 ký tự phân tích 5 đơn**, KHÔNG redirect, KHÔNG "Phiên hết hạn".
+- Đi kèm: UX phiên hết hạn (commit trước) + TTL admin 90d/user 14d vẫn giữ cho trường hợp hết hạn THẬT.
+
+**Status:** ✅ Done + verified end-to-end browser.
+
 ### [unit-scan] Quét tem hiện số liệu live SP (Bán/KH mới/NCC/Còn/Tồn) như live-control
 
 **Files:** `render.com/routes/web2-product-units.js` (`/resolve` +metrics), `web2/unit-scan/js/unit-scan.js` (strip), `web2/unit-scan/index.html` (cache-bust `20260629a`).
