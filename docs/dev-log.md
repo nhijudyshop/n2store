@@ -2,6 +2,12 @@
 
 ## 2026-06-29
 
+### [web2/system] Thêm nút "Mở giao diện Gemini" vào card máy shop (tab Services)
+
+**Files:** `web2/system/js/system-services.js` (`renderGeminiMachines` card template), `web2/system/index.html` (bump `system-services.js?v` → `20260629gemlink`).
+
+Tab `web2/system?tab=services` đã có sẵn section "Máy shop tự host gemini-tryon" (dò registry `/api/web2-vieneu-registry/list?engine=gemini-tryon` → hiện acc sẵn sàng), nhưng URL tunnel chỉ hiện dạng text cắt ngắn, không bấm được. Thêm `<a target="_blank">🔗 Mở giao diện Gemini</a>` vào mỗi card → mở thẳng URL tunnel (root `/` của serve.py trả HTMLResponse = giao diện máy). URL tunnel ngẫu nhiên/đổi mỗi lần chạy lại → lấy động từ registry, không hardcode. Verify registry live: máy `DESKTOP-J35EHJQ (Gemini)` online (`https://...trycloudflare.com`, age 14s). Status ✅
+
 ### [live-chat] Fix tab vùng (HÀ NỘI / HƯƠNG CHÂU) trong Kho SP không hoạt động
 
 **Files:** `live-chat/js/pancake/inventory-panel-state.js` (`applyFilter` + comment header).

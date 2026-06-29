@@ -381,6 +381,7 @@
                     <div class="sd-svc-head"><span class="sd-svc-name">👕 ${escapeHtml(m.name)}</span>${head}</div>
                     <div class="sd-svc-provider">cập nhật ${m.ageSec}s trước · ${escapeHtml(url.replace(/^https?:\/\//, '').slice(0, 34))}…</div>
                     ${rows}
+                    <a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(url)}" style="display:inline-block;margin-top:9px;padding:5px 11px;border:1px solid var(--web2-primary,#0068ff);color:var(--web2-primary,#0068ff);border-radius:7px;font-size:12px;font-weight:600;text-decoration:none">🔗 Mở giao diện Gemini</a>
                 </div>`;
             })
         );
