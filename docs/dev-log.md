@@ -20,7 +20,7 @@ User định nghĩa lại: rớt xả không còn per-product (đơn cuối >24h
 
 **+ Admin gate sửa nhầm (user yêu cầu):** admin chuyển SP rớt xả ↔ kho bình thường. Cơ chế `KEEP` (loại vĩnh viễn khỏi rớt xả) + nút "Giữ cả SP"/per-unit đã có sẵn ở `web2/clearance` — chỉ thiếu admin-only. Siết: `POST /:id/clearance` `requireWeb2AuthSoft`→**`requireWeb2Admin`** (chỉ trang clearance gọi, unit-scan chỉ đọc badge → an toàn); frontend `clearance.js` ẩn nút keep cho non-admin (`_isAdmin()` canonical) + guard defense-in-depth trong `keepUnit`/`keepGroup`. Cache-bust `20260629a`.
 
-**Status:** ✅ Logic verified local. 🔄 Deploy web2-api + smoke /clearance + admin gate (no-token→401).
+**Status:** ✅ Logic verified local 7/7 + smoke prod: GET /clearance→200 success (query campaign chạy, no SQL error), no-token POST /:id/clearance→401. Non-admin→403 dựa middleware `requireWeb2Admin` proven (supplier-debt/so-order #1a) + frontend ẩn nút.
 
 ### [cart auth hardening] Gate chuỗi auth cart + đóng #2a (from-comment)
 
