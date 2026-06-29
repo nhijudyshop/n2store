@@ -6,10 +6,32 @@
 
     const SO = (window.SoOrder = window.SoOrder || {});
 
+    // Body scroll-lock (iOS-safe: position:fixed + top:-scrollY) — MODAL-ANTI-LAG §5.2.
+    // Ref-counted theo id modal đang lock: idempotent (mở lại id đang mở không cộng
+    // dồn) + stack-safe (confirm mở trên order modal không unlock sớm). Chỉ unlock
+    // khi modal CUỐI đóng, restore đúng scrollY ban đầu.
+    let _soSavedScrollY = 0;
+    const _soLockedModals = new Set();
+    function _soLockBody(id) {
+        if (_soLockedModals.has(id)) return; // idempotent
+        const wasEmpty = _soLockedModals.size === 0;
+        _soLockedModals.add(id);
+        if (!wasEmpty) return; // đã lock bởi modal khác → giữ scrollY cũ
+        _soSavedScrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.cssText = `position:fixed;top:-${_soSavedScrollY}px;left:0;right:0;width:100%;overflow:hidden;`;
+    }
+    function _soUnlockBody(id) {
+        if (!_soLockedModals.delete(id)) return; // không từng lock id này → no-op
+        if (_soLockedModals.size > 0) return; // còn modal khác đang mở → giữ lock
+        document.body.style.cssText = '';
+        window.scrollTo(0, _soSavedScrollY);
+    }
+
     SO.showModal = function showModal(id) {
         const el = document.getElementById(id);
         if (el) {
             el.hidden = false;
+            _soLockBody(id);
             if (window.lucide?.createIcons) window.lucide.createIcons();
         }
     };
@@ -17,6 +39,7 @@
     SO.hideModal = function hideModal(id) {
         const el = document.getElementById(id);
         if (el) el.hidden = true;
+        _soUnlockBody(id);
         // Đóng modal Tạo Đơn Hàng → ẩn luôn 2 float panel (suggest/variant) đang
         // treo ở <body>, tránh popup lơ lửng sau khi modal đóng.
         if (id === 'soOrderModal') SO._hideFloatPanels();

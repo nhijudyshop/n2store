@@ -19,7 +19,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 
 // Body parser riêng — ảnh dataUrl base64 (~nén 500KB → ~700KB). 12mb dư an toàn.
 const jsonBody = express.json({ limit: '12mb' });
@@ -165,7 +165,7 @@ router.get('/img/:id', async (req, res) => {
 });
 
 // POST / — upload 1 ảnh. kind='invoice' → REPLACE ảnh hóa đơn cũ của (tab,batch,ncc).
-router.post('/', jsonBody, requireWeb2AuthSoft, async (req, res) => {
+router.post('/', jsonBody, requireWeb2Admin, async (req, res) => {
     try {
         const pool = getPool(req);
         await ensureTables(pool);
@@ -213,7 +213,7 @@ router.post('/', jsonBody, requireWeb2AuthSoft, async (req, res) => {
 });
 
 // DELETE /ncc — xoá toàn bộ ảnh của 1 NCC trong đợt (xoá NCC card).
-router.delete('/ncc', jsonBody, requireWeb2AuthSoft, async (req, res) => {
+router.delete('/ncc', jsonBody, requireWeb2Admin, async (req, res) => {
     try {
         const pool = getPool(req);
         await ensureTables(pool);
@@ -236,7 +236,7 @@ router.delete('/ncc', jsonBody, requireWeb2AuthSoft, async (req, res) => {
 });
 
 // DELETE /:id — xoá 1 ảnh.
-router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
+router.delete('/:id', requireWeb2Admin, async (req, res) => {
     try {
         const pool = getPool(req);
         await ensureTables(pool);

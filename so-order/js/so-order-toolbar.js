@@ -76,7 +76,10 @@
         // đóng (chỉ submit path gọi hideModal→_hideFloatPanels; path này thì không).
         document.querySelectorAll('[data-so-close]').forEach((el) => {
             el.addEventListener('click', () => {
-                el.closest('.so-modal, .so-lightbox')?.setAttribute('hidden', '');
+                const m = el.closest('.so-modal, .so-lightbox');
+                // Qua SO.hideModal để unlock body scroll-lock (backdrop/✕/Hủy).
+                if (m?.id) SO.hideModal(m.id);
+                else m?.setAttribute('hidden', '');
                 SO._hideFloatPanels?.();
             });
         });
@@ -87,7 +90,9 @@
                 document
                     .querySelectorAll('.so-modal:not([hidden]), .so-lightbox:not([hidden])')
                     .forEach((m) => {
-                        m.hidden = true;
+                        // Qua SO.hideModal để unlock body scroll-lock.
+                        if (m.id) SO.hideModal(m.id);
+                        else m.hidden = true;
                     });
                 SO._hideFloatPanels?.();
             }

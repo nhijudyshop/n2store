@@ -131,9 +131,16 @@
             commit(el.value);
         };
         el.addEventListener('change', finish);
-        el.addEventListener('blur', () => {
-            // Delay nhẹ để click trên dropdown picker register trước
+        el.addEventListener('blur', (e) => {
+            // Blur sang item trong dropdown picker (cùng td) → KHÔNG commit text
+            // gõ dở; click của item sẽ set giá trị picker rồi finish(). Tránh race
+            // setTimeout đua mousedown khi click chậm. relatedTarget = phần tử nhận
+            // focus (null khi click mở scrollbar/desktop → vẫn commit như cũ).
+            if (e.relatedTarget && td.contains(e.relatedTarget)) return;
             setTimeout(() => {
+                // Fallback an toàn: relatedTarget không tin được trên vài browser →
+                // nếu focus đã nhảy vào dropdown trong td thì vẫn skip.
+                if (document.activeElement && td.contains(document.activeElement)) return;
                 if (!committed) finish();
             }, 150);
         });
@@ -347,9 +354,13 @@
         };
         input.addEventListener('focus', refresh);
         input.addEventListener('input', refresh);
-        input.addEventListener('blur', () => {
-            // Delay nhẹ để click button trên dropdown register trước khi ẩn
+        input.addEventListener('blur', (e) => {
+            // Blur sang button trong cùng wrap (dropdown) → giữ dropdown để click
+            // commit. relatedTarget null/ngoài wrap → ẩn (giữ hành vi cũ + timeout
+            // fallback cho browser không set relatedTarget).
+            if (e.relatedTarget && wrap?.contains(e.relatedTarget)) return;
             setTimeout(() => {
+                if (document.activeElement && wrap?.contains(document.activeElement)) return;
                 if (dropdown) dropdown.hidden = true;
             }, 150);
         });
@@ -466,8 +477,13 @@
                 dropdown.hidden = true;
             }
         });
-        input.addEventListener('blur', () => {
+        input.addEventListener('blur', (e) => {
+            // Blur sang item trong dropdown → giữ để click commit (mousedown của
+            // item đã preventDefault). relatedTarget ngoài dropdown/wrap → ẩn.
+            const inPicker = (n) => n && (dropdown.contains(n) || wrap?.contains(n));
+            if (e.relatedTarget && inPicker(e.relatedTarget)) return;
             setTimeout(() => {
+                if (inPicker(document.activeElement)) return;
                 if (dropdown) dropdown.hidden = true;
             }, 150);
         });

@@ -2,6 +2,15 @@
 
 ## 2026-06-29
 
+### [so-order] Fix 8 audit findings (#1,#3,#4,#5,#6,#7,#8) + cảnh báo mềm #2
+
+**Files:** `render.com/routes/web2-so-order-images.js` (#1a), `so-order/js/{so-order-render,so-order-delete,so-order-modal-submit,so-order-confirm,so-order-toolbar,so-order-inline-edit,so-order-storage}.js`, `so-order/index.html` (cache-bust 7 file → `20260629a`). Điều tra bằng 2 workflow (8 agent song song, mỗi fix 1 agent map exact change + blast-radius).
+
+- **#1 admin gate**: ✅ image-manager (`POST /` upload, `DELETE /ncc`, `DELETE /:id`) đổi `requireWeb2AuthSoft`→`requireWeb2Admin` (client đã gate admin, đóng lỗ direct-API). GET /list,/by-ncc,/img/:id GIỮ soft (non-admin đọc khi tạo đơn). ⚠ **KHÔNG gán admin cho payments `/tx`** — workflow phát hiện sẽ GÃY SePay auto-credit (chạy ở browser NV non-admin → 403 → mất refund NCC); manual payment đã gate ở client so-order. (supplier-debt manual chưa gate client — note riêng.)
+- **#3** getNccBatchTotals: adjustment (contractAmount/weightKg) của 1 đơn chỉ tính cho NCC **sở hữu gid** (row đầu), hết cộng đôi khi 1 đơn lẫn 2 NCC. **#4** delete lô mixed: chỉ trừ Kho pending phần CHƯA nhận (`max(0, qty-qtyReceived)`). **#6** counter chỉ đếm dòng có productName (khớp bảng). **#5** body scroll-lock 1 nguồn ở showModal/hideModal (ref-count Set, iOS-safe `position:fixed+top:-scrollY`) + route close paths (data-so-close/ESC) qua hideModal. **#7** inline-edit blur dùng `relatedTarget`/activeElement guard (thôi race setTimeout 150ms mất giá trị picker). **#8** restoreFromTrash trả `{ok,reparented,toTabLabel}` + caller cảnh báo khi tab gốc đã xoá. **#2** soft-warn: dòng SL≤0 → notify warning (KHÔNG chặn submit).
+
+**Status:** 🔄 Frontend áp + syntax OK + verify export/return-shape; deploy web2-api (#1a) + browser-test frontend.
+
 ### [native-orders] Hook nhả đơn vị khi HUỶ đơn (POST /:code/cancel)
 
 **Files:** `render.com/routes/native-orders.js` (POST `/:code/cancel`).

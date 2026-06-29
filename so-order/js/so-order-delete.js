@@ -198,8 +198,21 @@
                 return;
             }
         }
+        // 2026-06-29 FIX#4: lô mixed-status (vài row received/partial + vài draft) →
+        // CHỈ trừ Kho pending phần CHƯA nhận. Row received/partial đã chuyển
+        // pending→tồn thật lúc nhận hàng; pending còn lại của nó = qty - qtyReceived
+        // (0 nếu nhận đủ). Trước đây trừ -qty cho MỌI row → over-subtract pending
+        // (server clamp ≥0 ăn nhầm pending SP khác / chạm đáy 0).
         const adjustments = rows
-            .map((r) => ({ ...SO._rowToKhoMatch(r), delta: -(Number(r.qty) || 0) }))
+            .map((r) => {
+                const qty = Number(r.qty) || 0;
+                const received =
+                    r.status === 'received' || r.status === 'partial_received'
+                        ? Number(r.qtyReceived) || 0
+                        : 0;
+                const pendingQty = Math.max(0, qty - received);
+                return { ...SO._rowToKhoMatch(r), delta: -pendingQty };
+            })
             .filter((a) => a.name && a.delta !== 0);
         window.SoOrderStorage.deleteShipment(SO.state, tab.id, shipmentId);
         SO.notify('Đã xóa lô', 'info');
@@ -303,12 +316,21 @@
     };
 
     SO.handleTrashRestore = function handleTrashRestore(id) {
-        const ok = window.SoOrderStorage.restoreFromTrash(SO.state, id);
-        if (!ok) {
+        const res = window.SoOrderStorage.restoreFromTrash(SO.state, id);
+        if (!res || !res.ok) {
             SO.notify('Không tìm thấy entry để khôi phục', 'error');
             return;
         }
-        SO.notify('Đã khôi phục lô', 'success');
+        if (res.reparented) {
+            // Tab gốc đã bị xoá → lô về tab khác (khác currency/rate). Cảnh báo để
+            // user kiểm tra lại tab đích, tránh chi phí tính sai tỷ giá.
+            SO.notify(
+                `Tab gốc đã bị xoá — đã khôi phục vào tab "${res.toTabLabel}". Kiểm tra lại tiền tệ/tỷ giá.`,
+                'warning'
+            );
+        } else {
+            SO.notify('Đã khôi phục lô', 'success');
+        }
         SO.pushSync();
         SO.renderAll();
         SO.updateTrashCountBadge();

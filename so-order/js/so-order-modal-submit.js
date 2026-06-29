@@ -47,6 +47,12 @@
             SO.notify('Cần ít nhất 1 sản phẩm có tên', 'warning');
             return;
         }
+        // 2026-06-29 FIX#2: cảnh báo MỀM nếu có dòng SL ≤ 0 (vẫn cho lưu — KHÔNG
+        // chặn, KHÔNG confirm). qty 0/âm vẫn tạo dòng như cũ, chỉ nhắc user.
+        const zeroQtyCount = validRows.filter((r) => (Number(r.qty) || 0) <= 0).length;
+        if (zeroQtyCount > 0) {
+            SO.notify(`Có ${zeroQtyCount} dòng SL ≤ 0 — vẫn lưu`, 'warning');
+        }
         // Variant không bắt buộc tồn tại trong Kho Biến Thể (so-order là draft
         // đơn — user có thể gõ size/màu mới chưa khai báo). Validation cũ đã
         // gỡ vì block flow không cần thiết.

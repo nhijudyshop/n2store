@@ -918,8 +918,13 @@
             weightKg += adj.weightKg;
             contractAmount += adj.contractAmount;
             expense += St.getShipmentExpenseTotal(sh);
-            for (const r of sh.rows || []) qty += Number(r.qty) || 0;
-            rowCount += (sh.rows || []).length;
+            // Chỉ đếm "dòng thật" (có productName.trim()) để KHỚP với bảng —
+            // bảng group/merge dòng trống nên counter không được tính chúng.
+            for (const r of sh.rows || []) {
+                if (!(r.productName || '').trim()) continue;
+                qty += Number(r.qty) || 0;
+                rowCount += 1;
+            }
         }
         const contractVnd = SO.toVnd(contractAmount, tab);
         const expenseVnd = SO.toVnd(expense, tab);
@@ -954,14 +959,18 @@
         let qty = 0;
         for (const sh of shipments) {
             const adj = sh.orderAdjustments || {};
-            const supGids = new Set();
+            // Chủ sở hữu mỗi gid = NCC của row ĐẦU TIÊN trong gid. Adjustment
+            // (contractAmount/weightKg) là order-level (lưu 1 lần/đơn) → chỉ tính
+            // cho NCC sở hữu, tránh double-count khi 1 gid lẫn rows của 2 NCC
+            // (inline-edit đổi supplier 1 row không tách đơn).
+            const gidOwner = new Map();
             for (const r of sh.rows || []) {
-                if ((r.supplier || '').trim() === sup) {
-                    supGids.add(r.invoiceGroupId || r.id);
-                    qty += Number(r.qty) || 0;
-                }
+                const gid = r.invoiceGroupId || r.id;
+                if (!gidOwner.has(gid)) gidOwner.set(gid, (r.supplier || '').trim());
+                if ((r.supplier || '').trim() === sup) qty += Number(r.qty) || 0;
             }
-            for (const gid of supGids) {
+            for (const [gid, owner] of gidOwner) {
+                if (owner !== sup) continue;
                 const a = adj[gid];
                 if (a) {
                     contractAmount += Number(a.contractAmount) || 0;
