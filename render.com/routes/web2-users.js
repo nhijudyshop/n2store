@@ -1230,7 +1230,7 @@ router.post('/login', async (req, res) => {
         res.json({
             success: true,
             token,
-            expiresAt: now + TOKEN_TTL_MS,
+            expiresAt: now + ttlMs,
             user: mapRow(user),
         });
     } catch (e) {

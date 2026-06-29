@@ -2,6 +2,16 @@
 
 ## 2026-06-29
 
+### [web2/auth] TTL phiên theo role: admin 90 ngày, user 14 ngày (giảm "Phiên hết hạn")
+
+**Files:** `render.com/routes/web2-users.js` (TOKEN_TTL_MS → `tokenTtlFor(role)`).
+
+- Trước: cố định 7 ngày → active user vẫn hay bị "Phiên Web 2.0 hết hạn". Web 2.0 auth TÁCH RIÊNG Web 1.0 (`web2_auth` token vs `loginindex_auth` JWT) → hết hạn độc lập, dù còn đăng nhập app chính.
+- Giờ: `ADMIN_TOKEN_TTL_MS=90d`, `USER_TOKEN_TTL_MS=14d`; login đọc `user.role` → set `expires_at` + trả `expiresAt` theo role. Chỉ áp cho login MỚI (session cũ giữ 7d tới khi đăng nhập lại).
+- **Cần deploy web2-api** để hiệu lực (backend). Frontend không đổi (lưu `expiresAt` từ login).
+
+**Status:** 🔄 Syntax OK; chờ deploy web2-api + verify (admin login → expiresAt ≈ now+90d).
+
 ### [web2-product-units] Audit per-unit + fix denorm staleness (reconcile sync STT/customer)
 
 **File:** `render.com/routes/web2-product-units.js` (`reconcileOrderUnits`).
