@@ -10,7 +10,8 @@ User: bấm STT ở unit-scan → modal chi tiết đơn hiện CẢ tag, đặc
 
 - **1 nguồn, KHÔNG fork**: tag kệ tái dùng đúng engine `web2-order-tags-service` mà "Đơn Web" dùng → tag KHỚP 100%, không drift. Tách `enrichOrdersTags` để cả `/load` lẫn `/sort-manifest` gọi chung (DRY) — block giữ nguyên byte trong hàm (có SQL backtick → không dedent để khỏi đổi string).
 - **Tươi, không cũ**: `/sort-manifest` query LIVE mỗi request → tag tính lại mỗi lần (đúng pattern derived-on-load), không snapshot. Lọc `kpi_user` (KPI attribution không hợp màn xếp kệ + tránh lộ NV).
-- **Test**: `node -c` 3 file OK; require 2 route module → exports `enrichOrdersTags`/`mapRowToOrder` là function, không vỡ require-cycle (web2-product-units ⇄ native-orders lazy require). Read-only test web2Db bị chặn (internal-only host) → E2E xác nhận sau deploy web2-api. Status 🔄 (chờ deploy + browser test live)
+- **Bug fix (E2E test live bắt được)** `c3121dbb6`: tag join MISS hết (`autoTags` rỗng) do `native_orders.id`=BIGSERIAL → pg trả STRING, còn `web2_product_units.order_id`=INTEGER → NUMBER → `Map.get` lệch kiểu. Fix `String()` 2 phía.
+- **Test E2E (deploy web2-api live + browser web2 login admin/admin!!)**: `/sort-manifest` (7 đơn) → 3 đơn có tag: STT1/STT6 **"Chờ hàng"**, STT2 "Khách lạ" (PBH chưa hiện vì đơn còn là giỏ — đúng). Modal `openKe(1)`: 7 m-row, 3 `.o-tag` chip render đúng màu (amber "Chờ hàng") giữa tên KH ↔ SP. Screenshot xác nhận layout sạch. Status ✅
 
 ### [web2-zalo][render] Đăng nhập Zalo GLOBAL always-on — admin, 2 cách (cookie/QR), lưu server + auto-refresh
 
