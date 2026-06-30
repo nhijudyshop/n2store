@@ -195,11 +195,23 @@
                         <span style="color:${r.isActive ? '#16a34a' : '#94a3b8'};font-weight:600;">
                             ${r.isActive ? 'Đang dùng' : 'Tạm tắt'}
                         </span>
+                        ${
+                            r.code === 'soan_hang'
+                                ? `<span>·</span><span style="color:${r.printEnabled ? '#16a34a' : '#ef4444'};font-weight:600;">🖨 In ${r.printEnabled ? 'BẬT' : 'TẮT'}</span>`
+                                : ''
+                        }
                     </div>
                     <div class="ot-card-foot">
                         <button class="web2-btn web2-btn-default web2-btn-xs" data-act="history" data-code="${esc(r.code)}" title="Lịch sử thao tác">
                             <i data-lucide="history" style="width:13px;height:13px;"></i>
                         </button>
+                        ${
+                            r.code === 'soan_hang'
+                                ? `<button class="web2-btn web2-btn-default web2-btn-xs" data-act="printtoggle" data-code="${esc(r.code)}" title="${r.printEnabled ? 'TẮT in ra giấy (vẫn gắn tag)' : 'BẬT in ra giấy'}" style="color:${r.printEnabled ? '#16a34a' : '#ef4444'}">
+                            <i data-lucide="printer" style="width:13px;height:13px;"></i>
+                        </button>`
+                                : ''
+                        }
                         <button class="web2-btn web2-btn-default web2-btn-xs" data-act="toggle" data-code="${esc(r.code)}" title="${r.isActive ? 'Tạm tắt' : 'Bật lại'}">
                             <i data-lucide="${r.isActive ? 'toggle-right' : 'toggle-left'}" style="width:13px;height:13px;"></i>
                         </button>
@@ -220,6 +232,7 @@
                 if (b.dataset.act === 'edit') openEdit(code);
                 else if (b.dataset.act === 'delete') removeTag(code);
                 else if (b.dataset.act === 'toggle') toggleTag(code);
+                else if (b.dataset.act === 'printtoggle') togglePrint(code);
                 else if (b.dataset.act === 'history') openHistory(code);
             });
         });
@@ -514,6 +527,25 @@
             await apiSend('PATCH', '/update/' + encodeURIComponent(code), {
                 isActive: !rec.isActive,
             });
+            load();
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
+        }
+    }
+
+    // Toggle CHỨC NĂNG IN GIẤY (riêng thẻ soan_hang). TÁCH khỏi is_active: tắt in vẫn gắn
+    // + hiện tag, chỉ KHÔNG in ra giấy. Bấm nút "In Phiếu Soạn Hàng" luôn gắn tag.
+    async function togglePrint(code) {
+        const rec = STATE.records.find((r) => r.code === code);
+        if (!rec) return;
+        try {
+            await apiSend('PATCH', '/update/' + encodeURIComponent(code), {
+                printEnabled: !rec.printEnabled,
+            });
+            notify(
+                rec.printEnabled ? 'Đã TẮT in phiếu soạn hàng' : 'Đã BẬT in phiếu soạn hàng',
+                'success'
+            );
             load();
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');

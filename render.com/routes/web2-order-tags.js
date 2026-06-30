@@ -52,6 +52,7 @@ function mapRow(r) {
         icon: r.icon || null,
         priority: Number(r.priority) || 0,
         isActive: r.is_active !== false,
+        printEnabled: r.print_enabled !== false, // toggle bật/tắt IN GIẤY (riêng soan_hang)
         createdBy: r.created_by || null,
         createdAt: r.created_at != null ? Number(r.created_at) : null,
         updatedAt: r.updated_at != null ? Number(r.updated_at) : null,
@@ -186,6 +187,8 @@ router.patch('/update/:code', requireWeb2AuthSoft, async (req, res) => {
         if (b.priority != null && Number.isFinite(Number(b.priority)))
             add('priority', parseInt(b.priority, 10));
         if (b.isActive != null) add('is_active', b.isActive === true || b.isActive === 'true');
+        if (b.printEnabled != null)
+            add('print_enabled', b.printEnabled === true || b.printEnabled === 'true');
         if (!sets.length) return res.status(400).json({ error: 'Không có field nào để cập nhật' });
         params.push(Date.now());
         sets.push(`updated_at = $${params.length}`);

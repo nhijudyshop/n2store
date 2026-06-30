@@ -704,6 +704,10 @@ async function ensureTable(pool) {
             updated_at  BIGINT       NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_web2_order_tags_active ON web2_order_tags(is_active);
+        -- 2026-06-30: print_enabled — toggle bật/tắt CHỨC NĂNG IN (riêng thẻ soan_hang).
+        -- TÁCH khỏi is_active: is_active ẩn/hiện thẻ; print_enabled chỉ chặn IN RA GIẤY
+        -- (tag VẪN gắn + hiện khi tắt in). Cột chung nhưng chỉ soan_hang dùng.
+        ALTER TABLE web2_order_tags ADD COLUMN IF NOT EXISTS print_enabled BOOLEAN NOT NULL DEFAULT true;
     `);
     try {
         const cnt = await pool.query(`SELECT COUNT(*)::int AS n FROM web2_order_tags`);

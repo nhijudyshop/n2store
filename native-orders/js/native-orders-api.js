@@ -164,18 +164,18 @@
         },
 
         /**
-         * Tag 'Soạn hàng' (trigger soan_hang) có đang BẬT không → gate nút In Phiếu Soạn Hàng.
-         * Toggle là is_active của thẻ ở trang order-tags (admin chỉnh). Cache 15s.
-         * Fail-open: lỗi mạng / thẻ chưa seed → true (KHÔNG chặn in).
+         * Chức năng IN GIẤY phiếu soạn hàng có đang BẬT không → gate bước IN trong _print.
+         * = print_enabled của thẻ soan_hang (TÁCH khỏi is_active: tắt in vẫn gắn + hiện tag).
+         * Admin chỉnh ở trang order-tags. Cache 15s. Fail-open (lỗi/chưa seed → true, vẫn in).
          * @returns {Promise<boolean>}
          */
         async soanHangPrintEnabled() {
             try {
                 const list = await _orderTagList();
                 const t = list.find((x) => (x.trigger || x.code) === 'soan_hang');
-                if (!t) return true; // chưa seed (chưa deploy) → cho in
-                const active = t.isActive != null ? t.isActive : t.is_active;
-                return active !== false;
+                if (!t) return true; // chưa seed → cho in
+                const pe = t.printEnabled != null ? t.printEnabled : t.print_enabled;
+                return pe !== false;
             } catch {
                 return true;
             }
