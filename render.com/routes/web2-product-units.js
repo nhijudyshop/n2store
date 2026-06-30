@@ -668,6 +668,29 @@ router.get('/sort-manifest', requireWeb2AuthSoft, async (req, res) => {
         const orders = [...byOrder.values()]
             .sort((a, b) => (a.stt == null ? 1e9 : a.stt) - (b.stt == null ? 1e9 : b.stt))
             .slice(0, 1000);
+        // TAG đơn cho từng STT (CHỜ HÀNG / PHIẾU BÁN HÀNG…). Tái dùng engine native-orders
+        // (enrichOrdersTags) → tag kệ KHỚP tag "Đơn Web", KHÔNG drift. Lọc kpi_user (KPI
+        // attribution — không hợp màn xếp kệ + tránh lộ NV). Defensive: lỗi → autoTags=[].
+        try {
+            const ids = orders.map((o) => o.orderId).filter(Boolean);
+            if (ids.length) {
+                const no = require('./native-orders');
+                const noRows = (
+                    await pool.query(`SELECT * FROM native_orders WHERE id = ANY($1)`, [ids])
+                ).rows.map(no.mapRowToOrder);
+                await no.enrichOrdersTags(pool, noRows);
+                const tagsById = new Map(
+                    noRows.map((o) => [
+                        o.id,
+                        (o.autoTags || []).filter((t) => t.trigger !== 'kpi_user'),
+                    ])
+                );
+                for (const o of orders) o.autoTags = tagsById.get(o.orderId) || [];
+            }
+        } catch (e) {
+            console.warn('[WEB2-PRODUCT-UNITS] sort-manifest tag enrich failed:', e.message);
+            for (const o of orders) if (!o.autoTags) o.autoTags = [];
+        }
         const totalUnits = orders.reduce((s, o) => s + o.needed, 0);
         res.json({ success: true, orders, totalUnits, totalOrders: orders.length });
     } catch (e) {

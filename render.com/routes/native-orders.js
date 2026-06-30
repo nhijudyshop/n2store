@@ -1641,6 +1641,126 @@ router.get('/export', async (req, res) => {
 });
 
 const _kpiModule = require('./v2/kpi');
+// 2026-06-30: enrich PBH/CK/ví + TAG đơn auto cho mảng orders (đã mapRowToOrder).
+// Tách từ /load → unit-scan /sort-manifest tái dùng CÙNG nguồn (tag kệ KHỚP tag Đơn Web,
+// KHÔNG drift). Mutate orders tại chỗ (o.pbh*/ckSignal/walletBalance/autoTags/hasChoHang).
+async function enrichOrdersTags(pool, orders, opts = {}) {
+    const viewerUser = (opts && opts.viewerUser) || null;
+    // 2026-06-04: enrich badge "Đã thanh toán" (PBH residual=0) + "Đã đối soát"
+    // (fulfillment packed+). Lấy PBH ĐẦU (split_index 1) per source_code, bỏ PBH huỷ.
+    const codes = orders.map((o) => o.code).filter(Boolean);
+    if (codes.length) {
+        try {
+            // FIX audit R3 (#1 HIGH): PBH GỘP/TÁCH cùng source_code có N bill active.
+            // Trước dùng DISTINCT ON → chỉ đọc bill #1 → đơn tách (bill#1 trả đủ, bill#2
+            // còn nợ) bị ẩn nợ (pbh_chua_tt=false) + tag nhầm 'Đã đối soát' (chỉ xét bill#1
+            // delivered). Giờ AGGREGATE: SUM tiền (residual>0 nếu BẤT KỲ bill nào còn nợ) +
+            // all_reconciled = BOOL_AND mọi bill đã packed+ (NULL coi như chưa).
+            const pbhQ = await pool.query(
+                `SELECT source_code,
+                            SUM(amount_total)    AS amount_total,
+                            SUM(residual)        AS residual,
+                            SUM(payment_amount)  AS payment_amount,
+                            SUM(deposit)         AS deposit_total,
+                            SUM(wallet_deducted) AS wallet_deducted,
+                            BOOL_AND(COALESCE(fulfillment_state IN ('packed','shipped','delivered'), false)) AS all_reconciled,
+                            (array_agg(fulfillment_state ORDER BY split_index ASC, date_created ASC))[1] AS fulfillment_state,
+                            (array_agg(carrier_name ORDER BY split_index ASC, date_created ASC))[1] AS carrier_name
+                     FROM fast_sale_orders
+                     WHERE source_type='native_order' AND source_code = ANY($1) AND state <> 'cancel'
+                     GROUP BY source_code`,
+                [codes]
+            );
+            const byCode = new Map(pbhQ.rows.map((p) => [p.source_code, p]));
+            for (const o of orders) {
+                const p = byCode.get(o.code);
+                if (!p) continue;
+                o.pbhTotal = Number(p.amount_total || 0);
+                o.pbhResidual = Number(p.residual || 0); // SUM mọi bill → còn nợ nếu bất kỳ bill nợ
+                o.pbhPaymentAmount = Number(p.payment_amount || 0);
+                // 2026-06-29: cọc CẤP ĐƠN. o.deposit mặc định = native_orders.deposit
+                // (mapRow:547 — GIỎ nhập cọc TRƯỚC khi chốt VẪN tính co_coc). Khi có
+                // PBH thì lấy MAX với cọc PBH (SUM) — KHÔNG đè mất cọc GIỎ nếu PBH
+                // deposit=0. Tag 'co_coc' fire khi cọc > 0 ở GIỎ HOẶC ĐƠN.
+                o.deposit = Math.max(Number(o.deposit || 0), Number(p.deposit_total || 0));
+                o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
+                o.pbhFulfillmentState = p.fulfillment_state || null; // representative (display/legacy)
+                o.pbhAllReconciled = p.all_reconciled === true; // mọi bill đã đóng gói+
+                o.pbhCarrierName = p.carrier_name || null;
+            }
+        } catch (e) {
+            console.warn('[native-orders] enrich PBH badge failed:', e.message);
+        }
+
+        // 2026-06-05: enrich cờ "KH báo đã CK" (web2_payment_signals, web2Db).
+        // Khách nhắn "CK XONG"/"ĐÃ CK" → detector khớp đơn theo phone → signal.
+        // Hiển thị badge soft (chưa phải xác nhận tiền). Defensive: bảng có thể
+        // chưa tồn tại ở môi trường cũ → warn, không vỡ list.
+        try {
+            const sigQ = await pool.query(
+                `SELECT DISTINCT ON (matched_order_code)
+                            id, matched_order_code, status, matched_keyword, phone, created_at
+                     FROM web2_payment_signals
+                     WHERE matched_order_type = 'native'
+                       AND matched_order_code = ANY($1)
+                       AND status IN ('pending','confirmed')
+                     ORDER BY matched_order_code, created_at DESC`,
+                [codes]
+            );
+            const sigByCode = new Map(sigQ.rows.map((s) => [s.matched_order_code, s]));
+            for (const o of orders) {
+                const s = sigByCode.get(o.code);
+                if (!s) continue;
+                o.ckSignal = {
+                    id: Number(s.id), // cho web2-ck-review mở đúng signal
+                    status: s.status,
+                    keyword: s.matched_keyword,
+                    phone: s.phone || null,
+                    at: s.created_at ? Number(s.created_at) : null,
+                };
+            }
+        } catch (e) {
+            console.warn('[native-orders] enrich ckSignal failed:', e.message);
+        }
+
+        // 2026-06-07: enrich số dư ví KH (web2_customer_wallets) → badge cảnh
+        // báo "Chưa nhận CK". Đơn chưa nhận tiền CK (ví < tổng đơn + chưa có
+        // CK confirmed + PBH chưa trả) → frontend hiện cảnh báo. Ngoại lệ:
+        // ví ≥ tổng đơn (đã đủ tiền) → không cảnh báo.
+        try {
+            const norm = (p) =>
+                String(p || '')
+                    .replace(/\D/g, '')
+                    .slice(-10);
+            // 2026-06-10: web2_customer_wallets.phone lưu dạng đã normalize.
+            // Phải normalize array trước khi query (raw '84...'/có khoảng trắng
+            // sẽ miss). Map order.phone → norm, query bằng key đã chuẩn hoá.
+            const normPhones = Array.from(
+                new Set(orders.map((o) => norm(o.phone)).filter(Boolean))
+            );
+            if (normPhones.length) {
+                const wq = await pool.query(
+                    `SELECT phone, balance FROM web2_customer_wallets WHERE phone = ANY($1)`,
+                    [normPhones]
+                );
+                const balByPhone = new Map(
+                    wq.rows.map((r) => [norm(r.phone), Number(r.balance) || 0])
+                );
+                for (const o of orders) {
+                    o.walletBalance = o.phone ? balByPhone.get(norm(o.phone)) || 0 : 0;
+                }
+            }
+        } catch (e) {
+            console.warn('[native-orders] enrich wallet balance failed:', e.message);
+        }
+    }
+
+    // 2026-06-21: TAG đơn hàng auto (cột "Thẻ" + hasChoHang chặn PBH). Chạy SAU
+    // mọi enrich (cần pbh*/ckSignal/walletBalance đã set). Defensive: lỗi → autoTags=[].
+    // viewerUser (req.kpiUser từ applyKpiScope) → CHE pill KPI của NV khác cho staff.
+    await orderTagsSvc.enrichOrdersWithTags(pool, orders, { viewerUser });
+}
+
 router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
@@ -1766,119 +1886,7 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
         );
 
         const orders = listR.rows.map(mapRowToOrder);
-        // 2026-06-04: enrich badge "Đã thanh toán" (PBH residual=0) + "Đã đối soát"
-        // (fulfillment packed+). Lấy PBH ĐẦU (split_index 1) per source_code, bỏ PBH huỷ.
-        const codes = orders.map((o) => o.code).filter(Boolean);
-        if (codes.length) {
-            try {
-                // FIX audit R3 (#1 HIGH): PBH GỘP/TÁCH cùng source_code có N bill active.
-                // Trước dùng DISTINCT ON → chỉ đọc bill #1 → đơn tách (bill#1 trả đủ, bill#2
-                // còn nợ) bị ẩn nợ (pbh_chua_tt=false) + tag nhầm 'Đã đối soát' (chỉ xét bill#1
-                // delivered). Giờ AGGREGATE: SUM tiền (residual>0 nếu BẤT KỲ bill nào còn nợ) +
-                // all_reconciled = BOOL_AND mọi bill đã packed+ (NULL coi như chưa).
-                const pbhQ = await pool.query(
-                    `SELECT source_code,
-                            SUM(amount_total)    AS amount_total,
-                            SUM(residual)        AS residual,
-                            SUM(payment_amount)  AS payment_amount,
-                            SUM(deposit)         AS deposit_total,
-                            SUM(wallet_deducted) AS wallet_deducted,
-                            BOOL_AND(COALESCE(fulfillment_state IN ('packed','shipped','delivered'), false)) AS all_reconciled,
-                            (array_agg(fulfillment_state ORDER BY split_index ASC, date_created ASC))[1] AS fulfillment_state,
-                            (array_agg(carrier_name ORDER BY split_index ASC, date_created ASC))[1] AS carrier_name
-                     FROM fast_sale_orders
-                     WHERE source_type='native_order' AND source_code = ANY($1) AND state <> 'cancel'
-                     GROUP BY source_code`,
-                    [codes]
-                );
-                const byCode = new Map(pbhQ.rows.map((p) => [p.source_code, p]));
-                for (const o of orders) {
-                    const p = byCode.get(o.code);
-                    if (!p) continue;
-                    o.pbhTotal = Number(p.amount_total || 0);
-                    o.pbhResidual = Number(p.residual || 0); // SUM mọi bill → còn nợ nếu bất kỳ bill nợ
-                    o.pbhPaymentAmount = Number(p.payment_amount || 0);
-                    // 2026-06-29: cọc CẤP ĐƠN. o.deposit mặc định = native_orders.deposit
-                    // (mapRow:547 — GIỎ nhập cọc TRƯỚC khi chốt VẪN tính co_coc). Khi có
-                    // PBH thì lấy MAX với cọc PBH (SUM) — KHÔNG đè mất cọc GIỎ nếu PBH
-                    // deposit=0. Tag 'co_coc' fire khi cọc > 0 ở GIỎ HOẶC ĐƠN.
-                    o.deposit = Math.max(Number(o.deposit || 0), Number(p.deposit_total || 0));
-                    o.pbhWalletDeducted = Number(p.wallet_deducted || 0);
-                    o.pbhFulfillmentState = p.fulfillment_state || null; // representative (display/legacy)
-                    o.pbhAllReconciled = p.all_reconciled === true; // mọi bill đã đóng gói+
-                    o.pbhCarrierName = p.carrier_name || null;
-                }
-            } catch (e) {
-                console.warn('[native-orders] enrich PBH badge failed:', e.message);
-            }
-
-            // 2026-06-05: enrich cờ "KH báo đã CK" (web2_payment_signals, web2Db).
-            // Khách nhắn "CK XONG"/"ĐÃ CK" → detector khớp đơn theo phone → signal.
-            // Hiển thị badge soft (chưa phải xác nhận tiền). Defensive: bảng có thể
-            // chưa tồn tại ở môi trường cũ → warn, không vỡ list.
-            try {
-                const sigQ = await pool.query(
-                    `SELECT DISTINCT ON (matched_order_code)
-                            id, matched_order_code, status, matched_keyword, phone, created_at
-                     FROM web2_payment_signals
-                     WHERE matched_order_type = 'native'
-                       AND matched_order_code = ANY($1)
-                       AND status IN ('pending','confirmed')
-                     ORDER BY matched_order_code, created_at DESC`,
-                    [codes]
-                );
-                const sigByCode = new Map(sigQ.rows.map((s) => [s.matched_order_code, s]));
-                for (const o of orders) {
-                    const s = sigByCode.get(o.code);
-                    if (!s) continue;
-                    o.ckSignal = {
-                        id: Number(s.id), // cho web2-ck-review mở đúng signal
-                        status: s.status,
-                        keyword: s.matched_keyword,
-                        phone: s.phone || null,
-                        at: s.created_at ? Number(s.created_at) : null,
-                    };
-                }
-            } catch (e) {
-                console.warn('[native-orders] enrich ckSignal failed:', e.message);
-            }
-
-            // 2026-06-07: enrich số dư ví KH (web2_customer_wallets) → badge cảnh
-            // báo "Chưa nhận CK". Đơn chưa nhận tiền CK (ví < tổng đơn + chưa có
-            // CK confirmed + PBH chưa trả) → frontend hiện cảnh báo. Ngoại lệ:
-            // ví ≥ tổng đơn (đã đủ tiền) → không cảnh báo.
-            try {
-                const norm = (p) =>
-                    String(p || '')
-                        .replace(/\D/g, '')
-                        .slice(-10);
-                // 2026-06-10: web2_customer_wallets.phone lưu dạng đã normalize.
-                // Phải normalize array trước khi query (raw '84...'/có khoảng trắng
-                // sẽ miss). Map order.phone → norm, query bằng key đã chuẩn hoá.
-                const normPhones = Array.from(
-                    new Set(orders.map((o) => norm(o.phone)).filter(Boolean))
-                );
-                if (normPhones.length) {
-                    const wq = await pool.query(
-                        `SELECT phone, balance FROM web2_customer_wallets WHERE phone = ANY($1)`,
-                        [normPhones]
-                    );
-                    const balByPhone = new Map(
-                        wq.rows.map((r) => [norm(r.phone), Number(r.balance) || 0])
-                    );
-                    for (const o of orders) {
-                        o.walletBalance = o.phone ? balByPhone.get(norm(o.phone)) || 0 : 0;
-                    }
-                }
-            } catch (e) {
-                console.warn('[native-orders] enrich wallet balance failed:', e.message);
-            }
-        }
-
-        // 2026-06-21: TAG đơn hàng auto (cột "Thẻ" + hasChoHang chặn PBH). Chạy SAU
-        // mọi enrich (cần pbh*/ckSignal/walletBalance đã set). Defensive: lỗi → autoTags=[].
-        // viewerUser (req.kpiUser từ applyKpiScope) → CHE pill KPI của NV khác cho staff.
-        await orderTagsSvc.enrichOrdersWithTags(pool, orders, { viewerUser: req.kpiUser });
+        await enrichOrdersTags(pool, orders, { viewerUser: req.kpiUser });
 
         res.json({
             success: true,
@@ -3269,3 +3277,5 @@ router.post('/:code/lock-kpi-base', requireWeb2Admin, async (req, res) => {
 router.initializeNotifiers = initializeNotifiers;
 module.exports = router;
 module.exports.snapshotKpiBase = snapshotKpiBase;
+module.exports.enrichOrdersTags = enrichOrdersTags;
+module.exports.mapRowToOrder = mapRowToOrder;

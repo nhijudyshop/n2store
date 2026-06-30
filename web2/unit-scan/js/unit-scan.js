@@ -580,10 +580,18 @@
                         return `${esc(p.name || p.code)}${(Number(p.qty) || 1) > 1 ? ' ×' + p.qty : ''}${tail}`;
                     })
                     .join(' · ');
+                // Tag đơn (CHỜ HÀNG / PHIẾU BÁN HÀNG…) từ /sort-manifest. Màu theo def thẻ.
+                const tagsHtml = (o.autoTags || [])
+                    .map((t) => {
+                        const c = /^#[0-9a-fA-F]{3,8}$/.test(t.color || '') ? t.color : '#6b7280';
+                        return `<span class="o-tag" style="background:${c}">${esc(t.name || t.code || '')}</span>`;
+                    })
+                    .join('');
                 return `<div class="m-row" id="mrow-${o.stt}" data-stt="${o.stt}">
                 <div class="m-badge" style="${done ? '' : 'background:var(--c-amber)'}">${o.stt != null ? esc(o.stt) : '?'}</div>
                 <div class="m-info">
                     <div class="m-name">${esc(o.customerName || o.orderCode || 'Khách lẻ')}</div>
+                    ${tagsHtml ? `<div class="o-tags">${tagsHtml}</div>` : ''}
                     <div class="m-prods">${prodLine || '—'}</div>
                     <div class="m-sub">${loc ? '📍 ' + esc(loc.full) + ' · ' : ''}${done ? '✓ đủ ' : '⚠ ' + o.sorted.size + '/'}${o.needed} món</div>
                 </div>

@@ -1,6 +1,16 @@
 # Dev Log
 
-## 2026-06-29
+## 2026-06-30
+
+### [unit-scan][native-orders][render] Modal "đặt lên kệ" hiện TAG đơn (CHỜ HÀNG / PHIẾU BÁN HÀNG…) — 1 nguồn, không drift
+
+**Files:** `render.com/routes/native-orders.js` (tách block enrich PBH/CK/ví + `enrichOrdersWithTags` của `/load` ra hàm `enrichOrdersTags(pool, orders, opts)` — byte-identical, export thêm `enrichOrdersTags` + `mapRowToOrder`), `render.com/routes/web2-product-units.js` (`/sort-manifest`: sau khi gom đơn → load `native_orders` theo id → `enrichOrdersTags` → gắn `o.autoTags` lọc bỏ `kpi_user`; try/catch defensive → `autoTags=[]`), `web2/unit-scan/js/unit-scan.js` (row modal `openKe`: render `o.autoTags` thành chip màu theo def thẻ), `web2/unit-scan/css/unit-scan.css` (`.o-tags`/`.o-tag`).
+
+User: bấm STT ở unit-scan → modal chi tiết đơn hiện CẢ tag, đặc biệt CHỜ HÀNG / PHIẾU BÁN HÀNG. Chốt hướng A (backend join + gọi engine tag, trả kèm `autoTags`).
+
+- **1 nguồn, KHÔNG fork**: tag kệ tái dùng đúng engine `web2-order-tags-service` mà "Đơn Web" dùng → tag KHỚP 100%, không drift. Tách `enrichOrdersTags` để cả `/load` lẫn `/sort-manifest` gọi chung (DRY) — block giữ nguyên byte trong hàm (có SQL backtick → không dedent để khỏi đổi string).
+- **Tươi, không cũ**: `/sort-manifest` query LIVE mỗi request → tag tính lại mỗi lần (đúng pattern derived-on-load), không snapshot. Lọc `kpi_user` (KPI attribution không hợp màn xếp kệ + tránh lộ NV).
+- **Test**: `node -c` 3 file OK; require 2 route module → exports `enrichOrdersTags`/`mapRowToOrder` là function, không vỡ require-cycle (web2-product-units ⇄ native-orders lazy require). Read-only test web2Db bị chặn (internal-only host) → E2E xác nhận sau deploy web2-api. Status 🔄 (chờ deploy + browser test live)
 
 ### [web2-zalo][render] Đăng nhập Zalo GLOBAL always-on — admin, 2 cách (cookie/QR), lưu server + auto-refresh
 
