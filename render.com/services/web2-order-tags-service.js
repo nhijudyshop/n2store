@@ -665,6 +665,9 @@ async function buildContext(pool, orders, opts = {}) {
 
     // Tổng SL "giữ" ở MỌI đơn nháp (global, không giới hạn trang) cho các code này.
     // COALESCE 2 shape products[] (productCode/code, quantity/qty) như /usage.
+    // ⚠ 1-NGUỒN CÔNG THỨC "CHỜ HÀNG" (giỏ−tồn): held = Σ SL draft mỗi code — GIỐNG HỆT
+    //   `demand` ở web2-products.js GET /restock-needed + `sold`(giỏ) ở board khConModel
+    //   (web2/shared/web2-live-tv-display.js). Đổi định nghĩa giỏ-vượt-tồn → sửa CẢ 3.
     const hr = await pool.query(
         `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
                 SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS held

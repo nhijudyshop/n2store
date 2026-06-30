@@ -28,6 +28,19 @@ function _syncUnits(pool, codes) {
 // pool (DoS). 1000 đủ rộng cho mọi đợt nhận hàng/đồng bộ thực tế.
 const MAX_BULK_ITEMS = 1000;
 
+// Trạng thái SP suy từ (tồn, chờ NCC) — NGUỒN DUY NHẤT (2026-06-30, gộp logic JS rải rác):
+//   tồn≤0 & chờ≤0 → HET_HANG (hết sạch) · tồn≤0 & chờ>0 → CHO_MUA (đã đặt NCC, chưa về)
+//   tồn>0 & chờ>0 → MUA_1_PHAN (về 1 phần) · tồn>0 & chờ=0 → DANG_BAN.
+// CHỈ cho FULL-recompute (upsert-pending nhập NCC · confirm-purchase-partial nhận hàng).
+// Site SQL "un-retire only" (adjust-stock/PBH/returns: chỉ bật lại khi đang HET_HANG &
+// tồn>0) là pattern KHÁC — KHÔNG dùng hàm này (tránh reclassify SP user tạm dừng).
+function computeProductStatus(stock, pending) {
+    const s = Number(stock) || 0;
+    const p = Number(pending) || 0;
+    if (s <= 0) return p > 0 ? 'CHO_MUA' : 'HET_HANG';
+    return p > 0 ? 'MUA_1_PHAN' : 'DANG_BAN';
+}
+
 // -----------------------------------------------------
 // SSE notifier — injected from server.js via initializeNotifiers().
 // Sau mỗi DB mutation success, gọi _notify('web2:products', { action, code })
@@ -654,6 +667,9 @@ router.get('/pending', async (req, res) => {
 // "Chờ hàng cần đặt" = max(0, demand − stock). PBH (đã trừ tồn) KHÔNG tính (chỉ
 // draft). is_parent=false. Dùng cho Sổ Order surface bấm-đặt-NCC nhanh
 // (#2 follow-up 2026-06-30). Seed-tested.
+// ⚠ 1-NGUỒN CÔNG THỨC "CHỜ HÀNG" (giỏ−tồn): `demand` = Σ SL draft mỗi code — GIỐNG HỆT
+//   `held` ở web2-order-tags-service.js (tag cho_hang) + `sold`(giỏ) board khConModel
+//   (web2/shared/web2-live-tv-display.js). Đổi định nghĩa giỏ-vượt-tồn → sửa CẢ 3.
 // =====================================================
 router.get('/restock-needed', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
@@ -1824,10 +1840,9 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
                 //   - stock=0, newPending>0 → CHO_MUA (chưa nhận gì)
                 //   - stock>0, newPending>0 → MUA_1_PHAN (đã có hàng + đang chờ thêm)
                 //   - stock>0, newPending=0 → DANG_BAN (đủ hàng)
-                let newStatus;
-                if (curStock === 0) newStatus = 'CHO_MUA';
-                else if (newPending > 0) newStatus = 'MUA_1_PHAN';
-                else newStatus = 'DANG_BAN';
+                // newPending > 0 luôn đúng ở nhánh này (đang +qty) → CHO_MUA/MUA_1_PHAN
+                // (hành vi y hệt logic cũ). Dùng computeProductStatus = 1 nguồn.
+                const newStatus = computeProductStatus(curStock, newPending);
                 const newSupplier = row.supplier || supplier;
                 // địa danh sticky: chỉ điền nếu SP chưa có (không ghi đè) — KHÔNG nhét note.
                 const newRegion =
@@ -2022,11 +2037,9 @@ router.post('/confirm-purchase-partial', requireWeb2AuthSoft, async (req, res) =
             const qtyR = Math.min(qtyReq, curPending);
             const newStock = curStock + qtyR;
             const newPending = curPending - qtyR;
-            let newStatus;
-            if (newPending > 0 && newStock > 0) newStatus = 'MUA_1_PHAN';
-            else if (newPending === 0 && newStock > 0) newStatus = 'DANG_BAN';
-            else if (newPending > 0 && newStock === 0) newStatus = 'CHO_MUA';
-            else newStatus = 'DANG_BAN';
+            // 2026-06-30: dùng computeProductStatus (1 nguồn). FIX: cũ trả 'DANG_BAN' khi
+            // tồn 0 & chờ 0 (nhận no-op trên SP hết hàng → lật HET_HANG→DANG_BAN sai) → nay HET_HANG.
+            const newStatus = computeProductStatus(newStock, newPending);
             const upd = await client.query(
                 `UPDATE web2_products
                    SET stock       = $1,

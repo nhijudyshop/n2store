@@ -116,6 +116,9 @@
     //   • CHỜ HÀNG = max(0, GIỎ − TỒN) = cần đặt thêm NCC (giỏ vượt tồn thật).
     //   (Bỏ NCC gõ tay + CÒN-cũ + VƯỢT + địa danh cho-vượt — chờ hàng tính đồng đều
     //    mọi SP; Kho web2_products là nguồn quản số liệu.)
+    // ⚠ 1-NGUỒN CÔNG THỨC "CHỜ HÀNG" (giỏ−tồn): `sold`(GIỎ) = Σ SL draft mỗi code —
+    //   khớp `held` (tag cho_hang, web2-order-tags-service.js) + `demand` (/restock-needed,
+    //   web2-products.js). Đổi định nghĩa giỏ-vượt-tồn → sửa CẢ 3 cho khớp.
     // selectedRegion: giữ tham số cho call-compat, KHÔNG còn dùng.
     function khConModel(v, selectedRegion) {
         var stock = Number(v && v.stock) || 0; // TỒN thật

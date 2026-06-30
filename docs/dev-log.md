@@ -2,6 +2,13 @@
 
 ## 2026-06-30
 
+### [web2-products] computeProductStatus 1 nguồn (+ fix confirm-partial) + cross-link công thức "chờ hàng" — audit #2,#3/4
+
+**Files:** `render.com/routes/web2-products.js` (hàm `computeProductStatus(stock,pending)` 1 nguồn; `upsert-pending` + `confirm-purchase-partial` dùng chung; FIX confirm-partial + cross-ref restock-needed), `render.com/services/web2-order-tags-service.js` + `web2/shared/web2-live-tv-display.js` (cross-ref comment công thức giỏ−tồn).
+
+**#3:** gộp 2 site JS suy status về `computeProductStatus` (tồn≤0&chờ≤0→HET_HANG · ≤0&>0→CHO_MUA · >0&>0→MUA_1_PHAN · >0&=0→DANG_BAN). **FIX bug**: confirm-partial cũ trả `DANG_BAN` khi tồn0&chờ0 (nhận no-op trên SP hết hàng → lật HET_HANG→DANG_BAN sai) → nay HET_HANG. Site SQL "un-retire only" (adjust-stock/PBH/returns: chỉ bật lại khi đang HET_HANG&tồn>0) là pattern KHÁC — KHÔNG gộp (tránh reclassify SP user tạm dừng). Truth-table assert PASS (6 case).
+**#2:** 3 nơi tính "giỏ vượt tồn" (tag `held` / restock `demand` / board `sold`) đã dùng **CÔNG THỨC GIỐNG HỆT** (Σ SL draft − stock) — thêm cross-ref comment 3 chỗ chống drift (KISS — không extract 1-line SQL). Status: ✅
+
 ### [order-tags] Gộp tag "Âm mã" → "Chờ hàng" (over-sell = chờ hàng, 1 khái niệm) — audit #1/4
 
 **Files:** `render.com/services/web2-order-tags-service.js` (gỡ trigger/predicate/flag/detail/seed `am_ma`; `cho_hang` đổi nghĩa = giỏ giữ VƯỢT tồn `held>stock` draft-only = cần đặt NCC; + migration `DELETE … code='am_ma'`), `web2/shared/web2-order-tag-detail.js` (popup "ai đang giữ"/usage chuyển am_ma→cho_hang; badge "Cần đặt N"), `native-orders/js/native-orders-control-drawer.js` (PRODUCT_TAGS bỏ am_ma), `web2/order-tags/index.html` (doc).
