@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5081f02` — refactor(shared): gỡ compat ncc/vuot khỏi khConModel/cardState (không consumer nào đọc) [sau #2]
-**Last updated**: 2026-06-30 14:55:50 +07
-**Latest session**: [`RESUME:20260630-145550-5081f02`](../20260630-145550-5081f02.md)
-**Summary**: refactor(shared): gỡ compat ncc/vuot khỏi khConModel/cardState (không consumer nào đọc) [sau #2]
+**Latest commit**: `d05cef2` — fix(admin-wipe): chừa web2_order_tags + web2_payment_qr_codes khỏi web2-wipe-9pages (config, không wipe)
+**Last updated**: 2026-06-30 15:54:40 +07
+**Latest session**: [`RESUME:20260630-155440-d05cef2`](../20260630-155440-d05cef2.md)
+**Summary**: fix web2-wipe-9pages: chừa web2_order_tags + web2_payment_qr_codes (config); + giả lập toàn bộ data Web 2.0 (wipe + seed 12 nhóm)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 14:55
+- [`docs/`](./docs.md) — updated 2026-06-30 15:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -60,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-30 14:50
+- [`render.com/`](./render.com.md) — updated 2026-06-30 15:54
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-29 18:22
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
