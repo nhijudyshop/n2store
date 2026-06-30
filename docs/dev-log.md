@@ -2,6 +2,15 @@
 
 ## 2026-06-30
 
+### [live-control] Đổi nhãn dropdown "MỚI theo" → "Cho VƯỢT theo" (đúng chức năng pre-order)
+
+**Files:** `web2/live-control/index.html` (label `lc-tvctl-region`).
+
+User: nhãn "MỚI theo <địa danh>" gây hiểu lầm là lọc cột MỚI → đổi cho đúng.
+
+- Dropdown `#lcRegion` thực chất chọn **địa danh nào được phép đặt VƯỢT NCC** (variant `region` khớp `state.tvControl.region` → `isPreOrder=true` → GIỎ được vượt NCC, hiện badge VƯỢT). KHÔNG đụng cột MỚI (`moi = v.newCust` luôn toàn cục — `web2-live-tv-display.js:khConModel`).
+- Đổi text `MỚI theo` → `Cho VƯỢT theo`; tooltip → "SP đúng địa danh này được phép đặt VƯỢT NCC (hiện badge VƯỢT). KHÔNG lọc cột MỚI." Status ✅
+
 ### [order-tags][native-orders][render] Tag SOẠN HÀNG cho giỏ khi in phiếu soạn hàng + toggle admin bật/tắt in
 
 **Files:** `render.com/routes/native-orders.js` (cột mới `soan_hang_print_count`/`soan_hang_last_printed_at`; map `soanHangPrintCount`; `/mark-printed` nhận `kind:'soan_hang'` → bump counter riêng + print_count), `render.com/services/web2-order-tags-service.js` (trigger `soan_hang` + predicate `status==='draft' && soanHangPrintCount>0` + seed thẻ `#7c3aed`/clipboard-list/priority 47), `native-orders/js/native-orders-api.js` (`markPrinted(codes,kind)` + `soanHangPrintEnabled()` cache 15s `/web2-order-tags/list`), `native-orders/js/native-orders-pbh-bill.js` (`_markPrintedCodes(codes,kind)` + `_canPrintSoanHang()` gate; 4 entry-point in Phiếu Soạn Hàng truyền `kind='soan_hang'` + gate toggle), `native-orders/index.html` (bump api+pbh-bill `→20260630a`).
