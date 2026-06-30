@@ -366,8 +366,15 @@
         const stEl = $('#wzQrStatus');
         switch (d.event) {
             case 'qr':
-                if (d.image)
-                    box.innerHTML = `<img src="${esc(d.image)}" alt="Mã QR đăng nhập Zalo" class="wz-qr-img" width="240" height="240">`;
+                if (d.image) {
+                    // zca-js loginQR strips the "data:image/png;base64," prefix → re-add it
+                    // (raw base64 is not a loadable <img> src). Defensive: keep as-is if it
+                    // already is a data URI.
+                    const src = /^data:/.test(d.image)
+                        ? d.image
+                        : `data:image/png;base64,${d.image}`;
+                    box.innerHTML = `<img src="${esc(src)}" alt="Mã QR đăng nhập Zalo" class="wz-qr-img" width="240" height="240">`;
+                }
                 stEl.textContent = 'Mở Zalo trên điện thoại → Quét mã.';
                 break;
             case 'scanned':

@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [web2 zalo] Fix mã QR đăng nhập Zalo lỗi (ảnh vỡ)
+
+**Files:** `web2/zalo/js/web2-zalo-accounts.js` · `web2/zalo/index.html`.
+
+Modal "Đăng nhập Zalo" → "Quét mã QR" hiện icon ảnh vỡ. Root cause: zca-js `loginQR` **bóc** tiền tố `data:image/png;base64,` khỏi `ev.data.image` (node_modules/zca-js/dist/apis/loginQR.js:272) → route forward base64 thô qua SSE `web2:zalo:qr:<key>` → FE set thẳng `<img src="<base64 thô>">` → browser không load được.
+
+Fix tại nơi render (`onQrEvent` case `'qr'`): nếu `d.image` chưa phải data URI thì prepend `data:image/png;base64,` (defensive: giữ nguyên nếu đã có prefix). 1 producer (route) ↔ 1 consumer (accounts.js), không có sibling renderer khác. `esc` chỉ thoát `&<>"'` → an toàn cho base64. Bump cache-bust `?v=20260630qrfix`.
+
+Verified: vm test logic (base64 thô → có prefix; đã prefix → không double; esc không đụng base64). Status: ✅
+
 ### [web2 product-units] Gom builder per-tem về 1 nguồn `Web2ProductUnits.printUnit`
 
 **Files:** `web2/shared/web2-product-units.js` · `web2/unit-scan/js/unit-scan.js` · `web2/shared/web2-unit-reprint.js`.
