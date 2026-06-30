@@ -29,13 +29,7 @@ const TRIGGERS = [
         id: 'cho_hang',
         label: 'Chờ hàng',
         group: 'Tồn kho / Sản phẩm',
-        desc: 'Giỏ hàng có ≥1 SP đang chờ hàng (web2_products.status = CHO_MUA — tồn 0, chờ NCC giao). Giỏ này KHÔNG tạo được PBH, chỉ tạo Phiếu soạn hàng.',
-    },
-    {
-        id: 'am_ma',
-        label: 'Âm mã',
-        group: 'Tồn kho / Sản phẩm',
-        desc: 'Giỏ hàng có SP mà tổng SL đang giữ ở các giỏ hàng + đã lên PBH vượt tồn kho (over-sell). Vd tồn 2, giỏ A giữ 1 + PBH B 2 → âm mã.',
+        desc: 'Giỏ (draft) có ≥1 SP mà TỔNG SL khách đặt ở các giỏ VƯỢT tồn kho hiện có → CẦN ĐẶT thêm với NCC. = CHỜ HÀNG của board (giỏ − tồn > 0); gồm cả SP tồn 0 (CHO_MUA) có người đặt. Gộp tag "Âm mã" cũ (2026-06-30) — over-sell chính là chờ hàng.',
     },
     {
         id: 'het_hang',
@@ -313,8 +307,8 @@ function _shipZone(o) {
 }
 
 const PREDICATES = {
+    // 'cho_hang' (gộp 'am_ma' cũ 2026-06-30) = giỏ vượt tồn → cần đặt NCC.
     cho_hang: (o, f) => f.choHang,
-    am_ma: (o, f) => f.amMa,
     het_hang: (o, f) => f.hetHang,
     mua_1_phan: (o, f) => f.mua1Phan,
 
@@ -390,40 +384,36 @@ const PREDICATES = {
 
 // ---------------------------------------------------------------------------
 // Per-order product flags từ ctx (status map + held map). 1 lần / đơn.
-//   - choHang : có SP status CHO_MUA.
+//   - choHang : (GỘP 'am_ma' cũ 2026-06-30) giỏ (draft) có SP mà TỔNG SL giữ ở các
+//               giỏ (held) VƯỢT tồn kho → cần đặt thêm NCC. = CHỜ HÀNG board (giỏ−tồn>0).
+//               SP CHO_MUA (tồn 0) có người đặt → held>0>0 → tự nằm trong. CHỈ áp cho
+//               draft (PBH đã trừ tồn nên không tính). KHÔNG còn tách "âm mã" riêng.
 //   - mua1Phan: có SP status MUA_1_PHAN.
 //   - hetHang : có SP (không phải CHO_MUA) tồn ≤ 0.
-//   - amMa    : giỏ hàng (chưa PBH) có SP (không phải CHO_MUA) mà tổng SL giữ ở các giỏ
-//               > tồn kho hiện tại. Lưu ý: tạo PBH ĐÃ trừ web2_products.stock →
-//               held_drafts > stock_hiện_tại ⇔ (held_drafts + đã_lên_PBH) > tồn_gốc.
 // ---------------------------------------------------------------------------
 function orderProductFlags(o, ctx) {
     const lines = Array.isArray(o.products) ? o.products : [];
     let choHang = false,
         hetHang = false,
-        mua1Phan = false,
-        amMa = false;
+        mua1Phan = false;
+    const isDraft = o.status === 'draft';
     for (const l of lines) {
         const code = l.productCode || l.product_code || l.code;
         if (!code) continue;
         const ps = ctx.productStatus.get(code);
         if (!ps) continue;
-        if (ps.status === 'CHO_MUA') {
-            choHang = true;
-            continue; // SP chờ hàng: KHÔNG tính hết hàng / âm mã (tồn 0 là cố ý).
-        }
         if (ps.status === 'MUA_1_PHAN') mua1Phan = true;
-        if (ps.stock <= 0) hetHang = true;
-        const held = ctx.heldByCode.get(code) || 0;
-        if (held > ps.stock) amMa = true;
+        // Hết hàng: tồn ≤ 0 (CHO_MUA tồn 0 là cố ý → không tính hết hàng).
+        if (ps.status !== 'CHO_MUA' && ps.stock <= 0) hetHang = true;
+        // Chờ hàng = cần đặt NCC: giỏ giữ (held) vượt tồn (chỉ tính ở giỏ draft đang tranh tồn).
+        if (isDraft && (ctx.heldByCode.get(code) || 0) > ps.stock) choHang = true;
     }
-    if (o.status !== 'draft') amMa = false; // âm mã chỉ áp cho giỏ hàng (chưa PBH) đang tranh tồn.
-    return { choHang, hetHang, mua1Phan, amMa };
+    return { choHang, hetHang, mua1Phan };
 }
 
 // Trigger có "lý do chi tiết" theo SẢN PHẨM → đính kèm tag.detail.products để client
-// bấm pill xem (chờ hàng: SP nào chờ; âm mã: SP nào vượt tồn + tồn/đang-giữ).
-const PRODUCT_DETAIL_TRIGGERS = new Set(['cho_hang', 'am_ma', 'het_hang', 'mua_1_phan']);
+// bấm pill xem (chờ hàng: SP nào vượt tồn + tồn/đang-giữ + cần đặt; hết hàng/mua 1 phần: tồn).
+const PRODUCT_DETAIL_TRIGGERS = new Set(['cho_hang', 'het_hang', 'mua_1_phan']);
 
 // Danh sách SP liên quan tới 1 trigger trong đơn này (để hiển thị lý do khi bấm pill).
 // Dedupe theo code. Trả null nếu không có SP nào (tag vẫn hiện nhưng không có detail SP).
@@ -439,8 +429,20 @@ function tagDetail(trigger, o, ctx) {
         const orderQty = Number(l.quantity || l.qty || 0);
         // Ảnh SP: ưu tiên catalog web2_products (current), fallback snapshot dòng đơn.
         const imageUrl = ps.imageUrl || l.imageUrl || l.image_url || null;
-        if (trigger === 'cho_hang' && ps.status === 'CHO_MUA') {
-            byCode.set(code, { code, name, imageUrl, pendingQty: ps.pending, orderQty });
+        if (trigger === 'cho_hang') {
+            // GỘP 'am_ma' cũ: SP cần đặt NCC = tổng giỏ giữ (held) vượt tồn.
+            const held = ctx.heldByCode.get(code) || 0;
+            if (held > ps.stock) {
+                byCode.set(code, {
+                    code,
+                    name,
+                    imageUrl,
+                    stock: ps.stock,
+                    held,
+                    orderQty,
+                    pendingQty: ps.pending, // đã đặt NCC (hiển thị phụ)
+                });
+            }
         } else if (trigger === 'mua_1_phan' && ps.status === 'MUA_1_PHAN') {
             byCode.set(code, {
                 code,
@@ -452,11 +454,6 @@ function tagDetail(trigger, o, ctx) {
             });
         } else if (trigger === 'het_hang' && ps.status !== 'CHO_MUA' && ps.stock <= 0) {
             byCode.set(code, { code, name, imageUrl, stock: ps.stock, orderQty });
-        } else if (trigger === 'am_ma' && ps.status !== 'CHO_MUA') {
-            const held = ctx.heldByCode.get(code) || 0;
-            if (held > ps.stock) {
-                byCode.set(code, { code, name, imageUrl, stock: ps.stock, held, orderQty });
-            }
         }
     }
     const products = [...byCode.values()];
@@ -718,13 +715,12 @@ async function ensureTable(pool) {
                  VALUES
                    ('kpi_user',    'KPI User',       'kpi_user',    '#16a34a', 'user-check',     5,  'system', $1, $1),
                    ('pbh_created', 'Phiếu bán hàng', 'pbh_created', '#16a34a', 'receipt',        10, 'system', $1, $1),
-                   ('cho_hang',    'Chờ hàng',       'cho_hang',    '#f59e0b', 'clock',          20, 'system', $1, $1),
-                   ('am_ma',       'Âm mã',          'am_ma',       '#dc2626', 'alert-triangle', 30, 'system', $1, $1)
+                   ('cho_hang',    'Chờ hàng',       'cho_hang',    '#f59e0b', 'clock',          20, 'system', $1, $1)
                  ON CONFLICT (code) DO NOTHING`,
                 [now]
             );
             console.log(
-                '[WEB2-ORDER-TAGS] Seeded 4 default tags (kpi_user, pbh_created, cho_hang, am_ma)'
+                '[WEB2-ORDER-TAGS] Seeded 3 default tags (kpi_user, pbh_created, cho_hang)'
             );
         }
         // Default tag 'Giỏ trống' (2026-06-26): ensure tồn tại KỂ CẢ khi bảng đã có data
@@ -779,6 +775,10 @@ async function ensureTable(pool) {
         // Predicate + trigger + seed đã gỡ; xoá row để admin không thấy trigger chết.
         // Idempotent (no-op nếu đã xoá).
         await pool.query(`DELETE FROM web2_order_tags WHERE code = 'co_tin_nhan'`);
+        // 2026-06-30: GỘP 'Âm mã' (am_ma) → 'Chờ hàng' (cho_hang) — cùng nghĩa "giỏ vượt
+        // tồn = cần đặt NCC" (user xác nhận: âm mã thực ra là chờ hàng). Predicate/trigger/
+        // seed/detail đã gỡ am_ma; xoá row config (idempotent, no-op nếu đã xoá).
+        await pool.query(`DELETE FROM web2_order_tags WHERE code = 'am_ma'`);
         // 2026-06-29: ACTIVATE 'Có đặt cọc' + 'Ship Tỉnh' + 'Ship nội thành' — trước
         // chỉ là trigger có sẵn (chưa seed → không hiện). co_coc giờ đọc o.deposit đã
         // enrich từ PBH; ship_* derive zone từ địa chỉ (server-side). ON CONFLICT DO

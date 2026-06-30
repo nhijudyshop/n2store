@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [order-tags] Gộp tag "Âm mã" → "Chờ hàng" (over-sell = chờ hàng, 1 khái niệm) — audit #1/4
+
+**Files:** `render.com/services/web2-order-tags-service.js` (gỡ trigger/predicate/flag/detail/seed `am_ma`; `cho_hang` đổi nghĩa = giỏ giữ VƯỢT tồn `held>stock` draft-only = cần đặt NCC; + migration `DELETE … code='am_ma'`), `web2/shared/web2-order-tag-detail.js` (popup "ai đang giữ"/usage chuyển am_ma→cho_hang; badge "Cần đặt N"), `native-orders/js/native-orders-control-drawer.js` (PRODUCT_TAGS bỏ am_ma), `web2/order-tags/index.html` (doc).
+
+User: **"Âm mã thực ra là Chờ hàng"**. 2 tag cùng nghĩa nhưng tên lệch: cũ `cho_hang`=status CHO_MUA (≈"đợi NCC giao" — user nói KHÔNG tồn tại vì NCC giao đủ), `am_ma`=giỏ vượt tồn (over-sell = thực sự **cần đặt NCC**). Gộp về **1 tag "Chờ hàng"** = SP cần đặt NCC = giỏ(draft) giữ > tồn (= board CHỜ HÀNG `giỏ−tồn`; SP CHO_MUA có người đặt tự nằm trong vì giỏ>0>tồn0). Bỏ tag `am_ma`. Phần #1/4 của audit cluster tồn-kho (gốc: user "có nhiều cái trùng chức năng"). Status: ✅
+
 ### [admin][wipe] Chừa `web2_order_tags` + `web2_payment_qr_codes` khỏi web2-wipe-9pages (CONFIG)
 
 **Files:** `render.com/routes/admin-web2-data-reset.js` (gỡ 2 bảng config khỏi `WIPE9_TRUNCATE` + cập nhật doc comment & danh sách GIỮ NGUYÊN).

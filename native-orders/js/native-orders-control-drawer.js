@@ -10,7 +10,7 @@
 (function (global) {
     'use strict';
     const NO = (global.NativeOrders = global.NativeOrders || {});
-    const PRODUCT_TAGS = new Set(['cho_hang', 'am_ma', 'het_hang', 'mua_1_phan']);
+    const PRODUCT_TAGS = new Set(['cho_hang', 'het_hang', 'mua_1_phan']);
     const TABS = [
         { key: 'tags', label: 'Thẻ', icon: 'tag' },
         { key: 'products', label: 'Sản phẩm', icon: 'package' },

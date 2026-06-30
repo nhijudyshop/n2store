@@ -1,11 +1,10 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 //
 // Web2OrderTagDetail — popup "lý do chi tiết" khi bấm 1 TAG đơn hàng (cột Thẻ native-orders).
-//   - Chờ hàng  → danh sách SP đang chờ NCC (mã, tên, số chờ).
-//   - Âm mã     → danh sách SP vượt tồn + "ai đang giữ" (fetch /usage: đơn + tên KH + SL + trạng thái).
+//   - Chờ hàng  → SP cần đặt NCC (giỏ giữ vượt tồn) + "ai đang giữ" (fetch /usage: đơn + tên KH + SL + trạng thái). Gộp "Âm mã" cũ.
 //   - Hết hàng / Mua 1 phần → danh sách SP + tồn.
 //   - Trigger khác → mô tả điều kiện (registry /triggers).
-// Data SP đến từ tag.detail.products (server gắn ở /load). Holders âm mã fetch /usage on-click.
+// Data SP đến từ tag.detail.products (server gắn ở /load). Holders "chờ hàng" fetch /usage on-click.
 // 1 nguồn dùng chung — trang nào cần "giải thích tag đơn" thì load + gọi Web2OrderTagDetail.open(order, tag).
 (function (global) {
     'use strict';
@@ -142,9 +141,7 @@
     // ----- renderers -----
     function prodBadge(trigger, p) {
         if (trigger === 'cho_hang')
-            return `<span class="w2otd-badge amber">Chờ ×${vnNum(p.pendingQty)}</span>`;
-        if (trigger === 'am_ma')
-            return `<span class="w2otd-badge red">Âm ${vnNum(Math.max(0, (p.held || 0) - (p.stock || 0)))}</span>`;
+            return `<span class="w2otd-badge amber">Cần đặt ${vnNum(Math.max(0, (p.held || 0) - (p.stock || 0)))}</span>`;
         if (trigger === 'het_hang')
             return `<span class="w2otd-badge slate">Tồn ${vnNum(p.stock)}</span>`;
         if (trigger === 'mua_1_phan')
@@ -152,8 +149,8 @@
         return '';
     }
     function prodSub(trigger, p) {
-        if (trigger === 'am_ma')
-            return `Tồn kho: <strong>${vnNum(p.stock)}</strong> · Tổng đang giữ (các giỏ hàng): <strong>${vnNum(p.held)}</strong>${p.orderQty ? ` · giỏ này giữ ×${vnNum(p.orderQty)}` : ''}`;
+        if (trigger === 'cho_hang')
+            return `Tồn kho: <strong>${vnNum(p.stock)}</strong> · Tổng đang giữ (các giỏ): <strong>${vnNum(p.held)}</strong>${p.orderQty ? ` · giỏ này giữ ×${vnNum(p.orderQty)}` : ''}`;
         if (p.orderQty) return `Đặt trong đơn này: ×${vnNum(p.orderQty)}`;
         return '';
     }
@@ -180,13 +177,13 @@
                         ${prodSub(trigger, p) ? `<div class="w2otd-sub">${prodSub(trigger, p)}</div>` : ''}
                     </div>
                 </div>
-                ${trigger === 'am_ma' ? `<div class="w2otd-holders" data-holders="${esc(p.code)}"><span class="w2otd-spin"></span><span class="w2otd-muted">Đang tải đơn đang giữ…</span></div>` : ''}
+                ${trigger === 'cho_hang' ? `<div class="w2otd-holders" data-holders="${esc(p.code)}"><span class="w2otd-spin"></span><span class="w2otd-muted">Đang tải đơn đang giữ…</span></div>` : ''}
             </div>`
             )
             .join('');
     }
 
-    // Âm mã: fetch /usage → render holders per product (ai đang giữ, đơn nào).
+    // Chờ hàng (gộp Âm mã cũ): fetch /usage → render holders per product (ai đang giữ, đơn nào).
     async function fillHolders(order, products) {
         const codes = products.map((p) => p.code);
         if (!codes.length) return;
@@ -367,8 +364,7 @@
 
         if (products.length) {
             const leadMap = {
-                cho_hang: `${products.length} sản phẩm đang <strong>chờ hàng</strong> (chờ NCC giao) trong ${orderRef}. Đơn này không tạo được PBH — phải tạo Phiếu soạn hàng.`,
-                am_ma: `${products.length} sản phẩm <strong>âm mã</strong> (tổng số đang giữ vượt tồn kho) trong ${orderRef}.`,
+                cho_hang: `${products.length} sản phẩm <strong>chờ hàng</strong> (giỏ giữ vượt tồn → cần đặt thêm NCC) trong ${orderRef}.`,
                 het_hang: `${products.length} sản phẩm <strong>hết hàng</strong> (tồn ≤ 0) trong ${orderRef}.`,
                 mua_1_phan: `${products.length} sản phẩm <strong>mua 1 phần</strong> (đã nhận một phần từ NCC) trong ${orderRef}.`,
             };
@@ -376,7 +372,7 @@
                 `<p class="w2otd-lead">${leadMap[tag.trigger] || orderRef}</p>` +
                 productListHtml(tag.trigger, products);
             icons();
-            if (tag.trigger === 'am_ma') fillHolders(order, products);
+            if (tag.trigger === 'cho_hang') fillHolders(order, products);
         } else {
             const t = await triggerDesc(tag.trigger);
             body.innerHTML = `<p class="w2otd-lead">${orderRef} được gắn thẻ này vì:</p><div class="w2otd-prod"><div class="w2otd-sub" style="font-size:13px;color:#334155;">${esc(t ? t.desc : 'Điều kiện ' + tag.trigger)}</div></div>`;
