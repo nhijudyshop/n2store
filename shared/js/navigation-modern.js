@@ -3499,11 +3499,7 @@ class UnifiedNavigationManager {
             'https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay-dashboard';
         // NOTE: Same credentials already used by service-costs/js/service-costs.js
         // (CF Worker logs into my.sepay.vn server-side; nothing useful exposed in browser).
-        const body = {
-            email: 'nhijudyshop@gmail.com',
-            password: 'PBqRhge5~!',
-            api_key: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY',
-        };
+        const body = {}; // cred SePay ở ENV worker (SEPAY_EMAIL/PASSWORD) — audit 2026-07-01
 
         let json;
         try {

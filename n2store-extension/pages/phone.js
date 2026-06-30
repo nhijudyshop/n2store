@@ -8,11 +8,12 @@ const RENDER_CONFIG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/on
 
 // Fallback defaults (if DB unreachable)
 const DEFAULTS = {
+        // cred lấy từ endpoint /api/oncall/phone-config (DB); fallback để TRỐNG — KHÔNG hardcode (audit 2026-07-01)
   ws_url: 'wss://45-76-155-207.sslip.io/ws',
   pbx_domain: 'pbx-ucaas.oncallcx.vn',
-  metered_api_key: '61239134d00b315f4db5888a720950acc22d',
+  metered_api_key: '',
   sip_extensions: [
-    { ext: '101', authId: 'gOcQD5CWCYFuDSh2', password: 'iuPj7ZTT2dKoOSoY', label: 'Ext 101' }
+    { ext: '101', authId: '', password: '', label: 'Ext 101' }
   ]
 };
 

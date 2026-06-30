@@ -256,7 +256,7 @@
                 { label: 'Free tier', value: '15 RPM, 1M TPM, 1500 RPD' },
                 {
                     label: 'API Key',
-                    value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+                    value: 'AIzaSyCuo0e3…(ẩn)',
                     masked: true,
                 },
                 { label: 'Sử dụng', value: 'AI route trên Render server (/api/gemini)' },
@@ -316,7 +316,7 @@
                 { label: 'Places API (New)', value: 'SERVICE_DISABLED - project 598906493303' },
                 {
                     label: 'API Key',
-                    value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw',
+                    value: 'AIzaSyD8m0um…(ẩn)',
                     masked: true,
                 },
                 {
@@ -628,19 +628,19 @@
         {
             name: 'GEMINI_API_KEY',
             service: 'Google (project 51754929973)',
-            value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+            value: 'AIzaSyCuo0e3…(ẩn)',
             sensitive: true,
         },
         {
             name: 'GOOGLE_CLOUD_VISION_API_KEY',
             service: 'Google (DISABLED)',
-            value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+            value: 'AIzaSyCuo0e3…(ẩn)',
             sensitive: true,
         },
         {
             name: 'GOOGLE_PLACES_API_KEY',
             service: 'Google (project 598906493303, DISABLED)',
-            value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw',
+            value: 'AIzaSyD8m0um…(ẩn)',
             sensitive: true,
         },
         {
@@ -1140,8 +1140,8 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: 'nhijudyshop@gmail.com',
-                    password: 'PBqRhge5~!',
+                    email: '',
+                    password: '',
                     api_key: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY',
                 }),
             });

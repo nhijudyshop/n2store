@@ -276,7 +276,7 @@ function parsePlansPage(html) {
  * Body: { email, password, api_key? }
  * Returns: { dashboard, invoices, bankAccount?, transactionCount?, month? }
  */
-export async function handleSepayDashboard(request, url) {
+export async function handleSepayDashboard(request, url, env = {}) {
     let email, password, apiKey;
 
     // audit r8: CHỈ POST (body JSON). Bỏ nhánh GET ?email=&password= — credentials
@@ -288,9 +288,11 @@ export async function handleSepayDashboard(request, url) {
         });
     }
     try {
-        const body = await request.json();
-        email = body.email;
-        password = body.password;
+        const body = await request.json().catch(() => ({}));
+        // audit 2026-07-01: cred SePay lấy từ ENV worker (SEPAY_EMAIL/SEPAY_PASSWORD),
+        // KHÔNG hardcode trong client nữa. body chỉ fallback transition (gỡ sau khi set secrets).
+        email = env.SEPAY_EMAIL || body.email;
+        password = env.SEPAY_PASSWORD || body.password;
         apiKey = body.api_key;
     } catch {
         return errorResponse('Invalid JSON body', 400);

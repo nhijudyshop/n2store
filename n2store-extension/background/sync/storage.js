@@ -218,8 +218,8 @@ const MAX_CALL_LOG = 50;
 const DEFAULT_ONCALL_SETTINGS = {
     extension: '101',
     autoConfirm: false,
-    sipAuthId: 'LRmeWThKCcC63CZk',
-    sipPassword: '0We6H7AB15Boci0D',
+    sipAuthId: '',
+    sipPassword: '',
 };
 
 /**

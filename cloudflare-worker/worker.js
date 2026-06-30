@@ -160,9 +160,9 @@ async function routeRequest(request, env, ctx) {
             case 'DEEPSEEK_OCR':
                 return handleDeepSeekOcr(request, url);
 
-            // SePay Dashboard (direct login + scrape)
+            // SePay Dashboard — cred lấy từ env (SEPAY_EMAIL/SEPAY_PASSWORD), KHÔNG từ client
             case 'SEPAY_DASHBOARD':
-                return handleSepayDashboard(request, url);
+                return handleSepayDashboard(request, url, env);
 
             // Proxy
             case 'GENERIC_PROXY':

@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [security] Client creds → config-endpoint/env (SIP + SePay account password)
+
+**Files:** `orders-report/js/phone-widget.js` · `n2store-extension/pages/phone.js` · `n2store-extension/background/sync/storage.js` · `cloudflare-worker/worker.js` · `cloudflare-worker/modules/handlers/sepay-dashboard-handler.js` · `shared/js/navigation-modern.js` · `service-costs/js/service-costs.js`.
+
+User: chuyển client-side creds sang config-endpoint. Phát hiện kiến trúc đã có sẵn + 1 leak NGHIÊM TRỌNG:
+
+- **SIP/VoIP:** endpoint `/api/oncall/phone-config` (DB) ĐÃ là nguồn; hardcoded creds chỉ là **fallback offline** → gỡ TRỐNG (authId/password/metered_api_key='') ở phone-widget + extension phone.js/storage.js. Bình thường lấy từ endpoint; offline → không SIP thay vì lộ cred.
+- **🔴 SePay:** client (navigation-modern + service-costs) **hardcode EMAIL + PASSWORD tài khoản my.sepay.vn** trong JS public, POST cho worker login server-side (comment "nothing useful exposed" SAI). Fix: worker `sepay-dashboard-handler` đọc cred từ **env** (`SEPAY_EMAIL`/`SEPAY_PASSWORD`, env-primary body-fallback) + worker.js truyền `env`; gỡ email/password khỏi 2 client. service-costs: truncate 5 key AIza hiển thị.
+- Còn lại low-risk (flag): service-costs api_key (worker-gate, không phải password), ImgBB free key (worker). attendance-sync ĐÃ env-based (FP).
+
+⚠ **BẮT BUỘC user (nếu không → SePay dashboard widget vỡ):** (1) set worker secret `SEPAY_EMAIL` + `SEPAY_PASSWORD` (wrangler/dashboard); (2) **ROTATE** SePay password (đã lộ public) + SIP creds; (3) đảm bảo DB `/phone-config` có SIP config. Worker auto-deploy khi push `cloudflare-worker/**`.
+
+Status: ✅ cred ra khỏi client source · ⬜ user set secret + rotate + verify.
+
 ### [security] Dọn secret toàn repo (CI gitleaks) — sanitize source + rotate (KHÔNG purge history)
 
 **Files:** `render.com/config/tpos.config.js` · `render.com/scripts/migrate-dropped-held-to-pg.js` · `.gitleaks.toml` · xoá 5 dump .txt · sanitize `INBOX_PREVIEW_VARIABLES.md`.

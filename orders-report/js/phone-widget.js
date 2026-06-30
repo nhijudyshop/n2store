@@ -9,13 +9,14 @@ const PhoneWidget = (() => {
     const MISSED_KEY = 'phoneWidget_missed';
     const RENDER_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/oncall/phone-config';
     const DEFAULTS = {
+        // cred lấy từ endpoint /api/oncall/phone-config (DB); fallback để TRỐNG — KHÔNG hardcode (audit 2026-07-01)
         pbx_domain: 'pbx-ucaas.oncallcx.vn',
         ws_url: 'wss://45-76-155-207.sslip.io/ws',
         sip_extensions: [
             {
                 ext: '101',
-                authId: 'gOcQD5CWCYFuDSh2',
-                password: 'iuPj7ZTT2dKoOSoY',
+                authId: '',
+                password: '',
                 label: 'Ext 101',
             },
         ],
