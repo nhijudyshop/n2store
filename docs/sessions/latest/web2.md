@@ -3,23 +3,24 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260630-120334-79ba6e5`
-**Session file**: [`./20260630-120334-79ba6e5.md`](../20260630-120334-79ba6e5.md)
-**Commit**: `79ba6e5` — feat(products): bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn duy nhất (SP luôn có địa danh) [P4]
-**Last updated**: 2026-06-30 12:03:34 +07
-**Summary**: feat(products): bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn duy nhất (SP luôn có địa danh) ...
+**Latest session**: `RESUME:20260630-123908-3436cef`
+**Session file**: [`./20260630-123908-3436cef.md`](../20260630-123908-3436cef.md)
+**Commit**: `3436cef` — feat(live-control): gỡ tạo chiến dịch → chỉ tạo/gán ở live-chat (1 nguồn) [#1 bước 1]
+**Last updated**: 2026-06-30 12:39:08 +07
+**Summary**: feat(live-control): gỡ tạo chiến dịch → chỉ tạo/gán ở live-chat (1 nguồn) [#1 bước 1]
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/products/index.html`
+- `web2/live-control/index.html`
+- `web2/live-control/js/live-control.js`
 
 ## Last 5 commits touching `web2/`
 
+- `3436cef44` feat(live-control): gỡ tạo chiến dịch → chỉ tạo/gán ở live-chat (1 nguồn) [#1 bước 1] _(2026-06-30)_
 - `79ba6e550` feat(products): bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn duy nhất (SP luôn có địa danh) [P4] _(2026-06-30)_
 - `1b2205386` feat(shared): Web2ProductStatus 1 nguồn trạng thái SP + badge 'chờ hàng' live-chat (P2); migrate web2/products khỏi fork _(2026-06-30)_
 - `159ebbc74` feat(system): thêm card 'Địa danh (vùng nguồn hàng)' vào tab services — CHO VƯỢT vs pre-order + công thức NCC/GIỎ/CÒN/VƯỢT _(2026-06-30)_
 - `0128f1a27` fix(live-control): sửa nhầm 'pre-order' — vùng CHỌN = CHO VƯỢT (hàng có sẵn), vùng KHÔNG chọn mới là pre-order _(2026-06-30)_
-- `34f23fef2` fix(live-control): đổi nhãn dropdown 'MỚI theo' → 'Cho VƯỢT theo' (đúng chức năng pre-order, không lọc cột MỚI) _(2026-06-30)_
 
 ---
 
@@ -27,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260630-120334-79ba6e5` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260630-123908-3436cef` cho Claude walk chain theo CLAUDE.md protocol.
