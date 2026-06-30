@@ -8,10 +8,11 @@
 
 User: thêm tag SOẠN HÀNG cho giỏ khi in phiếu soạn hàng; toggle bật/tắt CHỨC NĂNG IN, admin chỉnh. (User chốt: toggle = bật/tắt in; tag thuộc GIỎ → thành đơn thì mất.)
 
-- **Tag**: chỉ giỏ (`status==='draft'`) đã in phiếu soạn hàng (`soan_hang_print_count>0`). Derived mỗi /load → khi giỏ thành đơn (status≠draft) tag TỰ MẤT. Tách counter riêng vì `print_count` gộp cả bill PBH (tag `da_in` không phân biệt được).
-- **Toggle** = `is_active` của thẻ `soan_hang` ở trang Cấu hình thẻ (admin có sẵn). BẬT → in được + tag tính; TẮT → engine bỏ thẻ (ẩn) + 4 entry-point khoá nút In Phiếu Soạn Hàng (`_canPrintSoanHang` fail-open nếu lỗi/chưa seed). Trang order-tags KHÔNG đổi code — thẻ tự seed + dùng toggle sẵn.
-- **Bug fix** `345a9c000`: `/web2-order-tags/list` trả `{records}` không phải `{tags}` → gate luôn fail-open. Sửa `_orderTagList` đọc `d.records`.
-- **Test E2E (deploy web2-api live)**: (1) thẻ `soan_hang` seed isActive=true; (2) mark-printed kind=soan_hang đơn draft NJ-...0007 → `soanHangPrintCount=1`, `printCount` 3→4, autoTags=[Chờ hàng, **Soạn hàng**]; (3) toggle OFF → tag biến mất (BE) + gate FE `soanHangPrintEnabled()=false` (khoá in); toggle ON → tag về + gate true; (4) đơn non-draft KHÔNG có soan_hang (status≠draft → mất khi thành đơn). Status ✅
+- **Tag**: chỉ giỏ (`status==='draft'`) đã bấm In Phiếu Soạn Hàng (`soan_hang_print_count>0`). Derived mỗi /load → khi giỏ thành đơn (status≠draft) tag TỰ MẤT. Tách counter riêng vì `print_count` gộp cả bill PBH.
+- **Toggle = bật/tắt CHỨC NĂNG IN GIẤY, KHÔNG khoá nút** (sửa hiểu sai 2026-06-30, user chốt): bấm nút "In Phiếu Soạn Hàng" LUÔN gắn tag SOẠN HÀNG; toggle (=`is_active` thẻ `soan_hang`, admin) chỉ quyết có IN RA GIẤY không. BẬT → in giấy + tag (kind=`soan_hang`, bump 🖨+counter). TẮT → KHÔNG in giấy nhưng VẪN gắn tag (kind=`soan_hang_tag_only`, chỉ bump soan_hang_print_count, KHÔNG bump 🖨). Gate nằm trong `packing-slip._print()` (async, fail-open), KHÔNG ở entry-point.
+- `mark-printed` 3 kind: `pbh` (🖨), `soan_hang` (🖨+tag), `soan_hang_tag_only` (chỉ tag). Trang order-tags KHÔNG đổi code — thẻ tự seed + dùng toggle is_active sẵn.
+- **Bug fix** `345a9c000`: `/web2-order-tags/list` trả `{records}` không phải `{tags}`. Sửa `_orderTagList` đọc `d.records`.
+- Status 🔄 (chờ deploy + verify: in tắt→tag vẫn gắn không bump 🖨; in bật→tag+🖨)
 
 ### [unit-scan] Bấm ô sơ đồ kệ → MỞ MODAL chi tiết đơn (thay vì cuộn xuống)
 

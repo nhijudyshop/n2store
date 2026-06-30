@@ -54,10 +54,9 @@
                 { title: 'Đơn có hàng chờ', okText: 'Tạo Phiếu soạn hàng', cancelText: 'Để sau' }
             );
             if (goSlip && window.NativeOrdersPackingSlip) {
-                if (!(await NO._canPrintSoanHang())) return;
                 window.NativeOrdersPackingSlip.open(src, {
                     sttDisplay: NO.computeOrderStt(src),
-                    onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
+                    onPrint: NO._onSoanHangPrint,
                 });
             }
             return;
@@ -415,22 +414,10 @@
         return DMP && DMP.getOptionsAsync ? await DMP.getOptionsAsync() : [];
     };
 
-    // Gate nút "In Phiếu Soạn Hàng" — toggle is_active thẻ 'soan_hang' (admin chỉnh ở
-    // trang Cấu hình thẻ). Tắt = khoá in. Fail-open nếu lỗi/thẻ chưa seed. Toast khi tắt.
-    NO._canPrintSoanHang = async function _canPrintSoanHang() {
-        try {
-            if (!window.NativeOrdersApi?.soanHangPrintEnabled) return true;
-            const ok = await window.NativeOrdersApi.soanHangPrintEnabled();
-            if (!ok)
-                NO.notify?.(
-                    'Chức năng In Phiếu Soạn Hàng đang TẮT — admin bật lại ở Cấu hình thẻ → "Soạn hàng".',
-                    'warning'
-                );
-            return ok;
-        } catch {
-            return true;
-        }
-    };
+    // onPrint của Phiếu Soạn Hàng: LUÔN gắn tag SOẠN HÀNG. didPrint=false (admin tắt IN) →
+    // 'soan_hang_tag_only' (chỉ tag, không tăng 🖨); in thật → 'soan_hang' (tag + 🖨).
+    NO._onSoanHangPrint = (od, didPrint) =>
+        NO._markPrintedCodes([od.code], didPrint === false ? 'soan_hang_tag_only' : 'soan_hang');
 
     // IN bill (nút "In bill" toolbar — các đơn đang chọn). Mỗi đơn in ĐÚNG LOẠI
     // theo trạng thái: Nháp → Phiếu Soạn Hàng (modal tuần tự), confirmed/PBH →
@@ -471,11 +458,6 @@
                     `${drafts.length} giỏ hàng (soạn hàng) + ${others.length} đơn in bill PBH`,
                     'info'
                 );
-            // Soạn hàng bị admin tắt → bỏ qua phần giỏ, vẫn in bill PBH cho đơn còn lại.
-            if (!(await NO._canPrintSoanHang())) {
-                await printConfirmedBills();
-                return;
-            }
             let i = 0;
             const openNext = () => {
                 if (i >= drafts.length) {
@@ -486,7 +468,7 @@
                 window.NativeOrdersPackingSlip.open(o, {
                     sttDisplay: NO.computeOrderStt(o),
                     onClose: openNext,
-                    onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
+                    onPrint: NO._onSoanHangPrint,
                 });
             };
             openNext();
@@ -515,10 +497,9 @@
                 NO.notify('Phiếu soạn hàng chưa load', 'error');
                 return;
             }
-            if (!(await NO._canPrintSoanHang())) return;
             window.NativeOrdersPackingSlip.open(o, {
                 sttDisplay: NO.computeOrderStt(o),
-                onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
+                onPrint: NO._onSoanHangPrint,
             });
             return;
         }
@@ -644,10 +625,9 @@
                           )
                         : false;
                     if (goSlip && ord && window.NativeOrdersPackingSlip) {
-                        if (!(await NO._canPrintSoanHang())) return;
                         window.NativeOrdersPackingSlip.open(ord, {
                             sttDisplay: NO.computeOrderStt(ord),
-                            onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
+                            onPrint: NO._onSoanHangPrint,
                         });
                     }
                     return;

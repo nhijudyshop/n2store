@@ -2285,18 +2285,26 @@ router.post('/mark-printed', requireWeb2AuthSoft, async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const codes = Array.isArray(req.body && req.body.codes) ? req.body.codes.filter(Boolean) : [];
     if (!codes.length) return res.status(400).json({ error: 'codes required' });
-    // 2026-06-30: kind='soan_hang' (in Phiếu Soạn Hàng) → bump THÊM soan_hang_print_count
-    // (tag soan_hang). Mặc định 'pbh' (in bill) → chỉ print_count (giữ backward-compat).
-    const kind = (req.body && req.body.kind) === 'soan_hang' ? 'soan_hang' : 'pbh';
+    // 2026-06-30: kind điều khiển bump cột nào.
+    //   'pbh' (mặc định, in bill)       → chỉ print_count (🖨, backward-compat).
+    //   'soan_hang' (in phiếu soạn hàng) → print_count + soan_hang_print_count (in thật + gắn tag).
+    //   'soan_hang_tag_only' (toggle IN tắt) → CHỈ soan_hang_print_count (gắn tag, KHÔNG in thật
+    //                                           → không bump print_count để 🖨 không báo "đã in").
+    const kind = (req.body && req.body.kind) || 'pbh';
+    const bumpPrint = kind !== 'soan_hang_tag_only'; // tag_only = không in giấy → không tăng 🖨
+    const bumpSoan = kind === 'soan_hang' || kind === 'soan_hang_tag_only';
     try {
         await ensureTables(pool);
         const now = Date.now();
-        const extra =
-            kind === 'soan_hang'
-                ? ', soan_hang_print_count = soan_hang_print_count + 1, soan_hang_last_printed_at = $1'
-                : '';
+        const sets = ['updated_at = $1'];
+        if (bumpPrint) sets.push('print_count = print_count + 1', 'last_printed_at = $1');
+        if (bumpSoan)
+            sets.push(
+                'soan_hang_print_count = soan_hang_print_count + 1',
+                'soan_hang_last_printed_at = $1'
+            );
         const r = await pool.query(
-            `UPDATE native_orders SET print_count = print_count + 1, last_printed_at = $1, updated_at = $1${extra}
+            `UPDATE native_orders SET ${sets.join(', ')}
              WHERE code = ANY($2::text[]) RETURNING code, print_count, last_printed_at`,
             [now, codes]
         );

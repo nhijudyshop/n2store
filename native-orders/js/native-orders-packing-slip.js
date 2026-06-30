@@ -274,7 +274,7 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
         else setTimeout(go, 60);
     }
 
-    function _print() {
+    async function _print() {
         if (!_order || !_products.length) {
             _notify('Không có dữ liệu để in', 'warning');
             return;
@@ -288,19 +288,31 @@ th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #
             const v = inp.value.trim();
             if (v) notes[parseInt(inp.dataset.psNote, 10)] = v;
         });
-        const html = _buildPrintHTML(waiting, notes);
-        // DÙNG CHUNG đường in của Web2Bill (1 nguồn): role 'pbh' có máy bridge (IP) → in
-        // THẲNG ESC/POS không hộp thoại = NHANH như bill PBH; chưa gán máy → fallback hộp
-        // thoại (hành vi cũ). Web2Bill chưa load → iframe nội bộ (defensive).
-        if (global.Web2Bill && global.Web2Bill.printDocHtml) {
-            global.Web2Bill.printDocHtml(html, { role: 'pbh', label: 'Phiếu Soạn Hàng' });
+        // Toggle IN (admin, thẻ 'soan_hang' ở Cấu hình thẻ): BẬT → in giấy thật; TẮT → KHÔNG
+        // in giấy nhưng VẪN gắn tag SOẠN HÀNG. Fail-open (lỗi / chưa load API → in như cũ).
+        let doPrint = true;
+        try {
+            if (global.NativeOrdersApi && global.NativeOrdersApi.soanHangPrintEnabled)
+                doPrint = await global.NativeOrdersApi.soanHangPrintEnabled();
+        } catch (_) {}
+        if (doPrint) {
+            const html = _buildPrintHTML(waiting, notes);
+            // DÙNG CHUNG đường in của Web2Bill (1 nguồn): role 'pbh' có máy bridge (IP) → in
+            // THẲNG ESC/POS không hộp thoại; chưa gán máy → fallback hộp thoại. Web2Bill chưa
+            // load → iframe nội bộ (defensive).
+            if (global.Web2Bill && global.Web2Bill.printDocHtml) {
+                global.Web2Bill.printDocHtml(html, { role: 'pbh', label: 'Phiếu Soạn Hàng' });
+            } else {
+                _printViaLocalIframe(html);
+            }
         } else {
-            _printViaLocalIframe(html);
+            _notify('Đã đánh dấu Soạn Hàng (chức năng IN đang tắt — admin)', 'info');
         }
-        // Ghi số lần in (onPrint) — đơn này đã in Phiếu Soạn Hàng.
+        // LUÔN gắn tag SOẠN HÀNG (onPrint) — kể cả khi không in giấy. Truyền doPrint để caller
+        // chọn bump 🖨 (in thật) hay chỉ gắn tag (in tắt).
         if (_onPrint) {
             try {
-                _onPrint(_order);
+                _onPrint(_order, doPrint);
             } catch (e) {
                 /* noop */
             }
