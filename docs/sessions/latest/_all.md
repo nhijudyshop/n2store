@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bbea5eb` — feat(web2 unit-scan): quét batch → in tem cả lượt → 'Đã in' (nhóm thời gian) + đại tu UI/hiệu ứng
-**Last updated**: 2026-07-01 06:56:28 +07
-**Latest session**: [`RESUME:20260701-065628-bbea5eb`](../20260701-065628-bbea5eb.md)
-**Summary**: web2 unit-scan: quét batch in tem + Đã in nhóm thời gian + đại tu UI/hiệu ứng
+**Latest commit**: `d75e3b7` — docs(session): fill key decisions / next steps for unit-scan batch+redesign
+**Last updated**: 2026-07-01 06:58:46 +07
+**Latest session**: [`RESUME:20260701-065846-d75e3b7`](../20260701-065846-d75e3b7.md)
+**Summary**: docs(session): fill key decisions / next steps for unit-scan batch+redesign
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
