@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [system] Thêm card "Địa danh (vùng nguồn hàng)" vào tab Dịch vụ & Hệ thống
+
+**Files:** `web2/system/index.html` (section static cuối panel `data-panel="services"`).
+
+User: thêm chi tiết phần địa danh vào `web2/system?tab=services`.
+
+- Section HTML thuần (không JS/data mới): giải thích `region` = vùng nguồn hàng (`web2_products.region`, gán qua Sổ Order / fallback prefix mã HN/HC).
+- 2 card: **HƯƠNG CHÂU = hàng có sẵn (CHO VƯỢT)** vs **HÀ NỘI = pre-order (bán mẫu trước)** — đúng nghĩa user vừa chốt.
+- Block công thức liên quan (NCC/GIỎ/MỚI/CÒN/VƯỢT per khConModel) + phân biệt với "chờ hàng" CHO_MUA (trạng thái kho, chặn PBH). Link tới live-control + so-order. Status ✅
+
 ### [live-control] Sửa nhầm "pre-order": vùng CHỌN = CHO VƯỢT (hàng có sẵn), vùng KHÔNG chọn mới là pre-order
 
 **Files:** `web2/shared/web2-live-tv-display.js` (rename `isPreOrder`→`isVuotRegion` + comment khConModel), `web2/live-control/js/live-control.js` (title selector + confirm dialog + 4 comment), `web2/live-control/css/live-control.css` (2 comment), `render.com/routes/web2-campaign-products.js` (3 comment), `web2/live-control/index.html` + `web2/live-tv/index.html` (bump `→20260630tv13`).

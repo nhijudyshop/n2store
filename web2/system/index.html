@@ -155,6 +155,103 @@
                             <div class="sd-loading">Đang tải...</div>
                         </div>
                     </section>
+
+                    <!-- Địa danh (vùng nguồn hàng) — khái niệm nghiệp vụ, dùng ở live-control / Sổ Order / Kho SP -->
+                    <section class="sd-section">
+                        <h2><i data-lucide="map-pin"></i> Địa danh (vùng nguồn hàng)</h2>
+                        <p class="sys-panel-intro" style="margin: -4px 0 12px">
+                            <code>region</code> = vùng nguồn hàng của SP, lưu ở
+                            <code>web2_products.region</code>. Gán khi tạo SP qua
+                            <a href="../so-order/index.html">Sổ Order</a> (theo tab địa danh);
+                            fallback theo prefix mã (<code>HN…</code> → HÀ NỘI, <code>HC…</code> →
+                            HƯƠNG CHÂU). Quyết định cách bán + cách tính VƯỢT trên
+                            <a href="../live-control/index.html">Điều khiển TV Livestream</a>.
+                        </p>
+
+                        <div
+                            style="
+                                display: grid;
+                                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                                gap: 12px;
+                            "
+                        >
+                            <div
+                                style="
+                                    border: 1px solid var(--web2-border, #e2e8f0);
+                                    border-left: 3px solid #16a34a;
+                                    border-radius: 11px;
+                                    padding: 13px 15px;
+                                    background: #f0fdf4;
+                                "
+                            >
+                                <div style="font-weight: 700; margin-bottom: 5px">
+                                    🟢 HƯƠNG CHÂU — hàng có sẵn (CHO VƯỢT)
+                                </div>
+                                <div style="font-size: 0.85rem; line-height: 1.6; color: #334155">
+                                    “Lấy về rồi mới bán” — hàng đã có. Khi
+                                    <strong>chọn</strong> địa danh này ở dropdown
+                                    <strong>“Cho VƯỢT theo …”</strong> (live-control), khách được
+                                    đặt <strong>VƯỢT</strong> số NCC báo → hiện badge
+                                    <strong>VƯỢT +N</strong> để biết cần đặt thêm bao nhiêu. Mặc
+                                    định dropdown = HƯƠNG CHÂU.
+                                </div>
+                            </div>
+                            <div
+                                style="
+                                    border: 1px solid var(--web2-border, #e2e8f0);
+                                    border-left: 3px solid #d97706;
+                                    border-radius: 11px;
+                                    padding: 13px 15px;
+                                    background: #fffbeb;
+                                "
+                            >
+                                <div style="font-weight: 700; margin-bottom: 5px">
+                                    🟠 HÀ NỘI — pre-order (bán mẫu trước)
+                                </div>
+                                <div style="font-size: 0.85rem; line-height: 1.6; color: #334155">
+                                    “Bán mẫu 1 trước, đặt về sau” — đây mới là
+                                    <strong>pre-order</strong> thật. Vùng
+                                    <strong>KHÔNG chọn</strong> ở dropdown → KHÔNG báo VƯỢT (đặt
+                                    vượt là chuyện bình thường vì hàng sẽ đặt sau).
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            style="
+                                margin-top: 12px;
+                                border: 1px solid var(--web2-border, #e2e8f0);
+                                border-radius: 11px;
+                                padding: 13px 15px;
+                                background: var(--web2-surface, #fff);
+                                font-size: 0.84rem;
+                                line-height: 1.65;
+                                color: #334155;
+                            "
+                        >
+                            <strong>Dropdown “Cho VƯỢT theo &lt;địa danh&gt;”</strong>
+                            (live-control): chọn vùng được phép đặt vượt —
+                            <strong>chỉ admin</strong> đổi, lưu
+                            <code>web2_live_tv_control.region</code>, đồng bộ mọi tab/màn TV qua SSE
+                            <code>web2:live-tv-control</code>. KHÔNG lọc cột MỚI.
+                            <div style="margin-top: 7px">
+                                <strong>Công thức liên quan</strong> (per biến thể,
+                                <code>web2-live-tv-display.js → khConModel</code>): NCC =
+                                <code>web2_products.pending_qty</code> · GIỎ = tổng SL draft
+                                <code>native_orders</code> · MỚI = SL của khách chưa SĐT&amp;địa chỉ
+                                (toàn cục) · CÒN = <code>max(0, NCC − GIỎ)</code> · VƯỢT =
+                                <code>max(0, GIỎ − NCC)</code> (chỉ vùng CHO VƯỢT).
+                            </div>
+                            <div style="margin-top: 7px; color: #64748b">
+                                ⚠ <strong>Khác “chờ hàng” (CHO_MUA)</strong>: chờ hàng là
+                                <em>trạng thái kho</em>
+                                (<code>web2_products.status='CHO_MUA'</code>, tồn 0 chờ NCC giao) →
+                                chặn tạo PBH, bật tag <code>cho_hang</code>. Hai cái chung trục
+                                <code>pending_qty</code> nhưng VƯỢT chỉ là số hiển thị, không đụng
+                                trạng thái/PBH/tag.
+                            </div>
+                        </div>
+                    </section>
                 </section>
 
                 <!-- ============ PANEL: SSE REALTIME ============ -->
