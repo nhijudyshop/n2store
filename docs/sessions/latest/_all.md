@@ -3,19 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `415e1eb` — fix(web2 audit vòng4): fix tất cả — 4 HIGH security + medium/low (34 file)
-**Last updated**: 2026-06-30 22:16:46 +07
-**Latest session**: [`RESUME:20260630-221646-415e1eb`](../20260630-221646-415e1eb.md)
-**Summary**: Fix tất cả vòng-4 (batch 7-agent): 4 HIGH security + medium/low, 34 file; backend render.com cần deploy
+**Latest commit**: `de5ef08` — fix(web2 audit): wire x-web2-token cho customer-wallet by-phone/orders (gated route)
+**Last updated**: 2026-06-30 22:21:30 +07
+**Latest session**: [`RESUME:20260630-222130-de5ef08`](../20260630-222130-de5ef08.md)
+**Summary**: Sweep cuối: wire token customer-wallet gated route; xong fix tất cả vòng-4 (backend cần verify deploy Render)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`native-orders/`](./native-orders.md) — 8 file(s)
-- [`render.com/`](./render.com.md) — 6 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 16 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -32,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 22:16
+- [`docs/`](./docs.md) — updated 2026-06-30 22:21
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -86,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 22:16
+- [`web2/`](./web2.md) — updated 2026-06-30 22:21
