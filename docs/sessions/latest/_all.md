@@ -3,21 +3,23 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `56f74ba` — Create severity-audit.yml
-**Last updated**: 2026-06-30 23:19:04 +07
-**Latest session**: [`RESUME:20260630-231904-56f74ba`](../20260630-231904-56f74ba.md)
-**Summary**: Create severity-audit.yml
+**Latest commit**: `acce384` — docs(dev-log): security CI artifact triage + secret sanitization
+**Last updated**: 2026-06-30 23:31:00 +07
+**Latest session**: [`RESUME:20260630-233100-acce384`](../20260630-233100-acce384.md)
+**Summary**: docs(dev-log): security CI artifact triage + secret sanitization
 
 ## Folders affected in this commit
 
-- [`.github/`](./.github.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-28 22:00
 - [`.github/`](./.github.md) — updated 2026-06-30 23:19
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-30 23:10
+- [`_root/`](./_root.md) — updated 2026-06-30 23:31
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-24 14:02
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
@@ -27,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 23:10
+- [`docs/`](./docs.md) — updated 2026-06-30 23:31
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -59,7 +61,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-30 23:10
+- [`render.com/`](./render.com.md) — updated 2026-06-30 23:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07

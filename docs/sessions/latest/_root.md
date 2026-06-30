@@ -3,19 +3,21 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260630-231014-fc11720`
-**Session file**: [`./20260630-231014-fc11720.md`](../20260630-231014-fc11720.md)
-**Commit**: `fc11720` — docs(dev-log): services admin-gate (deployed+verified) + auto-audit tooling (gitleaks/semgrep)
-**Last updated**: 2026-06-30 23:10:14 +07
-**Summary**: Services admin-gate deployed+verified; auto-audit tooling: gitleaks+semgrep ran (findings triaged) + CI security-audit.yml (cần user push workflow scope)
+**Latest session**: `RESUME:20260630-233100-acce384`
+**Session file**: [`./20260630-233100-acce384.md`](../20260630-233100-acce384.md)
+**Commit**: `acce384` — docs(dev-log): security CI artifact triage + secret sanitization
+**Last updated**: 2026-06-30 23:31:00 +07
+**Summary**: docs(dev-log): security CI artifact triage + secret sanitization
 
 ## Files changed in this commit (`_root/`)
 
-- `.gitleaks.toml`
+- `README.md`
 
 ## Last 5 commits touching `_root/`
 
-- `333947b79` ci(security): add .gitleaks.toml allowlist for standing secrets audit _(2026-06-30)_
+- `d07d664aa` Update README.md _(2026-06-30)_
+- `b1d5b2586` Update README.md _(2026-06-16)_
+- `0401ff915` revert _(2026-02-25)_
 
 ---
 
@@ -23,4 +25,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260630-231014-fc11720` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260630-233100-acce384` cho Claude walk chain theo CLAUDE.md protocol.
