@@ -63,15 +63,20 @@
         // 2026-06-03: dùng kho KH riêng Web 2.0 — /api/web2/customers/by-phone/<phone>/orders
         // (query thẳng native_orders + fast_sale_orders, bỏ /api/v2/customers Web 1.0).
         // Trả về { native:[], pbh:[] }.
+        // /customers/by-phone/:phone/orders nay gate requireWeb2AuthSoft (PII) → gửi
+        // x-web2-token (ENFORCE prod), nếu không 401. (audit 2026-06-30)
+        const _h = window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {};
         try {
             const data = await jsonFetch(
-                `${PROXY}/api/web2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
+                `${PROXY}/api/web2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`,
+                { headers: _h }
             );
             return data?.data || data || { native: [], pbh: [] };
         } catch (e) {
             try {
                 const data = await jsonFetch(
-                    `${FALLBACK}/api/web2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`
+                    `${FALLBACK}/api/web2/customers/by-phone/${encodeURIComponent(phone)}/orders?limit=100`,
+                    { headers: _h }
                 );
                 return data?.data || data || { native: [], pbh: [] };
             } catch (_) {
