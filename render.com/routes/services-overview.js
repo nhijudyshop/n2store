@@ -25,13 +25,14 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2Auth } = require('../middleware/web2-auth');
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 
-// AUTH GATE (2026-06-30): endpoint lộ inventory cả 2 DB (kèm tên bảng PII Web 1.0)
-// + chi phí hạ tầng → BẮT BUỘC đăng nhập Web 2.0 (x-web2-token). 401 nếu thiếu/sai
-// token. Bất kỳ user Web 2.0 đăng nhập đều xem được (tab Dịch vụ không admin-only);
-// admin-gate riêng cho tab SSE nằm ở frontend.
-router.use(requireWeb2Auth);
+// AUTH GATE (2026-06-30, siết admin 2026-06-30b): endpoint lộ inventory cả 2 DB
+// (kèm tên bảng PII Web 1.0) + chi phí hạ tầng + topology → CHỈ ADMIN. Trang web2/system
+// đã là menu CHỈ ADMIN ở frontend (web2-sidebar.js "Cấu hình & Hệ thống" — CHỈ ADMIN),
+// nên backend khớp: requireWeb2Admin → 401 thiếu/sai token, 403 nếu không phải admin.
+// (Trước dùng requireWeb2Auth = mọi user login → NV thường vẫn curl được cost/PII-bảng.)
+router.use(requireWeb2Admin);
 
 async function _safeQuery(pool, sql, params = []) {
     try {

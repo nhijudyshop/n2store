@@ -84,8 +84,11 @@
             const r = await fetch(API, {
                 headers: window.Web2Auth?.authHeaders?.() || {},
             });
-            if (r.status === 401 || r.status === 403) {
-                throw new Error('Cần đăng nhập Web 2.0 để xem dịch vụ & hệ thống');
+            if (r.status === 403) {
+                throw new Error('Cần quyền ADMIN để xem Dịch vụ & Hệ thống');
+            }
+            if (r.status === 401) {
+                throw new Error('Cần đăng nhập Web 2.0 để xem Dịch vụ & Hệ thống');
             }
             const data = await r.json();
             if (!data?.ok) throw new Error(data?.error || `HTTP ${r.status}`);
