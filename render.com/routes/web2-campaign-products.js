@@ -638,16 +638,36 @@ router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-// GET /cart-detail?code=X — chi tiết "GIỎ" / "KH MỚI" của 1 SP cho popup khi bấm
-// số ở board. Mỗi dòng = 1 đơn draft chứa SP X (1 giỏ khách) + SL + KH có MỚI
-// không (chưa SĐT & địa chỉ — cả 2 trống). Khớp ĐÚNG nguồn GIỎ/KH MỚI ở GET /
-// (native_orders status='draft'). KHÔNG cần campaignId (giỏ global theo mã SP).
+// GET /cart-detail?code=X[&campaignId=N] — chi tiết "GIỎ" / "KH MỚI" của 1 SP cho
+// popup khi bấm số ở board. Mỗi dòng = 1 đơn draft chứa SP X (1 giỏ khách) + SL +
+// KH có MỚI không (chưa SĐT & địa chỉ — cả 2 trống). Khớp ĐÚNG nguồn + scope GIỎ ở
+// GET / (native_orders status='draft' + gate assigned-post theo campaign): có
+// campaignId → áp CÙNG gate phiên-live (chiến dịch đã gán bài → chỉ đếm đơn của bài
+// đó) nên số popup khớp board. KHÔNG có campaignId → fallback global (backward-safe).
 router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const code = String(req.query.code || '').trim();
     if (!code) return res.status(400).json({ success: false, error: 'code required' });
+    const campaignId = Number(req.query.campaignId);
+    const hasCampaign = Number.isFinite(campaignId);
+    // mode='new' → popup KH MỚI (FE lọc isNewCust). STRIP phone/address khỏi payload:
+    // KH mới vốn không có SĐT/địa chỉ nên rỗng; nhưng route trả CẢ row non-new (FE
+    // discard) → strip để không gửi PII (SĐT/địa chỉ thật) của row bị bỏ qua dây.
+    // GIỮ tên (customerName/fbName) vì popup KH MỚI hiển thị tên để nhận diện khách.
+    const stripPII = String(req.query.mode || '').trim() === 'new';
     try {
+        // Gate phiên-live CÙNG GET / : chiến dịch đã gán bài → chỉ đơn của bài đó;
+        // CHƯA gán bài nào → không lọc (global). Params lệch theo có/không campaignId.
+        const scopeSql = hasCampaign
+            ? `AND (
+                 NOT EXISTS (SELECT 1 FROM web2_live_post_assign WHERE campaign_id = $2)
+                 OR n.live_campaign_id IN (
+                   SELECT post_id FROM web2_live_post_assign WHERE campaign_id = $2
+                 )
+               )`
+            : '';
+        const params = hasCampaign ? [code, campaignId] : [code];
         const r = await pool.query(
             `SELECT n.code AS order_code, n.display_stt, n.campaign_stt, n.customer_name, n.phone,
                     n.address, n.fb_user_id, n.fb_user_name, n.fb_page_id, n.created_at,
@@ -655,25 +675,28 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
              FROM native_orders n, jsonb_array_elements(n.products) prod
              WHERE COALESCE(prod->>'productCode', prod->>'code') = $1
                AND n.status = 'draft'
+               ${scopeSql}
              GROUP BY n.id, n.code, n.display_stt, n.campaign_stt, n.customer_name, n.phone, n.address,
                       n.fb_user_id, n.fb_user_name, n.fb_page_id, n.created_at
              ORDER BY n.created_at DESC NULLS LAST`,
-            [code]
+            params
         );
         const items = r.rows.map((row) => {
             const phone = String(row.phone || '').trim();
             const address = String(row.address || '').trim();
+            const isNewCust = !phone && !address; // KH mới = chưa có SĐT & địa chỉ
             return {
                 orderCode: row.order_code,
                 stt: shelfStt(row), // STT kệ = campaign_stt ?? display_stt (khớp tem + unit-scan)
                 customerName: row.customer_name || null,
-                phone: phone || null,
-                address: address || null,
+                // mode='new' → strip SĐT/địa chỉ (PII row non-new bị FE discard); KH mới rỗng sẵn.
+                phone: stripPII ? null : phone || null,
+                address: stripPII ? null : address || null,
                 fbId: row.fb_user_id || null,
                 fbPageId: row.fb_page_id || null, // page để resolve avatar qua /api/fb-avatar
                 fbName: row.fb_user_name || null,
                 qty: Number(row.qty) || 0,
-                isNewCust: !phone && !address, // KH mới = chưa có SĐT & địa chỉ
+                isNewCust,
                 createdAt: Number(row.created_at) || 0,
                 avatar: null, // hash pancake (thường null) — FE fallback /api/fb-avatar
                 comment: null,

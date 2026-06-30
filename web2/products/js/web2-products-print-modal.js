@@ -471,7 +471,11 @@
             // mỗi tem lấy unitCode + qrUrl riêng. KHÔNG có units → hành vi cũ (lặp mã,
             // QR mã hóa chính chuỗi mã). units[i] khớp tem thứ i của vòng quantity.
             const units = Array.isArray(item.units) ? item.units : null;
-            for (let i = 0; i < item.quantity; i++) {
+            // CLAMP (2026-06-30): SP có units → in ĐÚNG units.length tem (mỗi tem 1 mã
+            // đơn vị + QR riêng). KHÔNG để quantity > units.length sinh tem thừa rơi về
+            // mã SP → trộn lẫn tem-unit và tem-mã-SP. SP không có units → giữ quantity.
+            const count = units ? Math.min(item.quantity, units.length) : item.quantity;
+            for (let i = 0; i < count; i++) {
                 const u = units && units[i] ? units[i] : null;
                 const unitCode = u ? u.unitCode || u.unit_code : null;
                 const qrUrl = u ? u.qrUrl || u.qr_url : null;

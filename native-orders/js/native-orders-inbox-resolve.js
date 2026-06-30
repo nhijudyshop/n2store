@@ -34,7 +34,21 @@
         const base =
             window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         try {
-            const r = await fetch(`${base}/api/web2/customers/${encodeURIComponent(p)}`);
+            // /customers/:phone là route auth-gated (PII) → gửi x-web2-token. (audit 2026-06-30)
+            let w2Headers = {};
+            if (window.Web2Auth?.authHeaders) {
+                w2Headers = window.Web2Auth.authHeaders();
+            } else {
+                try {
+                    const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                    if (t) w2Headers = { 'x-web2-token': t };
+                } catch {
+                    /* no token */
+                }
+            }
+            const r = await fetch(`${base}/api/web2/customers/${encodeURIComponent(p)}`, {
+                headers: w2Headers,
+            });
             const j = await r.json();
             const c = j && (j.customer || j.data);
             const fbId = c && (c.fbId || c.fb_id);

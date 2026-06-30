@@ -30,12 +30,12 @@ let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
     _notifyClients = notifyClients;
 }
-function _notify(action, postId) {
+function _notify(action, postId, extra) {
     if (!_notifyClients) return;
     try {
         _notifyClients(
             'web2:live-comments',
-            { action, postId: postId || null, ts: Date.now() },
+            { action, postId: postId || null, ts: Date.now(), ...(extra || {}) },
             'update'
         );
     } catch (e) {
@@ -464,11 +464,15 @@ async function markBoostAndPurge(pool, rawIds, ttlMs) {
              WHERE EXISTS (
                  SELECT 1 FROM unnest($1::text[]) p
                  WHERE lc.id = p OR starts_with(lc.id, p || '_')
-             )`,
+             )
+             RETURNING lc.id`,
             [ids]
         );
         purged = r.rowCount || 0;
-        if (purged > 0) _notify('reconcile', null); // live-chat reload → bỏ spam
+        // Trước đây _notify('reconcile') KHÔNG kèm id → client desktop chỉ delta-fetch
+        // (append-only) nên KHÔNG gỡ được dòng đã purge (spam vẫn hiện — audit MEDIUM).
+        // Kèm purgedIds (row id thật vừa xoá) để client gỡ ĐÚNG dòng, không cần full reload.
+        if (purged > 0) _notify('reconcile', null, { purgedIds: r.rows.map((x) => x.id) });
     }
     return { marked: ids.length, purged, ttlMs: ttl > 0 ? ttl : BOOST_TTL_MS };
 }

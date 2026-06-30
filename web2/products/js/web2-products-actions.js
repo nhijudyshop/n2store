@@ -16,11 +16,14 @@
     // UI-first: badge toggle NGAY, PATCH background. Lỗi → rollback isActive.
     function toggleActive(code, newState) {
         const product = STATE.products.find((p) => p.code === code);
-        const prevState = product?.isActive;
+        // Deep-ish snapshot (shallow clone của product) để rollback khôi phục ĐÚNG
+        // bản gốc — KHÔNG dựa vào primitive đã có thể bị mutate bởi onSuccess/SSE
+        // trong lúc await. Mutate object live thì rollback từ bản clone là an toàn.
+        const prevSnapshot = product ? { ...product } : null;
         const u = window.AuthManager?.getCurrentUser?.() || {};
         if (window.Web2Optimistic?.run && product) {
             Web2Optimistic.run({
-                snapshot: () => prevState,
+                snapshot: () => prevSnapshot,
                 apply: () => {
                     product.isActive = newState;
                     const ok = W._updateRowInPlace(code, product);
@@ -42,7 +45,8 @@
                     }
                 },
                 rollback: (prev) => {
-                    if (product) product.isActive = prev;
+                    // prev = clone bản gốc → khôi phục isActive (field optimistic đã đổi).
+                    if (product && prev) product.isActive = prev.isActive;
                     const ok = W._updateRowInPlace(code, product);
                     if (!ok) W.renderRows();
                 },

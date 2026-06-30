@@ -304,24 +304,28 @@
     };
 
     // Phase 15: bulk action bar — toggle visibility + count based on checked rows.
-    // Convert input[type=date] value ('YYYY-MM-DD') → full ISO với current local
-    // time. Tránh bug "Ngày HĐ" hiển thị 07:00 do PG parse 'YYYY-MM-DD' = midnight UTC.
+    // Convert input[type=date] value ('YYYY-MM-DD') → full ISO với giờ HIỆN TẠI theo
+    // GMT+7 (Asia/Ho_Chi_Minh). Tránh bug "Ngày HĐ" hiển thị 07:00 do PG parse
+    // 'YYYY-MM-DD' = midnight UTC. KHÔNG dùng giờ local máy (máy lệch TZ → instant sai)
+    // — dựng ISO với offset +07:00 cố định (GMT+7 không có DST) để ra đúng UTC.
     // Pass-through nếu input đã có time component (datetime-local hoặc full ISO).
     NO._dateInputToIsoWithNowTime = function _dateInputToIsoWithNowTime(raw) {
         if (!raw) return null;
         if (String(raw).includes('T') || String(raw).includes(' ')) return raw;
         const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!m) return raw;
-        const now = new Date();
-        const d = new Date(
-            Number(m[1]),
-            Number(m[2]) - 1,
-            Number(m[3]),
-            now.getHours(),
-            now.getMinutes(),
-            now.getSeconds()
-        );
-        return d.toISOString();
+        // Giờ/phút/giây HIỆN TẠI tính theo wall-clock GMT+7 (độc lập TZ máy).
+        const parts = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        }).formatToParts(new Date());
+        const get = (t) => parts.find((p) => p.type === t)?.value || '00';
+        const hh = get('hour') === '24' ? '00' : get('hour'); // en-GB midnight → '24'
+        // '<date>T<hh:mm:ss>+07:00' → Date parse ra đúng instant UTC.
+        return new Date(`${raw}T${hh}:${get('minute')}:${get('second')}+07:00`).toISOString();
     };
 
     // ---- Bill helpers (dùng chung bulkPrintBills IN + viewOrderBill XEM) ----
@@ -329,7 +333,9 @@
     // option.value === o.deliveryMethod). PBH SHOP/bán tại shop → 0. Fallback parse
     // "(20k)" trong label. → bill cộng ship vào TỔNG + COD (giống PBH thật).
     NO._billShipPriceOf = function _billShipPriceOf(o, deliveryOpts) {
-        if (/pbh\s*shop|bán\s*hàng\s*shop|shop/i.test(o.pbhCarrierName || '')) return 0;
+        // \bshop\b: chỉ khớp "PBH SHOP"/"bán hàng shop"/"shop" độc lập, KHÔNG match
+        // substring 'shop' trong tên hãng khác (vd "Shopee Express", "GiaoHangShop...").
+        if (/\bshop\b/i.test(o.pbhCarrierName || '')) return 0;
         if (o.deliveryMethod && deliveryOpts && deliveryOpts.length) {
             const opt = deliveryOpts.find((x) => x.value === o.deliveryMethod);
             if (opt) return Number(opt.price) || 0;
@@ -845,6 +851,10 @@
                 if (i >= 0) NO.STATE.orders[i] = data.order;
                 NO.renderRows(); // audit r3: trước gọi renderOrders() không tồn tại → ReferenceError, list không refresh sau huỷ
             }
+            // Guard desync: 1 SSE-load có thể đã fetch TRƯỚC khi cancel commit, resolve
+            // SAU set local trên → ghi đè bằng row chưa-cancel. Đặt reload debounced
+            // (bắt đầu fetch SAU commit) để trạng thái cuối luôn là bản post-cancel.
+            NO._scheduleReload?.('post-cancel-reconcile');
         } catch (e) {
             console.error('[cancelOrder]', e);
             NO.notify(`Huỷ đơn thất bại: ${e.message}`, 'error');

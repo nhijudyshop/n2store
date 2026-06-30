@@ -176,7 +176,7 @@
                         <div class="lcm-name">${esc(p.title).slice(0, 60)}
                             <div class="lcm-sub">${esc(p.pageName)} · ${esc(String(p.date || '').slice(0, 10))}</div>
                         </div>
-                        <select class="lcm-sel lcm-assign" data-post="${esc(p.postId)}" data-page="${esc(p.pageId)}" data-title="${esc(p.title)}">${campOpts(assignMap[String(p.postId)])}</select>
+                        <select class="lcm-sel lcm-assign" data-post="${esc(p.postId)}" data-page="${esc(p.pageId)}" data-title="${esc(p.title)}" data-prev="${esc(assignMap[String(p.postId)] || '')}">${campOpts(assignMap[String(p.postId)])}</select>
                     </div>`
                               )
                               .join('')
@@ -230,10 +230,28 @@
             const act = btn.dataset.act;
             try {
                 if (act === 'add') {
-                    const name = document.getElementById('lcm-newname').value.trim();
+                    const input = document.getElementById('lcm-newname');
+                    const name = input.value.trim();
                     if (!name) return;
-                    await global.Web2Campaign.create(name);
-                    _render();
+                    // UI-first: xoá ô nhập NGAY (cảm giác đã tạo), run nền, onSuccess re-render
+                    // ra campaign mới; lỗi → khôi phục tên đã gõ. (Web2Optimistic.run)
+                    if (global.Web2Optimistic?.run) {
+                        global.Web2Optimistic.run({
+                            snapshot: () => name,
+                            apply: () => {
+                                input.value = '';
+                            },
+                            run: () => global.Web2Campaign.create(name),
+                            onSuccess: () => _render(),
+                            rollback: (prev) => {
+                                input.value = prev;
+                            },
+                            errLabel: 'tạo chiến dịch',
+                        });
+                    } else {
+                        await global.Web2Campaign.create(name);
+                        _render();
+                    }
                 } else if (act === 'ai-name') {
                     // AI gợi ý tên chiến dịch (free) — gọi /api/web2-ai/complete, điền vào ô tên.
                     const input = document.getElementById('lcm-newname');
@@ -330,19 +348,38 @@
             if (!sel) return;
             const postId = sel.dataset.post;
             const cid = sel.value;
-            try {
-                if (cid) {
-                    await global.Web2Campaign.assignPost(cid, {
-                        postId,
-                        pageId: sel.dataset.page,
-                        postTitle: sel.dataset.title,
-                    });
-                } else {
-                    await global.Web2Campaign.unassignPost(postId);
+            const doRun = () =>
+                cid
+                    ? global.Web2Campaign.assignPost(cid, {
+                          postId,
+                          pageId: sel.dataset.page,
+                          postTitle: sel.dataset.title,
+                      })
+                    : global.Web2Campaign.unassignPost(postId);
+            // UI-first: <select> đã đổi value (native) ngay khi user chọn → cảm giác tức
+            // thì. run nền; lỗi → rollback value cũ + re-render. (Web2Optimistic.run)
+            if (global.Web2Optimistic?.run) {
+                const prevVal = sel.dataset.prev != null ? sel.dataset.prev : '';
+                global.Web2Optimistic.run({
+                    snapshot: () => prevVal,
+                    apply: () => {
+                        sel.dataset.prev = cid; // mốc mới cho lần sau
+                    },
+                    run: doRun,
+                    onSuccess: () => _render(),
+                    rollback: (prev) => {
+                        sel.value = prev;
+                        sel.dataset.prev = prev;
+                    },
+                    errLabel: 'gom bài',
+                });
+            } else {
+                try {
+                    await doRun();
+                    _render();
+                } catch (err) {
+                    Popup.error('Lỗi gom: ' + err.message);
                 }
-                _render();
-            } catch (err) {
-                Popup.error('Lỗi gom: ' + err.message);
             }
         });
     }

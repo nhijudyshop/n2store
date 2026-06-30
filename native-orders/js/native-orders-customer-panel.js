@@ -207,12 +207,23 @@
                 ? `${NO.WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(phone)}&limit=1`
                 : null;
             // 2026-06-08: Web 2.0 bỏ WEB2 — KH info lấy từ warehouse + Pancake.
+            // /customers/search là route auth-gated (PII) → gửi x-web2-token. (audit 2026-06-30)
+            const w2Headers = window.Web2Auth?.authHeaders
+                ? window.Web2Auth.authHeaders()
+                : (() => {
+                      try {
+                          const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                          return t ? { 'x-web2-token': t } : {};
+                      } catch {
+                          return {};
+                      }
+                  })();
             const [pancakeD, customerD] = await Promise.all([
                 fetch(pancakeUrl, { credentials: 'include', signal })
                     .then((r) => r.json())
                     .catch(() => null),
                 customerUrl
-                    ? fetch(customerUrl, { credentials: 'include', signal })
+                    ? fetch(customerUrl, { credentials: 'include', signal, headers: w2Headers })
                           .then((r) => r.json())
                           .catch(() => null)
                     : Promise.resolve(null),

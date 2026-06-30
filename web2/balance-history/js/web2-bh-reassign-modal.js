@@ -27,7 +27,10 @@
         const url = (base) =>
             `${base}?search=${encodeURIComponent(query)}&limit=8&sort=last_order_date&order=desc`;
         const parse = async (base) => {
-            const r = await fetch(url(base));
+            // /customers/search nay gate requireWeb2AuthSoft → gửi x-web2-token (ENFORCE prod).
+            const r = await fetch(url(base), {
+                headers: W2BH.authHeaders ? W2BH.authHeaders() : {},
+            });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
             const arr = Array.isArray(data?.customers)

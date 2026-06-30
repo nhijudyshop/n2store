@@ -383,21 +383,32 @@ async function _loadUserAssignments(pool, userId) {
     }
 }
 
+// Sentinel: deny-all scope. buildScopeWhere phát 'FALSE' (0 row) khi gặp giá trị
+// này. Dùng khi WEB2_AUTH_ENFORCE=1 mà thiếu/sai token → KHÔNG fail-open thấy hết PII.
+const DENY_ALL = '__deny_all__';
+
 // Express middleware — attach req.kpiScope = [{campaign_name, fromSTT, toSTT}, ...]
 // • Admin → null (= see all, no filter)
-// • Token invalid hoặc no assignments → null (= see all — default open access)
+// • Valid user, no assignments → null (= see all — open cho NV chưa phân khoảng)
 // • Has assignments → array of scopes
+// • WEB2_AUTH_ENFORCE=1 + thiếu/sai token → DENY_ALL (0 row). Khi enforce TẮT,
+//   thiếu/sai token vẫn null (transition: frontend chưa gửi token) — giữ behavior cũ.
 //
 // Usage: app.use('/api/native-orders', applyKpiScope, nativeOrdersRoutes)
 //   hoặc per-route: router.get('/load', applyKpiScope, handler)
 async function applyKpiScope(req, res, next) {
     req.kpiScope = null; // default: no filter
+    const enforce = process.env.WEB2_AUTH_ENFORCE === '1';
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!pool) return next();
         const token =
             req.headers['x-web2-token'] || req.headers['x-user-token'] || req.query.token || null;
-        if (!token) return next();
+        // Thiếu token: enforce → deny-all (0 row); không enforce → open (legacy).
+        if (!token) {
+            req.kpiScope = enforce ? DENY_ALL : null;
+            return next();
+        }
 
         // Cache check
         const cached = _scopeCache.get(token);
@@ -408,7 +419,12 @@ async function applyKpiScope(req, res, next) {
         }
 
         const user = await _resolveUserFromToken(pool, token);
-        if (!user) return next();
+        // Token sai/hết hạn: enforce → deny-all; không enforce → open (legacy).
+        // KHÔNG cache deny — token có thể hợp lệ lại sau khi login.
+        if (!user) {
+            req.kpiScope = enforce ? DENY_ALL : null;
+            return next();
+        }
         req.kpiUser = user;
 
         // Admin sees everything
@@ -424,6 +440,8 @@ async function applyKpiScope(req, res, next) {
         return next();
     } catch (e) {
         console.warn('[web2-kpi] applyKpiScope error:', e.message);
+        // Lỗi resolve khi enforce → fail-closed (deny), không fail-open thấy hết.
+        req.kpiScope = enforce ? DENY_ALL : null;
         return next();
     }
 }
@@ -436,6 +454,7 @@ async function applyKpiScope(req, res, next) {
 //   ((live_campaign_name = $1 AND campaign_stt BETWEEN $2 AND $3)
 //    OR (live_campaign_name = $4 AND campaign_stt BETWEEN $5 AND $6))
 function buildScopeWhere(kpiScope, paramOffset = 1) {
+    if (kpiScope === DENY_ALL) return { clause: 'FALSE', params: [] };
     if (!kpiScope || !kpiScope.length) return { clause: '', params: [] };
     const conds = [];
     const params = [];
@@ -450,6 +469,7 @@ function buildScopeWhere(kpiScope, paramOffset = 1) {
 
 // Same pattern but for table prefix scenarios (vd JOIN aliased "n.")
 function buildScopeWhereWithAlias(kpiScope, alias, paramOffset = 1) {
+    if (kpiScope === DENY_ALL) return { clause: 'FALSE', params: [] };
     if (!kpiScope || !kpiScope.length) return { clause: '', params: [] };
     const conds = [];
     const params = [];
@@ -479,12 +499,13 @@ function invalidateScopeCache(userId) {
 
 // GET /scope — debug endpoint: trả scope của user gọi.
 router.get('/scope', applyKpiScope, (req, res) => {
+    const deny = req.kpiScope === DENY_ALL;
     res.json({
         success: true,
         user: req.kpiUser || null,
         scope: req.kpiScope,
-        scope_count: req.kpiScope ? req.kpiScope.length : 0,
-        access: req.kpiScope ? 'restricted' : 'all',
+        scope_count: Array.isArray(req.kpiScope) ? req.kpiScope.length : 0,
+        access: deny ? 'none' : req.kpiScope ? 'restricted' : 'all',
     });
 });
 

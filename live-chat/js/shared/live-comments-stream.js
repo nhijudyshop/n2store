@@ -25,6 +25,10 @@
     'use strict';
     if (global.LiveCommentsStream) return;
 
+    // Cửa sổ lùi khi cursor chưa khởi tạo (live mới 0 comment) — đủ rộng để bắt
+    // comment vừa fire tickle, đủ hẹp để không dump backlog. 60s an toàn cho live mới.
+    var FIRST_LOOKBACK_MS = 60 * 1000;
+
     function create(opts) {
         opts = opts || {};
         var topic = opts.topic || 'web2:live-comments';
@@ -52,6 +56,10 @@
                 return r;
             };
         var onDelta = opts.onDelta || function () {};
+        // onReconcile(purgedIds[]): SSE action 'reconcile' (boost-purge gỡ spam) — delta
+        // fetch chỉ APPEND nên không gỡ được; trang tự xoá các id này khỏi list. Không
+        // wire → fallback schedule() (giữ behavior cũ: không gỡ, nhưng không vỡ).
+        var onReconcile = opts.onReconcile || null;
         var getUpdatedMs =
             opts.getUpdatedMs ||
             function (row) {
@@ -89,8 +97,15 @@
             if (!shouldFetch()) return;
             var ids = getPostIds() || [];
             if (!ids.length && !allowGlobal) return; // desktop: chưa chọn campaign → skip
-            // Guard: chưa prime cursor (cả 2 đều 0) → bỏ qua, tránh since=0 dump cả nghìn dòng.
-            if (!lastUpdatedMs && !lastCreatedMs) return;
+            // Cursor chưa khởi tạo (cả 2 đều 0): xảy ra với LIVE MỚI 0 comment đã lưu —
+            // primeCursor seed 0 (desktop) hoặc không gọi (mobile, primeFromData skip khi
+            // rỗng) → guard "skip forever" cũ làm comment ĐẦU không bao giờ fetch (deadlock).
+            // Fix: seed baseline = now - FIRST_LOOKBACK_MS rồi fetch luôn tickle này. Bounded
+            // (chỉ comment ~1 phút gần nhất) → KHÔNG dump cả nghìn dòng như since=0, mà vẫn
+            // bắt được comment vừa tới (cái fire tickle này).
+            if (!lastUpdatedMs && !lastCreatedMs) {
+                lastCreatedMs = Date.now() - FIRST_LOOKBACK_MS;
+            }
             inFlight = true;
             try {
                 var sinceUpdated = Math.max(0, lastUpdatedMs - 3000);
@@ -148,6 +163,16 @@
             }
             started = true;
             unsub = global.Web2SSE.subscribe(topic, function (evt) {
+                // Boost-purge: server gỡ spam → SSE {action:'reconcile', purgedIds:[...]}.
+                // Delta fetch chỉ APPEND → KHÔNG gỡ được; gọi onReconcile để trang xoá
+                // đúng dòng (audit MEDIUM: reconcile no-op trên list desktop).
+                var d = evt && evt.data;
+                if (d && d.action === 'reconcile' && Array.isArray(d.purgedIds) && onReconcile) {
+                    try {
+                        onReconcile(d.purgedIds);
+                    } catch (e) {}
+                    return; // purge xong, không cần delta fetch
+                }
                 // resync (bridge reconnect) hoặc tickle thường → đều debounce fetch delta.
                 schedule();
             });

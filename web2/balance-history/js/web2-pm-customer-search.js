@@ -17,7 +17,11 @@
         const url = (base) =>
             `${base}?search=${encodeURIComponent(q)}&limit=8&sort=last_order_date&order=desc`;
         const tryFetch = async (base) => {
-            const r = await fetch(url(base));
+            // /customers/search nay gate requireWeb2AuthSoft → BẮT BUỘC gửi x-web2-token
+            // (ENFORCE đang bật prod), nếu không 401.
+            const r = await fetch(url(base), {
+                headers: W2PM.authHeaders ? W2PM.authHeaders() : {},
+            });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
             const arr = Array.isArray(data?.customers)

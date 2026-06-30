@@ -188,7 +188,9 @@ function rowToFull(r) {
 }
 
 // ─── GET /list — list + search/filter/paginate (CRUD UI) ────────────────
-router.get('/list', async (req, res) => {
+// Auth (soft → 401 khi WEB2_AUTH_ENFORCE=1): dump toàn bộ kho KH (PII tên/SĐT/
+// địa chỉ/fb_id) không auth = rò rỉ. (audit 2026-06-30)
+router.get('/list', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -363,7 +365,8 @@ router.post('/batch-by-phone', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // ─── GET /search?search=...&limit=8 — autocomplete (warehouse only) ─────
-router.get('/search', async (req, res) => {
+// Auth (soft): lộ PII KH qua autocomplete không auth = rò rỉ. (audit 2026-06-30)
+router.get('/search', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const q = String(req.query.search || '').trim();
     const limit = Math.min(parseInt(req.query.limit, 10) || 8, 50);
@@ -410,7 +413,8 @@ router.get('/search', async (req, res) => {
 // (importPancakeCustomerWeb2: không đè, SĐT/địa chỉ mới → alt_phones/alt_addresses).
 // Trả { success, tier, imported:[{customer, created, addedPhone, addedAddress}],
 //       livePolled }. tier = 'live_comments' | 'live_fetch' | 'none'.
-router.get('/lookup-deep', async (req, res) => {
+// Auth (soft): lookup-deep trả PII KH (tên/SĐT/địa chỉ) không auth = rò rỉ. (audit 2026-06-30)
+router.get('/lookup-deep', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const q = String(req.query.q || req.query.search || '').trim();
@@ -498,7 +502,8 @@ router.get('/lookup-deep', async (req, res) => {
 });
 
 // ─── GET /by-phone/:phone/orders — lịch sử đơn (native + PBH) ───────────
-router.get('/by-phone/:phone/orders', async (req, res) => {
+// Auth (soft): lịch sử đơn theo SĐT là PII KH không auth = rò rỉ. (audit 2026-06-30)
+router.get('/by-phone/:phone/orders', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     let phone = String(req.params.phone || '').replace(/\D/g, '');
     if (phone && !phone.startsWith('0')) phone = '0' + phone.slice(-9);
@@ -560,7 +565,8 @@ router.get('/by-phone/:phone/orders', async (req, res) => {
 });
 
 // ─── GET /:phone/fb-conversation — SĐT → ngữ cảnh chat FB ───────────────
-router.get('/:phone/fb-conversation', async (req, res) => {
+// Auth (soft): resolve SĐT → ngữ cảnh chat FB là PII không auth = rò rỉ. (audit 2026-06-30)
+router.get('/:phone/fb-conversation', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const phone = String(req.params.phone || '')
         .replace(/\D/g, '')
@@ -611,7 +617,8 @@ router.get('/:phone/fb-conversation', async (req, res) => {
 });
 
 // ─── GET /:phone — 1 KH theo SĐT (warehouse only) ──────────────────────
-router.get('/:phone', async (req, res) => {
+// Auth (soft): 1 KH theo SĐT = PII (tên/địa chỉ/fb_id) không auth = rò rỉ. (audit 2026-06-30)
+router.get('/:phone', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const phone = normPhoneWeb2(req.params.phone);
     if (!phone) return res.status(400).json({ success: false, error: 'phone required' });

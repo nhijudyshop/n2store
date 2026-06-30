@@ -34,8 +34,12 @@
             _inited.add('services');
             window.SystemServices?.start?.();
         } else if (tab === 'sse' && !_inited.has('sse')) {
-            _inited.add('sse');
-            window.SystemSSE?.start?.();
+            // KHÔNG latch 'sse' tới khi admin-check xong: transient /me fail không được
+            // khoá access vĩnh viễn (lần mở/reload sau vẫn thử lại). start() trả true
+            // khi admin xác nhận → mới đánh dấu inited.
+            Promise.resolve(window.SystemSSE?.start?.()).then((ok) => {
+                if (ok) _inited.add('sse');
+            });
         } else if (tab === 'pages' && !_inited.has('pages')) {
             _inited.add('pages');
             buildPages();

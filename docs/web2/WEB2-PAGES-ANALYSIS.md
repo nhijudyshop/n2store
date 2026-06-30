@@ -15,7 +15,13 @@
 > **92 agent** (6 map + 12 lens [bugs+convention / security+data-integrity] + ~70 adversarial verifier, 12M tokens, transcript `wf_36cef76a-bc9`). Dedupe với vòng 1–3 (0 finding trùng — tất cả là MỚI/sau 13/06). Mỗi finding ≥1 verifier độc lập đọc code thật; severity là mức **sau** verify (nhiều cái bị hạ).
 > Phạm vi: services tab + so-order + web2/products + native-orders + live-chat + web2/live-control (~49k dòng JS). Smoke authed: **0 console error** cả 6 trang.
 
-**Tổng: 1 CRITICAL · 4 HIGH · 15 MEDIUM · 26 LOW.** ✅ đã fix phiên này: CRITICAL + 1 LOW (nhãn nút confirm).
+**Tổng: 1 CRITICAL · 4 HIGH · 15 MEDIUM · 26 LOW.**
+
+> **✅ TRẠNG THÁI FIX (2026-06-30, batch 7-agent):** Đã fix **~38/46** finding (CRITICAL + 4 HIGH + hầu hết MEDIUM/LOW). Frontend live ngay; **backend `render.com/**`cần DEPLOY** (services-overview gate · kpi fail-closed · web2-customers 6 GET soft-gate · native-orders PATCH strip + /load gate · cart-detail campaign-scope · web2-live-comments). ⚠ Đã wire`x-web2-token`cho MỌI caller`/customers/\*`(gồm`web2-pm-customer-search.js`+`web2-bh-reassign-modal.js`) TRƯỚC khi gate hiệu lực (ENFORCE đang bật) → không vỡ lookup KH. Smoke 6 trang authed: **0 console error**.
+>
+> **FALSE-POSITIVE (verify lại, KHÔNG phải bug):** so-order "payment dual-base double-charge" (POST /tx idempotent UNIQUE tx_id) · getNccBatchTotals (đã đúng per-supplier) · storage "NUL byte" (thực ra `' ALL'` có space) · auto-invoice image URL (endpoint BYTEA ổn định) · /ingest page_id (gate x-relay-secret) · `_boostMarks` per-process (DELETE purge authoritative).
+>
+> **CÒN LẠI (follow-up, KHÔNG vỡ):** boost-purge consumer wiring (cần thêm `LiveCommentList.removeComments` — defer, backend purgedIds vô hại) · web2-products-app.js dead usage SSE (stub no-op, dọn cosmetic) · tách file >800 dòng (skip, refactor lớn) · order-badge-stale + LiveCustomerSync token (ngoài scope, theo dõi).
 
 ### 4A. CRITICAL — mất dữ liệu
 

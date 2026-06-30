@@ -232,22 +232,28 @@
         }
         W.closeModal();
         let ok = 0;
-        let fail = 0;
+        const failed = []; // {code, variant, err} — gom để báo rõ item nào lỗi
         for (const p of payloads) {
             try {
                 await window.Web2ProductsApi.create(p);
                 ok++;
             } catch (e) {
-                fail++;
-                console.error('[products bulk-variant] create fail', p.code, e?.message);
+                const err = e?.message || 'Lỗi không xác định';
+                failed.push({ code: p.code, variant: p.variant, err });
+                console.error('[products bulk-variant] create fail', p.code, err);
             }
         }
         window.Web2ProductsCache?.pushTickle?.({ action: 'create' });
         W.load();
-        notify(
-            `Đã tạo ${ok} SP biến thể${fail ? ` (lỗi ${fail})` : ''}`,
-            fail ? 'warning' : 'success'
-        );
+        if (failed.length) {
+            // Liệt kê item fail (biến thể + mã + lý do, cắt gọn) thay vì chỉ đếm.
+            const list = failed
+                .map((f) => `${f.variant || f.code} (${String(f.err).slice(0, 40)})`)
+                .join('; ');
+            notify(`Đã tạo ${ok} SP, ${failed.length} lỗi: ${list}`, 'warning');
+        } else {
+            notify(`Đã tạo ${ok} SP biến thể`, 'success');
+        }
     }
     // ─── Loại sản phẩm (category) — chip multi-select từ Web2ProductTypesCache ──
     // Chọn 1 loại = SP đơn (Áo); chọn nhiều = bộ (Áo + Quần). Lưu vào product.category

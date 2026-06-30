@@ -14,11 +14,14 @@
     const PRODUCTS_BASE = `${WORKER_URL}/api/web2-products`;
     const TAGS_BASE = `${WORKER_URL}/api/web2-order-tags`;
 
-    // Cache cấu hình thẻ (15s) — dùng cho gate "bật/tắt in Phiếu Soạn Hàng".
+    // Cache cấu hình thẻ (5s) — gate "bật/tắt in Phiếu Soạn Hàng". Ngắn để admin
+    // đổi setting có hiệu lực nhanh + giảm cửa sổ in theo giá trị cũ.
+    const TAG_LIST_CACHE_MS = 5000;
     let _tagListCache = { at: 0, list: null };
     async function _orderTagList() {
         const now = Date.now();
-        if (_tagListCache.list && now - _tagListCache.at < 15000) return _tagListCache.list;
+        if (_tagListCache.list && now - _tagListCache.at < TAG_LIST_CACHE_MS)
+            return _tagListCache.list;
         const d = await _fetchJson(`${TAGS_BASE}/list`);
         // /list trả { success, records, total } — records là mảng tag def.
         const list = Array.isArray(d) ? d : d?.records || d?.tags || d?.data || [];
@@ -166,7 +169,10 @@
         /**
          * Chức năng IN GIẤY phiếu soạn hàng có đang BẬT không → gate bước IN trong _print.
          * = print_enabled của thẻ soan_hang (TÁCH khỏi is_active: tắt in vẫn gắn + hiện tag).
-         * Admin chỉnh ở trang order-tags. Cache 15s. Fail-open (lỗi/chưa seed → true, vẫn in).
+         * Admin chỉnh ở trang order-tags. Cache ngắn (5s).
+         * • Chưa seed thẻ → true (default-on, feature bật trước khi admin cấu hình).
+         * • Lỗi fetch config (chưa rõ admin bật/tắt) → FAIL-CLOSED = false (KHÔNG in)
+         *   để không in giấy khi admin có thể đã tắt; user in lại khi mạng ổn.
          * @returns {Promise<boolean>}
          */
         async soanHangPrintEnabled() {
@@ -177,7 +183,7 @@
                 const pe = t.printEnabled != null ? t.printEnabled : t.print_enabled;
                 return pe !== false;
             } catch {
-                return true;
+                return false; // fail-closed: chưa rõ setting → không in
             }
         },
 

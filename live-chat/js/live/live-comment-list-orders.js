@@ -279,7 +279,8 @@
                 if (phone) {
                     try {
                         const resp = await fetch(
-                            `${workerUrl}/api/web2/customers/${encodeURIComponent(phone)}`
+                            `${workerUrl}/api/web2/customers/${encodeURIComponent(phone)}`,
+                            { headers: _liveW2Auth() }
                         );
                         const json = await resp.json();
                         // Route trả {success, customer} — customer null khi kho không có.

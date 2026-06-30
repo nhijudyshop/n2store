@@ -549,11 +549,56 @@
         const u = window.Web2UserInfo?.get?.('products-detail') || {};
         const payload = {
             ...changed,
+            // Khi PATCH stock (absolute set) → kèm expectedStock = tồn bản gốc để
+            // backend bắt stale-stock 409 (write đồng thời), tránh lost-update.
+            ...(changed.stock !== undefined ? { expectedStock: origNorm.stock } : {}),
             userId: u.userId || null,
             userName: u.userName || null,
             sourcePage: 'products-detail',
         };
 
+        const headEl = () => _els?.drawer?.querySelector('.w2pd-head-name');
+        const prevName = orig.name || '';
+
+        // Áp dụng thành công lên drawer + invalidate cache tab (gọi khi UPDATE ok).
+        const _applySaved = () => {
+            // Chống stale callback: user mở SP KHÁC trong lúc await → KHÔNG đè drawer mới.
+            if (_currentCode !== code) return;
+            const head = headEl();
+            if (head) head.textContent = name;
+            _loaded.overview = false;
+            _loaded.history = false;
+        };
+
+        // UI-first (convention): cập nhật header tên NGAY, PATCH background, rollback
+        // header nếu lỗi. expectedStock 409 / validation strict → rollback + toast lỗi.
+        if (window.Web2Optimistic?.run) {
+            const head0 = headEl();
+            Web2Optimistic.run({
+                snapshot: () => prevName,
+                apply: () => {
+                    if (_currentCode === code && head0) head0.textContent = name;
+                },
+                run: async () => {
+                    const resp = await api().update?.(code, payload);
+                    if (resp && resp.success === false)
+                        throw new Error(resp.error || 'Update thất bại');
+                    return resp;
+                },
+                onSuccess: () => _applySaved(),
+                rollback: (prev) => {
+                    if (_currentCode === code) {
+                        const h = headEl();
+                        if (h) h.textContent = prev || '';
+                    }
+                },
+                successMsg: 'Đã lưu thay đổi',
+                errLabel: `lưu SP ${code}`,
+            });
+            return;
+        }
+
+        // Legacy await path (helper chưa sẵn) — giữ loading state.
         const btn = pane.querySelector('[data-act="save"]');
         const origBtnHtml = btn ? btn.innerHTML : '';
         if (btn) {
@@ -565,15 +610,7 @@
             const resp = await api().update?.(code, payload);
             if (resp && resp.success === false) throw new Error(resp.error || 'Update thất bại');
             notify('Đã lưu thay đổi', 'success');
-            // Chống stale callback: nếu user đã mở SP KHÁC trong lúc await update →
-            // _els/_currentCode đã trỏ drawer mới → KHÔNG đè tên/flag SP cũ lên drawer mới.
-            if (_currentCode !== code) return;
-            // SSE web2:products sẽ tự refresh bảng. Cập nhật header drawer + reset
-            // overview/history để lần mở lại lấy data tươi.
-            const head = _els?.drawer?.querySelector('.w2pd-head-name');
-            if (head) head.textContent = name;
-            _loaded.overview = false;
-            _loaded.history = false;
+            _applySaved();
         } catch (e) {
             notify('Lỗi lưu: ' + (e.message || e), 'error');
         } finally {

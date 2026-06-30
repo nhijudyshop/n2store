@@ -629,6 +629,13 @@
             sourcePage: 'products',
         };
 
+        // expectedStock = tồn ĐÃ ĐỌC lúc mở form (bản gốc trong STATE). Backend so
+        // với stock vừa lock FOR UPDATE → khác = có write đồng thời → 409 stale_stock
+        // (mirror web2-product-detail.js _saveEdit). Chỉ gửi khi UPDATE + biết bản gốc.
+        const _origForExpected =
+            STATE.editingCode != null
+                ? STATE.products.find((p) => p.code === STATE.editingCode)
+                : null;
         const updatePayload = {
             name: fields.name,
             supplier: fields.supplier,
@@ -637,6 +644,7 @@
             price: fields.price,
             originalPrice: fields.originalPrice,
             stock: fields.stock,
+            ...(_origForExpected ? { expectedStock: Number(_origForExpected.stock) || 0 } : {}),
             imageUrl: fields.imageUrl,
             note: fields.note,
             isActive: fields.isActive,

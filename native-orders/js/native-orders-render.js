@@ -221,7 +221,9 @@
 
     NO.orderDerivedBadges = function orderDerivedBadges(o) {
         const out = [];
-        if (/pbh\s*shop|shop/i.test(o.pbhCarrierName || '')) {
+        // \bshop\b: chỉ "PBH SHOP"/"shop" độc lập, KHÔNG match substring 'shop' trong
+        // tên hãng giao khác (vd "Shopee Express") → tránh gắn nhầm badge bán-tại-shop.
+        if (/\bshop\b/i.test(o.pbhCarrierName || '')) {
             out.push(`<span class="no-shop-badge" title="Bán tại shop">🏪 PBH SHOP</span>`);
         }
         const paid = Number(o.pbhTotal) > 0 && Number(o.pbhResidual) <= 0;
@@ -848,25 +850,15 @@
         if (!mainRow) return;
 
         const isExpanded = NO.STATE.expandedOrders.has(code);
-        const caret = mainRow.querySelector('.expand-caret');
-
-        const swapCaret = (name) => {
-            if (!caret) return;
-            const next = document.createElement('i');
-            next.setAttribute('data-lucide', name);
-            next.className = 'expand-caret';
-            caret.replaceWith(next);
-        };
+        // Bỏ swapCaret + .expand-caret: row KHÔNG render element caret nào → dead code.
 
         if (isExpanded) {
             NO.STATE.expandedOrders.delete(code);
             mainRow.classList.remove('is-expanded');
-            swapCaret('chevron-right');
             tb.querySelector(`tr.expand-row[data-for="${CSS.escape(code)}"]`)?.remove();
         } else {
             NO.STATE.expandedOrders.add(code);
             mainRow.classList.add('is-expanded');
-            swapCaret('chevron-down');
             const order = NO.STATE.orders.find((x) => x.code === code);
             if (order) mainRow.insertAdjacentHTML('afterend', NO._renderExpandRow(order));
         }
@@ -977,7 +969,13 @@
 
     // ---------- Data load ----------
     NO.load = async function load() {
-        if (NO.STATE.loading) return;
+        // Đang load mà có lời gọi mới (vd SSE mutation) → KHÔNG bỏ qua, mà đánh dấu
+        // requeue 1 lần để chạy lại SAU khi load hiện tại xong (data mới nhất). Trước
+        // đây `return` thẳng → reload SSE rơi vào lúc đang tải bị mất → bảng stale.
+        if (NO.STATE.loading) {
+            NO._reloadPending = true;
+            return;
+        }
         NO.STATE.loading = true;
         // CHỈ wipe tbody khi chưa có row nào — để giữ DOM nodes cho diff render
         // (SSE-driven reload bảo toàn DOM, sig diff chỉ thay row thay đổi).
@@ -1037,6 +1035,13 @@
             NO.notify('Lỗi tải dữ liệu: ' + e.message, 'error');
         } finally {
             NO.STATE.loading = false;
+            // Có reload bị requeue khi đang load → chạy lại 1 lần để bắt data mới nhất.
+            if (NO._reloadPending) {
+                NO._reloadPending = false;
+                NO._scheduleReload
+                    ? NO._scheduleReload('requeue-after-load')
+                    : setTimeout(() => NO.load(), 0);
+            }
         }
     };
 })();

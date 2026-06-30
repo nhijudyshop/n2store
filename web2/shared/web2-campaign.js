@@ -183,8 +183,15 @@
         // Chi tiết giỏ KH của 1 SP (đơn draft chứa SP) — cho popup GIỎ / KH MỚI.
         // → [{ orderCode, stt, customerName, phone, address, fbId, fbName, qty,
         //      isNewCust, avatar, comment }] (avatar+comment từ web2_live_comments).
-        async getCartDetail(code) {
-            const j = await _json(`${CP_BASE()}/cart-detail?code=${encodeURIComponent(code)}`);
+        async getCartDetail(code, opts) {
+            // opts.campaignId → backend áp CÙNG gate phiên-live như board (số GIỎ popup
+            // khớp board); opts.mode='new' → backend strip PII row non-new. Thiếu → global.
+            let qs = `code=${encodeURIComponent(code)}`;
+            const cid = opts && opts.campaignId;
+            if (cid != null && cid !== '' && Number.isFinite(Number(cid)))
+                qs += `&campaignId=${encodeURIComponent(cid)}`;
+            if (opts && opts.mode) qs += `&mode=${encodeURIComponent(opts.mode)}`;
+            const j = await _json(`${CP_BASE()}/cart-detail?${qs}`);
             return (j && j.items) || [];
         },
         async setTvControl(campaignId, patch) {

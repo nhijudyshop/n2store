@@ -702,7 +702,18 @@
             const tab = window.SoOrderStorage.getActiveTab(SO.state);
             for (const it of itemsToProcess) {
                 const receivedThisTime = receivedMap.get(it.key) || 0;
-                const totalReceived = (it.alreadyReceived || 0) + receivedThisTime;
+                // FIX MEDIUM (audit): KHÔNG dùng it.alreadyReceived (gán lúc MỞ
+                // modal — cache-miss = 0, hoặc lookup nền chưa kịp patch khi user
+                // bấm Xác nhận sớm) → undercount cumulative + lật status sai
+                // (partial thay vì received). Lấy alreadyReceived từ freshState
+                // (lookup TƯƠI đã await ở trên cùng handler): pending tươi →
+                // alreadyReceived = qtyĐặt − pendingTươi. Miss freshState (lookup
+                // lỗi) → fallback giá trị modal-open như cũ.
+                const psFresh = freshState.get(it.key);
+                const alreadyReceived = psFresh
+                    ? Math.max(0, (Number(it.qty) || 0) - (Number(psFresh.pendingQty) || 0))
+                    : it.alreadyReceived || 0;
+                const totalReceived = alreadyReceived + receivedThisTime;
                 let newStatus;
                 if (totalReceived >= it.qty) newStatus = 'received';
                 else if (totalReceived > 0) newStatus = 'partial_received';

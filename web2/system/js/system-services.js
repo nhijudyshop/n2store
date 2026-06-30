@@ -12,7 +12,8 @@
 
     // Limits per DB (usage bar calc). "basic_1gb" = 1GB RAM; DISK thật = 15 GB (verify Render API
     // /v1/postgres diskSizeGB=15, 2026-06-28). Trước đây hardcode 1GB → báo 101.9% sai (thật ~7%).
-    const DB_DISK_BYTES = 15 * 1024 * 1024 * 1024; // 15 GB disk Render
+    // Fallback: dùng khi payload KHÔNG kèm dung lượng disk thật (xem _diskBytesFor).
+    const DB_DISK_BYTES = 15 * 1024 * 1024 * 1024; // 15 GB disk Render (fallback)
     const DB_LIMITS = {
         chatDb: { bytes: DB_DISK_BYTES, label: '15 GB disk (Render PG Basic, 1GB RAM)' },
         web2Db: { bytes: DB_DISK_BYTES, label: '15 GB disk (Render PG Basic, 1GB RAM)' },
@@ -73,14 +74,24 @@
         }
     }
 
-    async function load() {
+    // manual=true (first-load / nút reload) → scrape ngoài (SePay + /health máy Gemini).
+    // Auto-refresh 60s gọi load() (manual=false) → CHỈ refresh DB/process, KHÔNG re-scrape
+    // (SePay login + N×/health tốn kém; giữ DOM cũ — chỉ làm khi stale/manual).
+    async function load(manual = false) {
         try {
             showFirstLoadSkeletons();
-            const r = await fetch(API);
+            // Endpoint giờ auth-gated (lộ inventory 2 DB + chi phí) → gắn x-web2-token.
+            const r = await fetch(API, {
+                headers: window.Web2Auth?.authHeaders?.() || {},
+            });
+            if (r.status === 401 || r.status === 403) {
+                throw new Error('Cần đăng nhập Web 2.0 để xem dịch vụ & hệ thống');
+            }
             const data = await r.json();
             if (!data?.ok) throw new Error(data?.error || `HTTP ${r.status}`);
             _lastData = data;
-            renderAll(data);
+            // Scrape ngoài chạy lần đầu (chưa có data) hoặc khi manual; auto-refresh thì bỏ.
+            renderAll(data, manual || !_hadData);
             _hadData = true;
         } catch (e) {
             console.error('[system-services] load fail:', e);
@@ -93,7 +104,7 @@
         }
     }
 
-    function renderAll(data) {
+    function renderAll(data, scrapeExternal) {
         const d = new Date(data.ts || Date.now());
         const u = $('sysUpdated');
         if (u)
@@ -105,8 +116,11 @@
         renderDatabases(data.databases || {});
         renderServices(data.services || []);
         renderProcess(data.process || {});
-        renderGeminiMachines(); // async — dò registry + /health từng máy shop (độc lập services-overview)
-        renderSepayInvoices(); // async — login my.sepay.vn → hóa đơn + QR (độc lập)
+        // Scrape ngoài tốn kém → chỉ chạy khi first-load/manual (xem load()), KHÔNG mỗi 60s.
+        if (scrapeExternal) {
+            renderGeminiMachines(); // async — dò registry + /health từng máy shop (độc lập services-overview)
+            renderSepayInvoices(); // async — login my.sepay.vn → hóa đơn + QR (độc lập)
+        }
 
         _wireClicks();
         if (window.lucide) lucide.createIcons();
@@ -138,7 +152,10 @@
 
         for (const [poolKey, stats] of Object.entries(databases)) {
             const limit = DB_LIMITS[poolKey] || { bytes: 0, label: '—' };
-            const pct = limit.bytes > 0 ? (stats.dbSizeBytes / limit.bytes) * 100 : 0;
+            // Ưu tiên dung lượng disk thật từ payload (nếu backend kèm stats.diskBytes);
+            // else fallback hằng số 15GB hardcode (Render API diskSizeGB=15, 2026-06-28).
+            const diskBytes = Number(stats.diskBytes) > 0 ? Number(stats.diskBytes) : limit.bytes;
+            const pct = diskBytes > 0 ? (stats.dbSizeBytes / diskBytes) * 100 : 0;
             const usageClass = pct >= 80 ? 'danger' : pct >= 60 ? 'warn' : '';
             // Cả 2 Postgres đều PAID (basic_1gb $19/mo) — KHÔNG dùng badge "free".
             const planClass = '';
@@ -598,7 +615,7 @@
 
     window.SystemServices = {
         start,
-        reload: load,
+        reload: () => load(true), // nút reload = manual → re-scrape SePay + máy Gemini
         // AI widget accessor — payload services-overview gần nhất (DB + dịch vụ + process).
         getData: () => _lastData,
         get data() {

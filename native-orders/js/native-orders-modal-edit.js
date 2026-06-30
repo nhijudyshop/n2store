@@ -71,12 +71,21 @@
             <div class="field-row">
                 <label>Trạng thái</label>
                 <select id="editStatus">
-                    ${['draft', 'confirmed', 'cancelled', 'delivered']
-                        .map(
-                            (s) =>
-                                `<option value="${s}" ${s === o.status ? 'selected' : ''}>${NO.STATUS_META[s].label}</option>`
+                    ${
+                        // Server PATCH chỉ nhận draft/confirmed (cancelled → dùng flow
+                        // /cancel; delivered set bởi flow giao riêng). Chỉ offer 2 option
+                        // đó. Nếu đơn đang ở status khác (cancelled/delivered) → vẫn show
+                        // status hiện tại (disabled) để không “đổi ngầm” khi lưu.
+                        (o.status === 'draft' || o.status === 'confirmed'
+                            ? ['draft', 'confirmed']
+                            : [o.status, 'draft', 'confirmed']
                         )
-                        .join('')}
+                            .map(
+                                (s) =>
+                                    `<option value="${s}" ${s === o.status ? 'selected' : ''}${s === o.status && s !== 'draft' && s !== 'confirmed' ? ' disabled' : ''}>${NO.STATUS_META[s]?.label || s}</option>`
+                            )
+                            .join('')
+                    }
                 </select>
             </div>
 

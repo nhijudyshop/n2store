@@ -13,7 +13,6 @@
         search: '',
         pickerRegion: '', // lọc picker theo ĐỊA DANH ('' = tất cả)
         showRegion: true, // ẩn/hiện chip+badge địa danh (localStorage lc_show_region)
-        editing: false, // đang gõ input pending → hoãn re-render board
         // điều khiển màn TV (layout + trang) + địa danh CHO VƯỢT (vùng được đặt vượt NCC)
         tvControl: { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' },
     };
@@ -151,9 +150,7 @@
     }
     function scheduleBoard() {
         clearTimeout(boardTimer);
-        boardTimer = setTimeout(function () {
-            if (!state.editing) loadBoard();
-        }, 600);
+        boardTimer = setTimeout(loadBoard, 600);
     }
 
     // Board "Trên TV" mỗi biến thể (#2 2026-06-30): TỒN (tồn kho thật, read-only) +
@@ -255,30 +252,78 @@
         return out;
     }
 
-    async function onBoardOp(op, key) {
+    // Tính board sau thao tác (immutable) — dùng cho optimistic apply. null = no-op.
+    function computeBoardOp(op, g) {
+        var idx = state.board.indexOf(g);
+        if (idx < 0) return null;
+        if (op === 'remove') {
+            return state.board.filter((x) => x !== g);
+        }
+        if (op === 'pin') {
+            var nextPinned = !g.pinned;
+            var pinned = Object.assign({}, g, { pinned: nextPinned });
+            var rest = state.board.filter((x) => x !== g);
+            // Ghim → lên đầu; bỏ ghim → giữ vị trí cũ (server reconcile sort thật).
+            if (nextPinned) return [pinned].concat(rest);
+            var copy = state.board.slice();
+            copy[idx] = pinned;
+            return copy;
+        }
+        if (op === 'up' || op === 'down') {
+            var to = op === 'up' ? idx - 1 : idx + 1;
+            if (to < 0 || to >= state.board.length) return null;
+            var arr = state.board.slice();
+            arr.splice(to, 0, arr.splice(idx, 1)[0]);
+            return arr;
+        }
+        return null;
+    }
+    async function runBoardOp(op, g) {
+        var codes = g.variants.map((v) => v.code);
+        if (op === 'remove') {
+            for (var i = 0; i < codes.length; i++)
+                await window.Web2Campaign.removeProduct(state.campaignId, codes[i]);
+        } else if (op === 'pin') {
+            var nextPinned = !g.pinned;
+            for (var j = 0; j < codes.length; j++)
+                await window.Web2Campaign.setPinned(state.campaignId, codes[j], nextPinned);
+        } else if (op === 'up' || op === 'down') {
+            var nextBoard = computeBoardOp(op, g);
+            await window.Web2Campaign.reorder(state.campaignId, flatCodes(nextBoard));
+        }
+    }
+    function onBoardOp(op, key) {
         var g = groupByKey(key);
         if (!g) return;
-        var codes = g.variants.map((v) => v.code);
-        try {
-            if (op === 'remove') {
-                for (var i = 0; i < codes.length; i++)
-                    await window.Web2Campaign.removeProduct(state.campaignId, codes[i]);
-            } else if (op === 'pin') {
-                var nextPinned = !g.pinned;
-                for (var j = 0; j < codes.length; j++)
-                    await window.Web2Campaign.setPinned(state.campaignId, codes[j], nextPinned);
-            } else if (op === 'up' || op === 'down') {
-                var idx = state.board.indexOf(g);
-                var to = op === 'up' ? idx - 1 : idx + 1;
-                if (to < 0 || to >= state.board.length) return;
-                var arr = state.board.slice();
-                arr.splice(to, 0, arr.splice(idx, 1)[0]);
-                await window.Web2Campaign.reorder(state.campaignId, flatCodes(arr));
-            }
-            await loadBoard();
-        } catch (e) {
-            toast('Lỗi: ' + (e && e.message), 'error');
+        var nextBoard = computeBoardOp(op, g);
+        if (!nextBoard) return; // no-op (vd up ở đầu / down ở cuối)
+        // UI-first: snapshot board → apply optimistic → chạy fetch nền → rollback nếu
+        // lỗi (loop half-applied trước đây để board lệch tới khi reload). loadBoard()
+        // sau success để lấy sort/pinned chuẩn từ server.
+        if (window.Web2Optimistic && window.Web2Optimistic.run) {
+            var snap = state.board;
+            window.Web2Optimistic.run({
+                snapshot: () => snap,
+                apply: () => {
+                    state.board = nextBoard;
+                    renderBoard();
+                    renderTvCtl();
+                },
+                run: () => runBoardOp(op, g),
+                onSuccess: () => loadBoard(),
+                rollback: (s) => {
+                    state.board = s;
+                    renderBoard();
+                    renderTvCtl();
+                },
+                errLabel: 'thao tác bảng TV',
+            });
+            return;
         }
+        // Legacy await path (Web2Optimistic chưa load).
+        runBoardOp(op, g)
+            .then(loadBoard)
+            .catch((e) => toast('Lỗi: ' + (e && e.message), 'error'));
     }
 
     // 2026-06-30 (#2): BỎ savePending — NCC không còn gõ tay trên board. Sổ Order là
@@ -496,7 +541,7 @@
         var addr = it.address ? '<div class="lc-cart-addr">📍 ' + esc(it.address) + '</div>' : '';
         // Avatar livestream (như live-chat) + fallback chữ cái đầu nếu lỗi/không có.
         var initial = esc((String(name).trim()[0] || '?').toUpperCase());
-        var avatarUrl = cartAvatarUrl(it);
+        var avatarUrl = safeImg(cartAvatarUrl(it) || '');
         var avatar = avatarUrl
             ? '<img class="lc-cart-avatar" src="' +
               esc(avatarUrl) +
@@ -565,7 +610,13 @@
         });
         ov.querySelector('.lc-cart-close').addEventListener('click', close);
         try {
-            var items = await window.Web2Campaign.getCartDetail(code);
+            // Truyền campaignId → backend áp CÙNG gate phiên-live như board (số GIỎ
+            // popup khớp board). mode='new' → backend strip PII row non-new. (Helper
+            // shared cần forward 2 tham số này — xem crossFileNeeds.)
+            var items = await window.Web2Campaign.getCartDetail(code, {
+                campaignId: state.campaignId,
+                mode: isNew ? 'new' : undefined,
+            });
             if (isNew) items = items.filter((it) => it.isNewCust);
             var listEl = ov.querySelector('.lc-cart-list');
             if (!items.length) {
@@ -745,20 +796,41 @@
         renderPicker();
     }
 
-    async function addGroup(key) {
+    function addGroup(key) {
         var g = state.pickerGroups.find((x) => x.key === key);
         if (!g || !state.campaignId) return;
         var codes = g.variants.map((v) => v.code).filter((c) => !state.addedCodes.has(c));
         if (!codes.length) return;
-        try {
-            await window.Web2Campaign.addProducts(state.campaignId, codes);
-            codes.forEach((c) => state.addedCodes.add(c));
-            renderPicker();
-            await loadBoard();
-            toast('Đã thêm "' + g.name + '" lên TV', 'success');
-        } catch (e) {
-            toast('Lỗi thêm: ' + (e && e.message), 'error');
+        // UI-first: snapshot addedCodes → đánh dấu Đã thêm ngay (picker disable nút) →
+        // fetch nền → loadBoard reconcile; rollback flag nếu lỗi.
+        if (window.Web2Optimistic && window.Web2Optimistic.run) {
+            var snap = new Set(state.addedCodes);
+            window.Web2Optimistic.run({
+                snapshot: () => snap,
+                apply: () => {
+                    codes.forEach((c) => state.addedCodes.add(c));
+                    renderPicker();
+                },
+                run: () => window.Web2Campaign.addProducts(state.campaignId, codes),
+                onSuccess: () => loadBoard(),
+                rollback: (s) => {
+                    state.addedCodes = s;
+                    renderPicker();
+                },
+                successMsg: 'Đã thêm "' + g.name + '" lên TV',
+                errLabel: 'thêm SP lên TV',
+            });
+            return;
         }
+        // Legacy await path.
+        window.Web2Campaign.addProducts(state.campaignId, codes)
+            .then(function () {
+                codes.forEach((c) => state.addedCodes.add(c));
+                renderPicker();
+                return loadBoard();
+            })
+            .then(() => toast('Đã thêm "' + g.name + '" lên TV', 'success'))
+            .catch((e) => toast('Lỗi thêm: ' + (e && e.message), 'error'));
     }
 
     // ── Lịch sử thao tác chiến dịch (module shared Web2AuditLog auto-load qua sidebar) ──
@@ -777,6 +849,13 @@
 
     // ── SSE ───────────────────────────────────────────
     var _campSseTimer = null;
+    var _pickerSseTimer = null;
+    // Debounce reload picker — web2:products burst (sync nhiều SP) trước đây gọi
+    // loadPicker mỗi event → flood fetch. Gom 500ms.
+    function schedulePicker() {
+        clearTimeout(_pickerSseTimer);
+        _pickerSseTimer = setTimeout(loadPicker, 500);
+    }
     function onSse(msg) {
         var d = (msg && msg.data) || {};
         if (msg.topic === 'web2:campaign-products') {
@@ -784,7 +863,7 @@
                 scheduleBoard();
         } else if (msg.topic === 'web2:products') {
             scheduleBoard();
-            if (state.pickerTab === 'pending') loadPicker();
+            if (state.pickerTab === 'pending') schedulePicker();
         } else if (msg.topic === 'web2:live-comments') {
             // Audit SSE 2026-06-25: chiến dịch tạo/xoá/gán ở máy khác → dropdown
             // <select id=lcCampaign> đứng yên tới khi F5 (trước đây bỏ qua topic
@@ -981,7 +1060,10 @@
         await loadCampaigns();
         var saved = localStorage.getItem(LS_KEY);
         var params = new URLSearchParams(location.search);
-        var cid = params.get('campaign') || saved;
+        // campaignId là số (PK) — validate numeric trước khi nhét vào querySelector
+        // (param/localStorage có thể bị can thiệp → selector vỡ/injection).
+        var cidRaw = params.get('campaign') || saved;
+        var cid = cidRaw && /^\d+$/.test(String(cidRaw).trim()) ? String(cidRaw).trim() : null;
         if (cid && $('lcCampaign').querySelector('option[value="' + cid + '"]'))
             selectCampaign(cid);
         else loadPicker();

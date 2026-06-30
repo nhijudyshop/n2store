@@ -48,10 +48,13 @@
         async health() {
             return _fetchJson(`${BASE}/health`);
         },
-        async list({ search, activeOnly, page = 1, limit = 200, topLevel } = {}) {
+        async list({ search, activeOnly, status, page = 1, limit = 200, topLevel } = {}) {
             const qs = new URLSearchParams();
             if (search) qs.set('search', search);
             if (activeOnly === true || activeOnly === 'true') qs.set('activeOnly', 'true');
+            // Filter trạng thái (vd status=HET_HANG cho filter "Hết hàng" ở Kho SP).
+            // Backend /list whitelist CHO_MUA|DANG_BAN|MUA_1_PHAN|HET_HANG (web2-products.js).
+            if (status) qs.set('status', String(status));
             // Migration 070: topLevel=1 → chỉ CHA + standalone (ẩn con) cho bảng Kho SP.
             if (topLevel === true || topLevel === '1') qs.set('topLevel', '1');
             qs.set('page', String(page));

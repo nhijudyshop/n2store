@@ -25,6 +25,13 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2Auth } = require('../middleware/web2-auth');
+
+// AUTH GATE (2026-06-30): endpoint lộ inventory cả 2 DB (kèm tên bảng PII Web 1.0)
+// + chi phí hạ tầng → BẮT BUỘC đăng nhập Web 2.0 (x-web2-token). 401 nếu thiếu/sai
+// token. Bất kỳ user Web 2.0 đăng nhập đều xem được (tab Dịch vụ không admin-only);
+// admin-gate riêng cho tab SSE nằm ở frontend.
+router.use(requireWeb2Auth);
 
 async function _safeQuery(pool, sql, params = []) {
     try {

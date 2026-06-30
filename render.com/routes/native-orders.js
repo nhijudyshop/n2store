@@ -1483,9 +1483,13 @@ async function _campaignsHandler(req, res) {
     try {
         await ensureTables(pool);
         // Sprint 3: nếu user có scope → chỉ trả campaigns mà user được assigned.
+        // kpiScope === '__deny_all__' (string sentinel khi enforce + thiếu/sai token)
+        // → 0 campaign. Mảng scope → lọc theo tên. null → thấy hết (admin/no-scope).
         let scopeFilter = '';
         const params = [];
-        if (req.kpiScope && req.kpiScope.length) {
+        if (req.kpiScope === '__deny_all__') {
+            scopeFilter = `WHERE FALSE`;
+        } else if (Array.isArray(req.kpiScope) && req.kpiScope.length) {
             const names = [...new Set(req.kpiScope.map((s) => s.campaign_name))];
             params.push(names);
             scopeFilter = `WHERE live_campaign_name = ANY($1::text[])`;
@@ -1766,7 +1770,7 @@ async function enrichOrdersTags(pool, orders, opts = {}) {
     await orderTagsSvc.enrichOrdersWithTags(pool, orders, { viewerUser });
 }
 
-router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
+router.get('/load', requireWeb2AuthSoft, _kpiModule.applyKpiScope, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -1915,6 +1919,24 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
     try {
         await ensureTables(pool);
         const body = { ...req.body };
+
+        // SECURITY (2026-06-30): strip field server-managed khỏi payload client. Các
+        // field này CHỈ được set bởi luồng server (mark-printed bump print_count,
+        // reverse/cancel set reversed_code, sync TPOS set partner_*/tpos_index, message
+        // events bump message_count). Cho client PATCH = giả mạo count in / spoof
+        // partner ID / lệch mirror tiền. Frontend hợp lệ KHÔNG gửi các field này.
+        for (const k of [
+            'reversedCode',
+            'printCount',
+            'partnerStatus',
+            'partnerId',
+            'partnerCode',
+            'partnerUniqueId',
+            'messageCount',
+            'tposIndex',
+        ]) {
+            delete body[k];
+        }
 
         // 3H4 FIX (2026-06-12): guard state transition cho PATCH. Trước đây PATCH
         // set status bất kỳ không validate: (a) {status:'cancelled'} bypass hoàn

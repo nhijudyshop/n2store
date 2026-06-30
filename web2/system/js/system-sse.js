@@ -63,6 +63,9 @@
     let _started = false;
     let _statsTimer = null;
     let _topicsHadData = false; // first-load guard cho skeleton danh sách topic
+    let _logEntries = []; // cache buffer log gần nhất → filter client-side, KHÔNG refetch
+    let _filterTimer = null;
+    let _es = null; // EventSource module-scope → close trên pagehide (tránh rò kết nối)
 
     const $ = (id) => document.getElementById(id);
 
@@ -225,8 +228,8 @@
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const d = await r.json();
             $('ssStatBuffer').textContent = '#' + (d.currentSeq || 0);
-            const entries = (d.entries || []).filter(matchesFilter);
-            rerenderAllLogs(entries);
+            _logEntries = d.entries || []; // cache full buffer → filter client-side
+            rerenderAllLogs(_logEntries.filter(matchesFilter));
             lastSeq = d.currentSeq || 0;
         } catch (e) {
             const log = $('ssLog');
@@ -255,13 +258,14 @@
         // → mở EventSource trực tiếp (bridge không hỗ trợ 2 điểm này).
         const token = authToken();
         const url = `${API_BASE}/sse?keys=${encodeURIComponent(ADMIN_TOPIC)}&admintoken=${encodeURIComponent(token)}`;
-        let es;
         try {
-            es = new EventSource(url);
+            if (_es) _es.close(); // tránh mở chồng EventSource nếu gọi lại
+            _es = new EventSource(url);
         } catch (e) {
             setConn('error', 'EventSource lỗi: ' + e.message);
             return;
         }
+        const es = _es;
         es.addEventListener('connected', () => {
             setConn('live', `live · ${ADMIN_TOPIC}`);
         });
@@ -278,6 +282,8 @@
             eventCount++;
             $('ssStatEvents').textContent = eventCount;
             $('ssStatBuffer').textContent = '#' + (entry.seq || lastSeq);
+            _logEntries.push(entry); // cache → filter client-side áp được cho cả log live
+            if (_logEntries.length > MAX_LOG_ROWS) _logEntries.shift();
             appendLogRow(entry, { fresh: true });
         });
         es.onerror = () => {
@@ -304,7 +310,11 @@
 
         $('ssFilter').addEventListener('input', (e) => {
             filterText = e.target.value.trim();
-            bootstrapLog();
+            // Lọc client-side từ cache, KHÔNG refetch mỗi keystroke (debounce 150ms).
+            clearTimeout(_filterTimer);
+            _filterTimer = setTimeout(() => {
+                rerenderAllLogs(_logEntries.filter(matchesFilter));
+            }, 150);
         });
 
         $('ssTrigger').addEventListener('click', async () => {
@@ -337,6 +347,9 @@
         });
     }
 
+    // Poll stats 2s: ĐÂY LÀ trang monitor SSE — số liệu (clients/topics/keyStats) là
+    // ảnh chụp tức thời server, không có topic SSE để push → polling hợp lý & cố ý.
+    // Tự dừng khi tab ẩn (visibilitychange) để khỏi tốn request. KHÔNG đổi sang SSE.
     function _scheduleStatsPoll() {
         clearTimeout(_statsTimer);
         _statsTimer = setTimeout(async () => {
@@ -348,14 +361,16 @@
     // -----------------------------------------------------
     // Lazy start (gọi lần đầu khi mở tab SSE). Idempotent.
     // -----------------------------------------------------
+    // Trả true khi admin xác nhận + đã start (caller dùng để latch inited); false khi
+    // bị từ chối / chưa start → không latch để lần sau thử lại (transient /me fail).
     async function start() {
         if (_started) {
             pollStats();
-            return;
+            return true;
         }
         if (!(await isAdmin())) {
             showAccessDenied();
-            return;
+            return false;
         }
         _started = true;
         const app = $('ssApp');
@@ -376,7 +391,15 @@
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && _started) pollStats();
         });
-        window.addEventListener('pagehide', () => clearTimeout(_statsTimer));
+        window.addEventListener('pagehide', () => {
+            clearTimeout(_statsTimer);
+            clearTimeout(_filterTimer);
+            if (_es) {
+                _es.close();
+                _es = null;
+            }
+        });
+        return true;
     }
 
     window.SystemSSE = { start, reload: () => (_started ? pollStats() : start()) };

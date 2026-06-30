@@ -286,10 +286,21 @@
                 suggest.innerHTML =
                     '<div class="no-add-suggest-empty">Đang tìm trong kho KH…</div>';
                 suggest.hidden = false;
-                // 1) KHO KH TRƯỚC
+                // 1) KHO KH TRƯỚC — /customers/search auth-gated (PII) → x-web2-token. (audit 2026-06-30)
+                let w2Headers = {};
+                if (window.Web2Auth?.authHeaders) {
+                    w2Headers = window.Web2Auth.authHeaders();
+                } else {
+                    try {
+                        const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                        if (t) w2Headers = { 'x-web2-token': t };
+                    } catch {
+                        /* no token */
+                    }
+                }
                 const warehouse = await fetch(
                     `${NO.WORKER_URL}/api/web2/customers/search?search=${encodeURIComponent(q)}&limit=8`,
-                    { credentials: 'include' }
+                    { credentials: 'include', headers: w2Headers }
                 )
                     .then((r) => r.json())
                     .then((j) => j.data || [])

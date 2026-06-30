@@ -2,6 +2,20 @@
 
 ## 2026-06-30
 
+### [web2 audit] Fix TẤT CẢ vòng-4 (batch 7-agent disjoint-file) — 4 HIGH security + ~34 file
+
+**Files:** 34 file (frontend + `render.com/**`). Backend cần DEPLOY.
+
+User "làm tất cả". Workflow 7 agent (file-set rời nhau, sửa song song) + mình hoàn tất cross-file. Fix ~38/46 finding vòng 4:
+
+- **4 HIGH (backend, cần deploy):** (1) `services-overview` thêm auth gate (require x-web2-token) + frontend gửi authHeaders → hết lộ inventory 2 DB + PII Web1. (2) `kpi.js applyKpiScope` fail-CLOSED khi ENFORCE + no/invalid token (sentinel `__deny_all__`→`FALSE`) + bọc `/load` requireWeb2AuthSoft → employee bỏ token KHÔNG còn thấy hết PII. (3) `web2-customers` 6 GET route thêm requireWeb2AuthSoft + **wire token cho MỌI caller** (live-comment-list-orders, native-orders customer-panel/inbox-add/inbox-resolve, customer-detail-modal, **web2-pm-customer-search**, **web2-bh-reassign-modal**) → không vỡ lookup. (4) `cart-detail` áp campaign-scope (backend gate + client forward `campaignId` qua `Web2Campaign.getCartDetail`) → số GIỎ popup khớp board.
+- **MEDIUM fix:** Hết-hàng filter (api list() forward `status`) · usage-badge dead PII fetch XOÁ · per-unit print clamp = units.length · UPDATE gửi `expectedStock` (409 guard sống) · native status dropdown bỏ option server từ chối · SSE reload requeue khi load in-flight · PBH SHOP regex word-boundary · PATCH native strip field server-managed · live zero-cursor deadlock · so-order receive qtyReceived race · live-control onBoardOp/addGroup → Web2Optimistic + debounce SSE.
+- **LOW fix:** EventSource close, filter no-refetch, "Buffer seq" label, optimistic snapshot clone, variant bulk báo lỗi, product-detail UI-first, toggleExpand dead code xoá, bulkSendMessage song song, dateInput GMT+7, soanHang fail-closed, avatar safeImg, ?campaign validate, cart-detail strip PII mode=new, campaign mutation UI-first, …
+- **FALSE-POSITIVE (verify, KHÔNG fix):** so-order double-charge (POST /tx idempotent), getNccBatchTotals, storage "NUL" (`' ALL'`), auto-invoice image URL, /ingest page_id (relay-secret), boostMarks per-process.
+- **Defer (không vỡ):** boost-purge consumer wiring (cần `LiveCommentList.removeComments`), web2-products-app dead SSE stub, tách file >800 dòng.
+
+Verify: `node --check` 33 JS OK · smoke 6 trang authed **0 console error**. Chi tiết: `docs/web2/WEB2-PAGES-ANALYSIS.md` §🔬 VÒNG 4. ⚠ **Backend chưa hiệu lực tới khi deploy Render.** Status: ✅ frontend / ⬜ backend deploy.
+
 ### [web2 audit] Re-audit sâu 6 trang lõi (92 agent) — fix CRITICAL mất data so-order + nhãn confirm
 
 **Files:** `so-order/js/so-order-modal-submit.js` · `native-orders/js/native-orders-state.js` · `docs/web2/WEB2-PAGES-ANALYSIS.md`.

@@ -67,12 +67,14 @@
         return s;
     }
     async function getJSON(path) {
+        // /customers/* GET là route auth-gated (PII) → gửi x-web2-token. (audit 2026-06-30)
+        const headers = _w2Auth();
         try {
-            const r = await fetch(`${WORKER}${path}`, { credentials: 'include' });
+            const r = await fetch(`${WORKER}${path}`, { credentials: 'include', headers });
             if (r.ok) return await r.json();
         } catch {}
         try {
-            const r = await fetch(`${FALLBACK}${path}`, { credentials: 'include' });
+            const r = await fetch(`${FALLBACK}${path}`, { credentials: 'include', headers });
             if (r.ok) return await r.json();
         } catch {}
         return null;

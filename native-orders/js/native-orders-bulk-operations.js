@@ -164,45 +164,59 @@
             return;
         }
         // Convert sang shape Web2MsgTemplate cần. Conversation lookup: nếu order
-        // chưa có conversationId (truth nguồn từ Pancake), fetch nhanh qua Web2Chat.
-        const enriched = [];
-        for (const o of orders) {
-            const lines = (o.products || []).map((p) => ({
-                productName: p.name || p.productName || p.productCode || '?',
-                qty: Number(p.quantity) || 1,
-                price: Number(p.price) || 0,
-            }));
-            let conversationId = null;
-            let customerUuid = null;
-            let threadId = null;
-            if (window.Web2Chat && o.fbPageId && o.fbUserId) {
-                try {
-                    const r = await window.Web2Chat.fetchConversations(o.fbPageId, o.fbUserId);
-                    if (r?.ok && r.conversations?.length) {
-                        const conv = r.conversations[0];
-                        conversationId = conv.id || null;
-                        customerUuid = r.customerUuid || conv.customers?.[0]?.id || null;
-                        threadId = conv.thread_id || conv.threadId || null;
+        // chưa có conversationId (truth nguồn từ Pancake), fetch qua Web2Chat.
+        // Song song hoá (Promise.allSettled) thay vì await tuần tự — N đơn = N round-trip
+        // nối đuôi rất chậm. Đếm lookup lỗi → báo user (trước đây nuốt im).
+        let lookupFails = 0;
+        const enriched = await Promise.all(
+            orders.map(async (o) => {
+                const lines = (o.products || []).map((p) => ({
+                    productName: p.name || p.productName || p.productCode || '?',
+                    qty: Number(p.quantity) || 1,
+                    price: Number(p.price) || 0,
+                }));
+                let conversationId = null;
+                let customerUuid = null;
+                let threadId = null;
+                if (window.Web2Chat && o.fbPageId && o.fbUserId) {
+                    try {
+                        const r = await window.Web2Chat.fetchConversations(o.fbPageId, o.fbUserId);
+                        if (r?.ok && r.conversations?.length) {
+                            const conv = r.conversations[0];
+                            conversationId = conv.id || null;
+                            customerUuid = r.customerUuid || conv.customers?.[0]?.id || null;
+                            threadId = conv.thread_id || conv.threadId || null;
+                        }
+                    } catch (e) {
+                        lookupFails++;
+                        console.warn(
+                            `[native-orders] bulkSendMessage conv lookup fail ${o.code}:`,
+                            e.message
+                        );
                     }
-                } catch (_) {
-                    /* skip */
                 }
-            }
-            const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
-            enriched.push({
-                code: o.code,
-                customerName: o.customerName || '',
-                fbUserName: o.fbUserName || '',
-                phone: o.phone || '',
-                address: o.address || '',
-                fbPageId: o.fbPageId || '',
-                fbUserId: o.fbUserId || '',
-                conversationId,
-                customerUuid,
-                threadId,
-                lines,
-                total,
-            });
+                const total = lines.reduce((s, l) => s + l.qty * l.price, 0);
+                return {
+                    code: o.code,
+                    customerName: o.customerName || '',
+                    fbUserName: o.fbUserName || '',
+                    phone: o.phone || '',
+                    address: o.address || '',
+                    fbPageId: o.fbPageId || '',
+                    fbUserId: o.fbUserId || '',
+                    conversationId,
+                    customerUuid,
+                    threadId,
+                    lines,
+                    total,
+                };
+            })
+        );
+        if (lookupFails > 0) {
+            NO.notify(
+                `${lookupFails}/${orders.length} đơn không tra được hội thoại (có thể gửi thiếu) — kiểm tra lại`,
+                'warning'
+            );
         }
         await window.Web2MsgTemplate.open({ orders: enriched });
     };
