@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
-        <link rel="stylesheet" href="css/reconcile.css?v=20260622hist" />
+        <link rel="stylesheet" href="css/reconcile.css?v=20260630rec" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
@@ -48,6 +48,7 @@
                             id="rcRefreshBtn"
                             type="button"
                             title="Tải lại"
+                            aria-label="Tải lại danh sách PBH"
                         >
                             <i data-lucide="refresh-cw"></i>
                         </button>
@@ -95,14 +96,84 @@
                             autocomplete="off"
                             class="rc-search-input"
                         />
-                        <div class="rc-state-tabs" id="rcStateTabs">
-                            <button class="rc-tab is-active" data-state="active">Đang xử lý</button>
-                            <button class="rc-tab" data-state="pending">Chờ pick</button>
-                            <button class="rc-tab" data-state="picking">Đang pick</button>
-                            <button class="rc-tab" data-state="picked">Đã pick đủ</button>
-                            <button class="rc-tab" data-state="packed">Đã đóng gói</button>
-                            <button class="rc-tab" data-state="shipped">Đã giao shipper</button>
-                            <button class="rc-tab" data-state="delivered">Đã giao</button>
+                        <div
+                            class="rc-state-tabs"
+                            id="rcStateTabs"
+                            role="tablist"
+                            aria-label="Lọc PBH theo trạng thái"
+                        >
+                            <button
+                                type="button"
+                                class="rc-tab is-active"
+                                data-state="active"
+                                role="tab"
+                                aria-selected="true"
+                            >
+                                Đang xử lý
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="pending"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Chờ pick
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="picking"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Đang pick
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="picked"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Đã pick đủ
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="packed"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Đã đóng gói
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="shipped"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Đã giao shipper
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="delivered"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Đã giao
+                            </button>
+                            <button
+                                type="button"
+                                class="rc-tab"
+                                data-state="returned"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                Trả về / Hủy
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -226,6 +297,11 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-barcode-scanner.js?v=20260618a"></script>
         <script src="../shared/web2-label-ocr.js?v=20260618a"></script>
+        <!-- Shared-first: escape/format/lightbox load tường minh (sidebar cũng auto-inject
+             nhưng async → nạp ở đây để hết race trước render đầu + click ảnh). -->
+        <script src="../shared/web2-escape.js?v=20260612"></script>
+        <script src="../shared/web2-format.js?v=20260618"></script>
+        <script src="../shared/web2-image-lightbox.js?v=20260624b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar) {
@@ -233,10 +309,10 @@
                 }
             });
         </script>
-        <script src="js/reconcile-state.js?v=20260620auth"></script>
-        <script src="js/reconcile-api.js?v=20260620c"></script>
-        <script src="js/reconcile-render.js?v=20260622hist"></script>
-        <script src="js/reconcile-actions.js?v=20260621tz"></script>
-        <script src="js/reconcile-app.js?v=20260618w3"></script>
+        <script src="js/reconcile-state.js?v=20260630rec"></script>
+        <script src="js/reconcile-api.js?v=20260630rec"></script>
+        <script src="js/reconcile-render.js?v=20260630rec"></script>
+        <script src="js/reconcile-actions.js?v=20260630rec"></script>
+        <script src="js/reconcile-app.js?v=20260630rec"></script>
     </body>
 </html>

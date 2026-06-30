@@ -26,6 +26,7 @@
         packed: 'Đã đóng gói',
         shipped: 'Đã giao shipper',
         delivered: 'Đã giao',
+        returned: 'Trả về kho',
         cancelled: 'Huỷ',
     };
     RC.STATE_LABELS = STATE_LABELS;
@@ -72,7 +73,6 @@
     function escapeHtml(s) {
         if (window.Web2Escape && window.Web2Escape.escapeHtml)
             return window.Web2Escape.escapeHtml(s);
-        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -122,10 +122,20 @@
         div.className =
             'rc-scan-feedback ' +
             (isError ? 'is-error' : isComplete ? 'is-complete' : 'is-success');
+        // #27: live-region → screen reader đọc phản hồi quét (lỗi = assertive).
+        div.setAttribute('role', 'status');
+        div.setAttribute('aria-live', isError ? 'assertive' : 'polite');
         div.textContent = msg;
         document.body.appendChild(div);
-        // Complete (đã check xong) giữ lâu hơn cho dễ thấy.
-        const hold = isComplete ? 2600 : 1500;
+        // #17: tín hiệu rung khác nhau (tay-bận-mắt-rời-màn): lỗi rung dài-ngắt,
+        // đủ-hàng rung 3 nhịp, quét-OK 1 nhịp ngắn. Bỏ qua nếu thiết bị không hỗ trợ.
+        try {
+            navigator.vibrate?.(isError ? [120, 60, 120] : isComplete ? [60, 40, 60, 40, 60] : 50);
+        } catch {
+            /* vibrate không hỗ trợ */
+        }
+        // Complete (đã check xong) + lỗi giữ lâu hơn cho dễ thấy.
+        const hold = isComplete ? 2600 : isError ? 2500 : 1500;
         setTimeout(() => {
             div.style.opacity = '0';
             div.style.transition = 'opacity 200ms';

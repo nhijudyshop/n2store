@@ -133,9 +133,13 @@ function userFromReq(req) {
     };
 }
 
-async function logAction(pool, pbhNumber, action, payload, stateBefore, stateAfter, user) {
+// 2026-06-30 (#2/#55): nhận `db` = client (trong transaction) HOẶC pool. Gọi TRONG tx
+// với client → audit INSERT cùng tx với mutation (crash giữa COMMIT↔log không còn mất log;
+// log fail → tx abort → mutation rollback, audit-trail không lệch). Log fail nâng warn→error
+// để monitor được trên Render (camera-verify phụ thuộc bảng này).
+async function logAction(db, pbhNumber, action, payload, stateBefore, stateAfter, user) {
     try {
-        await pool.query(
+        await db.query(
             `INSERT INTO pbh_fulfillment_logs
                (pbh_number, action, payload, state_before, state_after, user_id, user_name, created_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -151,7 +155,8 @@ async function logAction(pool, pbhNumber, action, payload, stateBefore, stateAft
             ]
         );
     } catch (e) {
-        console.warn('[RECONCILE] logAction failed:', e.message);
+        console.error('[RECONCILE] AUDIT LOG FAILED for', pbhNumber, action, '—', e.message);
+        throw e; // trong tx: rethrow → mutation rollback (không để state đổi mà mất audit)
     }
 }
 
@@ -251,10 +256,13 @@ router.get('/health', async (req, res) => {
     if (!pool) return res.status(500).json({ ok: false, error: 'DB unavailable' });
     try {
         await ensureTables(pool);
+        // 2026-06-30 (#15): đếm PBH đã xác nhận theo fulfillment_state + PBH đã trả
+        // về kho (state='cancel' + fulfillment='returned') → badge số trên mỗi tab.
         const r = await pool.query(
             `SELECT fulfillment_state, COUNT(*)::int AS n
              FROM fast_sale_orders
-             WHERE state IN ('draft','confirmed','done')
+             WHERE state IN ('confirmed','done')
+                OR (state = 'cancel' AND fulfillment_state = 'returned')
              GROUP BY fulfillment_state`
         );
         const counts = {};
@@ -280,16 +288,25 @@ router.get('/list', async (req, res) => {
         const search = req.query.search ? String(req.query.search).trim() : '';
         const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
 
-        const conds = [`state IN ('draft','confirmed','done')`];
+        const conds = [];
         const params = [];
 
-        if (stateFilter === 'active') {
-            conds.push(
-                `COALESCE(fulfillment_state,'pending') IN ('pending','picking','picked','packed')`
-            );
-        } else if (stateFilter !== 'all' && FULFILL_STATES.includes(stateFilter)) {
-            params.push(stateFilter);
-            conds.push(`COALESCE(fulfillment_state,'pending') = $${params.length}`);
+        // 2026-06-30 (#21/#42): tab 'Trả về / Hủy' = PBH đã huỷ (state='cancel') +
+        // fulfillment_state='returned'. Các tab còn lại CHỈ trên PBH đã xác nhận
+        // ('confirmed'/'done') — bỏ 'draft' (khớp comment; PBH tạo tay đã gỡ 410).
+        if (stateFilter === 'returned') {
+            conds.push(`state = 'cancel'`);
+            conds.push(`COALESCE(fulfillment_state,'pending') = 'returned'`);
+        } else {
+            conds.push(`state IN ('confirmed','done')`);
+            if (stateFilter === 'active') {
+                conds.push(
+                    `COALESCE(fulfillment_state,'pending') IN ('pending','picking','picked','packed')`
+                );
+            } else if (stateFilter !== 'all' && FULFILL_STATES.includes(stateFilter)) {
+                params.push(stateFilter);
+                conds.push(`COALESCE(fulfillment_state,'pending') = $${params.length}`);
+            }
         }
 
         if (search) {
@@ -430,10 +447,16 @@ async function applyPick(pool, number, mutator, opts = {}) {
     const totalPicked = updated.reduce((s, p) => s + (Number(p.picked_qty) || 0), 0);
     let newState;
     let setPackedAt = false;
-    if (totalPicked === 0) newState = 'pending';
+    // 2026-06-30 (#7): PBH 0 dòng (order_lines rỗng) → totalQty=0 → '0>=0' true sẽ
+    // auto-pack đơn rỗng. Guard: tồn 0 SL ⇒ luôn 'pending', không auto-pack.
+    if (totalQty === 0) newState = 'pending';
+    else if (totalPicked === 0) newState = 'pending';
     else if (totalPicked >= totalQty) {
         // 2026-06-04: quét ĐỦ SL → tự chuyển 'packed' (đã đối soát đủ → đóng gói luôn,
         // KHÔNG cần bấm nút Đóng gói). Chỉ khi opts.autoPack (từ /scan) + chưa packed.
+        // 2026-06-30 (#6): BẤT ĐỐI XỨNG CÓ CHỦ Ý — /manual-pick (tích tay) KHÔNG truyền
+        // opts.autoPack → đủ-bằng-tích-tay chỉ tới 'picked', BẮT BUỘC bấm nút "Đóng gói"
+        // (chốt người xác nhận cho thao tác không-quét-barcode). Chỉ /scan mới autoPack.
         if (opts.autoPack) {
             newState = 'packed';
             setPackedAt = true;
@@ -522,10 +545,9 @@ router.post('/:number/scan', async (req, res) => {
             },
             { autoPack: true }
         );
-        await client.query('COMMIT');
-
+        // 2026-06-30 (#2): audit log TRONG tx (trước COMMIT) — cùng client.
         await logAction(
-            pool,
+            client,
             number,
             'scan',
             { productCode },
@@ -533,6 +555,8 @@ router.post('/:number/scan', async (req, res) => {
             result.stateAfter,
             user
         );
+        await client.query('COMMIT');
+
         _notify('scan', number, { productCode });
 
         const row = await getPbh(pool, number);
@@ -575,10 +599,9 @@ router.post('/:number/manual-pick', async (req, res) => {
             if (qty === 0) return filtered;
             return [...filtered, { productCode: code, picked_qty: qty, last_scan_at: Date.now() }];
         });
-        await client.query('COMMIT');
-
+        // 2026-06-30 (#2): audit log TRONG tx (trước COMMIT).
         await logAction(
-            pool,
+            client,
             number,
             'manual-pick',
             { productCode, pickedQty: qty, note },
@@ -586,6 +609,8 @@ router.post('/:number/manual-pick', async (req, res) => {
             result.stateAfter,
             user
         );
+        await client.query('COMMIT');
+
         _notify('manual-pick', number, { productCode, pickedQty: qty });
 
         const row = await getPbh(pool, number);
@@ -616,7 +641,7 @@ router.post('/:number/reset-pick', async (req, res) => {
         try {
             stateBefore = await withTransaction(pool, async (client) => {
                 const cur = await client.query(
-                    `SELECT fulfillment_state FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                    `SELECT state, fulfillment_state FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
                     [number]
                 );
                 if (cur.rows.length === 0) {
@@ -624,8 +649,16 @@ router.post('/:number/reset-pick', async (req, res) => {
                     err.httpStatus = 404;
                     throw err;
                 }
+                // 2026-06-30 (#8): chặn reset PBH đã huỷ/trả về — trước đây chỉ check
+                // fulfillment_state, bỏ sót 'returned' + state='cancel' → có thể đưa PBH
+                // đã huỷ/restock về 'pending' (mâu thuẫn + mất marker returned).
+                if (cur.rows[0].state === 'cancel') {
+                    const err = new Error('PBH đã huỷ — không thể reset pick');
+                    err.httpStatus = 400;
+                    throw err;
+                }
                 const sBefore = cur.rows[0].fulfillment_state || 'pending';
-                if (['packed', 'shipped', 'delivered'].includes(sBefore)) {
+                if (['packed', 'shipped', 'delivered', 'returned'].includes(sBefore)) {
                     const err = new Error(`Không thể reset khi đã ở state ${sBefore}`);
                     err.httpStatus = 400;
                     throw err;
@@ -638,13 +671,13 @@ router.post('/:number/reset-pick', async (req, res) => {
                      WHERE number = $1`,
                     [number]
                 );
+                await logAction(client, number, 'reset-pick', {}, sBefore, 'pending', user);
                 return sBefore;
             });
         } catch (e) {
             if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
             throw e;
         }
-        await logAction(pool, number, 'reset-pick', {}, stateBefore, 'pending', user);
         _notify('reset-pick', number);
         const row = await getPbh(pool, number);
         res.json({ success: true, pbh: mapPbh(row) });
@@ -695,29 +728,29 @@ router.post('/:number/pack', async (req, res) => {
                     err.httpStatus = 400;
                     throw err;
                 }
-                if (sBefore !== 'picked') {
-                    // Verify đủ hàng
-                    const lines = Array.isArray(before.order_lines) ? before.order_lines : [];
-                    const picked = Array.isArray(before.fulfillment_picked_lines)
-                        ? before.fulfillment_picked_lines
-                        : [];
-                    const pickedMap = new Map(
-                        picked.map((p) => [normCode(p.productCode), p.picked_qty || 0])
-                    );
-                    const missing = [];
-                    for (const l of lines) {
-                        const code = l.productCode || l.code;
-                        const need = Number(l.quantity) || 0;
-                        const got = pickedMap.get(normCode(code)) || 0;
-                        if (got < need)
-                            missing.push({ code, name: l.productName || l.name, need, got });
-                    }
-                    if (missing.length > 0) {
-                        const err = new Error('Chưa đủ hàng để đóng gói');
-                        err.httpStatus = 400;
-                        err.missing = missing;
-                        throw err;
-                    }
+                // 2026-06-30 (#14): LUÔN verify đủ hàng (bỏ điều kiện `sBefore !== 'picked'`)
+                // — defense-in-depth: nếu state bị set 'picked' do bug/edit ngoài mà
+                // picked_lines thiếu, không tin state cũ, vẫn chặn đóng gói thiếu hàng.
+                const lines = Array.isArray(before.order_lines) ? before.order_lines : [];
+                const picked = Array.isArray(before.fulfillment_picked_lines)
+                    ? before.fulfillment_picked_lines
+                    : [];
+                const pickedMap = new Map(
+                    picked.map((p) => [normCode(p.productCode), p.picked_qty || 0])
+                );
+                const missing = [];
+                for (const l of lines) {
+                    const code = l.productCode || l.code;
+                    const need = Number(l.quantity) || 0;
+                    const got = pickedMap.get(normCode(code)) || 0;
+                    if (got < need)
+                        missing.push({ code, name: l.productName || l.name, need, got });
+                }
+                if (missing.length > 0) {
+                    const err = new Error('Chưa đủ hàng để đóng gói');
+                    err.httpStatus = 400;
+                    err.missing = missing;
+                    throw err;
                 }
                 await client.query(
                     `UPDATE fast_sale_orders
@@ -727,6 +760,7 @@ router.post('/:number/pack', async (req, res) => {
                      WHERE number = $2`,
                     [Date.now(), number]
                 );
+                await logAction(client, number, 'pack', {}, sBefore, 'packed', user);
                 return sBefore;
             });
         } catch (err) {
@@ -736,7 +770,6 @@ router.post('/:number/pack', async (req, res) => {
                     .json({ error: err.message, missing: err.missing });
             throw err;
         }
-        await logAction(pool, number, 'pack', {}, stateBefore, 'packed', user);
         _notify('pack', number);
         const row = await getPbh(pool, number);
         res.json({ success: true, pbh: mapPbh(row) });
@@ -801,13 +834,13 @@ router.post('/:number/cancel-pack', async (req, res) => {
                      WHERE number = $2`,
                     [ns, number]
                 );
+                await logAction(client, number, 'cancel-pack', {}, sBefore, ns, user);
                 return { stateBefore: sBefore, newState: ns };
             }));
         } catch (err) {
             if (err.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
             throw err;
         }
-        await logAction(pool, number, 'cancel-pack', {}, stateBefore, newState, user);
         _notify('cancel-pack', number);
         const updated = await getPbh(pool, number);
         res.json({ success: true, pbh: mapPbh(updated) });
@@ -863,13 +896,13 @@ router.post('/:number/ship', async (req, res) => {
                      WHERE number = $2`,
                     [Date.now(), number]
                 );
+                await logAction(client, number, 'ship', {}, sBefore, 'shipped', user);
                 return sBefore;
             });
         } catch (err) {
             if (err.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
             throw err;
         }
-        await logAction(pool, number, 'ship', {}, stateBefore, 'shipped', user);
         _notify('ship', number);
         const row = await getPbh(pool, number);
         res.json({ success: true, pbh: mapPbh(row) });
@@ -921,13 +954,13 @@ router.post('/:number/deliver', async (req, res) => {
                      WHERE number = $2`,
                     [Date.now(), number]
                 );
+                await logAction(client, number, 'deliver', {}, sBefore, 'delivered', user);
                 return sBefore;
             });
         } catch (err) {
             if (err.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
             throw err;
         }
-        await logAction(pool, number, 'deliver', {}, stateBefore, 'delivered', user);
         _notify('deliver', number);
         const row = await getPbh(pool, number);
         res.json({ success: true, pbh: mapPbh(row) });
@@ -996,6 +1029,16 @@ router.post('/:number/return-failed', async (req, res) => {
                         number,
                         (user && (user.name || user.id)) || '(thu về)'
                     );
+                    // 2026-06-30 (#2): audit log TRONG tx — cùng số phận với restock+hoàn ví.
+                    await logAction(
+                        client,
+                        number,
+                        'return-failed',
+                        { reason, restocked: (cr && cr.restock && cr.restock.restored) || 0 },
+                        sBefore,
+                        'returned',
+                        user
+                    );
                     return {
                         stateBefore: sBefore,
                         restockSummary: cr && cr.restock,
@@ -1056,15 +1099,6 @@ router.post('/:number/return-failed', async (req, res) => {
             console.warn('[RECONCILE] return-failed post-cancel sync warn:', e.message);
         }
 
-        await logAction(
-            pool,
-            number,
-            'return-failed',
-            { reason, restocked: restockSummary?.restored || 0 },
-            stateBefore,
-            'returned',
-            user
-        );
         _notify('return-failed', number);
 
         const updated = await getPbh(pool, number);

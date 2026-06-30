@@ -2,6 +2,20 @@
 
 ## 2026-06-30
 
+### [web2 reconcile] Audit toàn diện Đối soát đóng gói → fix 1 CRITICAL + 3 HIGH + nhiều MEDIUM/LOW
+
+**Files:** `render.com/routes/reconcile.js` · `web2/reconcile/index.html` · `web2/reconcile/css/reconcile.css` · `web2/reconcile/js/{reconcile-state,reconcile-api,reconcile-render,reconcile-actions,reconcile-app}.js`.
+
+Audit chức năng + giao diện + luồng dữ liệu liên trang (workflow: 6 context-reader native-orders/so-order/products/live-chat/live-control/system + 5 lens adversarial, verify refute-by-default → 55 confirmed). Fix theo ưu tiên:
+
+- **P0 — keydown router (#1/#19)**: handler `keydown` capture toàn document nhồi ký tự gun vào ô quét ẩn + cướp Enter khỏi nút xác nhận khi Popup/camera/OCR/modal mở (surface tiền/tồn). Thêm `_overlayOpen()` guard (`#web2-popup-root .w2p-modal`, `.w2bc-root`, `.w2ocr-root`, `#rcAuditOverlay`) + bail khi focus trên `BUTTON`.
+- **P1 backend**: `logAction` chuyển **TRONG transaction** (truyền `client`, rethrow) cho cả 8 mutation → hết cửa-sổ mất audit khi crash giữa COMMIT↔log (camera-verify tin cậy) · `reset-pick` chặn `returned` + `state='cancel'` (#8) · `/list` thêm filter `returned` (tab "Trả về / Hủy") + bỏ `draft` (#21/#42) · `/health` đếm cả `returned` cho badge · zero-qty guard không auto-pack đơn rỗng (#7) · `/pack` LUÔN verify đủ hàng (#14) · doc bất-đối-xứng autoPack scan vs tích tay (#6).
+- **P1 frontend**: badge số PBH mỗi tab qua `/health` (trước FE không hề gọi, #15) · nút **−1** bớt 1 khi quét dư/nhầm (dùng manual-pick, không Reset cả đơn, #16) · tab "Trả về / Hủy" + nhãn `returned` (#11/#21) · SSE unsubscribe ở `pagehide` (#31) · `loadHistory` hiện trạng thái lỗi thay vì kẹt spinner (#33) · bỏ nhánh `escapeHtml` chết (#30) · `count` null-guard (#32).
+- **a11y**: `<li>` PBH → `role=button tabindex=0` + keydown Enter/Space + aria-label (#4) · checkbox tích tay visually-hidden CHUẨN (bỏ `pointer-events:none/width:0`) + aria-label trên input (#3) · modal Lịch sử focus-trap + focus-return (#25/#34) · tablist `role`/`aria-selected` (#51) · progressbar role (#28) · refresh aria-label (#26) · toast `role=status`/`aria-live` (#27) · contrast `#94a3b8→#64748b` (#29).
+- **UX kho**: ảnh SP hover-scale(4) → click `Web2ImageLightbox` (touch-friendly, #22) · toast mobile lên banner trên + rung haptic khác nhau success/error/đủ (#17) · tách nút "Trả về kho" (outline-danger, isolate trái) khỏi cụm primary (#24).
+
+Verified: `node --check` 6 file OK + audit wiring tĩnh (decrementPick/loadCounts/\_overlayOpen/CSS class/HTML tab). Backend deploy qua Render (web2-api). **Còn cân nhắc product**: autoPack scan-đủ tự packed (giữ nguyên — team quen tốc độ; chỉ doc + để tích-tay vẫn cần nút) (#20); in nhãn/gán shipper/bulk-ship (#18 — luồng giao còn hở, làm sau). Status: ✅
+
 ### [web2 sse] Migrate 6 trang pure-debounce → Web2SSE.subscribeReload
 
 **Files:** `web2/purchase-refund/js/purchase-refund-app.js` · `web2/clearance/js/clearance.js` · `web2/chi-tieu/js/chi-tieu-app.js` · `web2/fastsaleorder-refund/rf-app.js` · `web2/fastsaleorder-delivery/dlv-app.js` · `web2/goods-weight/js/goods-weight.js` (+ `web2-dedup-audit.json`).

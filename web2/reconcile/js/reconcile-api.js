@@ -30,9 +30,46 @@
             const res = await api('GET', `/list?${q.toString()}`);
             STATE.items = res.items || [];
             RC.renderList();
+            loadCounts(); // #15: cập nhật badge số PBH mỗi tab (không chặn render list)
         } catch (e) {
             if (ul) ul.innerHTML = '';
             notify('Lỗi tải DS PBH: ' + e.message, 'error');
+        }
+    }
+
+    // ---------- tab counts (#15) ----------
+    // /health đã trả counts per fulfillment_state (kể cả 'returned') — FE trước đây
+    // không hề dùng. Render số vào badge mỗi tab để biết backlog từng bước.
+    async function loadCounts() {
+        try {
+            const res = await api('GET', '/health');
+            const c = res.counts || {};
+            const map = {
+                active: (c.pending || 0) + (c.picking || 0) + (c.picked || 0) + (c.packed || 0),
+                pending: c.pending || 0,
+                picking: c.picking || 0,
+                picked: c.picked || 0,
+                packed: c.packed || 0,
+                shipped: c.shipped || 0,
+                delivered: c.delivered || 0,
+                returned: c.returned || 0,
+            };
+            document.querySelectorAll('#rcStateTabs .rc-tab').forEach((t) => {
+                const n = map[t.dataset.state] || 0;
+                let b = t.querySelector('.rc-tab-badge');
+                if (n > 0) {
+                    if (!b) {
+                        b = document.createElement('span');
+                        b.className = 'rc-tab-badge';
+                        t.appendChild(b);
+                    }
+                    b.textContent = n > 99 ? '99+' : String(n);
+                } else if (b) {
+                    b.remove();
+                }
+            });
+        } catch {
+            /* /health lỗi — bỏ qua badge, không chặn flow */
         }
     }
 
@@ -82,7 +119,14 @@
                 if (el) el.innerHTML = STATE.historyHtml;
             }
         } catch {
-            /* lỗi tải lịch sử — không chặn flow chính */
+            // #33: lỗi tải lịch sử — KHÔNG nuốt im (trước đây kẹt "Đang tải lịch sử…").
+            // Không toast (không chặn flow chính), chỉ hiện trạng thái lỗi để khỏi treo spinner.
+            if (STATE.currentPbh?.number === number) {
+                const el = document.getElementById('rcHistory');
+                if (el)
+                    el.innerHTML =
+                        '<div class="rc-history-loading">Không tải được lịch sử — đóng/mở lại để thử.</div>';
+            }
         }
     }
 
@@ -111,26 +155,50 @@
                 .catch(() => {});
         }, SSE_DEBOUNCE_MS);
     }
+    // #31: lưu unsub fn của mỗi subscribe → gỡ khi rời trang (tránh listener leak
+    // + callback chạy trên DOM/STATE đã detach nếu setupSse gọi lại).
+    let _sseUnsubs = [];
     function setupSse() {
         if (!window.Web2SSE) return;
         // Topic riêng: web2:reconcile
-        window.Web2SSE.subscribe('web2:reconcile', (msg) => {
-            const data = msg?.data || msg;
-            if (!data) return;
-            // Refresh list (debounced)
-            _scheduleSseList();
-            // Nếu là PBH đang mở → refresh detail (debounced)
-            if (data.number && STATE.selectedNumber === data.number) {
-                _scheduleSseDetail(data.number);
-            }
-        });
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe('web2:reconcile', (msg) => {
+                const data = msg?.data || msg;
+                if (!data) return;
+                // Refresh list (debounced)
+                _scheduleSseList();
+                // Nếu là PBH đang mở → refresh detail (debounced)
+                if (data.number && STATE.selectedNumber === data.number) {
+                    _scheduleSseDetail(data.number);
+                }
+            })
+        );
         // Cross: PBH thay đổi (vd PBH mới được confirm) → refresh list (debounced)
-        window.Web2SSE.subscribe('web2:fast-sale-orders', () => {
-            _scheduleSseList();
-        });
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe('web2:fast-sale-orders', () => {
+                _scheduleSseList();
+            })
+        );
+        window.addEventListener(
+            'pagehide',
+            () => {
+                _sseUnsubs.forEach((u) => {
+                    try {
+                        u && u();
+                    } catch {
+                        /* unsub lỗi — bỏ qua */
+                    }
+                });
+                _sseUnsubs = [];
+                clearTimeout(_sseListTimer);
+                clearTimeout(_sseDetailTimer);
+            },
+            { once: true }
+        );
     }
 
     RC.loadList = loadList;
+    RC.loadCounts = loadCounts;
     RC.historyNote = historyNote;
     RC.loadHistory = loadHistory;
     RC.setupSse = setupSse;

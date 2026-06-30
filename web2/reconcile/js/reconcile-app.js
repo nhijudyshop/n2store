@@ -18,6 +18,16 @@
     const loadList = RC.loadList;
     const notify = RC.notify;
 
+    // #1: có dialog/overlay nào đang mở? (Web2Popup confirm/danger/prompt = #web2-popup-root
+    // .w2p-modal · camera = .w2bc-root · OCR = .w2ocr-root · modal lịch sử = #rcAuditOverlay).
+    // Khi mở → KHÔNG để router phím toàn cục nuốt ký tự/Enter vào ô quét ẩn.
+    function _overlayOpen() {
+        if (document.querySelector('#web2-popup-root .w2p-modal, .w2bc-root, .w2ocr-root'))
+            return true;
+        const au = document.getElementById('rcAuditOverlay');
+        return !!(au && !au.hidden);
+    }
+
     // ---------- init ----------
     function bindUi() {
         const refresh = document.getElementById('rcRefreshBtn');
@@ -38,8 +48,12 @@
             tabs.addEventListener('click', (e) => {
                 const t = e.target.closest('.rc-tab');
                 if (!t) return;
-                tabs.querySelectorAll('.rc-tab').forEach((x) => x.classList.remove('is-active'));
+                tabs.querySelectorAll('.rc-tab').forEach((x) => {
+                    x.classList.remove('is-active');
+                    x.setAttribute('aria-selected', 'false'); // #51
+                });
                 t.classList.add('is-active');
+                t.setAttribute('aria-selected', 'true');
                 STATE.filterState = t.dataset.state;
                 loadList();
             });
@@ -130,6 +144,9 @@
             (e) => {
                 if (e.ctrlKey || e.metaKey || e.altKey) return;
                 if (!scanner) return;
+                // #1/#19: BẮT BUỘC bỏ qua khi có dialog/overlay đang mở — tránh nhồi ký tự
+                // gun vào ô quét ẩn + cướp Enter khỏi nút xác nhận (surface tiền/tồn nguy hiểm).
+                if (_overlayOpen()) return;
                 const ae = document.activeElement;
                 if (ae === scanner) return; // đã focus đúng ô → handler riêng của ô lo
                 const tag = ae?.tagName;
@@ -137,8 +154,9 @@
                     tag === 'INPUT' ||
                     tag === 'TEXTAREA' ||
                     tag === 'SELECT' ||
+                    tag === 'BUTTON' || // #19: focus trên nút (tab/action) → đừng cướp Enter/ký tự
                     ae?.isContentEditable;
-                if (typingElsewhere) return; // user đang gõ ô khác (search…) — đừng cướp focus
+                if (typingElsewhere) return; // user đang gõ/bấm chỗ khác — đừng cướp focus
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     scanner.focus();

@@ -177,7 +177,7 @@
     font-weight: 500;
 }
 .rc-tab:hover {
-    border-color: #94a3b8;
+    border-color: #64748b;
     color: #1e293b;
 }
 .rc-tab.is-active {
@@ -217,7 +217,7 @@
     flex-shrink: 0;
 }
 .rc-list-hint {
-    color: #94a3b8;
+    color: #64748b;
     font-weight: 400;
     font-size: 0.75rem;
 }
@@ -358,7 +358,7 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    color: #94a3b8;
+    color: #64748b;
     padding: 40px;
 }
 .rc-detail-empty i {
@@ -373,7 +373,7 @@
 }
 .rc-detail-hint {
     font-size: 0.8125rem !important;
-    color: #94a3b8;
+    color: #64748b;
     margin-top: 8px !important;
 }
 
@@ -416,7 +416,7 @@
 .rc-detail-info-item i {
     width: 14px;
     height: 14px;
-    color: #94a3b8;
+    color: #64748b;
 }
 .rc-detail-info-item strong {
     color: #0f172a;
@@ -511,12 +511,19 @@
     cursor: pointer;
     user-select: none;
 }
+/* #3: visually-hidden CHUẨN — input vẫn nhận focus bàn phím + accessible name.
+   (Cũ: width/height:0 + pointer-events:none khiến AT/keyboard không thao tác được.) */
 .rc-manual-tick input {
     position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 .rc-manual-tick-box {
     display: inline-flex;
@@ -617,7 +624,7 @@
     margin-top: 10px;
 }
 .rc-history-loading {
-    color: #94a3b8;
+    color: #64748b;
     font-style: italic;
     font-size: 0.85rem;
     padding: 12px;
@@ -649,7 +656,7 @@
     background: #fee2e2;
 }
 .w2-timeline-reset-pick .w2-timeline-marker {
-    border-color: #94a3b8;
+    border-color: #64748b;
     background: #f1f5f9;
 }
 .rc-line-row.is-complete {
@@ -678,14 +685,11 @@
         transform 160ms ease,
         box-shadow 160ms ease;
 }
-/* Hover → zoom ảnh SP lên (anchor góc trái, overlay lên trên). */
+/* #22: bỏ hover scale(4) (vô dụng trên touch + che bảng) — click ảnh mở
+   Web2ImageLightbox. Hover chỉ nhấn nhẹ viền cho biết bấm được. */
 .rc-line-img:hover {
-    transform: scale(4);
-    transform-origin: left center;
-    position: relative;
-    z-index: 60;
-    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
     border-color: #0d9488;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
 }
 .rc-line-product-cell {
     position: relative;
@@ -746,7 +750,7 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    color: #94a3b8;
+    color: #64748b;
     padding: 30px;
 }
 .rc-empty[hidden],
@@ -997,7 +1001,7 @@
 .rc-audit-empty {
     padding: 28px;
     text-align: center;
-    color: #94a3b8;
+    color: #64748b;
     font-style: italic;
 }
 .rc-audit-table {
@@ -1067,7 +1071,7 @@
 }
 .rc-audit-trans {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: #64748b;
     margin-top: 2px;
 }
 .rc-audit-user {
@@ -1087,7 +1091,7 @@
     font-weight: 600;
 }
 .rc-audit-hint {
-    color: #94a3b8;
+    color: #64748b;
     font-weight: 500;
 }
 @media (max-width: 640px) {
@@ -1097,5 +1101,87 @@
     }
     .rc-audit-search {
         min-width: 0;
+    }
+}
+
+/* ====================================================== */
+/* 2026-06-30: audit fixes — badge tab, returned badge, nút −1, tách nút danger, toast mobile */
+/* ====================================================== */
+
+/* #15: badge số PBH trên mỗi tab trạng thái (backlog từng bước). */
+.rc-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.rc-tab.is-active .rc-tab-badge {
+    background: rgba(255, 255, 255, 0.28);
+    color: #fff;
+}
+
+/* #11/#21: badge trạng thái "Trả về kho". */
+.rc-state-returned {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* #16: nút −1 — bớt 1 khi quét dư/nhầm (cạnh ô đếm pick). */
+.rc-minus-btn {
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #dc2626;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease;
+}
+.rc-minus-btn:hover {
+    background: #fef2f2;
+    border-color: #f87171;
+}
+.rc-minus-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+/* #24: tách nút nguy hiểm (Giao thất bại / Trả về kho) khỏi cụm primary + làm nhạt
+   (outline-danger) để khỏi cạnh tranh thị giác + bấm nhầm khi thao tác nhanh. */
+.rc-detail-actions .btn-danger {
+    order: -1;
+    margin-right: auto;
+    background: #fff;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+.rc-detail-actions .btn-danger:hover {
+    background: #fef2f2;
+    border-color: #f87171;
+}
+
+/* #17: toast quét trên điện thoại → banner trên cùng (góc dưới-phải bị ngón cái che). */
+@media (max-width: 768px) {
+    .rc-scan-feedback {
+        left: 8px;
+        right: 8px;
+        bottom: auto;
+        top: 64px;
+        text-align: center;
     }
 }

@@ -20,7 +20,7 @@
         const count = document.getElementById('rcCount');
         const items = STATE.items;
 
-        count.textContent = `${items.length} PBH`;
+        if (count) count.textContent = `${items.length} PBH`; // #32: null-guard như ul/empty
 
         if (!items.length) {
             ul.innerHTML = '';
@@ -36,8 +36,14 @@
                     : 0;
                 const sel = it.number === STATE.selectedNumber ? 'is-selected' : '';
                 const fState = it.fulfillmentState || 'pending';
+                const stateLabel = STATE_LABELS[fState] || fState;
+                // #4: <li> tương tác → role=button + tabindex + aria-label để chọn được
+                // bằng bàn phím (trước đây chỉ click chuột) + công bố vai trò cho SR.
+                const aria = `PBH ${it.number}, ${it.partner.name || ''}, đã pick ${it.totals.picked} trên ${it.totals.quantity}, ${stateLabel}`;
                 return `
-                <li class="rc-pbh-item ${sel}" data-number="${escapeHtml(it.number)}">
+                <li class="rc-pbh-item ${sel}" data-number="${escapeHtml(it.number)}"
+                    role="button" tabindex="0" aria-current="${sel ? 'true' : 'false'}"
+                    aria-label="${escapeHtml(aria)}">
                     <div class="rc-pbh-row1">
                         <span class="rc-pbh-number">${escapeHtml(it.number)}</span>
                         <span class="rc-pbh-stt">#${escapeHtml(fmtSttDisplay(it))}</span>
@@ -45,21 +51,25 @@
                     <div class="rc-pbh-customer">${escapeHtml(it.partner.name || '—')}</div>
                     <div class="rc-pbh-row1">
                         <span class="rc-pbh-phone">${escapeHtml(it.partner.phone || '')}</span>
-                        <span class="rc-state-badge rc-state-${fState}">${STATE_LABELS[fState] || fState}</span>
+                        <span class="rc-state-badge rc-state-${fState}">${stateLabel}</span>
                     </div>
                     <div class="rc-pbh-progress">
-                        <div class="rc-progress-bar"><div class="rc-progress-fill" style="width:${pickedPct}%"></div></div>
+                        <div class="rc-progress-bar" role="progressbar" aria-valuenow="${pickedPct}" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ pick"><div class="rc-progress-fill" style="width:${pickedPct}%"></div></div>
                         <span class="rc-progress-text">${it.totals.picked}/${it.totals.quantity}</span>
                     </div>
                 </li>`;
             })
             .join('');
 
-        // Bind clicks
+        // Bind clicks + keyboard (#4: Enter/Space chọn PBH).
         ul.querySelectorAll('.rc-pbh-item').forEach((li) => {
-            li.addEventListener('click', () => {
-                const n = li.dataset.number;
-                RC.selectPbh(n);
+            const open = () => RC.selectPbh(li.dataset.number);
+            li.addEventListener('click', open);
+            li.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    open();
+                }
             });
         });
 
@@ -81,7 +91,8 @@
 
         const fState = p.fulfillmentState || 'pending';
         const isComplete = p.totals.isComplete;
-        const isLocked = ['packed', 'shipped', 'delivered'].includes(fState);
+        // #21: 'returned' (đã trả về kho) cũng KHÓA — ẩn ô tích tay/nút sửa pick.
+        const isLocked = ['packed', 'shipped', 'delivered', 'returned'].includes(fState);
 
         contentEl.innerHTML = `
             <div class="rc-detail-head">
@@ -172,6 +183,22 @@
             });
         });
 
+        // #16: nút −1 → giảm pick 1 đơn vị (quét dư/nhầm) qua RC.decrementPick.
+        contentEl.querySelectorAll('.rc-minus-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const code = btn.dataset.pcode;
+                const got = parseInt(btn.dataset.got, 10) || 0;
+                RC.decrementPick(code, got);
+            });
+        });
+
+        // #22: click ảnh SP → mở Web2ImageLightbox (touch + không che bảng).
+        contentEl.querySelectorAll('.rc-line-img[data-zoom]').forEach((im) => {
+            im.addEventListener('click', () => {
+                if (window.Web2ImageLightbox?.open) window.Web2ImageLightbox.open(im.dataset.zoom);
+            });
+        });
+
         // Bind action buttons
         const b = (id, fn) => {
             const el = document.getElementById(id);
@@ -210,28 +237,39 @@
         const pct = need ? Math.min(100, Math.round((got / need) * 100)) : 0;
         const done = got >= need;
         const cls = done ? 'is-complete' : got > 0 ? 'is-partial' : '';
+        const pname = escapeHtml(l.productName || '');
+        // #22: ảnh dùng data-zoom → click mở Web2ImageLightbox (touch-friendly), thay
+        // hover scale(4) vô dụng trên điện thoại + che bảng. alt = tên SP cho SR.
         const img = l.imageUrl
-            ? `<img class="rc-line-img" src="${escapeHtml(l.imageUrl)}" alt="" loading="lazy"
-                   onerror="this.style.visibility='hidden'" />`
+            ? `<img class="rc-line-img" src="${escapeHtml(l.imageUrl)}" alt="${pname}" loading="lazy"
+                   data-zoom="${escapeHtml(l.imageUrl)}" onerror="this.style.visibility='hidden'" />`
             : `<span class="rc-line-img rc-line-img-empty"><i data-lucide="image"></i></span>`;
         const code = escapeHtml(l.productCode || '');
         // Ô tích tay: checked = đã đủ. Click → manual-pick (đủ ↔ 0). Ẩn khi locked.
+        // #3: aria-label trên chính input (title trên label KHÔNG map thành accessible name).
         const tick = isLocked
             ? done
                 ? '<i data-lucide="check" class="rc-picked-check"></i>'
                 : ''
             : `<label class="rc-manual-tick" title="Tích tay (đánh dấu đã pick đủ)">
-                   <input type="checkbox" data-pcode="${code}" data-need="${need}" ${done ? 'checked' : ''} />
+                   <input type="checkbox" data-pcode="${code}" data-need="${need}" ${done ? 'checked' : ''}
+                          aria-label="Tích tay đã pick đủ ${need} — ${pname}" />
                    <span class="rc-manual-tick-box"><i data-lucide="check"></i></span>
                </label>`;
+        // #16: nút −1 — bớt 1 khi quét dư/nhầm (không phải Reset CẢ đơn). Chỉ khi got>0 & chưa khoá.
+        const minus =
+            !isLocked && got > 0
+                ? `<button type="button" class="rc-minus-btn" data-pcode="${code}" data-got="${got}"
+                       title="Bớt 1 (quét dư/nhầm)" aria-label="Bớt 1 ${pname}">−1</button>`
+                : '';
         return `
             <tr class="rc-line-row ${cls}">
                 <td class="rc-line-product">
                     <div class="rc-line-product-cell">
                         ${img}
                         <div class="rc-line-product-info">
-                            ${escapeHtml(l.productName)}
-                            <div class="rc-line-bar"><div class="rc-line-bar-fill" style="width:${pct}%"></div></div>
+                            ${pname}
+                            <div class="rc-line-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="rc-line-bar-fill" style="width:${pct}%"></div></div>
                         </div>
                     </div>
                 </td>
@@ -239,6 +277,7 @@
                 <td class="rc-line-qty">${need}</td>
                 <td class="rc-line-picked">
                     <div class="rc-picked-cell">
+                        ${minus}
                         <span class="rc-picked-count ${done ? 'is-done' : got > 0 ? 'is-partial' : ''}">${got}/${need}</span>
                         ${tick}
                     </div>

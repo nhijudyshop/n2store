@@ -115,6 +115,34 @@
         }
     }
 
+    // #16: bớt 1 đơn vị đã pick (quét dư/nhầm) — KHÔNG Reset cả đơn. Dùng endpoint
+    // manual-pick sẵn có (set picked_qty = got-1). Không confirm (sửa nhẹ 1 đơn vị);
+    // khóa per-line như toggleManualPick để double-click không stack 2 POST.
+    async function decrementPick(productCode, got) {
+        const number = STATE.currentPbh?.number;
+        if (!number || !(got > 0)) return;
+        const lockKey = `${number}::${productCode}`;
+        if (_manualPickInFlight.has(lockKey)) return;
+        _manualPickInFlight.add(lockKey);
+        const body = { productCode, pickedQty: got - 1 };
+        if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
+        try {
+            const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, body);
+            STATE.currentPbh = res.pbh;
+            RC.renderDetail();
+            RC.loadHistory(number);
+            feedback(
+                `−1 ${productCode} (${res.pbh?.totals?.picked ?? ''}/${res.pbh?.totals?.quantity ?? ''})`
+            );
+            RC.loadList();
+        } catch (err) {
+            notify(err.message, 'error');
+            RC.renderDetail();
+        } finally {
+            _manualPickInFlight.delete(lockKey);
+        }
+    }
+
     async function resetPick() {
         if (!STATE.currentPbh) return;
         if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
@@ -306,6 +334,7 @@
     const AUDIT = { action: 'manual-pick', from: null, to: null, search: '' };
     let _auditSearchTimer = null;
     let _bodyLockY = 0;
+    let _auditPrevFocus = null; // #34: element giữ focus trước khi mở modal → trả lại khi đóng
 
     function pad2(n) {
         return String(n).padStart(2, '0');
@@ -358,6 +387,7 @@
     function openAuditModal() {
         const overlay = document.getElementById('rcAuditOverlay');
         if (!overlay) return;
+        _auditPrevFocus = document.activeElement; // #34: nhớ focus để trả lại khi đóng
         // Mặc định: tích tay + hôm nay (00:00 → giờ hiện tại).
         if (AUDIT.from == null && AUDIT.to == null) {
             const now = new Date();
@@ -369,6 +399,8 @@
         overlay.hidden = false;
         lockBody();
         if (window.lucide) window.lucide.createIcons();
+        // #34: đưa focus vào dialog (nút Đóng) — SR/bàn phím vào đúng modal.
+        document.getElementById('rcAuditClose')?.focus();
         fetchAudit();
     }
     function closeAuditModal() {
@@ -376,6 +408,17 @@
         if (!overlay) return;
         overlay.hidden = true;
         unlockBody();
+        // #34: trả focus về nơi đã mở modal (fallback: ô quét).
+        if (_auditPrevFocus && _auditPrevFocus.focus) {
+            try {
+                _auditPrevFocus.focus();
+            } catch {
+                focusScanner();
+            }
+        } else {
+            focusScanner();
+        }
+        _auditPrevFocus = null;
     }
     function syncAuditInputs() {
         const fEl = document.getElementById('rcAuditFrom');
@@ -466,6 +509,27 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && overlay && !overlay.hidden) closeAuditModal();
         });
+        // #25: focus trap — Tab/Shift+Tab cuộn trong modal, không thoát ra nền sau.
+        const modal = overlay?.querySelector('.rc-audit-modal');
+        if (modal) {
+            modal.addEventListener('keydown', (e) => {
+                if (e.key !== 'Tab') return;
+                const f = modal.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+                const list = Array.from(f).filter((el) => !el.disabled && el.offsetParent !== null);
+                if (!list.length) return;
+                const first = list[0];
+                const last = list[list.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            });
+        }
         const chips = document.getElementById('rcAuditChips');
         if (chips) {
             chips.addEventListener('click', (e) => {
@@ -513,6 +577,7 @@
 
     RC.selectPbh = selectPbh;
     RC.toggleManualPick = toggleManualPick;
+    RC.decrementPick = decrementPick;
     RC.resetPick = resetPick;
     RC.packOrder = packOrder;
     RC.cancelPack = cancelPack;
