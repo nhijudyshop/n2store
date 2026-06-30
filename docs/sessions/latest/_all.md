@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `662ee11` — refactor(web2-products): computeProductStatus 1 nguồn + fix confirm-partial HET_HANG; cross-link công thức chờ hàng (audit #2,#3)
-**Last updated**: 2026-06-30 16:32:30 +07
-**Latest session**: [`RESUME:20260630-163230-662ee11`](../20260630-163230-662ee11.md)
-**Summary**: refactor(web2-products): computeProductStatus 1 nguồn + fix confirm-partial HET_HANG; cross-link công thức chờ...
+**Latest commit**: `19471a7` — auto: session update
+**Last updated**: 2026-06-30 16:49:20 +07
+**Latest session**: [`RESUME:20260630-164920-19471a7`](../20260630-164920-19471a7.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`downloads/`](./downloads.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 2 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -33,7 +32,7 @@
 - [`docs/`](./docs.md) — updated 2026-06-30 16:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
-- [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
+- [`downloads/`](./downloads.md) — updated 2026-06-30 16:49
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-06-20 12:07
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
@@ -64,7 +63,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
 - [`render.com/`](./render.com.md) — updated 2026-06-30 16:32
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-29 18:22
+- [`scripts/`](./scripts.md) — updated 2026-06-30 16:49
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-29 18:22
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
@@ -84,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 16:32
+- [`web2/`](./web2.md) — updated 2026-06-30 16:49
