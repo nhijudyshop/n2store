@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [web2 sse] Web2SSE.subscribeReload — 1 nguồn subscribe + debounce reload
+
+**Files:** `web2/shared/web2-sse-bridge.js` (thêm `subscribeReload` + export + header), `web2/variants/js/web2-variants-app.js` (wire), `web2/system/data/web2-dedup-audit.json`.
+
+Đóng nốt item SSE-debounce: thêm `Web2SSE.subscribeReload(topic|topic[], fn, {debounce=500})` vào bridge (gom burst event → CHỈ 1 reload, trả unsub; bridge đã load mọi trang SSE → KHÔNG cần file mới). Wire `web2-variants` (pure-debounce, có fallback defensive). ⚠ Phát hiện khi survey: ĐA SỐ trang tưởng copy-paste thực ra xử lý per-event RIÊNG (lọc msg theo action, nhiều timer/topic, async) → KHÔNG dup thuần, giữ raw `subscribe` (chủ ý). Helper sẵn cho pure-debounce + trang mới. Verified browser: `subscribeReload` là function, trả unsub, subscribe đúng topic. **auth**: 4 RAW còn lại (web2-api/html-skill/ai-describe/tryon) CÓ fallback `web2_users_session` mà `authHeaders()` không có → giữ riêng (tolerance chủ ý). Audit: **10 resolved / 2 partial / 3 pending (cross-layer by design)**. Status: ✅ SSE resolved.
+
 ### [web2 util] Phone: gộp 14 helper → Web2PhoneUtils (GitHub research) + load 9 trang
 
 **Files:** `web2/shared/web2-phone-utils.js` (nâng cấp: +`0084`→0, +`isMobile` regex đầu số VN thực, +export), 14 file `.js` (`Web2CustomerStore.normPhone` + 13 local → delegate `Web2PhoneUtils.norm`), 9 HTML (load `web2-phone-utils.js`), `web2/system/data/web2-dedup-audit.json` (phone → resolved).

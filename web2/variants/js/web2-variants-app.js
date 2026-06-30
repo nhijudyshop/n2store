@@ -491,7 +491,9 @@
         // 2026-06-04: SSE canonical (web2:variants) — backend web2-variants.js
         // _notify mọi CRUD. Đồng bộ cross-tab/cross-máy không cần refresh. Debounce
         // 600ms gom burst. Đây là ĐƯỜNG RELOAD DUY NHẤT (xem MEDIUM-cleanup trên).
-        if (window.Web2SSE?.subscribe) {
+        if (window.Web2SSE?.subscribeReload) {
+            window.Web2SSE.subscribeReload('web2:variants', load, { debounce: 600 }); // 1 nguồn debounce
+        } else if (window.Web2SSE?.subscribe) {
             let _sseT = null;
             window.Web2SSE.subscribe('web2:variants', () => {
                 clearTimeout(_sseT);
