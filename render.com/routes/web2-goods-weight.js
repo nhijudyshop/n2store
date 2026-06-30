@@ -211,12 +211,12 @@ router.post('/', jsonBody, requireWeb2AuthSoft, async (req, res) => {
         const b = req.body || {};
         const username = (req.web2User && req.web2User.username) || 'unknown';
         const weightKg = Number(b.weightKg);
-        const baleCount = Math.round(Number(b.baleCount));
+        const baleCount = Math.round(Number(b.baleCount)) || 0; // trống/0 = 0 kiện (tính 0đ)
         const note = String(b.note || '').slice(0, 2000);
         if (!Number.isFinite(weightKg) || weightKg <= 0)
             return res.status(400).json({ success: false, error: 'Số kg không hợp lệ' });
-        if (!Number.isInteger(baleCount) || baleCount < 1)
-            return res.status(400).json({ success: false, error: 'Số kiện phải ≥ 1' });
+        if (!Number.isInteger(baleCount) || baleCount < 0)
+            return res.status(400).json({ success: false, error: 'Số kiện không hợp lệ' });
         const parsed = parseDataUrl(b.dataUrl);
         if (!parsed)
             return res

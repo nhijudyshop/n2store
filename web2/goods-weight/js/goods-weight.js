@@ -148,10 +148,10 @@
     // ---- save ----
     async function save() {
         const kg = Number($('#gwKg').value);
-        const bales = Math.round(Number($('#gwBales').value));
+        const bales = Math.round(Number($('#gwBales').value)) || 0; // ponytail: trống = 0 kiện (tính 0đ)
         const note = $('#gwNote').value.trim();
         if (!Number.isFinite(kg) || kg <= 0) return toast('Nhập số kg hợp lệ', 'err');
-        if (!Number.isInteger(bales) || bales < 1) return toast('Nhập số kiện ≥ 1', 'err');
+        if (!Number.isInteger(bales) || bales < 0) return toast('Số kiện không hợp lệ', 'err');
         if (!pendingDataUrl) return toast('Chụp ảnh mặt cân trước', 'err');
         const btn = $('#gwSave');
         btn.disabled = true;
