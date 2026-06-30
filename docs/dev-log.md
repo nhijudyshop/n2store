@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [admin][wipe] Chừa `web2_order_tags` + `web2_payment_qr_codes` khỏi web2-wipe-9pages (CONFIG)
+
+**Files:** `render.com/routes/admin-web2-data-reset.js` (gỡ 2 bảng config khỏi `WIPE9_TRUNCATE` + cập nhật doc comment & danh sách GIỮ NGUYÊN).
+
+Phát hiện khi giả lập toàn bộ data Web 2.0 (wipe + seed test): `web2-wipe-9pages` xoá nhầm 2 bảng **CONFIG** — `web2_order_tags` (catalog định nghĩa tag `cho_hang/khach_la/pbh_created/…`) + `web2_payment_qr_codes` (QR thanh toán). Đây là cấu hình, cùng nhóm `web2_variants`; target `web2-all` vốn đã GIỮ. Wipe nhầm → mất tag toàn hệ (đơn không auto-gắn tag), phải restore từ backup `web2_order_tags_bak_*`. Đã loại khỏi danh sách truncate. FK cascade-guard KHÔNG ảnh hưởng (truncate child ref parent không-bị-truncate vẫn hợp lệ). Status: ✅
+
 ### [shared] Dọn compat `ncc`/`vuot` trong khConModel/cardState (sau #2)
 
 **Files:** `web2/shared/web2-live-tv-display.js` (gỡ `ncc`/`vuot` khỏi khConModel return + `ncc` khỏi cardState; cập nhật header comment), `web2/live-control/index.html` + `web2/live-tv/index.html` (bump tv16).

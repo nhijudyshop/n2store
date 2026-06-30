@@ -444,13 +444,14 @@ router.post('/web2-cleanup-dead', async (req, res) => {
 //   _meta + sequence), CK dashboard (web2_payment_signals + customer_intents),
 //   Trả hàng NCC (web2_records[slug=purchase-refund]),
 //   + downstream: ví KH (web2_customer_wallets/_wallet_transactions/_adjustments),
-//     KPI (web2_kpi_*), tag đơn, cart, campaign-cha, web2_returns, QR thanh toán,
-//     pending matches; + UNLINK (giữ dòng) các dòng web2_balance_history đã match.
+//     KPI (web2_kpi_*), cart, campaign-cha, web2_returns, pending matches;
+//     + UNLINK (giữ dòng) các dòng web2_balance_history đã match.
 //
 // GIỮ NGUYÊN (KHÔNG đụng): web2_customers (hồ sơ KH), web2_balance_history
 //   (log SePay gốc — chỉ reset cờ match), web2_variants (Kho Biến Thể — trang
-//   riêng), web2_users/_user_sessions/_entities/_zalo_accounts/_migrations,
-//   web2_records (TRỪ slug 'purchase-refund').
+//   riêng), web2_order_tags (catalog tag — CONFIG), web2_payment_qr_codes (QR
+//   thanh toán — CONFIG), web2_users/_user_sessions/_entities/_zalo_accounts/
+//   _migrations, web2_records (TRỪ slug 'purchase-refund').
 //
 // Auto-backup <t>_bak_<tag> TRƯỚC mọi thao tác. KHÔNG CASCADE (fail loud nếu
 // 1 bảng NGOÀI danh sách FK tới bảng wipe). web2Db only.
@@ -481,13 +482,16 @@ const WIPE9_TRUNCATE = [
     'web2_kpi_assignments_history',
     'web2_kpi_events',
     // Phụ trợ đơn/SP
-    'web2_order_tags',
     'web2_cart_history',
     'web2_campaign_products',
     'web2_live_parent_campaigns',
     'web2_returns',
-    'web2_payment_qr_codes',
     'web2_pending_matches',
+    // [2026-06-30] KHÔNG wipe 2 bảng CONFIG sau (danh mục, KHÔNG phải data giao
+    // dịch — cùng nhóm web2_variants; target 'web2-all' cũng GIỮ chúng). Wipe nhầm
+    // → mất tag toàn hệ + QR cấu hình, phải restore từ backup:
+    //   'web2_order_tags',       — catalog định nghĩa tag (cho_hang/khach_la/…), seed lúc boot
+    //   'web2_payment_qr_codes', — QR thanh toán cấu hình
 ];
 const WIPE9_RECORDS_SLUG = 'purchase-refund';
 const WIPE9_SEQUENCE = 'web2_supplier_move_seq';
