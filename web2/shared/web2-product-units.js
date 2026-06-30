@@ -111,6 +111,20 @@
         }
     }
 
+    // Map 1 unit row → mô tả per-tem cho Web2ProductsPrint: { unitCode, qrUrl, orderStt }.
+    // 1 NGUỒN scheme QR URL (/web2/unit-scan/?u=<id>) + STT kệ — dùng CHUNG ở
+    // attachForPrint (so-order), unit-scan reprintUnit, web2-unit-reprint doPrint
+    // → KHÔNG fork chuỗi URL/shape ở mỗi nơi (đổi scheme chỉ sửa ở đây).
+    function printUnit(u, opts = {}) {
+        const qrBase = opts.qrBase || (typeof location !== 'undefined' ? location.origin : '');
+        return {
+            unitCode: u.unitCode,
+            qrUrl: qrBase + '/web2/unit-scan/?u=' + u.id,
+            // STT kệ (order_stt sau reconcile) — null nếu chưa gắn đơn (tem mới so-order).
+            orderStt: u.orderStt != null ? u.orderStt : null,
+        };
+    }
+
     // Gắn .units (+ .quantity) cho products[] (in-place, clone caller truyền) qua /ensure
     // theo SL kho. opts.qrBase (mặc định location.origin) → qrUrl = qrBase+'/web2/unit-scan/?u='+id.
     // opts.perItemQty(p) → SL muốn in cho product p (mặc định = tất cả units của SP).
@@ -118,7 +132,6 @@
     async function attachForPrint(products, opts = {}) {
         const list = (products || []).filter((p) => p && p.code);
         if (!list.length) return products;
-        const qrPrefix = (opts.qrBase || location.origin) + '/web2/unit-scan/?u=';
         let byCode;
         try {
             byCode = await ensure(list.map((p) => p.code));
@@ -133,7 +146,7 @@
                 ? Math.max(1, Number(opts.perItemQty(p)) || units.length)
                 : units.length;
             const slice = units.slice(0, want);
-            p.units = slice.map((u) => ({ unitCode: u.unitCode, qrUrl: qrPrefix + u.id }));
+            p.units = slice.map((u) => printUnit(u, opts));
             p.quantity = slice.length;
             slice.forEach((u) => minted.push(u.id));
         }
@@ -149,6 +162,7 @@
         ensure,
         reprint,
         attachForPrint,
+        printUnit,
         _base: base,
         _token: token,
         _userName: userName,

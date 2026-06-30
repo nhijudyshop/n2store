@@ -273,7 +273,6 @@
             toast('Module in chưa tải xong — mở trên máy có máy in tem', 'err');
             return;
         }
-        const qrUrl = location.origin + '/web2/unit-scan/?u=' + u.id;
         window.Web2ProductsPrint.open([
             {
                 code: (p && p.code) || u.productCode,
@@ -281,13 +280,7 @@
                 price: (p && p.price) || 0,
                 variant: '',
                 quantity: 1,
-                units: [
-                    {
-                        unitCode: u.unitCode,
-                        qrUrl,
-                        orderStt: u.orderStt != null ? u.orderStt : null,
-                    },
-                ], // STT kệ → in to trên tem
+                units: [PU().printUnit(u)], // {unitCode,qrUrl,orderStt} — 1 nguồn (Web2ProductUnits)
             },
         ]);
         PU()

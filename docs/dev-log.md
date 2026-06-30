@@ -2,6 +2,17 @@
 
 ## 2026-06-30
 
+### [web2 product-units] Gom builder per-tem về 1 nguồn `Web2ProductUnits.printUnit`
+
+**Files:** `web2/shared/web2-product-units.js` · `web2/unit-scan/js/unit-scan.js` · `web2/shared/web2-unit-reprint.js`.
+
+Cấu trúc per-tem `{unitCode, qrUrl, orderStt}` + chuỗi scheme `/web2/unit-scan/?u=<id>` đang FORK ở 3 nơi (`attachForPrint`, `unit-scan reprintUnit`, `unit-reprint doPrint`), và `attachForPrint` còn **thiếu `orderStt`**. Gom về 1 hàm:
+
+- Thêm `Web2ProductUnits.printUnit(u, opts)` → `{unitCode, qrUrl: (opts.qrBase||origin)+'/web2/unit-scan/?u='+id, orderStt}` = NGUỒN DUY NHẤT scheme URL + STT kệ (đổi scheme chỉ sửa 1 chỗ).
+- `attachForPrint` (so-order), `unit-scan reprintUnit`, `unit-reprint doPrint` đều `map(u => printUnit(u))` — bỏ chuỗi URL/shape lặp. `attachForPrint` giờ kèm `orderStt` (null cho tem mới so-order — vô hại, đúng cho mọi caller tương lai).
+
+Verified: `node --check` 3 file + vm test `printUnit` (orderStt=42 / null, qrUrl scheme đúng). KHÔNG đổi contract `Web2ProductsPrint.open`. Status: ✅
+
 ### [web2 products-print] In STT KỆ TO lên tem per-unit (khoảng trống phải QR, dưới giá)
 
 **Files:** `web2/products/js/web2-products-print-render.js` · `web2/products/js/web2-products-print-modal.js` · `web2/shared/web2-unit-reprint.js` · `web2/unit-scan/js/unit-scan.js`.

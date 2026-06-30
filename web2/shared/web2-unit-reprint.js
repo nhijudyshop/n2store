@@ -270,7 +270,6 @@
         }
         const chosen = curUnits.filter((u) => selected.has(u.id));
         if (!chosen.length) return;
-        const origin = location.origin;
         global.Web2ProductsPrint.open([
             {
                 code: curProduct.code,
@@ -278,11 +277,8 @@
                 price: curProduct.price,
                 variant: curProduct.variant || '',
                 quantity: chosen.length,
-                units: chosen.map((u) => ({
-                    unitCode: u.unitCode,
-                    qrUrl: origin + '/web2/unit-scan/?u=' + u.id,
-                    orderStt: u.orderStt != null ? u.orderStt : null, // STT kệ → in to trên tem
-                })),
+                // {unitCode,qrUrl,orderStt} — 1 nguồn (Web2ProductUnits.printUnit).
+                units: chosen.map((u) => global.Web2ProductUnits.printUnit(u)),
             },
         ]);
         // print_count++ (best-effort, qua client chung)
