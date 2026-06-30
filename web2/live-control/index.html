@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="../shared/web2-base.css?v=20260623fix" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260621lc" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260625anim" />
-        <link rel="stylesheet" href="./css/live-control.css?v=20260630tv13" />
+        <link rel="stylesheet" href="./css/live-control.css?v=20260630tv15" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
     </head>
@@ -63,10 +63,10 @@
 
                     <div class="lc-hint">
                         🛰️ SP <strong>chờ hàng</strong> từ Sổ Order <strong>tự lên board</strong>
-                        (mới nhất trên đầu); thêm tay từ panel phải cũng lên trên cùng. Nhập
-                        <strong>số NCC báo</strong> ở ô <strong>NCC</strong>; mỗi SP hiện
-                        <strong>NCC · Giỏ · KH mới · Còn</strong> (Còn = NCC − Giỏ) — màn
-                        <strong>TV</strong> của người live cập nhật ngay, không cần refresh.
+                        (mới nhất trên đầu); thêm tay từ panel phải cũng lên trên cùng. Mỗi SP hiện
+                        <strong>TỒN · GIỎ · MỚI · CHỜ HÀNG</strong> (Chờ hàng = GIỎ − TỒN = cần đặt
+                        thêm NCC; tất cả tự tính, không gõ tay) — màn <strong>TV</strong> của người
+                        live cập nhật ngay, không cần refresh.
                     </div>
 
                     <!-- Điều khiển màn TV: layout (hàng×cột) + lật trang + xem trước -->
@@ -103,14 +103,9 @@
                                     <button type="button" data-preset="3x4">3×4</button>
                                 </div>
                             </div>
-                            <label
-                                class="lc-tvctl-region"
-                                title="SP đúng địa danh này được phép đặt VƯỢT NCC (hiện badge VƯỢT). KHÔNG lọc cột MỚI."
-                            >
-                                <i data-lucide="map-pin" style="width: 13px; height: 13px"></i>
-                                Cho VƯỢT theo
-                                <select id="lcRegion" class="lc-region-select"></select>
-                            </label>
+                            <!-- 2026-06-30 (#2): BỎ selector "Cho VƯỢT theo" — chờ hàng giờ
+                                 tính đồng đều mọi SP (= GIỎ − TỒN), không còn phân vùng cho-vượt. -->
+
                             <div class="lc-tvctl-nav" id="lcTvNav">
                                 <button class="lc-navbtn" data-pg="first" title="Trang đầu">
                                     ⏮
@@ -197,8 +192,8 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-products-api.js?v=20260621lc"></script>
         <script src="../shared/web2-variant-group.js?v=20260627tv10"></script>
-        <script src="../shared/web2-live-tv-display.js?v=20260630tv13"></script>
+        <script src="../shared/web2-live-tv-display.js?v=20260630tv15"></script>
         <script src="../shared/web2-campaign.js?v=20260627tv10"></script>
-        <script src="./js/live-control.js?v=20260630tv14"></script>
+        <script src="./js/live-control.js?v=20260630tv15"></script>
     </body>
 </html>

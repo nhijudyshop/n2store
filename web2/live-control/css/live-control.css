@@ -369,6 +369,20 @@
 .lc-vcon.zero {
     color: #dc2626;
 }
+/* #2 2026-06-30: TỒN (tồn kho thật, nhạt) + CHỜ HÀNG (cần đặt thêm — amber khi >0). */
+.lc-vton {
+    color: #475569;
+}
+.lc-vcho {
+    color: #16a34a;
+}
+.lc-vcho.lc-cho {
+    color: #b45309;
+    font-weight: 800;
+}
+.lc-vcho.lc-cho small {
+    color: #d97706;
+}
 
 /* Chip lọc ĐỊA DANH + badge + nút toggle trong panel "Thêm sản phẩm". */
 .lc-rchips {

@@ -156,55 +156,27 @@
         }, 600);
     }
 
-    // Board "Trên TV" mỗi biến thể: NCC (ô nhập "số NCC báo" = pending_qty) +
-    // GIỎ HÀNG (SL trong giỏ KH draft = v.sold) + KH MỚI (số khách chưa có SĐT &
-    // địa chỉ đang có SP trong giỏ = v.newCust) + CÒN (= max(0, NCC−GIỎ HÀNG)).
-    // GIỎ HÀNG/KH MỚI/CÒN read-only (tự tính).
+    // Board "Trên TV" mỗi biến thể (#2 2026-06-30): TỒN (tồn kho thật, read-only) +
+    // GIỎ (SL trong giỏ KH draft = v.sold) + MỚI (khách chưa SĐT&địa chỉ = v.newCust) +
+    // CHỜ HÀNG (= max(0, GIỎ − TỒN) = cần đặt thêm NCC). Tất cả read-only (tự tính).
     function vrowHtml(v) {
-        // Mô hình GIỎ/MỚI/CÒN (shared, khớp màn TV). GIỎ vượt NCC (địa danh CHO VƯỢT)
-        // → số đỏ + badge "VƯỢT +N" trên cột GIỎ. MỚI = SL món của khách chưa SĐT/địa chỉ.
-        var m = window.Web2LiveTvDisplay.khConModel(v, state.tvControl.region);
-        var conCls = m.con <= 0 ? ' zero' : '';
-        var over = m.vuot > 0;
-        var gioLabel = over
-            ? '<small class="lc-over-badge">VƯỢT +' + m.vuot + '</small>'
-            : '<small>GIỎ</small>';
-        var gioTitle = over
-            ? 'Đã đặt ' +
-              m.gio +
-              ' — vượt NCC +' +
-              m.vuot +
-              ' (' +
-              esc(state.tvControl.region || '') +
-              '). Bấm xem ai đang có'
-            : 'Tổng SL món trong giỏ khách — bấm xem ai đang có';
+        var m = window.Web2LiveTvDisplay.khConModel(v);
+        var choCls = m.choHang > 0 ? ' lc-cho' : '';
         return (
             '<div class="lc-vrow">' +
             '<span class="lc-vname">' +
             esc(v.variant && v.variant.trim() ? v.variant : '(mặc định)') +
             '</span>' +
-            '<span class="lc-pending-edit" title="Số NCC báo (sửa được)">' +
-            '<label>NCC</label>' +
-            '<input class="lc-pending-input" type="number" min="0" inputmode="numeric" ' +
-            'data-code="' +
-            esc(v.code) +
-            '" data-cur="' +
-            m.ncc +
-            '" value="' +
-            m.ncc +
-            '" />' +
-            '</span>' +
+            '<span class="lc-vnum lc-vton" title="Tồn kho thật (Kho SP)">' +
+            m.stock +
+            '<small>TỒN</small></span>' +
             '<span class="lc-vnum lc-vban' +
-            (over ? ' over' : '') +
             (m.gio > 0 ? ' lc-clickable' : '') +
             '" data-cart="' +
             esc(v.code) +
-            '" data-cart-mode="all" title="' +
-            gioTitle +
-            '">' +
+            '" data-cart-mode="all" title="Tổng SL món trong giỏ khách — bấm xem ai đang có">' +
             m.gio +
-            gioLabel +
-            '</span>' +
+            '<small>GIỎ</small></span>' +
             '<span class="lc-vnum lc-vkhm' +
             (m.moi > 0 ? ' lc-clickable' : '') +
             '" data-cart="' +
@@ -212,11 +184,11 @@
             '" data-cart-mode="new" title="Số món của khách MỚI (chưa SĐT & địa chỉ) — bấm xem">' +
             m.moi +
             '<small>MỚI</small></span>' +
-            '<span class="lc-vnum lc-vcon' +
-            conCls +
-            '" title="Còn = NCC − Giỏ (≥ 0)">' +
-            m.con +
-            '<small>CÒN</small></span>' +
+            '<span class="lc-vnum lc-vcho' +
+            choCls +
+            '" title="Chờ hàng = GIỎ − TỒN (cần đặt thêm từ NCC)">' +
+            m.choHang +
+            '<small>CHỜ</small></span>' +
             '</div>'
         );
     }
@@ -309,34 +281,8 @@
         }
     }
 
-    // Nhập "số NCC báo" → pending_qty (delta qua adjustPending).
-    async function savePending(input) {
-        var code = input.dataset.code;
-        var cur = Number(input.dataset.cur) || 0;
-        var next = Math.max(0, Math.floor(Number(input.value) || 0));
-        if (next === cur) {
-            input.classList.remove('saving');
-            return;
-        }
-        input.classList.add('saving');
-        input.disabled = true;
-        try {
-            // setPending = set tuyệt đối "số NCC báo" + broadcast web2:campaign-products
-            // (topic TV nghe được realtime; adjust-pending dùng web2:products không tới TV).
-            await window.Web2Campaign.setPending(state.campaignId, code, next);
-            input.dataset.cur = String(next);
-            input.value = String(next);
-            input.classList.remove('saving');
-            input.classList.add('saved');
-            setTimeout(() => input.classList.remove('saved'), 1200);
-        } catch (e) {
-            input.value = String(cur); // rollback
-            input.classList.remove('saving');
-            toast('Lỗi lưu số chờ hàng: ' + (e && e.message), 'error');
-        } finally {
-            input.disabled = false;
-        }
-    }
+    // 2026-06-30 (#2): BỎ savePending — NCC không còn gõ tay trên board. Sổ Order là
+    // writer duy nhất của pending_qty; board chỉ hiện TỒN/GIỎ/MỚI/CHỜ HÀNG (read-only).
 
     // ── Điều khiển màn TV (layout hàng×cột + lật trang + preview) ──
     // Dùng CHUNG quy tắc trình bày với live-tv qua Web2LiveTvDisplay (thứ tự hết-hàng
@@ -350,11 +296,7 @@
         );
     }
     function miniCardHtml(g) {
-        var st = window.Web2LiveTvDisplay.cardState(g);
-        // CÒN theo công thức mới (per-variant + địa danh) → khớp board + màn TV.
-        var con = (g.variants || []).reduce(function (a, v) {
-            return a + window.Web2LiveTvDisplay.khConModel(v, state.tvControl.region).con;
-        }, 0);
+        var st = window.Web2LiveTvDisplay.cardState(g); // TỒN/GIỎ/CHỜ HÀNG (#2)
         var cls = 'lc-mini-card';
         if (g.pinned) cls += ' is-pinned';
         if (st.soldOut) cls += ' is-soldout';
@@ -372,14 +314,14 @@
             esc(g.name) +
             '</div><div class="lc-mini-nums">' +
             '<span>' +
-            st.ncc +
-            '<i>NCC</i></span><span>' +
+            st.stock +
+            '<i>TỒN</i></span><span>' +
             st.sold +
             '<i>GIỎ</i></span><span class="' +
-            (con <= 0 ? 'z' : '') +
+            (st.choHang > 0 ? 'cho' : '') +
             '">' +
-            con +
-            '<i>CÒN</i></span></div></div></div>'
+            st.choHang +
+            '<i>CHỜ</i></span></div></div></div>'
         );
     }
     function renderTvCtl() {
@@ -879,20 +821,7 @@
             var grp = btn.closest('.lc-group');
             onBoardOp(btn.dataset.op, grp && grp.dataset.key);
         });
-        $('lcBoard').addEventListener('focusin', function (e) {
-            if (e.target.classList.contains('lc-pending-input')) state.editing = true;
-        });
-        $('lcBoard').addEventListener('change', function (e) {
-            if (e.target.classList.contains('lc-pending-input')) savePending(e.target);
-        });
-        $('lcBoard').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && e.target.classList.contains('lc-pending-input'))
-                e.target.blur();
-        });
-        $('lcBoard').addEventListener('focusout', function (e) {
-            if (e.target.classList.contains('lc-pending-input'))
-                setTimeout(() => (state.editing = false), 50);
-        });
+        // (2026-06-30 #2: BỎ listeners input NCC — không còn ô gõ NCC trên board.)
         // Picker — chip địa danh (lọc) + nút Thêm SP.
         $('lcPicker').addEventListener('click', function (e) {
             var chip = e.target.closest('.lc-rchip');

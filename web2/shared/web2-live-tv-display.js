@@ -21,43 +21,54 @@
     var HOT_THRESHOLD = 3; // KH mới ≥ 3 = "hot" → viền nổi bật
 
     // Tính trạng thái 1 card (group) từ các biến thể.
+    // #2 2026-06-30: gộp theo TỒN thật (stock). CHỜ HÀNG = max(0, GIỎ − TỒN);
+    // CÒN = max(0, TỒN − GIỎ). Bỏ NCC gõ tay.
     function cardState(g) {
-        var ncc = 0,
+        var stock = 0,
             sold = 0,
+            choHang = 0,
             con = 0,
             newCust = 0,
             allCust = 0;
         var vs = (g && g.variants) || [];
         for (var i = 0; i < vs.length; i++) {
             var v = vs[i];
-            var n = Number(v.pendingQty) || 0;
+            var st = Number(v.stock) || 0;
             var s = Number(v.sold) || 0;
-            ncc += n;
+            stock += st;
             sold += s;
-            con += Math.max(0, n - s);
+            choHang += Math.max(0, s - st);
+            con += Math.max(0, st - s);
             newCust += Number(v.newCust) || 0;
             allCust += Number(v.allCust) || 0;
         }
-        // Fallback khi group có sẵn tổng (totalNewCust từ Web2VariantGroup).
+        // Fallback khi group có sẵn tổng (từ Web2VariantGroup).
         if (!vs.length && g) {
-            ncc = Number(g.totalPending) || 0;
+            stock = Number(g.totalStock) || 0;
             sold = Number(g.totalSold) || 0;
-            con = Math.max(0, ncc - sold);
+            choHang = Math.max(0, sold - stock);
+            con = Math.max(0, stock - sold);
             newCust = Number(g.totalNewCust) || 0;
             allCust = Number(g.totalAllCust) || 0;
         }
-        var soldOut = ncc > 0 && con <= 0;
+        var soldOut = stock > 0 && con <= 0; // hết tồn (giỏ ≥ tồn)
         return {
-            ncc: ncc,
+            stock: stock,
             sold: sold,
+            choHang: choHang,
             con: con,
             newCust: newCust,
             allCust: allCust,
             soldOut: soldOut,
-            // "Sắp hết" tỉ lệ: đã bán bớt (GIỎ>0) & CÒN ≤ 30% NCC (tối thiểu 1).
-            // Vd NCC 6: ngưỡng = round(1.8)=2 → CÒN 4 KHÔNG sắp hết, CÒN ≤2 mới sắp hết.
-            low: !soldOut && con > 0 && sold > 0 && con <= Math.max(1, Math.round(ncc * LOW_RATIO)),
+            // "Sắp hết": còn bán được ít so với tồn (GIỎ>0 & CÒN ≤ 30% TỒN, tối thiểu 1).
+            low:
+                !soldOut &&
+                con > 0 &&
+                sold > 0 &&
+                con <= Math.max(1, Math.round(stock * LOW_RATIO)),
             hot: newCust >= HOT_THRESHOLD,
+            // compat model cũ:
+            ncc: stock,
         };
     }
 
@@ -99,31 +110,31 @@
             .toUpperCase();
     }
 
-    // Mô hình GIỎ / MỚI / CÒN cho 1 BIẾN THỂ (NGUỒN DUY NHẤT, dùng CHUNG board + TV
-    // + preview để không lệch). Định nghĩa user 2026-06-27:
-    //   • GIỎ = TỔNG số lượng món trong giỏ KH (mọi khách).
-    //   • MỚI = số lượng món của khách CHƯA có SĐT & địa chỉ (1 PHẦN của GIỎ).
-    //   • CÒN = max(0, NCC − GIỎ).
-    //   • Địa danh CHO VƯỢT (SP đúng địa danh đang chọn = hàng có sẵn "lấy về rồi
-    //     bán"): GIỎ được VƯỢT NCC → vuot = max(0, GIỎ − NCC) (báo hiệu trên cột GIỎ,
-    //     để biết đặt thêm bao nhiêu). Địa danh KHÔNG chọn = pre-order (bán mẫu trước,
-    //     đặt về sau): vuot = 0, không báo VƯỢT (đặt vượt là chuyện bình thường).
+    // Mô hình TỒN / GIỎ / MỚI / CHỜ HÀNG cho 1 BIẾN THỂ (NGUỒN DUY NHẤT, dùng CHUNG
+    // board + TV + preview). Định nghĩa user 2026-06-30 (#2 — bỏ NCC gõ tay):
+    //   • TỒN = tồn kho thật (web2_products.stock).
+    //   • GIỎ = TỔNG SL món trong giỏ KH draft (chưa lên PBH; PBH đã trừ tồn → không
+    //     tính lại). MỚI = SL món của khách CHƯA có SĐT & địa chỉ (1 PHẦN của GIỎ).
+    //   • CHỜ HÀNG = max(0, GIỎ − TỒN) = cần đặt thêm NCC (giỏ vượt tồn thật).
+    //   (Bỏ NCC gõ tay + CÒN-cũ + VƯỢT + địa danh cho-vượt — chờ hàng tính đồng đều
+    //    mọi SP; Kho web2_products là nguồn quản số liệu.)
+    // selectedRegion: giữ tham số cho call-compat, KHÔNG còn dùng.
     function khConModel(v, selectedRegion) {
-        var ncc = Number(v && v.pendingQty) || 0;
-        var gio = Number(v && v.sold) || 0; // GIỎ = tổng SL món
-        var moi = Number(v && v.newCust) || 0; // MỚI = SL món của khách mới
-        var isVuotRegion = !!(
-            selectedRegion && normRegion(v && v.region) === normRegion(selectedRegion)
-        );
-        var con = Math.max(0, ncc - gio);
-        var vuot = isVuotRegion ? Math.max(0, gio - ncc) : 0;
+        var stock = Number(v && v.stock) || 0; // TỒN thật
+        var gio = Number(v && v.sold) || 0; // GIỎ nháp
+        var moi = Number(v && v.newCust) || 0; // MỚI = SL món khách mới
+        var choHang = Math.max(0, gio - stock); // cần đặt thêm
+        var con = Math.max(0, stock - gio); // còn bán được từ tồn
         return {
-            isVuotRegion: isVuotRegion,
-            ncc: ncc,
+            stock: stock,
             gio: gio,
             moi: moi,
+            choHang: choHang,
             con: con,
-            vuot: vuot, // >0 = GIỎ vượt NCC (chỉ địa danh CHO VƯỢT, không phải pre-order)
+            pending: Number(v && v.pendingQty) || 0, // "đã đặt NCC" (Sổ Order) — hiển thị phụ
+            // compat model cũ (sẽ gỡ sau khi mọi consumer chuyển field mới):
+            ncc: stock,
+            vuot: 0,
         };
     }
 

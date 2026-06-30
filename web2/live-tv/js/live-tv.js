@@ -62,18 +62,12 @@
     }
 
     // ── Render ────────────────────────────────────────
-    // Người live xem: NCC (số NCC báo có sẵn) · GIỎ HÀNG (SL trong giỏ KH = v.sold) ·
-    // CÒN (= max(0, NCC − GIỎ HÀNG) — số còn bán được). Hết khi CÒN ≤ 0.
+    // Người live xem (#2 2026-06-30): TỒN (tồn kho thật) · GIỎ (SL trong giỏ KH = v.sold)
+    // · CHỜ (= max(0, GIỎ − TỒN) — cần đặt thêm). soldOut khi giỏ ≥ tồn (hết tồn).
     function variantRowHtml(v) {
         var label = v.variant && v.variant.trim() ? v.variant : '(mặc định)';
-        // CÒN = max(0, NCC − GIỎ) dùng chung công thức với board (khớp số). Địa danh
-        // pre-order → GIỎ vượt NCC được (badge VƯỢT). soldOut khi CÒN = 0 & KHÔNG vượt.
-        var m = window.Web2LiveTvDisplay.khConModel(v, state.control.region);
-        var ncc = m.ncc;
-        var ban = m.gio;
-        var con = m.con;
-        var over = m.vuot > 0;
-        var soldOut = con <= 0 && !over;
+        var m = window.Web2LiveTvDisplay.khConModel(v);
+        var soldOut = m.con <= 0; // hết tồn (GIỎ ≥ TỒN)
         return (
             '<div class="ltv-vrow' +
             (soldOut ? ' is-sold-out' : '') +
@@ -82,19 +76,16 @@
             esc(label) +
             '</span>' +
             '<span class="ltv-num ltv-num-ncc">' +
-            ncc +
-            '<small>NCC</small></span>' +
-            '<span class="ltv-num ltv-num-ban' +
-            (over ? ' is-over' : '') +
-            '">' +
-            ban +
-            (over ? '<small>VƯỢT +' + m.vuot + '</small>' : '<small>GIỎ</small>') +
-            '</span>' +
+            m.stock +
+            '<small>TỒN</small></span>' +
+            '<span class="ltv-num ltv-num-ban">' +
+            m.gio +
+            '<small>GIỎ</small></span>' +
             '<span class="ltv-num ltv-num-con' +
-            (con <= 0 ? ' is-zero' : '') +
+            (m.choHang > 0 ? ' is-cho' : '') +
             '">' +
-            con +
-            '<small>CÒN</small></span>' +
+            m.choHang +
+            '<small>CHỜ</small></span>' +
             '</div>'
         );
     }

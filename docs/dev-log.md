@@ -2,6 +2,18 @@
 
 ## 2026-06-30
 
+### [live-control][live-tv][shared] Bỏ NCC gõ tay → "Chờ hàng" = GIỎ−TỒN (tự suy từ Kho) — Redesign #2
+
+**Files:** `web2/shared/web2-live-tv-display.js` (`khConModel` + `cardState`: baseline = `stock` thật thay vì pending; `choHang = max(0, GIỎ−TỒN)`, `con = max(0, TỒN−GIỎ)`; giữ field cũ map compat), `web2/live-control/js/live-control.js` (vrowHtml → TỒN·GIỎ·MỚI·CHỜ; bỏ input NCC + `savePending` + 4 listener; miniCardHtml dùng stock/choHang), `web2/live-tv/js/live-tv.js` (vrow → TỒN·GIỎ·CHỜ), `web2/live-control/index.html` (bỏ selector "Cho VƯỢT theo" `#lcRegion`; sửa hint; bump tv15), `web2/live-control/css/live-control.css` (`.lc-vton`/`.lc-vcho`), `web2/live-tv/index.html` (bump tv15).
+
+User chốt mô hình (clarify): **giỏ→PBH ĐÃ trừ tồn**, nên chờ hàng chỉ tính giỏ NHÁP. Bỏ NCC gõ tay (Sổ Order = writer duy nhất pending_qty → hết lỗi đè). Layout = **TỒN·GIỎ·MỚI·CHỜ HÀNG**; bỏ selector cho-vượt (chờ hàng đồng đều mọi SP).
+
+- **Công thức**: CHỜ HÀNG = max(0, GIỎ_nháp − TỒN); CÒN = max(0, TỒN − GIỎ). Hủy đơn → GIỎ giảm → chờ hàng tự đúng (derived, không rollback tay).
+- **Selector "Cho VƯỢT theo" bỏ**: HTML gỡ, JS guard `if(rsel)` sẵn → no-op. Layout control (rows/cols/page) + SSE sync GIỮ. Picker region chips (lọc SP) GIỮ.
+- **D2**: "đã đặt NCC" (pending_qty) vẫn xem read-only ở chi tiết Kho qua `Web2ProductStatus.pill` (pill CHỜ HÀNG ×N) — không cần thêm.
+- **Verify**: self-check node (TỒN1·GIỎ5→CHỜ4·CÒN0; cardState gộp CHỜ=7,GIỎ=8) PASS; browser live-control: selector gone, 0 input NCC, model shape đúng, hint TỒN, 0 lỗi console.
+- **Follow-up** (chưa làm): surface số "chờ hàng cần đặt" vào Kho/Sổ Order để bấm đặt NCC (hiện board + TV đã hiện CHỜ).
+
 ### [web2-campaign-products] GIỎ scope theo phiên live (join post→chiến dịch) — bước 3/#1 (HOÀN TẤT #1)
 
 **Files:** `render.com/routes/web2-campaign-products.js` (GET / GIỎ/MỚI query: thêm scope `live_campaign_id IN (post_id của chiến dịch)` + gate lũy tiến).
