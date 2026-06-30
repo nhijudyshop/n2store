@@ -49,6 +49,9 @@
             // PER-UNIT (2026-06-28): mỗi tem 1 mã đơn vị + QR URL riêng (đã mint sẵn).
             // Thiếu units → hành vi cũ (lặp mã SP). units[i] khớp tem thứ i.
             units: Array.isArray(p.units) ? p.units : undefined,
+            // STT KỆ (2026-06-30): fallback cấp SP (nếu caller in không qua units mà
+            // muốn đóng dấu 1 STT chung). Ưu tiên units[i].orderStt khi có.
+            stt: p.stt != null ? p.stt : null,
             selected: true,
         }));
 
@@ -472,12 +475,16 @@
                 const u = units && units[i] ? units[i] : null;
                 const unitCode = u ? u.unitCode || u.unit_code : null;
                 const qrUrl = u ? u.qrUrl || u.qr_url : null;
+                // STT KỆ per-tem = order_stt của unit (sau reconcile) → fallback stt cấp SP.
+                const unitStt =
+                    u && (u.orderStt ?? u.order_stt) != null ? (u.orderStt ?? u.order_stt) : null;
                 labels.push({
                     name: stripBrackets(item.name),
                     code: unitCode || item.code, // chữ DƯỚI QR = mã đơn vị (vd KHOAODEN-017)
                     qrText: qrUrl || item.code, // NỘI DUNG QR = URL trace (per-unit) / mã SP (cũ)
                     price: item.price,
                     variant: item.variant || '',
+                    stt: unitStt != null ? unitStt : item.stt != null ? item.stt : null,
                 });
             }
         }

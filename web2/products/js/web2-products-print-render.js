@@ -199,6 +199,15 @@
                     if (showPrice) {
                         labelInner += `<div class="ql-qr-price" style="flex:0 0 auto;font-size:${fsPrice}px;font-weight:800;line-height:1;text-align:left;white-space:nowrap;"><span class="barcode-price">${displayPrice}${currencyStr}</span></div>`;
                     }
+                    // STT KỆ (2026-06-30): khi tem GẮN ĐƠN (per-unit order_stt sau reconcile)
+                    // → in SỐ KỆ TO ngay KHOẢNG TRỐNG bên phải QR, DƯỚI giá (chỗ trước để
+                    // ghi tay). flex:1 ăn hết chiều cao còn lại + fitText co theo bề ngang
+                    // cột → số to nhất mà vẫn vừa. Tem chưa gắn đơn (so-order/Kho) → stt
+                    // null → KHÔNG render, giữ trống như cũ.
+                    if (label.stt != null && String(label.stt) !== '') {
+                        const fsStt = Math.round(fs * 2.6);
+                        labelInner += `<div class="ql-qr-stt" style="font-size:${fsStt}px;"><${bTag}>${escapeHtml(String(label.stt))}</${bTag}></div>`;
+                    }
                     labelInner += `</div>`; // /ql-text (cột phải)
                     labelInner += `</div>`; // /row1
                     // ── MÃ SP: HÀNG RIÊNG full-width, canh TRÁI, KHÔNG cắt — mã DÀI
@@ -418,6 +427,21 @@ html, body {
     padding-top: 0.5mm;
     overflow: hidden;
 }
+/* STT KỆ (2026-06-30): số kệ TO ở khoảng trống phải QR / dưới giá. flex:1 ăn hết
+   chiều cao còn lại, canh giữa; fitText (.ql-qr-stt) co font theo bề ngang cột. */
+.ql-qr-stt {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+    line-height: 0.9;
+    font-weight: 900;
+    color: #000;
+    text-align: center;
+    overflow: hidden;
+}
 
 /* === Screen preview only (không in) === */
 @media screen {
@@ -481,7 +505,7 @@ ${SCRIPT_OPEN}>
     // theo % cạnh QR) → mã/biến thể DÀI hiện đủ, không tràn che thêm module QR.
     // nowrap để scrollWidth phản ánh tràn. Giảm dần 0.5px, min 3.5px.
     function fitText(){
-        document.querySelectorAll('.ql-qr-variant, .ql-qr-var, .ql-qr-code, .ql-qr-price, .ql-qr-priceband').forEach(function(el){
+        document.querySelectorAll('.ql-qr-variant, .ql-qr-var, .ql-qr-code, .ql-qr-price, .ql-qr-priceband, .ql-qr-stt').forEach(function(el){
             var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||6;
             while(el.scrollWidth > el.clientWidth + 0.5 && fs > 3.5 && guard < 40){
                 fs -= 0.5; el.style.fontSize = fs + 'px'; guard++;

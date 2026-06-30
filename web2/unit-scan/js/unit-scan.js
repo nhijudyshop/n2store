@@ -281,7 +281,13 @@
                 price: (p && p.price) || 0,
                 variant: '',
                 quantity: 1,
-                units: [{ unitCode: u.unitCode, qrUrl }],
+                units: [
+                    {
+                        unitCode: u.unitCode,
+                        qrUrl,
+                        orderStt: u.orderStt != null ? u.orderStt : null,
+                    },
+                ], // STT kệ → in to trên tem
             },
         ]);
         PU()

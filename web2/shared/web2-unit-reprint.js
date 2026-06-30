@@ -281,6 +281,7 @@
                 units: chosen.map((u) => ({
                     unitCode: u.unitCode,
                     qrUrl: origin + '/web2/unit-scan/?u=' + u.id,
+                    orderStt: u.orderStt != null ? u.orderStt : null, // STT kệ → in to trên tem
                 })),
             },
         ]);

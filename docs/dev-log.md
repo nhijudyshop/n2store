@@ -2,6 +2,18 @@
 
 ## 2026-06-30
 
+### [web2 products-print] In STT KỆ TO lên tem per-unit (khoảng trống phải QR, dưới giá)
+
+**Files:** `web2/products/js/web2-products-print-render.js` · `web2/products/js/web2-products-print-modal.js` · `web2/shared/web2-unit-reprint.js` · `web2/unit-scan/js/unit-scan.js`.
+
+Yêu cầu user: tem QR per-unit của món ĐÃ gắn đơn (sau reconcile) in thêm **STT kệ TO** ở khoảng trống bên phải QR, dưới giá (chỗ trước để ghi tay). Nguồn STT = `web2_product_units.order_stt` = STT kệ (`campaign_stt ?? display_stt`, 1 nguồn `lib/web2-shelf-stt.js`).
+
+- **render** `buildLabelHTML` (nhánh QR): thêm `.ql-qr-stt` vào cột phải SAU giá khi `label.stt != null` — `flex:1` ăn hết chiều cao còn lại, canh giữa, font lớn (`fs*2.6`) + đăng ký vào `fitText` để co theo bề ngang cột. Tem KHÔNG gắn đơn (so-order nhận hàng / Kho SP) → `stt` null → KHÔNG render, giữ trống như cũ (in tay).
+- **print-modal**: thread `stt` per-tem = `units[i].orderStt ?? order_stt` → fallback `item.stt` cấp SP.
+- **unit-reprint `doPrint` + unit-scan `reprintUnit`**: bổ sung `orderStt` vào mảng `units` truyền cho `Web2ProductsPrint.open` (trước đây bị bỏ).
+
+⚠ **STT chỉ "luôn đúng" ở cấp UNIT (1 món) đã ASSIGNED** — 1 unit ↔ 1 đơn ↔ 1 order_stt (1:1, ổn định). Mã SP chung (sp-xxx) có nhiều món chia nhiều đơn → nhiều STT → KHÔNG đóng dấu 1 STT cấp mã được. Verified: `node --check` 4 file + harness render (vm) — stt=42 ra phần tử `.ql-qr-stt`>42, stt=null không render. Status: ✅
+
 ### [web2 reconcile] Audit toàn diện Đối soát đóng gói → fix 1 CRITICAL + 3 HIGH + nhiều MEDIUM/LOW
 
 **Files:** `render.com/routes/reconcile.js` · `web2/reconcile/index.html` · `web2/reconcile/css/reconcile.css` · `web2/reconcile/js/{reconcile-state,reconcile-api,reconcile-render,reconcile-actions,reconcile-app}.js`.
