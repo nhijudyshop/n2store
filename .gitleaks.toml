@@ -23,4 +23,33 @@ paths = [
     '''downloads/.*''',
     '''\.local/.*''',
     '''web2/system/data/.*''',
+    '''\.tmp/.*''',
+    '''render.com/backups/.*''',
+]
+
+[[allowlists]]
+description = "FP đã verify 2026-06-30: localStorage/cache KEY names, CORS header names, doc placeholder"
+paths = [
+    '''live-chat/js/layout/column-manager\.js''',
+    '''orders-report/js/chat/new-messages-notifier\.js''',
+    '''shared/js/return-order-modal\.js''',
+    '''shared/js/wallet-failure-store\.js''',
+    '''web2/supplier-wallet/js/supplier-wallet-storage\.js''',
+    '''web2/variants/js/web2-variants-api\.js''',
+    '''shared/universal/cors-headers\.js''',
+    '''web2/video-maker/js/video-tts\.js''',
+    '''inventory-tracking/js/order-booking-renderer\.js''',
+    '''.*/DEPLOY_GUIDE\.md$''',
+    '''\.claude/skills/.*''',
+]
+
+[[allowlists]]
+description = "Firebase WEB config (apiKey AIza... PUBLIC theo Google) — KHÔNG phải leak"
+paths = [
+    '''shared/browser/firebase-config\.js''',
+    '''shared/js/firebase-config\.js''',
+    '''user-management/js/.*''',
+    '''soquy/huong_dan_so_quy\.(html|md)$''',
+    '''soluong-live/ARCHITECTURE-SOLUONGLIVE\.md$''',
+    '''render.com/migrations/migrate-firebase-to-postgres\.js''',
 ]
