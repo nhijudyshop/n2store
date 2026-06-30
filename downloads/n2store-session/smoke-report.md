@@ -1,6 +1,6 @@
 # Smoke Test Report — 105 pages
 
-Generated: 2026-06-30T10:08:14.021Z
+Generated: 2026-06-30T11:27:06.668Z
 
 - ✅ Clean: **93**
 - ❌ Issues: **12**
@@ -15,7 +15,7 @@ Generated: 2026-06-30T10:08:14.021Z
 | `/don-inbox/index.html`                       | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/issue-tracking/index.html`                  | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/orders-report/main.html`                    | 200  | Nhi Judy House — Hệ thống quản | 1      | 0         |         | ✓     |       |
-| `/orders-report/tab1-orders.html`             | 200  | Quản lý đơn hàng               | 2      | 0         |         | ✓     |       |
+| `/orders-report/tab1-orders.html`             | 200  | Quản lý đơn hàng               | 1      | 0         |         | ✓     |       |
 | `/product-warehouse/index.html`               | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/purchase-orders/goods-receiving/index.html` | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/purchase-orders/index.html`                 | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
@@ -29,12 +29,13 @@ Generated: 2026-06-30T10:08:14.021Z
 - err: [ACCOUNTANT] Load queue error: TypeError: Failed to fetch
   at loadPendingQueue (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:709:36)
   at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:208:9)
-- err: [ACCOUNTANT] Stats error: TypeError: Failed to fetch
-  at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:623:36)
-  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:207:9)
-- err: Error loading statistics: TypeError: Failed to fetch
-  at loadStatistics (http://localhost:8080/balance-history/js/balance-core.js?v=20260521b:440:32)
-  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:36:13)
+- err: [CUSTOMER-INFO] Failed to sync from database: TypeError: Failed to fetch
+  at Object.syncFromDatabase (http://localhost:8080/balance-history/js/customer-info.js?v=20260521b:69:36)
+  at Object.init (http://localhost:8080/balance-history/js/customer-info.js?v=20260521b:27:14)
+  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:29:36)
+- err: [VERIFICATION-STATS] Error: TypeError: Failed to fetch
+  at loadVerificationStats (http://localhost:8080/balance-history/js/balance-filters.js?v=20260521b:222:32)
+  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:37:13)
 
 ### `/customer-hub/index.html`
 
@@ -56,14 +57,14 @@ Generated: 2026-06-30T10:08:14.021Z
 
 ### `/don-inbox/index.html`
 
-- err: [INVOICE-STATUS] API load error: TypeError: Failed to fetch
-  at Object.\_loadFromAPI (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a:271:40)
-  at Object.init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a:222:28)
-  at init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=202606
 - err: [INVOICE-DELETE] API load error: TypeError: Failed to fetch
   at Object.\_loadFromAPI (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260611b:60:40)
   at Object.init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260611b:47:28)
   at HTMLDocument.initWorkflow (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260
+- err: [INVOICE-STATUS] API load error: TypeError: Failed to fetch
+  at Object.\_loadFromAPI (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a:271:40)
+  at Object.init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a:222:28)
+  at init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=202606
 
 ### `/issue-tracking/index.html`
 
@@ -78,12 +79,11 @@ Generated: 2026-06-30T10:08:14.021Z
 - err: [FULFILLMENT] Error loading delete entries: TypeError: Failed to fetch
   at \_loadInvoiceDeletes (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:50:36)
   at Object.init (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:104:23)
-  at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782813937125:225:44)
+  at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782818668344:225:44)
 
 ### `/orders-report/tab1-orders.html`
 
 - err: [PANCAKE-TOKEN] ❌ All accounts failed to generate PAT for page: 193642490509664
-- err: [2026-06-30T10:05:49.293Z] @firebase/firestore: Firestore (10.14.1): Failed to obtain primary lease for action 'Apply remote event'.
 
 ### `/product-warehouse/index.html`
 
