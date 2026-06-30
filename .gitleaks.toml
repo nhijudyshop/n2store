@@ -1,0 +1,26 @@
+# Gitleaks config — secrets scan (CI: .github/workflows/security-audit.yml).
+# Extends built-in rules; allowlist các nguồn FALSE-POSITIVE đã verify (audit 2026-06-30):
+# data-export dumps, docs, vendored deps, build output. Mục tiêu: bắt secret MỚI trong
+# source/config, KHÔNG drown trong ~6.6k FP của data/docs.
+# Lưu ý: Firebase web API key (apiKey: "AIza...") là PUBLIC theo thiết kế Google (xác thực
+# qua Firebase rules) → match gcp-api-key trong file client KHÔNG hẳn là leak. Review tay
+# các key Gemini/JWT/server-side (đó mới là secret thật cần rotate).
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "FP: data-export dumps, docs, vendor, build output, local secret file"
+paths = [
+    '''.*-?export\.json$''',
+    '''docs/.*''',
+    '''.*\.min\.js$''',
+    '''node_modules/.*''',
+    '''.*/node_modules/.*''',
+    '''dist/.*''',
+    '''serect_dont_push.*\.txt$''',
+    '''.*CODEMAP.*''',
+    '''.*\.png$''',
+    '''downloads/.*''',
+    '''\.local/.*''',
+    '''web2/system/data/.*''',
+]
