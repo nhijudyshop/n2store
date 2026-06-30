@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [system] Tab "Trùng lặp / 1-nguồn" (dedup audit) — audit toàn bộ Web 2.0
+
+**Files:** `web2/system/js/system-dedup.js` (MỚI — renderer JSON-driven), `web2/system/data/web2-dedup-audit.json` (MỚI — 15 nhóm trùng), `web2/system/index.html` (tab + panel + script), `web2/system/js/system-app.js` (VALID_TABS + lazy-init + reload `dedup`), `web2/system/css/system.css` (`.dd-*` styles).
+
+Audit toàn bộ Web 2.0 tìm trùng chức năng (3 agent: business-logic, shared-module, util file-list) → surface vào `web2/system?tab=dedup` (lọc loại business/shared/util + trạng thái, search). **15 nhóm**: 5 đã gộp (business #1-3 + caches→SmartCache + chat 3-tầng), 5 một phần (util auth **đã 95% delegate**, escape/money/date), 5 chưa làm (phone matching-sensitive, SSE-debounce, cross-layer customer-lookup/order-math/pagination). **Shared-module layer GREEN** (caches/chat/popup/QR/image đã sạch). **Util mass-sweep (~110 RAW file) KHÔNG mass-edit mù** — đổi output (escape `'`, money đ→₫, date TZ), smoke chỉ bắt crash không bắt diff → catalogue trong tab, làm per-batch verified (date/TZ ưu tiên: fix GMT+7). Smoke 105 trang: 4 trang chạm CLEAN; 11 "lỗi" = `Failed to fetch` Web 1.0 (backend không reach local, noise sẵn). Render verified: 15 cards, stats 15/5/5/5. Status: ✅
+
 ### [web2-products] computeProductStatus 1 nguồn (+ fix confirm-partial) + cross-link công thức "chờ hàng" — audit #2,#3/4
 
 **Files:** `render.com/routes/web2-products.js` (hàm `computeProductStatus(stock,pending)` 1 nguồn; `upsert-pending` + `confirm-purchase-partial` dùng chung; FIX confirm-partial + cross-ref restock-needed), `render.com/services/web2-order-tags-service.js` + `web2/shared/web2-live-tv-display.js` (cross-ref comment công thức giỏ−tồn).

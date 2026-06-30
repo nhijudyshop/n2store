@@ -1,0 +1,281 @@
+{
+    "generatedAt": "2026-06-30",
+    "note": "Audit các chỗ TRÙNG CHỨC NĂNG trong Web 2.0 + hướng gộp về 1 nguồn. Curated từ audit nhiều vòng (3 agent: business-logic, shared-module, util file-list) + công việc đã làm. status: resolved=đã gộp xong, partial=phần lớn đã 1-nguồn còn vài bản RAW, pending=chưa làm/khuyến nghị. category: business | shared-module | util.",
+    "groups": [
+        {
+            "id": "chohang-amma",
+            "category": "business",
+            "title": "Chờ hàng / Âm mã (giỏ vượt tồn = cần đặt NCC)",
+            "severity": "high",
+            "status": "resolved",
+            "filesAffected": 4,
+            "concept": "2 tag cùng nghĩa 'chờ hàng' nhưng tên lệch: cũ cho_hang=status CHO_MUA, am_ma=giỏ giữ vượt tồn (over-sell). User: 'âm mã thực ra là chờ hàng = SP cần đặt NCC'.",
+            "canonical": "tag cho_hang = (giỏ draft > tồn)",
+            "resolution": "Gộp am_ma→cho_hang về 1 tag 'Chờ hàng' = giỏ(draft) giữ > tồn. Gỡ trigger/predicate/flag/detail/seed am_ma + migration DELETE config. Detail popup 'ai đang giữ' chuyển sang cho_hang.",
+            "commit": "a45bb6d5",
+            "sites": [
+                "render.com/services/web2-order-tags-service.js",
+                "web2/shared/web2-order-tag-detail.js",
+                "native-orders/js/native-orders-control-drawer.js",
+                "web2/order-tags/index.html"
+            ]
+        },
+        {
+            "id": "compute-product-status",
+            "category": "business",
+            "title": "Suy trạng thái SP (CHO_MUA/MUA_1_PHAN/HET_HANG/DANG_BAN)",
+            "severity": "high",
+            "status": "partial",
+            "filesAffected": 5,
+            "concept": "Logic suy status từ (tồn, chờ) tự CASE/if-else rải 5 nơi, không đồng nhất (confirm-partial cũ trả DANG_BAN khi tồn0&chờ0 → sai).",
+            "canonical": "computeProductStatus(stock, pending) — web2-products.js",
+            "resolution": "2 site JS (upsert-pending + confirm-purchase-partial) gộp về computeProductStatus + FIX bug confirm-partial→HET_HANG. 3 site SQL 'un-retire only' (adjust-stock/PBH/returns) là pattern KHÁC, giữ riêng (tránh reclassify SP tạm dừng).",
+            "commit": "662ee116",
+            "sites": [
+                "render.com/routes/web2-products.js (upsert-pending, confirm-purchase-partial, adjust-stock)",
+                "render.com/routes/fast-sale-orders.js",
+                "render.com/routes/web2-returns.js"
+            ]
+        },
+        {
+            "id": "giovuotton-formula",
+            "category": "business",
+            "title": "Công thức 'giỏ vượt tồn' (CHỜ HÀNG = giỏ − tồn)",
+            "severity": "medium",
+            "status": "resolved",
+            "filesAffected": 3,
+            "concept": "3 nơi tính 'giỏ vượt tồn': tag held, restock-needed demand, board khConModel sold — đều = Σ SL draft − stock.",
+            "canonical": "Σ(draft qty mỗi code) − web2_products.stock",
+            "resolution": "Verify 3 nơi đã dùng CÔNG THỨC GIỐNG HỆT (board scope theo campaign là chủ ý). Thêm cross-ref comment 3 chỗ chống drift (KISS — không extract 1-line SQL).",
+            "commit": "662ee116",
+            "sites": [
+                "render.com/services/web2-order-tags-service.js (heldByCode)",
+                "render.com/routes/web2-products.js (/restock-needed)",
+                "web2/shared/web2-live-tv-display.js (khConModel)"
+            ]
+        },
+        {
+            "id": "caches-smartcache",
+            "category": "shared-module",
+            "title": "Cache engines (SWR + IDB + SSE)",
+            "severity": "low",
+            "status": "resolved",
+            "filesAffected": 6,
+            "concept": "Nhiều cache (Products/Variants/ProductTypes/Suppliers/CustomerStore) có thể trùng init/emit/normalize/SWR.",
+            "canonical": "Web2SmartCache (web2/shared/web2-smart-cache.js)",
+            "resolution": "Đã refactor 2026-06-23: mọi cache DELEGATE Web2SmartCache cho boilerplate, chỉ giữ domain logic (find/code/search). KHÔNG còn trùng.",
+            "commit": "",
+            "sites": [
+                "web2/shared/web2-smart-cache.js",
+                "web2/shared/web2-products-cache.js",
+                "web2/shared/web2-variants-cache.js",
+                "web2/shared/web2-suppliers-cache.js",
+                "web2/shared/web2-customer-store.js"
+            ]
+        },
+        {
+            "id": "chat-clients",
+            "category": "shared-module",
+            "title": "Chat clients (Pancake/Zalo/AI)",
+            "severity": "low",
+            "status": "resolved",
+            "filesAffected": 5,
+            "concept": "Web2Chat / Web2ChatPanel / Web2CustomerChat / WZChat / Web2GeminiChat — có vẻ chồng nhau.",
+            "canonical": "3 tầng: Web2Chat (API) · Web2ChatPanel (UI) · Web2CustomerChat (launcher)",
+            "resolution": "Audit: KHÔNG trùng — 3 tầng rõ (API/UI/launcher), WZChat=Zalo riêng, GeminiChat=AI riêng. Giữ nguyên.",
+            "commit": "",
+            "sites": [
+                "web2/shared/web2-chat-client.js",
+                "web2/shared/chat-panel/",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/zalo-chat/"
+            ]
+        },
+        {
+            "id": "popup-notify-qr-image",
+            "category": "shared-module",
+            "title": "Popup / Notify / QR / Image",
+            "severity": "low",
+            "status": "resolved",
+            "filesAffected": 0,
+            "concept": "Popup vs Web2Notify vs notificationManager; Web2QR vs Web2QrModal; 6 module ảnh.",
+            "canonical": "Popup (alert/confirm) · Web2Notify=bridge 49 dòng · Web2QR=engine, QrModal=VietQR wrapper",
+            "resolution": "Audit: KHÔNG trùng — Web2Notify chỉ là bridge mỏng, QR/ảnh đều orthogonal (mỗi module 1 nhiệm vụ). Giữ nguyên.",
+            "commit": "",
+            "sites": [
+                "web2/shared/popup.js",
+                "web2/shared/web2-notify.js",
+                "web2/shared/web2-qr.js",
+                "web2/shared/web2-qr-modal.js"
+            ]
+        },
+        {
+            "id": "util-auth",
+            "category": "util",
+            "title": "Auth header helper (_w2Auth / authHeaders)",
+            "severity": "low",
+            "status": "partial",
+            "filesAffected": 46,
+            "concept": "46 bản local helper auth header rải khắp Web 2.0.",
+            "canonical": "Web2Auth.authHeaders(extra) — web2/shared/web2-auth.js",
+            "resolution": "ĐÃ ~95% gộp (44/46 file DELEGATE canonical với fallback). Còn ~2-4 bản RAW inline (web2-api.js, web2-html-skill.js, web2-ai-describe.js, web2-tryon.js) — convert delegate khi đụng tới.",
+            "commit": "",
+            "sites": [
+                "web2/shared/web2-api.js",
+                "web2/shared/web2-html-skill.js",
+                "web2/shared/web2-ai-describe.js",
+                "web2/shared/web2-tryon.js"
+            ]
+        },
+        {
+            "id": "util-escape",
+            "category": "util",
+            "title": "HTML escape (escapeHtml / esc)",
+            "severity": "medium",
+            "status": "partial",
+            "filesAffected": 81,
+            "concept": "81 bản local escape — 33 delegate, 48 RAW inline. Vài bản 4-char thiếu (') → hở XSS nhẹ (clearance.js, unit-scan.js, goods-weight.js).",
+            "canonical": "Web2Escape.escapeHtml(v) — web2/shared/web2-escape.js (5-char)",
+            "resolution": "Convert 48 bản RAW → delegate-with-fallback (giữ tên local). Ưu tiên fix 4-char (thêm ') ở clearance/unit-scan/goods-weight. Làm theo batch + smoke (đổi output: thêm escape ' — cải thiện an toàn).",
+            "commit": "",
+            "sites": [
+                "web2/clearance/js/clearance.js",
+                "web2/unit-scan/js/unit-scan.js",
+                "web2/goods-weight/js/goods-weight.js",
+                "web2/fb-posts/js/*",
+                "web2/system/js/* (esc nội bộ)"
+            ]
+        },
+        {
+            "id": "util-money",
+            "category": "util",
+            "title": "Format tiền VND (fmtVnd / fmtMoney)",
+            "severity": "medium",
+            "status": "partial",
+            "filesAffected": 28,
+            "concept": "28 bản format tiền — 12 delegate, 16 RAW. Không nhất quán hậu tố (₫ vs đ) + làm tròn.",
+            "canonical": "Web2Format.vnd(n) — web2/shared/web2-format.js",
+            "resolution": "Convert 16 bản RAW → Web2Format.vnd (delegate-with-fallback). Thống nhất ₫. Làm theo batch + smoke (đổi output đ→₫ ở vài trang — cosmetic).",
+            "commit": "",
+            "sites": [
+                "web2/clearance/js/clearance.js",
+                "web2/products/js/web2-product-detail.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/unit-scan/js/unit-scan.js",
+                "web2/kpi/js/kpi-dashboard.js",
+                "web2/shared/web2-kpi.js"
+            ]
+        },
+        {
+            "id": "util-datetime",
+            "category": "util",
+            "title": "Format ngày/giờ GMT+7 (fmtTime / fmtDate)",
+            "severity": "high",
+            "status": "partial",
+            "filesAffected": 44,
+            "concept": "44 bản format ngày/giờ — chỉ 10 delegate, 34 RAW. NHIỀU bản THIẾU timeZone 'Asia/Ho_Chi_Minh' → hiển thị theo TZ máy, KHÔNG phải GMT+7 (vi phạm rule timezone). Đây là RỦI RO THẬT, không chỉ hygiene.",
+            "canonical": "Web2Format.date/.time/.dateTime — web2/shared/web2-format.js (đã set Asia/Ho_Chi_Minh)",
+            "resolution": "Convert 34 bản RAW → Web2Format.* (delegate). FIX TZ cho các bản thiếu. Ưu tiên cao (đúng giờ GMT+7). Làm theo batch + smoke (đổi output: đúng TZ).",
+            "commit": "",
+            "sites": [
+                "web2/products/js/web2-product-detail.js",
+                "web2/zalo/js/web2-zalo-utils.js",
+                "web2/unit-scan/js/unit-scan.js",
+                "web2/live-tv/js/live-tv.js",
+                "web2/shared/web2-audit-log.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js"
+            ]
+        },
+        {
+            "id": "util-phone",
+            "category": "util",
+            "title": "Chuẩn hoá SĐT (normPhone)",
+            "severity": "medium",
+            "status": "pending",
+            "filesAffected": 13,
+            "concept": "13 bản normPhone — 0% delegate, ALL RAW inline + DIVERGE (vài bản thiếu guard fb_id ≥15 số). Vì là chuẩn hoá MATCHING (không chỉ display) → đổi cần thận trọng (ảnh hưởng khớp KH).",
+            "canonical": "Web2CustomerStore.normPhone(p) — web2/shared/web2-customer-store.js (84→0, pad 0, /^0\\d{9}$/)",
+            "resolution": "Convert 13 bản → delegate Web2CustomerStore.normPhone (thống nhất + thêm guard fb_id). ⚠ Test kỹ matching trước khi đổi (data-sensitive, không chỉ cosmetic).",
+            "commit": "",
+            "sites": [
+                "web2/customer-wallet/js/web2-customer-wallet-state.js",
+                "web2/balance-history/js/web2-partner-enricher.js",
+                "web2/shared/web2-wallet-balance.js",
+                "web2/shared/web2-ck-review.js",
+                "web2/shared/web2-zalo.js",
+                "web2/shared/web2-wallet-api.js",
+                "live-chat/js/live/live-kho-enricher.js"
+            ]
+        },
+        {
+            "id": "biz-sse-debounce",
+            "category": "business",
+            "title": "SSE subscribe + debounce reload (boilerplate)",
+            "severity": "medium",
+            "status": "pending",
+            "filesAffected": 8,
+            "concept": "8+ trang Web 2.0 copy-paste pattern Web2SSE.subscribe + clearTimeout + setTimeout reload (debounce 500-800ms).",
+            "canonical": "Đề xuất web2/shared/web2-sse-debounce.js → sseDebounceReload(topic, cb, delayMs=600)",
+            "resolution": "Extract 1 helper shared (in-Web2, an toàn) → wire 8 trang. Chưa làm.",
+            "commit": "",
+            "sites": [
+                "web2/customers/js/customers-app.js",
+                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/variants/js/web2-variants-app.js",
+                "web2/clearance/js/clearance.js",
+                "web2/reconcile/js/reconcile-api.js",
+                "web2/zalo/js/web2-zalo-app.js"
+            ]
+        },
+        {
+            "id": "biz-customer-lookup",
+            "category": "business",
+            "title": "Customer lookup / enrich (xuyên layer)",
+            "severity": "medium",
+            "status": "pending",
+            "filesAffected": 4,
+            "concept": "3 path resolve cùng 1 KH: TPOS (Web 1.0), web2_customers (Web 2.0), Pancake. Shape kết quả khác nhau (Name vs name).",
+            "canonical": "GIỮ RIÊNG theo layer (rule Web1 ⊥ Web2). Chỉ chuẩn hoá shape nếu cần.",
+            "resolution": "KHÔNG gộp — xuyên layer Web1/Web2 + Web 1.0 là prod. Khuyến nghị: nếu Web 2.0 cần KH Web1 → gọi API, KHÔNG đọc trực tiếp. Để theo dõi, không thực thi.",
+            "commit": "",
+            "sites": [
+                "render.com/utils/customer-helpers.js (Web1/TPOS)",
+                "render.com/services/web2-order-customer-service.js (Web2)",
+                "shared/js/pancake-data-manager.js (Pancake)"
+            ]
+        },
+        {
+            "id": "biz-order-math",
+            "category": "business",
+            "title": "Tính tiền đơn / PBH (amount/discount/residual)",
+            "severity": "medium",
+            "status": "pending",
+            "filesAffected": 4,
+            "concept": "amount_total/discount/residual tính rải nhiều module, tên field lệch (qty/quantity, amount_total/total_amount).",
+            "canonical": "Đề xuất render.com/services/order-math-service.js (computeLineTotal/computeOrderTotal/computeResidual)",
+            "resolution": "Phần lớn xuyên Web1/Web2 (fast-sale-orders, pbh-reports, purchase-orders Web1) → thận trọng. Để theo dõi; chỉ gộp trong-Web2 nếu rõ ràng. Chưa thực thi.",
+            "commit": "",
+            "sites": [
+                "native-orders/js/native-orders-pbh-bill.js",
+                "render.com/routes/fast-sale-orders.js",
+                "render.com/routes/pbh-reports.js"
+            ]
+        },
+        {
+            "id": "biz-pagination",
+            "category": "business",
+            "title": "Phân trang (generatePageNumbers/getPageRange)",
+            "severity": "low",
+            "status": "pending",
+            "filesAffected": 4,
+            "concept": "Logic phân trang ellipsis copy-paste vài trang (đa số Web 1.0: purchase-orders, delivery-report).",
+            "canonical": "Đề xuất web2/shared/web2-pagination.js (nếu Web 2.0 cần)",
+            "resolution": "Đa số ở Web 1.0 → KHÔNG đụng. Nếu trang Web 2.0 mới cần thì tạo shared. Chưa thực thi.",
+            "commit": "",
+            "sites": [
+                "purchase-orders/js/history-tab.js (Web1)",
+                "delivery-report/js/delivery-report.js (Web1)"
+            ]
+        }
+    ]
+}
