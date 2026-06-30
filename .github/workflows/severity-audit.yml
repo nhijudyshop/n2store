@@ -1,0 +1,67 @@
+# Auto-audit bảo mật + bug tĩnh trên MỖI push main + PR.
+# Lý do tồn tại: ci.yml cũ chỉ chạy on pull_request, mà repo này push thẳng main
+# → gần như không chạy. Workflow này chạy on push để CÓ standing auto-audit thật.
+# Tools: Gitleaks (secrets, allowlist .gitleaks.toml) + Semgrep OSS (security/bug).
+# Report-only (continue-on-error) — KHÔNG block push; nâng severity-gate khi đã sạch nền.
+name: Security & Static Audit
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    security-events: write # upload SARIF lên tab Security
+
+jobs:
+    gitleaks:
+        name: Secrets scan (Gitleaks)
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # full history để quét cả commit mới
+            - name: Install gitleaks
+              run: |
+                  curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+                    | tar -xz -C /usr/local/bin gitleaks
+            - name: Scan (working tree, allowlisted)
+              continue-on-error: true
+              run: |
+                  gitleaks dir . --config .gitleaks.toml --no-banner --redact \
+                    --report-format json --report-path gitleaks.json || true
+                  echo "Leaks found: $(jq 'length' gitleaks.json 2>/dev/null || echo '?')"
+            - name: Upload report
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: gitleaks-report
+                  path: gitleaks.json
+
+    semgrep:
+        name: Static security (Semgrep OSS)
+        runs-on: ubuntu-latest
+        container:
+            image: returntocorp/semgrep:latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Semgrep scan (report-only)
+              continue-on-error: true
+              run: |
+                  semgrep scan \
+                    --config p/javascript --config p/security-audit \
+                    --exclude node_modules --exclude '*.min.js' --exclude vendor --exclude dist \
+                    --metrics off --oss-only \
+                    --json -o semgrep.json \
+                    render.com/routes render.com/services render.com/middleware \
+                    web2/shared so-order/js native-orders/js live-chat/js || true
+                  echo "Findings: $(jq '.results | length' semgrep.json 2>/dev/null || echo '?')"
+            - name: Upload report
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: semgrep-report
+                  path: semgrep.json
