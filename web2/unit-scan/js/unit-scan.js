@@ -99,6 +99,7 @@
     let current = null;
     let resolving = false;
     let sibOpen = false;
+    let histOpen = false;
     const STATUS_LABEL = {
         IN_STOCK: ['Còn hàng', 'blue'],
         ASSIGNED: ['Đã gán đơn', 'green'],
@@ -252,11 +253,26 @@
             <div class="sib-wrap" id="siblings"${sibOpen ? '' : ' hidden'}></div>
             <div class="sec-title">Đơn đang chờ SP này (${orders.length})</div>
             ${ordersHtml}
-            <div class="sec-title">Lịch sử đơn vị</div>
-            <div class="card" style="padding:8px 14px"><div class="hist" id="hist"><div class="muted" style="padding:8px">Đang tải…</div></div></div>
+            <button class="sib-toggle${histOpen ? ' open' : ''}" id="histToggle" type="button" aria-expanded="${histOpen}">
+                <i data-lucide="history"></i>
+                <span>Lịch sử đơn vị</span>
+                <i data-lucide="chevron-down" class="sib-chev"></i>
+            </button>
+            <div class="sib-wrap" id="histWrap"${histOpen ? '' : ' hidden'}>
+                <div class="card" style="padding:8px 14px"><div class="hist" id="hist"><div class="muted" style="padding:8px">Đang tải…</div></div></div>
+            </div>
         `;
         icons();
         $('#reprintBtn')?.addEventListener('click', () => reprintUnit(u, p));
+        const histBtn = $('#histToggle');
+        histBtn?.addEventListener('click', () => {
+            const wrap = $('#histWrap');
+            if (!wrap) return;
+            histOpen = wrap.hasAttribute('hidden');
+            wrap.toggleAttribute('hidden', !histOpen);
+            histBtn.classList.toggle('open', histOpen);
+            histBtn.setAttribute('aria-expanded', String(histOpen));
+        });
         const sibBtn = $('#sibToggle');
         sibBtn?.addEventListener('click', () => {
             const wrap = $('#siblings');
@@ -497,6 +513,10 @@
         el.innerHTML =
             `<div class="stat${sortedUnits >= totalUnits && totalUnits > 0 ? ' ok' : ''}"><b>${sortedUnits}/${totalUnits}</b><span>Món đã chia</span></div>` +
             `<div class="stat${doneKes === kes.length && kes.length ? ' ok' : ''}"><b>${doneKes}/${kes.length}</b><span>Kệ (xe) đủ</span></div>`;
+        // Thanh tiến độ chia hàng (persistent element → transition scaleX mượt qua mỗi lần quét)
+        const fill = $('#statsMeterFill');
+        if (fill)
+            fill.style.transform = `scaleX(${totalUnits > 0 ? (sortedUnits / totalUnits).toFixed(3) : 0})`;
     }
 
     // ── Sheet: chi tiết 1 kệ (SP theo từng STT) ─────────────────────
@@ -777,6 +797,7 @@
     const PRINTED_MAX = 60; // ponytail: giữ 60 đợt in gần nhất; cũ hơn rụng (đủ "in lại theo nhóm thời gian")
     let batch = []; // {id,unitCode,productCode,name,price,orderStt,status,scannedAt}
     let printed = []; // {id,printedAt,userName,count,units:[...]}
+    let _animateNew = false; // bật khi vừa addToBatch → renderBatch cho tem mới nhất hiệu ứng rơi vào
 
     function loadStore() {
         try {
@@ -822,6 +843,7 @@
             scannedAt: Date.now(),
         });
         saveBatch();
+        _animateNew = true;
         renderBatch();
     }
     function removeFromBatch(id) {
@@ -934,6 +956,10 @@
         if (actions) {
             actions.hidden = false;
             $('#batchCount').textContent = batch.length;
+        }
+        if (_animateNew) {
+            host.querySelector('.bt-row')?.classList.add('just-added'); // newest = đầu danh sách
+            _animateNew = false;
         }
         host.querySelectorAll('.bt-x').forEach((b) =>
             b.addEventListener('click', () => removeFromBatch(b.dataset.id))
@@ -1179,7 +1205,13 @@
                 return;
             }
             torchOn = !torchOn;
-            $('#torchBtn').classList.toggle('on', torchOn);
+            const btn = $('#torchBtn');
+            btn.classList.toggle('on', torchOn);
+            const ic = btn.querySelector('i');
+            if (ic) {
+                ic.setAttribute('data-lucide', torchOn ? 'zap-off' : 'zap');
+                icons();
+            }
         });
     }
 

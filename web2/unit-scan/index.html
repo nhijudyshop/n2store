@@ -36,7 +36,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701a" />
+        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701b" />
     </head>
     <body>
         <header class="hd">
@@ -84,6 +84,7 @@
 
             <!-- Tiến độ chia hàng: 9 kệ (xe) + sơ đồ kệ -->
             <div class="stats" id="stats"></div>
+            <div class="meter" id="statsMeter"><i id="statsMeterFill"></i></div>
             <div class="sec-row">
                 <div class="sec-title" id="gridTitle">9 kệ (xe) — tiến độ chia</div>
                 <button class="link-btn" id="manifestBtn" type="button">
@@ -95,7 +96,7 @@
             </div>
 
             <!-- ── Danh sách đã quét → in tem QR cả batch → Đã in (nhóm thời gian) ── -->
-            <div class="sec-row" style="margin-top: 18px">
+            <div class="sec-row sec-break">
                 <div class="sec-title" id="batchTitle">Danh sách đã quét (0)</div>
                 <button class="link-btn" id="batchMapBtn" type="button">
                     <i data-lucide="layout-grid"></i> Sơ đồ kệ
@@ -116,7 +117,7 @@
                 </button>
             </div>
 
-            <div class="sec-row" style="margin-top: 18px">
+            <div class="sec-row sec-break">
                 <div class="sec-title">Đã in — <span id="printedGroups">0</span> đợt</div>
             </div>
             <div class="printed" id="printedList">
@@ -163,6 +164,6 @@
         <!-- Format tiền ₫ 1-nguồn (trang KHÔNG có sidebar nên không auto-inject) -->
         <script src="../shared/web2-format.js?v=20260618"></script>
         <!-- app (1 view) -->
-        <script src="./js/unit-scan.js?v=20260701a"></script>
+        <script src="./js/unit-scan.js?v=20260701b"></script>
     </body>
 </html>

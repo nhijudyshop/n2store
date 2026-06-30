@@ -21,9 +21,18 @@
     --c-red-bg: #fdeced;
     --c-radius: 16px;
     --c-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 14px rgba(16, 24, 40, 0.06);
+    --c-surface-2: #f6f8fc; /* recessed surface (archive: lịch sử đã in) */
+    --c-shadow-cta: 0 6px 18px rgba(0, 104, 255, 0.28);
     --sat: env(safe-area-inset-top);
     --sab: env(safe-area-inset-bottom);
     --hd-h: 52px;
+    /* motion 1-nguồn — compositor-safe (transform/opacity), tôn trọng reduced-motion */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --dur-fast: 0.12s;
+    --dur: 0.18s;
+    --dur-rise: 0.22s;
+    /* rhythm: gap thường vs gap "ngắt khúc sông" giữa các vùng nhiệm vụ */
+    --gap-break: 18px;
 }
 * {
     box-sizing: border-box;
@@ -205,7 +214,7 @@ body {
     box-shadow: var(--c-shadow);
     padding: 14px;
     margin-bottom: 12px;
-    animation: rise 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: rise var(--dur-rise) var(--ease-out-expo);
 }
 @keyframes rise {
     from {
@@ -310,12 +319,41 @@ body {
 
 /* ── STT hero ("Bỏ vào kệ") ─────────────────────────── */
 .stt-hero {
+    position: relative;
+    overflow: hidden;
     margin-top: 12px;
     text-align: center;
     background: linear-gradient(180deg, #f3f8ff, #e9f1ff);
     border: 1.5px solid rgba(0, 104, 255, 0.18);
     border-radius: 14px;
     padding: 12px 10px;
+}
+/* Success pulse: mỗi lần quét, glow lan 1 nhịp trên hero (transform+opacity → compositor). */
+.stt-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 42%, rgba(0, 104, 255, 0.2), transparent 62%);
+    opacity: 0;
+    animation: scanPulse 0.5s var(--ease-out-expo);
+}
+.stt-hero.done::after {
+    background: radial-gradient(circle at 50% 42%, rgba(26, 162, 81, 0.22), transparent 62%);
+}
+@keyframes scanPulse {
+    0% {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    35% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.05);
+    }
 }
 .stt-hero.done {
     background: linear-gradient(180deg, #effaf2, #e3f6e9);
@@ -1294,8 +1332,8 @@ body {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    box-shadow: 0 4px 14px rgba(0, 104, 255, 0.25);
-    transition: transform 0.12s ease;
+    box-shadow: var(--c-shadow-cta);
+    transition: transform var(--dur-fast) ease;
 }
 .batch-print-btn:active {
     transform: scale(0.98);
@@ -1314,8 +1352,8 @@ body {
     gap: 8px;
 }
 .pr-group {
-    background: var(--c-surface);
-    border: 1.5px solid var(--c-line);
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-line);
     border-radius: 13px;
     padding: 11px 12px;
 }
@@ -1365,6 +1403,55 @@ body {
     font-size: 11.5px;
     color: var(--c-text-2);
     line-height: 1.4;
+}
+
+/* ════ Polish: meter tiến độ, item-in, ngắt khúc, sheet fade ════ */
+/* Ngắt khúc sông giữa các vùng nhiệm vụ (thay inline margin-top) */
+.sec-break {
+    margin-top: var(--gap-break);
+}
+/* Thanh tiến độ chia hàng dưới #stats — fill scaleX (compositor-safe) */
+.meter {
+    height: 4px;
+    background: var(--c-line);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: -4px 2px 12px;
+}
+.meter > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--c-green);
+    transform-origin: left center;
+    transform: scaleX(0);
+    transition: transform 0.35s var(--ease-out-expo);
+}
+/* Tem vừa quét rơi vào "Danh sách đã quét" — trượt + mờ dần từ trên xuống */
+.bt-row.just-added {
+    animation: batchItemIn 0.26s var(--ease-out-expo);
+}
+@keyframes batchItemIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+/* Backdrop bottom-sheet mờ vào (sheet tự rise sẵn) */
+.sheet-back {
+    animation: sheetFade var(--dur) ease;
+}
+@keyframes sheetFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

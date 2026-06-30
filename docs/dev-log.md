@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [web2 unit-scan] Quét batch → in tem cả lượt → "Đã in" (nhóm thời gian) + đại tu UI
+
+**Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
+
+User (2 phần): (A) thêm tính năng "quét tất cả mã 1 lượt → sơ đồ kệ theo danh sách đã quét → in danh sách → in xong chuyển Đã in (in lại theo nhóm thời gian)"; (B) đại tu lại bố cục + hiệu ứng đẹp/mượt cho cả trang.
+
+- **(A) Batch in tem** (giữ luồng quét-1-tem + tiến độ 9 kệ cũ): panel "Danh sách đã quét" gom MỌI tem quét (dedup theo unit id, badge vị trí 📍 Kệ·Hàng·Cột / kho), nút "Sơ đồ kệ" mở sheet lưới 9 kệ tô ô đã quét + "chưa gắn kệ". "In danh sách đã quét" → gom theo mã SP → `Web2ProductsPrint.open` (tem QR `?u=<id>`) + `reprint` bump print_count → chuyển thành 1 **đợt** trong "Đã in" (timestamp GMT+7) → "In lại" theo đợt. Local-first `localStorage` (`web2_unitscan_batch_v1`/`_printed_v1`, giữ 60 đợt). Thêm trên flow scan thật (`opts.fromScan`), không double khi SSE/refresh.
+- **(B) Polish UI** (giữ DOM order, single-view không tab): success-pulse glow trên STT hero mỗi lần quét (::after scale+opacity), tem mới "rơi" vào danh sách (`batchItemIn`), thanh meter tiến độ chia hàng dưới #stats (scaleX compositor-safe), **gập "Lịch sử đơn vị"** mặc định (giảm dày result card, reuse `.sib-toggle`), printed-history nền recessed `--c-surface-2`, đèn flash đổi icon zap↔zap-off, token motion 1-nguồn (`--ease-out-expo`/`--dur-*`), `.sec-break` thay inline margin, backdrop sheet fade. Tất cả transform/opacity, tôn trọng `prefers-reduced-motion`.
+- **Verify:** browser-test (account web2 thật) — 0 console error; dedup/persist/print-group/reprint/shelf-map/collapsible đều pass; reload giữ "Đã in".
+
+Status: ✅ feature + redesign deployed-ready (chờ push). ⬜ user xác nhận có muốn gập "Lịch sử" mặc định không (đổi muscle memory nhẹ).
+
 ### [security] Client creds → config-endpoint/env (SIP + SePay account password)
 
 **Files:** `orders-report/js/phone-widget.js` · `n2store-extension/pages/phone.js` · `n2store-extension/background/sync/storage.js` · `cloudflare-worker/worker.js` · `cloudflare-worker/modules/handlers/sepay-dashboard-handler.js` · `shared/js/navigation-modern.js` · `service-costs/js/service-costs.js`.
