@@ -2,6 +2,20 @@
 
 ## 2026-06-30
 
+### [web2 util] Phone: gộp 14 helper → Web2PhoneUtils (GitHub research) + load 9 trang
+
+**Files:** `web2/shared/web2-phone-utils.js` (nâng cấp: +`0084`→0, +`isMobile` regex đầu số VN thực, +export), 14 file `.js` (`Web2CustomerStore.normPhone` + 13 local → delegate `Web2PhoneUtils.norm`), 9 HTML (load `web2-phone-utils.js`), `web2/system/data/web2-dedup-audit.json` (phone → resolved).
+
+User "tìm github để làm hoàn chỉnh":
+
+- **GitHub research** (`lehuygiang28/phone-validate` 2025): xác nhận `norm` = libphonenumber-correct (84/0084→0, pad national 9 số); lấy regex đầu số DI ĐỘNG VN đầy đủ (gồm nhà mạng ảo iTel 087/Wintel 055/Vnsky-FPT 077x/089).
+- **Phát hiện**: 2 "canonical" (`Web2PhoneUtils.norm` vs `Web2CustomerStore.normPhone`) **TRÙNG THUẬT TOÁN** (đều pad 9 số) → gộp an toàn (caution trước là do grep sót dòng pad, không phải divergence thật).
+- Nâng `Web2PhoneUtils`: +`0084` handling, +`isMobile` (strict prefix cho form), giữ `isValid` lenient `/^0\d{9}$/` cho matching. → THE canonical.
+- Delegate 14 helper (`normPhone`/`_normPhone`/`normalizePhone`/`_normalizePhoneInput`) → `Web2PhoneUtils.norm` (delegate-with-fallback, codemod).
+- ⚠ `web2-phone-utils.js` trước đó **0 trang load** (delegate inert) → load vào 9 trang dùng phone. Verified browser: `norm("+84 912 345 678")`=0912345678, `norm("0084…")`=0…, `isMobile` đúng/sai. Smoke 105 trang clean.
+
+Status: ✅ phone resolved (4/5 nhóm util xong; auth 95%).
+
 ### [web2 util] Sweep gộp util → canonical: money (11) + escape (76); date đã-delegate, phone hoãn
 
 **Files:** ~80 file `.js` Web 2.0 (money 11 → `Web2Format.vnd`, escape 76 → `Web2Escape.escapeHtml`; codemod delegate-with-fallback GIỮ tên local), `web2/system/data/web2-dedup-audit.json` (cập nhật status util).
