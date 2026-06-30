@@ -679,13 +679,15 @@ router.get('/sort-manifest', requireWeb2AuthSoft, async (req, res) => {
                     await pool.query(`SELECT * FROM native_orders WHERE id = ANY($1)`, [ids])
                 ).rows.map(no.mapRowToOrder);
                 await no.enrichOrdersTags(pool, noRows);
+                // native_orders.id = BIGSERIAL → pg trả STRING; order_id = INTEGER → NUMBER.
+                // Chuẩn hoá String 2 phía nếu không Map.get miss hết → autoTags rỗng.
                 const tagsById = new Map(
                     noRows.map((o) => [
-                        o.id,
+                        String(o.id),
                         (o.autoTags || []).filter((t) => t.trigger !== 'kpi_user'),
                     ])
                 );
-                for (const o of orders) o.autoTags = tagsById.get(o.orderId) || [];
+                for (const o of orders) o.autoTags = tagsById.get(String(o.orderId)) || [];
             }
         } catch (e) {
             console.warn('[WEB2-PRODUCT-UNITS] sort-manifest tag enrich failed:', e.message);
