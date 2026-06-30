@@ -30,6 +30,8 @@
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (window.Web2Kpi && window.Web2Kpi.escapeHtml) return window.Web2Kpi.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');

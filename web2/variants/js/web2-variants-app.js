@@ -25,6 +25,8 @@
     // nhúng vào attribute (value="...") là injectable. Chuẩn 5 ký tự
     // (đồng bộ web2/shared/web2-escape.js).
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         return String(s)

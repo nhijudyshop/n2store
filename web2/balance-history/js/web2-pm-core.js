@@ -91,6 +91,8 @@
     }
 
     function escapeHtml(value) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(value);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(value); // 1 nguồn
         if (value == null) return '';
         return String(value)

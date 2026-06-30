@@ -275,6 +275,7 @@
     }
 
     function fmtVnd(n) {
+        if (window.Web2Format && window.Web2Format.vnd) return window.Web2Format.vnd(n);
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function fmtHM(date) {

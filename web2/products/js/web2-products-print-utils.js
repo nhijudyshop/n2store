@@ -146,6 +146,8 @@
     // S6-residual fix (2026-06-12): bản DOM-based KHÔNG escape quote —
     // nhúng vào attribute (value="...") là injectable. Chuẩn 5 ký tự.
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         if (s == null) return '';
         return String(s)

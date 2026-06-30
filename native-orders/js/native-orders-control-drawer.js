@@ -23,6 +23,8 @@
     let _prodSearch = ''; // text tìm sản phẩm (tab Sản phẩm)
 
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (NO.escapeHtml) return NO.escapeHtml(s);
         return String(s == null ? '' : s).replace(
             /[&<>"']/g,

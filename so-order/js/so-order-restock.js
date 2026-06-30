@@ -7,7 +7,12 @@
     'use strict';
 
     const SO = (window.SoOrder = window.SoOrder || {});
-    const esc = (s) => (SO.escapeHtml ? SO.escapeHtml(s) : String(s == null ? '' : s));
+    const esc = (s) =>
+        window.Web2Escape && window.Web2Escape.escapeHtml
+            ? window.Web2Escape.escapeHtml(s)
+            : SO.escapeHtml
+              ? SO.escapeHtml(s)
+              : String(s == null ? '' : s);
 
     function _overlay() {
         let ov = document.getElementById('soRestockOverlay');

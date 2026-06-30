@@ -2,6 +2,18 @@
 
 ## 2026-06-30
 
+### [web2 util] Sweep gộp util → canonical: money (11) + escape (76); date đã-delegate, phone hoãn
+
+**Files:** ~80 file `.js` Web 2.0 (money 11 → `Web2Format.vnd`, escape 76 → `Web2Escape.escapeHtml`; codemod delegate-with-fallback GIỮ tên local), `web2/system/data/web2-dedup-audit.json` (cập nhật status util).
+
+User "tất cả" → chạy 4 batch util:
+
+- **money (11)** ✅ + **escape (76)** ✅: codemod prepend guard `if (window.Web2X && window.Web2X.method) return window.Web2X.method(arg);` + GIỮ logic cũ làm fallback (an toàn khi canonical chưa load → không đổi hành vi). Escape fix 4-char thiếu `'` ở clearance/unit-scan/goods-weight. Syntax 80 file OK; smoke 105 trang clean (10 "lỗi" = `Failed to fetch` Web 1.0 sẵn); spot-check `Web2Format.vnd`/`Web2Escape.escapeHtml` render đúng, 0 console error.
+- **date** ⏭️ REVERT: hầu hết `fmtTime` xuất ĐẦY ĐỦ ngày+giờ (nhiều bản ĐÃ delegate `Web2Format.dateTime`) — audit over-count RAW. Blanket `fmtTime→time` làm MẤT phần ngày → revert toàn bộ 34. Đã consolidated sẵn.
+- **phone** ⏭️ HOÃN: 2 canonical cạnh tranh (`Web2CustomerStore.normPhone` vs `Web2PhoneUtils.norm`) + divergence; matching-sensitive → KHÔNG blind-delegate.
+
+Status: ✅ money+escape · ⏭️ date (sẵn) / phone (cần quyết định).
+
 ### [printer] Tunnel cloudflared cho Print Bridge — ĐT/PC khác in qua tunnel, KHÔNG cần cài bridge
 
 **Files:** `scripts/print-tunnel.ps1` (MỚI — cloudflared tunnel → bridge 17777 + heartbeat registry `engine='printer'`, tự hồi sinh), `scripts/print-bridge.{js,ps1}` (allowlist SSRF: chỉ IP private + cổng máy in; `/health` thêm `engine:'printer'`; ver 1.1.0), `web2/shared/web2-printer.js` (`resolveBridgeUrl()` — local 127.0.0.1 sống thì dùng, không thì dò registry tunnel máy shop; `printEscpos`/`testConnection`/`bridgeAlive` đi qua resolver; cache tunnel 60s), `web2/shared/web2-pos-installer.js` (`:PRINTER` tải thêm cloudflared.exe + print-tunnel.ps1, chạy nền + auto-start `N2StorePrintTunnel.vbs`; uninstall gỡ kèm), `web2/printer-settings/index.html` (copy giải thích tunnel + cache-bust), bump `web2-printer.js`/`web2-pos-installer.js` `?v=20260630tun` ở mọi trang dùng.

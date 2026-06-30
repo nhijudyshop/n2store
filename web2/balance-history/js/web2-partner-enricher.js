@@ -25,6 +25,8 @@
     }
 
     function escapeHtml(value) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(value);
         if (value === null || value === undefined) return '';
         return String(value)
             .replace(/&/g, '&amp;')

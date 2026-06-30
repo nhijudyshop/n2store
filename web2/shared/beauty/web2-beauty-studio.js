@@ -560,6 +560,8 @@
     }
 
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         return String(s ?? '').replace(
             /[&<>"']/g,
             (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]

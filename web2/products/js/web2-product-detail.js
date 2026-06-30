@@ -41,6 +41,8 @@
         else console.log(`[detail:${type}]`, msg);
     }
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
@@ -50,6 +52,7 @@
             .replace(/'/g, '&#39;');
     }
     function fmtVnd(n) {
+        if (window.Web2Format && window.Web2Format.vnd) return window.Web2Format.vnd(n);
         const v = Number(n) || 0;
         return v.toLocaleString('vi-VN') + 'đ';
     }

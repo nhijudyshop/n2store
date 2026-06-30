@@ -52,6 +52,8 @@
             .toUpperCase();
     }
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const d = document.createElement('div');
         d.textContent = String(s);

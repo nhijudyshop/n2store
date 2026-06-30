@@ -56,7 +56,10 @@
             /[&<>"]/g,
             (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
         );
-    const fmtVnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+    const fmtVnd = (n) =>
+        window.Web2Format && window.Web2Format.vnd
+            ? window.Web2Format.vnd(n)
+            : (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     function icons(root) {
         if (window.lucide?.createIcons)
             try {

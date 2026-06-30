@@ -30,6 +30,8 @@
     }
 
     function esc(v) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(v);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(v);
         if (v == null) return '';
         return String(v)

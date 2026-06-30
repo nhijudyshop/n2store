@@ -99,6 +99,7 @@
         }
     }
     function fmtMoney(n) {
+        if (window.Web2Format && window.Web2Format.vnd) return window.Web2Format.vnd(n);
         return Number(n || 0).toLocaleString('vi-VN') + '₫';
     }
     function fmtDate(iso) {
@@ -110,6 +111,8 @@
         }
     }
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')

@@ -10,6 +10,8 @@
         if (window.notificationManager) window.notificationManager[type || 'info'](msg);
     }
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         return String(s == null ? '' : s).replace(
             /[&<>"]/g,
             (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]

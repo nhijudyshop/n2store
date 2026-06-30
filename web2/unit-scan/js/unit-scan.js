@@ -11,7 +11,10 @@
             /[&<>"]/g,
             (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
         );
-    const fmtVnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+    const fmtVnd = (n) =>
+        window.Web2Format && window.Web2Format.vnd
+            ? window.Web2Format.vnd(n)
+            : (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     // "HCAO3XCO35-002" → "002" (đuôi seq, gọn để đọc tay khi camera lỗi)
     const shortCode = (c) => {
         const s = String(c || '');

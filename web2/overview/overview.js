@@ -203,6 +203,8 @@
     }
 
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         var d = document.createElement('div');
         d.textContent = s == null ? '' : String(s);
         return d.innerHTML;

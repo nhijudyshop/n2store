@@ -25,6 +25,7 @@
     const tbody = () => $('#pbhTbody');
 
     function fmtMoney(n) {
+        if (window.Web2Format && window.Web2Format.vnd) return window.Web2Format.vnd(n);
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function fmtDate(s) {
@@ -33,6 +34,8 @@
         return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const div = document.createElement('div');
         div.textContent = String(s);

@@ -48,10 +48,13 @@
     }
 
     function fmtVnd(n) {
+        if (window.Web2Format && window.Web2Format.vnd) return window.Web2Format.vnd(n);
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
 
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (global.Web2Escape && global.Web2Escape.escapeHtml) {
             return global.Web2Escape.escapeHtml(s);
         }

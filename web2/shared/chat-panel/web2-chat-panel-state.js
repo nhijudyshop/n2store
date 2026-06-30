@@ -11,6 +11,8 @@
     const NS = (global.__Web2ChatPanelNS = global.__Web2ChatPanelNS || {});
 
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s == null ? '' : s);
         return d.innerHTML;

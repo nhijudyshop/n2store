@@ -43,6 +43,8 @@
         return { 'Content-Type': 'application/json', ...(token ? { 'x-web2-token': token } : {}) };
     }
     function esc(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')

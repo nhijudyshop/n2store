@@ -47,7 +47,10 @@
                   (c) =>
                       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
               );
-    const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + '₫';
+    const fmtMoney = (n) =>
+        window.Web2Format && window.Web2Format.vnd
+            ? window.Web2Format.vnd(n)
+            : (Number(n) || 0).toLocaleString('vi-VN') + '₫';
     const notify = (msg, type) => window.notificationManager?.show?.(msg, type || 'info');
 
     // Chuẩn hoá SĐT → 10 số đuôi (0xxxxxxxxx). Trả '' nếu không hợp lệ.

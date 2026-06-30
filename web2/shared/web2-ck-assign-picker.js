@@ -17,6 +17,8 @@
     const BH = '/api/web2/balance-history';
 
     function esc(v) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(v);
         if (global.Web2Escape) return global.Web2Escape.escapeHtml(v);
         const d = document.createElement('div');
         d.textContent = String(v ?? '');

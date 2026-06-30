@@ -27,6 +27,8 @@
         return document.querySelector(sel);
     }
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (window.Web2Kpi && window.Web2Kpi.escapeHtml) return window.Web2Kpi.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
@@ -35,6 +37,7 @@
         return d.innerHTML;
     }
     function fmtVnd(n) {
+        if (window.Web2Format && window.Web2Format.vnd) return window.Web2Format.vnd(n);
         // Web2Kpi.fmtVnd cũng dùng glyph 'đ' (khớp) → 1 nguồn; fallback inline.
         if (window.Web2Kpi && window.Web2Kpi.fmtVnd) return window.Web2Kpi.fmtVnd(n);
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';

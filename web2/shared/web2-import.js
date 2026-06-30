@@ -36,6 +36,8 @@
 
     // ── Helpers ─────────────────────────────────────────────────────────
     function escapeHtml(s) {
+        if (window.Web2Escape && window.Web2Escape.escapeHtml)
+            return window.Web2Escape.escapeHtml(s);
         if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s == null ? '' : s);
