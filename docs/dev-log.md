@@ -2,6 +2,18 @@
 
 ## 2026-06-30
 
+### [web2 audit] Follow-up đợt 2 — boost-purge wiring (desktop+mobile) + LiveCustomerSync token
+
+**Files:** `live-chat/js/live/live-comment-list-actions.js` · `live-init.js` · `comments-mobile-actions.js` · `live-chat/js/shared/live-customer-sync.js`.
+
+Đóng nốt follow-up vòng 4:
+
+- **boost-purge realtime gỡ spam (MEDIUM)** — XONG cả 2 surface: thêm `LiveCommentList.removeComments(ids)` (lọc `LiveState.comments` + xoá DOM `.live-conversation-item[data-comment-id]`), wire `onReconcile` vào `LiveCommentsStream.create` ở **live-init.js** (desktop) **và** **comments-mobile-actions.js** (mobile: lọc `LCM.ALL` + `scheduleRender()`). Stream đã bắn `onReconcile(purgedIds)` từ SSE `{action:'reconcile'}` (đợt 1). Trước: delta chỉ APPEND → comment đã purge vẫn hiện tới khi refresh.
+- **LiveCustomerSync token (security/PII)** — fallback path (khi `Web2CustomerStore` chưa load) của `enrich`/`flushHarvest` trước dùng `opts.headers || {Content-Type}` → thiếu `x-web2-token` cho `/customers/batch-by-*` + `/harvest-comments` (gated). Thêm `authHeaders()` 1-nguồn (Web2Auth.authHeaders → fallback localStorage) → fallback tự gửi token, không lệ thuộc caller.
+- **AI-assistant `/list`** = NON-ISSUE (0 code fetch `.endpoint` registry — chỉ metadata cho AI). **web2-products-app dead SSE** giữ stub (subscription `web2:fast-sale-orders` còn dùng stock-sync, không xoá).
+
+Verify: `node --check` 4 JS OK · smoke live-chat 0 console error · `window.LiveCommentList.removeComments` = function. Status: ✅
+
 ### [web2 audit] Fix TẤT CẢ vòng-4 (batch 7-agent disjoint-file) — 4 HIGH security + ~34 file
 
 **Files:** 34 file (frontend + `render.com/**`). Backend cần DEPLOY.

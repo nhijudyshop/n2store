@@ -21,7 +21,9 @@
 >
 > **FALSE-POSITIVE (verify lại, KHÔNG phải bug):** so-order "payment dual-base double-charge" (POST /tx idempotent UNIQUE tx_id) · getNccBatchTotals (đã đúng per-supplier) · storage "NUL byte" (thực ra `' ALL'` có space) · auto-invoice image URL (endpoint BYTEA ổn định) · /ingest page_id (gate x-relay-secret) · `_boostMarks` per-process (DELETE purge authoritative).
 >
-> **CÒN LẠI (follow-up, KHÔNG vỡ):** boost-purge consumer wiring (cần thêm `LiveCommentList.removeComments` — defer, backend purgedIds vô hại) · web2-products-app.js dead usage SSE (stub no-op, dọn cosmetic) · tách file >800 dòng (skip, refactor lớn) · order-badge-stale + LiveCustomerSync token (ngoài scope, theo dõi) · **AI-assistant đọc `/api/web2/customers/list`** (data-reader generic chưa gửi token → 401 khi ENFORCE, AI degrade gracefully không crash).
+> **✅ FOLLOW-UP ĐÓNG TIẾP (2026-06-30 đợt 2):** boost-purge consumer wiring **XONG** — `LiveCommentList.removeComments` + `onReconcile` desktop (live-init) **và** mobile (comments-mobile-actions: lọc `LCM.ALL`+scheduleRender) → spam purged gỡ realtime · LiveCustomerSync token **XONG** (fallback enrich/harvest tự `authHeaders()`, không lệ thuộc caller) · AI-assistant `/list` = **NON-ISSUE** (không code nào fetch `.endpoint` registry — chỉ metadata mô tả cho AI).
+>
+> **CÒN LẠI (cosmetic/skip, KHÔNG vỡ):** web2-products-app.js dead usage SSE (stub no-op — giữ vì `web2:fast-sale-orders` còn dùng cho stock sync) · tách file >800 dòng (refactor lớn, skip) · order-badge-stale khi xem campaign cha (theo dõi).
 >
 > **Caller `/customers/*` đã wire token (sweep cuối):** customer-wallet `by-phone/orders` · balance-history search ×2 · customer-detail-modal · native-orders customer-panel/inbox-add/inbox-resolve · live-comment-list-orders. (live-api + returns-api đã sẵn auth.)
 

@@ -352,6 +352,14 @@
             mapRow: (r) => r,
             getCreatedMs: (r) => (window.LiveTime ? window.LiveTime.parseMs(r.created_time) : 0),
             onDelta: (rows) => applyDelta(rows),
+            // Boost-purge: server gỡ spam → lọc khỏi LCM.ALL + render lại (delta chỉ append).
+            onReconcile: (ids) => {
+                const idSet = new Set((ids || []).map(String));
+                if (!idSet.size) return;
+                const before = LCM.ALL.length;
+                LCM.ALL = LCM.ALL.filter((c) => !idSet.has(String(c.id)));
+                if (LCM.ALL.length !== before) LCM.scheduleRender();
+            },
         });
         stream.start();
     }

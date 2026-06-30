@@ -23,6 +23,21 @@
         (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
 
+    // /customers/* gate requireWeb2AuthSoft (PII) → fallback path (khi Web2CustomerStore
+    // chưa load) PHẢI tự gửi x-web2-token, không lệ thuộc caller truyền headers. (audit 2026-06-30)
+    function authHeaders() {
+        var base = { 'Content-Type': 'application/json' };
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(base);
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) base['x-web2-token'] = t.token;
+        } catch (e) {
+            /* no token */
+        }
+        return base;
+    }
+
     function norm(s) {
         var d = String(s == null ? '' : s).replace(/\D/g, '');
         if (d.indexOf('84') === 0 && d.length >= 11) d = '0' + d.slice(2);
@@ -82,7 +97,7 @@
                 fbIds: opts.fbIds || [],
             });
         var worker = opts.workerUrl || WORKER_DEFAULT;
-        var headers = opts.headers || { 'Content-Type': 'application/json' };
+        var headers = opts.headers || authHeaders();
         var phones = (opts.phones || []).map(norm).filter(function (p) {
             return p && p.length >= 9;
         });
@@ -166,7 +181,7 @@
                 await global.Web2CustomerStore.harvestComments(batch);
             } else {
                 var worker = (_opts && _opts.workerUrl) || WORKER_DEFAULT;
-                var headers = (_opts && _opts.headers) || { 'Content-Type': 'application/json' };
+                var headers = (_opts && _opts.headers) || authHeaders();
                 await post(
                     worker + '/api/web2/customers/harvest-comments',
                     { comments: batch },

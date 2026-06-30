@@ -13,6 +13,26 @@
 
     Object.assign(window.LiveCommentList, {
         /**
+         * Boost-purge: SSE {action:'reconcile', purgedIds} gỡ spam. Delta fetch chỉ
+         * APPEND nên không tự gỡ → xoá purgedIds khỏi state.comments + DOM (audit MEDIUM 2026-06-30).
+         * @param {Array<string|number>} ids
+         */
+        removeComments(ids) {
+            const idSet = new Set((ids || []).map(String));
+            if (!idSet.size) return;
+            const state = window.LiveState;
+            if (state && Array.isArray(state.comments))
+                state.comments = state.comments.filter((c) => !idSet.has(String(c.id)));
+            idSet.forEach((id) => {
+                document
+                    .querySelector(
+                        `.live-conversation-item[data-comment-id="${CSS.escape(String(id))}"]`
+                    )
+                    ?.remove();
+            });
+        },
+
+        /**
          * Select a comment (highlight + emit event)
          * @param {string} commentId
          */

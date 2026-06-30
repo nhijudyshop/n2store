@@ -81,6 +81,9 @@
                         // KH MỚI từ comment realtime → kho web2_customers (shared).
                         this._harvestCommentCustomers(rows);
                     },
+                    // Boost-purge: server gỡ spam → {action:'reconcile', purgedIds} → xoá
+                    // đúng dòng khỏi list (delta chỉ append, không tự gỡ). audit MEDIUM.
+                    onReconcile: (ids) => window.LiveCommentList.removeComments?.(ids),
                 });
                 this._liveStream.start();
             } else if (window.Web2SSE?.subscribe) {
