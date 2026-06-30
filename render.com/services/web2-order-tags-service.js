@@ -72,7 +72,7 @@ const TRIGGERS = [
         id: 'soan_hang',
         label: 'Soạn hàng',
         group: 'PBH / Trạng thái',
-        desc: 'GIỎ đã in Phiếu Soạn Hàng (chờ NCC giao). CHỈ ở giỏ — khi thành đơn/PBH thì mất. ⚙ TẮT thẻ này = KHOÁ luôn nút "In Phiếu Soạn Hàng" (toggle bật/tắt chức năng in, admin chỉnh).',
+        desc: 'GIỎ đã bấm In Phiếu Soạn Hàng (chờ NCC giao). CHỈ ở giỏ — thành đơn/PBH thì mất. 🖨 Nút máy in trên thẻ = bật/tắt IN RA GIẤY (admin): tắt thì KHÔNG in giấy nhưng bấm nút VẪN gắn tag. Nút tắt thẻ (toggle) = ẩn/hiện tag.',
     },
     {
         id: 'is_confirmed',

@@ -13,7 +13,7 @@ User: thêm tag SOẠN HÀNG cho giỏ khi in phiếu soạn hàng; toggle bật
 - **Toggle = cột MỚI `print_enabled` (TÁCH khỏi `is_active`)**: vì is_active ẩn/hiện thẻ → không hợp (user muốn tắt in nhưng tag VẪN hiện). Thêm cột `web2_order_tags.print_enabled BOOL default true`; route map `printEnabled` + PATCH nhận; FE `soanHangPrintEnabled()` đọc `printEnabled`. Trang order-tags: nút 🖨 RIÊNG trên card `soan_hang` (`togglePrint`) + meta "🖨 In BẬT/TẮT".
 - `mark-printed` 3 kind: `pbh` (🖨), `soan_hang` (🖨+tag), `soan_hang_tag_only` (chỉ tag).
 - **Bug fix** `345a9c000`: `/web2-order-tags/list` trả `{records}` không phải `{tags}`.
-- **Test BE (deploy trước, is_active coupling)**: kind soan_hang_tag_only → soan++ printCount giữ nguyên; kind soan_hang → cả 2 ++. Click In (toggle off) → soan++ printCount=0 (verify qua API). Status 🔄 (chờ deploy print_enabled + verify tách is_active)
+- **Test E2E (deploy web2-api live)**: (1) `print_enabled=false` → tag SOẠN HÀNG **VẪN hiện** (is_active=true) — tách thành công khỏi is_active; (2) order-tags card `soan_hang`: nút 🖨 + meta "In BẬT/TẮT", bấm → flip + toast; (3) gate FE `soanHangPrintEnabled()` đọc `printEnabled`; (4) bấm In Phiếu Soạn Hàng (print OFF) → soan++ (tag gắn + HIỆN), printCount KHÔNG đổi (no 🖨 ảo), không in giấy; (5) kind soan_hang → bump cả 🖨+tag. Status ✅
 
 ### [unit-scan] Bấm ô sơ đồ kệ → MỞ MODAL chi tiết đơn (thay vì cuộn xuống)
 
