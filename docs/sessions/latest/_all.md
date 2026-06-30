@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d707c58` — docs(soan-hang): desc thẻ rõ 🖨 = in giấy, tách is_active (ẩn/hiện tag); E2E verified ✅
-**Last updated**: 2026-06-30 09:50:17 +07
-**Latest session**: [`RESUME:20260630-095017-d707c58`](../20260630-095017-d707c58.md)
-**Summary**: docs(soan-hang): desc thẻ rõ 🖨 = in giấy, tách is_active (ẩn/hiện tag); E2E verified ✅
+**Latest commit**: `34f23fe` — fix(live-control): đổi nhãn dropdown 'MỚI theo' → 'Cho VƯỢT theo' (đúng chức năng pre-order, không lọc cột MỚI)
+**Last updated**: 2026-06-30 10:47:01 +07
+**Latest session**: [`RESUME:20260630-104701-34f23fe`](../20260630-104701-34f23fe.md)
+**Summary**: fix(live-control): đổi nhãn dropdown 'MỚI theo' → 'Cho VƯỢT theo' (đúng chức năng pre-order, không l...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 09:50
+- [`docs/`](./docs.md) — updated 2026-06-30 10:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 09:42
+- [`web2/`](./web2.md) — updated 2026-06-30 10:47
