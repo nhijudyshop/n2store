@@ -128,8 +128,10 @@
             "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-tunnel.ps1*' -or ($_.Name -eq 'cloudflared.exe' -and $_.CommandLine -like '*17777*') } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
             'del /f /q "%STARTUP%\\N2StorePrintTunnel.vbs" 2>nul',
             "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%PTURL%' -OutFile '%DIR%\\print-tunnel.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
-            // cloudflared ~30MB: chi tai khi thieu (idempotent, lan sau khoi tai lai).
-            'if not exist "%DIR%\\cloudflared.exe" ( echo   Tai cloudflared (~30MB, lan dau)... & powershell -NoProfile -Command "try{ Invoke-WebRequest -Uri \'%CFURL%\' -OutFile \'%DIR%\\cloudflared.exe\' -UseBasicParsing; exit 0 }catch{ exit 1 }" )',
+            // cloudflared ~30MB: chi tai khi thieu (idempotent). KHONG dung block ( ) vi
+            // text echo co the chua ky tu ) lam vo cu phap batch -> 2 dong "if not exist".
+            'if not exist "%DIR%\\cloudflared.exe" echo   Tai cloudflared ~30MB lan dau...',
+            'if not exist "%DIR%\\cloudflared.exe" powershell -NoProfile -Command "try{ Invoke-WebRequest -Uri \'%CFURL%\' -OutFile \'%DIR%\\cloudflared.exe\' -UseBasicParsing; exit 0 }catch{ exit 1 }"',
             'if not exist "%DIR%\\print-tunnel.ps1" ( echo   [BO QUA] Khong tai duoc tunnel - van in duoc tren may nay & exit /b 0 )',
             'if not exist "%DIR%\\cloudflared.exe" ( echo   [BO QUA] Khong tai duoc cloudflared - van in duoc tren may nay & exit /b 0 )',
             '> "%DIR%\\run-tunnel-hidden.vbs" echo CreateObject("WScript.Shell").Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%DIR%\\print-tunnel.ps1""", 0, False',

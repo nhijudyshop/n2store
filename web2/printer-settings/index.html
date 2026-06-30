@@ -318,11 +318,13 @@
 
                 <div class="ps-section">
                     <div class="ps-bridge-warn" id="bridgeWarn" style="display: none">
-                        ⚠️ <strong>Print Bridge chưa chạy (hoặc bị trình duyệt chặn).</strong> Mở
-                        terminal trên máy POS chạy: <code>node scripts/print-bridge.js</code> (giữ
-                        cửa sổ mở). Nếu web chạy bản HTTPS mà vẫn báo chưa chạy →
-                        <strong>khởi động lại bridge bản mới</strong> (đã thêm hỗ trợ Private
-                        Network Access). "Test kết nối" lỗi <code>EHOSTUNREACH</code> = bridge OK
+                        ⚠️
+                        <strong>Chưa thấy Print Bridge (máy này) lẫn tunnel máy POS.</strong> Trên
+                        <strong>máy POS</strong> (máy cắm máy in): bấm
+                        <strong>Tải file cài đặt (.bat)</strong> phía dưới rồi chạy — nó tự chạy
+                        Print Bridge + <strong>tunnel</strong> nền. Khi đó
+                        <strong>máy này</strong> (kể cả điện thoại/PC khác) sẽ in qua tunnel mà
+                        không cần cài gì. "Test kết nối" lỗi <code>EHOSTUNREACH</code> = bridge OK
                         nhưng máy in chưa bật / khác mạng / sai IP.
                     </div>
 
@@ -375,12 +377,20 @@
                     <div class="ps-install">
                         <p class="ps-install-lead">
                             1 file <code>.bat</code> cài <strong>cả 2</strong>:
-                            <strong>Print Bridge</strong> (in thẳng máy in IP) +
+                            <strong>Print Bridge + tunnel</strong> (in thẳng máy in IP) +
                             <strong>Giọng cao cấp</strong> (clone giọng cho video). Bấm đúp 1 lần:
                             tự cài, <strong>chạy nền</strong>,
                             <strong>tự bật mỗi khi mở máy</strong> và
                             <strong>tự tắt các bản auto cũ</strong>. Lần đầu tải model giọng ~595MB
                             (vài phút) — máy sẽ tự hiện ở trang Tạo video.
+                        </p>
+                        <p class="ps-install-lead" style="margin-top: 8px">
+                            🖨️ <strong>In từ máy khác:</strong> cài 1 lần trên
+                            <strong>máy POS</strong> (máy cắm máy in) → máy đó mở
+                            <strong>tunnel</strong> nên
+                            <strong>điện thoại / PC khác cùng mạng</strong> bấm In là ra máy in
+                            luôn, <strong>KHÔNG cần cài Print Bridge</strong> trên từng máy. (Lần
+                            đầu tải thêm cloudflared ~30MB.)
                         </p>
                         <div class="ps-actions">
                             <button class="ps-btn ps-btn-primary" id="btnDownloadBat">
@@ -546,9 +556,9 @@
         <!-- SSE để đồng bộ danh sách máy in realtime giữa các user/máy -->
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../../web2/shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../../web2/shared/web2-printer.js?v=20260623role"></script>
+        <script src="../../web2/shared/web2-printer.js?v=20260630tun"></script>
         <!-- Tải bộ cài máy POS (.bat MENU: Print Bridge + VieNeu + OmniVoice) — DÙNG CHUNG -->
-        <script src="../../web2/shared/web2-pos-installer.js?v=20260620a"></script>
+        <script src="../../web2/shared/web2-pos-installer.js?v=20260630tun"></script>
         <!-- Tải file cài Chấm công DG-600 (.bat tự tải folder attendance-sync rồi chạy) — DÙNG CHUNG -->
         <script src="../../web2/shared/web2-attendance-installer.js?v=20260624b"></script>
         <script>

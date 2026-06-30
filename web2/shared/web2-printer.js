@@ -724,20 +724,15 @@
         return !!(p && p.method === 'bridge' && p.ip);
     }
 
+    // Có in được không (từ máy này): local bridge sống HOẶC tunnel máy shop sống.
     async function bridgeAlive(printer) {
-        const url = (printer || getPrinters()[0] || PRINTER_DEFAULTS).bridgeUrl;
-        try {
-            const r = await fetch(url.replace(/\/$/, '') + '/health', {
-                signal: AbortSignal.timeout(1500),
-            });
-            return r.ok;
-        } catch {
-            return false;
-        }
+        const url = await resolveBridgeUrl(printer || getPrinters()[0] || PRINTER_DEFAULTS);
+        return _bridgeOk(url);
     }
     async function testConnection(printer) {
         if (!printer || !printer.ip) throw new Error('Máy in chưa nhập IP');
-        const r = await fetch(printer.bridgeUrl.replace(/\/$/, '') + '/tcp-test', {
+        const base = await resolveBridgeUrl(printer);
+        const r = await fetch(base + '/tcp-test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ip: printer.ip, port: Number(printer.port) || 9100 }),
@@ -772,6 +767,7 @@
         printSvg,
         printHtml,
         bridgeAlive,
+        resolveBridgeUrl,
         testConnection,
     };
 

@@ -1,9 +1,9 @@
-# Smoke Test Report — 82 pages
+# Smoke Test Report — 105 pages
 
-Generated: 2026-06-23T18:04:24.279Z
+Generated: 2026-06-30T09:51:11.674Z
 
-- ✅ Clean: **69**
-- ❌ Issues: **13**
+- ✅ Clean: **93**
+- ❌ Issues: **12**
 
 ## Pages with issues (sorted by severity)
 
@@ -15,13 +15,12 @@ Generated: 2026-06-23T18:04:24.279Z
 | `/don-inbox/index.html`                       | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/issue-tracking/index.html`                  | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/orders-report/main.html`                    | 200  | Nhi Judy House — Hệ thống quản | 1      | 0         |         | ✓     |       |
+| `/orders-report/tab1-orders.html`             | 200  | Quản lý đơn hàng               | 2      | 0         |         | ✓     |       |
 | `/product-warehouse/index.html`               | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/purchase-orders/goods-receiving/index.html` | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
-| `/purchase-orders/index.html`                 | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
+| `/purchase-orders/index.html`                 | 200  | Nhi Judy House — Hệ thống quản | 3      | 0         |         | ✓     |       |
 | `/render-data-manager/index.html`             | 200  | Nhi Judy House — Hệ thống quản | 1      | 0         |         | ✓     |       |
-| `/tpos-pancake/index.html`                    | 404  | Error response                 | 0      | 0         |         | ✓     |       |
-| `/web2/live-campaign/index.html`              | 404  | Error response                 | 0      | 0         |         | ✓     |       |
-| `/web2/partner-customer/index.html`           | 404  | Error response                 | 0      | 0         |         | ✓     |       |
+| `/web2/photo-editor/index.html`               | 404  | Error response                 | 0      | 0         |         | ✓     |       |
 
 ## Top errors (first 3 per broken page)
 
@@ -33,9 +32,9 @@ Generated: 2026-06-23T18:04:24.279Z
 - err: [ACCOUNTANT] Load queue error: TypeError: Failed to fetch
   at loadPendingQueue (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:709:36)
   at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:208:9)
-- err: Error loading statistics: TypeError: Failed to fetch
-  at loadStatistics (http://localhost:8080/balance-history/js/balance-core.js?v=20260521b:440:32)
-  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:36:13)
+- err: [VERIFICATION-STATS] Error: TypeError: Failed to fetch
+  at loadVerificationStats (http://localhost:8080/balance-history/js/balance-filters.js?v=20260521b:222:32)
+  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:37:13)
 
 ### `/customer-hub/index.html`
 
@@ -72,14 +71,19 @@ Generated: 2026-06-23T18:04:24.279Z
 - err: [API-V2] Subscribe to tickets error: TypeError: Failed to fetch
   at fetchTickets (http://localhost:8080/shared/js/api-service.js?v=20260611a:560:44)
   at Object.subscribeToTickets (http://localhost:8080/shared/js/api-service.js?v=20260611a:622:13)
-  at HTMLDocument.<anonymous> (http://localhost:8080/issue-tracking/js/script.js?v=20260612a:99:44)
+  at HTMLDocument.<anonymous> (http://localhost:8080/issue-tracking/js/script.js?v=20260626b:99:44)
 
 ### `/orders-report/main.html`
 
 - err: [FULFILLMENT] Error loading delete entries: TypeError: Failed to fetch
   at \_loadInvoiceDeletes (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:50:36)
   at Object.init (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:104:23)
-  at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782237755440:225:44)
+  at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782812914073:225:44)
+
+### `/orders-report/tab1-orders.html`
+
+- err: [PANCAKE-TOKEN] ❌ All accounts failed to generate PAT for page: 193642490509664
+- err: [2026-06-30T09:48:46.287Z] @firebase/firestore: Firestore (10.14.1): Failed to obtain primary lease for action 'Apply remote event'.
 
 ### `/product-warehouse/index.html`
 
@@ -95,24 +99,25 @@ Generated: 2026-06-23T18:04:24.279Z
 ### `/purchase-orders/goods-receiving/index.html`
 
 - err: [PurchaseOrderService] Stats failed: TypeError: Failed to fetch
-  at PurchaseOrderService.\_fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:74:32)
-  at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:215:37)
+  at PurchaseOrderService.\_fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:74:32)
+  at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:215:37)
   at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage
 - err: [TPOS Stats] Failed to load: TypeError: Failed to fetch
-  at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260525a:351:32)
-  at async Promise.all (index 1)
-  at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260525a:620:57)
+  at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260626b:351:32)
+  at async Promise.all (index 2)
+  at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260626b:629:57)
 
 ### `/purchase-orders/index.html`
 
 - err: [PurchaseOrderService] Stats failed: TypeError: Failed to fetch
-  at PurchaseOrderService.\_fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:74:32)
-  at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:215:37)
+  at PurchaseOrderService.\_fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:74:32)
+  at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:215:37)
   at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage
+- err: [VariantGenerator] Failed to load CSV: TypeError: Failed to fetch
 - err: [TPOS Stats] Failed to load: TypeError: Failed to fetch
-  at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260525a:351:32)
+  at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260626b:351:32)
   at async Promise.all (index 1)
-  at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260525a:620:57)
+  at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260626b:629:57)
 
 ### `/render-data-manager/index.html`
 
@@ -120,7 +125,7 @@ Generated: 2026-06-23T18:04:24.279Z
   at loadTableList (http://localhost:8080/render-data-manager/js/main.js?v=20260521b:126:28)
   at HTMLDocument.<anonymous> (http://localhost:8080/render-data-manager/js/main.js?v=20260521b:65:5)
 
-## Clean pages (69)
+## Clean pages (93)
 
 - `/`
 - `/AI/gemini.html`
@@ -144,7 +149,6 @@ Generated: 2026-06-23T18:04:24.279Z
 - `/orders-report/tab-live-ledger.html`
 - `/orders-report/tab-overview.html`
 - `/orders-report/tab-pending-delete.html`
-- `/orders-report/tab1-orders.html`
 - `/orders-report/tab3-product-assignment.html`
 - `/phone-management/index.html`
 - `/phone-management/monitor.html`
@@ -167,27 +171,52 @@ Generated: 2026-06-23T18:04:24.279Z
 - `/stitch_customer/Unlinked_Bank_Transactions.html`
 - `/supplier-debt/index.html`
 - `/user-management/index.html`
+- `/web2/admin-sse-monitor/index.html`
+- `/web2/ai-hub/index.html`
 - `/web2/audit-log/index.html`
 - `/web2/balance-history/index.html`
+- `/web2/cham-cong/index.html`
+- `/web2/chi-tieu/index.html`
+- `/web2/ck-dashboard/index.html`
 - `/web2/customer-wallet/index.html`
+- `/web2/customers/index.html`
 - `/web2/dashboard/index.html`
+- `/web2/delivery-zone/index.html`
 - `/web2/fastsaleorder-delivery/index.html`
 - `/web2/fastsaleorder-invoice/index.html`
 - `/web2/fastsaleorder-refund/index.html`
+- `/web2/fb-ads-stats/index.html`
+- `/web2/fb-insights/index.html`
+- `/web2/fb-posts/index.html`
+- `/web2/jt-tracking/index.html`
 - `/web2/kpi/index.html`
+- `/web2/live-control/index.html`
+- `/web2/live-tv/index.html`
+- `/web2/livestream-poller/index.html`
 - `/web2/login/index.html`
+- `/web2/multi-tool/index.html`
 - `/web2/notifications/index.html`
+- `/web2/order-tags/index.html`
 - `/web2/overview/index.html`
 - `/web2/pancake-settings/index.html`
+- `/web2/photo-studio/index.html`
+- `/web2/printer-settings/index.html`
+- `/web2/product-card/index.html`
+- `/web2/product-counter/index.html`
 - `/web2/products/index.html`
 - `/web2/products/index.html`
 - `/web2/purchase-refund/index.html`
 - `/web2/reconcile/index.html`
 - `/web2/report-delivery/index.html`
 - `/web2/report-revenue/index.html`
+- `/web2/returns/index.html`
+- `/web2/services-dashboard/index.html`
 - `/web2/supplier-debt/index.html`
 - `/web2/supplier-wallet/index.html`
 - `/web2/system/index.html`
 - `/web2/users-permissions/index.html`
 - `/web2/users/index.html`
 - `/web2/variants/index.html`
+- `/web2/video-beauty/index.html`
+- `/web2/video-maker/index.html`
+- `/web2/zalo/index.html`
