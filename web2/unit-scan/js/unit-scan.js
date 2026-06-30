@@ -497,6 +497,56 @@
     }
 
     // ── Sheet: chi tiết 1 kệ (SP theo từng STT) ─────────────────────
+    // Modal chi tiết 1 đơn (bấm ô sơ đồ kệ). Dùng data có sẵn từ /sort-manifest.
+    function openCellDetail(o) {
+        if (!o) return;
+        const loc = locate(o.stt);
+        const done = oDone(o);
+        const tags = (o.autoTags || [])
+            .map((t) => {
+                const c = /^#[0-9a-fA-F]{3,8}$/.test(t.color || '') ? t.color : '#6b7280';
+                return `<span class="o-tag" style="background:${c}">${esc(t.name || t.code || '')}</span>`;
+            })
+            .join('');
+        const prods = (o.products || [])
+            .map((p) => {
+                const codes = (p.codes || []).map(shortCode).filter(Boolean);
+                return `<div class="cd-prod"><span class="cd-pname">${esc(p.name || p.code)}</span>${
+                    (Number(p.qty) || 1) > 1 ? '<span class="cd-pqty">×' + p.qty + '</span>' : ''
+                }${codes.length ? `<span class="m-codes">#${codes.join(',')}</span>` : ''}</div>`;
+            })
+            .join('');
+        const ov = document.createElement('div');
+        ov.className = 'cd-back';
+        ov.innerHTML = `<div class="cd-modal" role="dialog" aria-modal="true">
+            <div class="cd-hd">
+                <div class="cd-stt ${done ? 'ok' : ''}">${o.stt != null ? esc(o.stt) : '?'}</div>
+                <div class="cd-hd-main">
+                    <div class="cd-name">${esc(o.customerName || 'Khách lẻ')}</div>
+                    <div class="cd-meta">${esc(o.orderCode || '')}${o.customerPhone ? ' · ' + esc(o.customerPhone) : ''}</div>
+                </div>
+                <button class="cd-close" aria-label="Đóng"><i data-lucide="x"></i></button>
+            </div>
+            ${tags ? `<div class="o-tags cd-tags">${tags}</div>` : ''}
+            <div class="cd-row">${loc ? `<span class="cd-loc">📍 ${esc(loc.full)}</span>` : ''}<span class="cd-prog ${done ? 'ok' : ''}">${done ? '✓ đã đủ' : '⚠ ' + o.sorted.size + '/' + o.needed} món</span></div>
+            <div class="cd-prods">${prods || '<div class="muted">—</div>'}</div>
+        </div>`;
+        document.body.appendChild(ov);
+        icons();
+        const close = () => {
+            ov.remove();
+            document.removeEventListener('keydown', onKey);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') close();
+        };
+        ov.addEventListener('click', (e) => {
+            if (e.target === ov) close();
+        });
+        ov.querySelector('.cd-close').addEventListener('click', close);
+        document.addEventListener('keydown', onKey);
+    }
+
     function openKe(ke) {
         const g = buildKes().find((x) => x.ke === ke);
         if (!g) return;
@@ -651,16 +701,11 @@
                     });
             })
         );
-        // Bấm 1 ô sơ đồ → cuộn tới đơn của STT đó.
+        // Bấm 1 ô sơ đồ → MỞ MODAL chi tiết đơn của STT đó (KHÔNG cuộn xuống).
         body.querySelectorAll('.m-cell[data-stt]').forEach((cell) =>
             cell.addEventListener('click', () => {
-                const s = cell.dataset.stt;
-                const row = body.querySelector('#mrow-' + s);
-                if (!row) return;
-                body.querySelectorAll('.m-row.hot').forEach((r) => r.classList.remove('hot'));
-                row.classList.add('hot');
-                row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                setTimeout(() => row.classList.remove('hot'), 1400);
+                const o = sttMap.get(Number(cell.dataset.stt));
+                if (o) openCellDetail(o);
             })
         );
         $('#sheetBack').hidden = false;

@@ -800,6 +800,139 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* Modal chi tiết đơn (bấm ô sơ đồ kệ) */
+.cd-back {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: cd-fade 0.14s ease-out;
+}
+@keyframes cd-fade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.cd-modal {
+    width: 100%;
+    max-width: 440px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+    padding: 16px;
+    animation: cd-pop 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes cd-pop {
+    from {
+        transform: translateY(10px) scale(0.98);
+        opacity: 0;
+    }
+    to {
+        transform: none;
+        opacity: 1;
+    }
+}
+.cd-hd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.cd-stt {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--c-amber);
+    color: #fff;
+    font-weight: 800;
+    font-size: 18px;
+    display: grid;
+    place-items: center;
+}
+.cd-stt.ok {
+    background: var(--c-green);
+}
+.cd-hd-main {
+    flex: 1;
+    min-width: 0;
+}
+.cd-name {
+    font-weight: 800;
+    font-size: 16px;
+    line-height: 1.2;
+}
+.cd-meta {
+    font-size: 12.5px;
+    color: var(--c-text-2);
+    margin-top: 2px;
+}
+.cd-close {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #334155;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+.cd-close:hover {
+    background: #e2e8f0;
+}
+.cd-tags {
+    margin-top: 12px;
+}
+.cd-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 12px;
+    font-size: 13px;
+}
+.cd-loc {
+    font-weight: 600;
+    color: #334155;
+}
+.cd-prog {
+    font-weight: 700;
+    color: var(--c-amber);
+}
+.cd-prog.ok {
+    color: var(--c-green);
+}
+.cd-prods {
+    margin-top: 12px;
+    border-top: 1px solid #eef2f7;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cd-prod {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 14px;
+}
+.cd-pname {
+    font-weight: 600;
+}
+.cd-pqty {
+    font-weight: 800;
+    color: #0068ff;
+}
 /* Bottom sheet */
 .sheet-back {
     position: fixed;

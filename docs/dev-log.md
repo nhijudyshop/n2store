@@ -2,6 +2,15 @@
 
 ## 2026-06-30
 
+### [unit-scan] Bấm ô sơ đồ kệ → MỞ MODAL chi tiết đơn (thay vì cuộn xuống)
+
+**Files:** `web2/unit-scan/js/unit-scan.js` (thêm `openCellDetail(o)` module-level; click `.m-cell` giờ `openCellDetail(sttMap.get(stt))` thay vì scroll `#mrow`), `web2/unit-scan/css/unit-scan.css` (`.cd-back`/`.cd-modal`/`.cd-hd`/`.cd-stt`/`.cd-prods`… popup giữa màn, shadow ≤24px, no backdrop blur — anti-lag), `index.html` (bump `→20260630c`).
+
+User: bấm ô (sơ đồ kệ) → mở modal xem chi tiết, KHÔNG cuộn xuống danh sách dưới.
+
+- Modal dùng data có sẵn từ `/sort-manifest` (o): STT badge + tên KH + mã đơn + SĐT + tag chip + 📍 vị trí + tiến độ đủ/thiếu + danh sách SP (×qty + #tem). Đóng: X / click nền / ESC.
+- **Test browser**: bấm ô STT1 → modal "HK Man · NJ-20260629-0001 · 0903618628 · Chờ hàng · 📍 Kệ 1·Hàng 1·Cột 1 · 0/6 món · 3 SP". Screenshot xác nhận card giữa màn sạch. Status ✅
+
 ### [unit-scan] Tag đơn hiện NGAY TRÊN Ô KỆ (sơ đồ kệ) — ô rộng còn chỗ
 
 **Files:** `web2/unit-scan/js/unit-scan.js` (mapHtml `openKe`: mỗi `.m-cell` có đơn → `<b class="mc-num">STT</b>` + `.mc-tags` pill từ `o.autoTags`), `web2/unit-scan/css/unit-scan.css` (`.m-cell` grid→flex-column; thêm `.mc-num` 13px, `.mc-tag` pill trắng đọc rõ trên nền cam/xanh), `index.html` (bump asset `→20260630b`).
