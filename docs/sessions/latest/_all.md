@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2a85aca` — fix(web2 reconcile): scanner-box tràn — nút camera/OCR lòi ra ngoài viền bo tròn
-**Last updated**: 2026-06-30 20:25:17 +07
-**Latest session**: [`RESUME:20260630-202517-2a85aca`](../20260630-202517-2a85aca.md)
-**Summary**: fix scanner-box tràn: nút camera/OCR giữ trong viền (min-width:0 + pill ellipsis)
+**Latest commit**: `2da2cde` — refactor(web2 dedup): re-verify audit 16-agent — fix esc 4→5char (3 leaf), util-money→partial, +print-unit group
+**Last updated**: 2026-06-30 20:33:40 +07
+**Latest session**: [`RESUME:20260630-203340-2da2cde`](../20260630-203340-2da2cde.md)
+**Summary**: Re-verify dedup audit (16 agent) + fix esc 3 leaf 4→5char + util-money→partial + thêm nhóm print-unit
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 20:22
+- [`docs/`](./docs.md) — updated 2026-06-30 20:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -81,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 20:25
+- [`web2/`](./web2.md) — updated 2026-06-30 20:33
