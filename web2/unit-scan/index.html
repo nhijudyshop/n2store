@@ -36,7 +36,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/unit-scan.css?v=20260630d" />
+        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701a" />
     </head>
     <body>
         <header class="hd">
@@ -93,6 +93,35 @@
             <div class="grid" id="grid">
                 <div class="muted">Đang tải danh sách đơn chờ xếp kệ…</div>
             </div>
+
+            <!-- ── Danh sách đã quét → in tem QR cả batch → Đã in (nhóm thời gian) ── -->
+            <div class="sec-row" style="margin-top: 18px">
+                <div class="sec-title" id="batchTitle">Danh sách đã quét (0)</div>
+                <button class="link-btn" id="batchMapBtn" type="button">
+                    <i data-lucide="layout-grid"></i> Sơ đồ kệ
+                </button>
+            </div>
+            <div class="batch" id="batchList">
+                <div class="muted">Chưa quét món nào — quét tem để thêm vào danh sách.</div>
+            </div>
+            <div class="batch-actions" id="batchActions" hidden>
+                <button class="batch-print-btn" id="batchPrintBtn" type="button">
+                    <i data-lucide="printer"></i> In danh sách đã quét (<span id="batchCount"
+                        >0</span
+                    >
+                    tem)
+                </button>
+                <button class="link-btn batch-clear" id="batchClearBtn" type="button">
+                    <i data-lucide="trash-2"></i> Xoá
+                </button>
+            </div>
+
+            <div class="sec-row" style="margin-top: 18px">
+                <div class="sec-title">Đã in — <span id="printedGroups">0</span> đợt</div>
+            </div>
+            <div class="printed" id="printedList">
+                <div class="muted">Chưa có đợt in nào.</div>
+            </div>
         </main>
 
         <!-- Bottom sheet: chi tiết kệ (SP theo STT) / manifest -->
@@ -134,6 +163,6 @@
         <!-- Format tiền ₫ 1-nguồn (trang KHÔNG có sidebar nên không auto-inject) -->
         <script src="../shared/web2-format.js?v=20260618"></script>
         <!-- app (1 view) -->
-        <script src="./js/unit-scan.js?v=20260630d"></script>
+        <script src="./js/unit-scan.js?v=20260701a"></script>
     </body>
 </html>

@@ -115,10 +115,10 @@
     async function onScan(target) {
         if (!target) return;
         vibe(30);
-        await resolve(target);
+        await resolve(target, { fromScan: true });
     }
 
-    async function resolve(target) {
+    async function resolve(target, opts = {}) {
         if (resolving) return;
         resolving = true;
         const result = $('#result');
@@ -131,6 +131,7 @@
             current = data;
             renderResult(data);
             loadEvents(data.unit.id);
+            if (opts.fromScan) addToBatch(data); // gom vào "danh sách đã quét" (chỉ khi quét thật)
             // Gộp: mỗi lần quét cũng cập nhật tiến độ chia hàng
             const r = markSorted(data.unit);
             beep(r.full ? 'done' : r.dup ? 'warn' : 'ok');
