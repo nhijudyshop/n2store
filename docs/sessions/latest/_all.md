@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `159ebbc` — feat(system): thêm card 'Địa danh (vùng nguồn hàng)' vào tab services — CHO VƯỢT vs pre-order + công thức NCC/GIỎ/CÒN/VƯỢT
-**Last updated**: 2026-06-30 11:06:37 +07
-**Latest session**: [`RESUME:20260630-110637-159ebbc`](../20260630-110637-159ebbc.md)
-**Summary**: feat(system): thêm card 'Địa danh (vùng nguồn hàng)' vào tab services — CHO VƯỢT vs pre-order + công t...
+**Latest commit**: `1b22053` — feat(shared): Web2ProductStatus 1 nguồn trạng thái SP + badge 'chờ hàng' live-chat (P2); migrate web2/products khỏi fork
+**Last updated**: 2026-06-30 11:43:32 +07
+**Latest session**: [`RESUME:20260630-114332-1b22053`](../20260630-114332-1b22053.md)
+**Summary**: feat(shared): Web2ProductStatus 1 nguồn trạng thái SP + badge 'chờ hàng' live-chat (P2); migrate web2/product...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 11:06
+- [`docs/`](./docs.md) — updated 2026-06-30 11:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -45,7 +45,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-26 14:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-29 19:02
+- [`live-chat/`](./live-chat.md) — updated 2026-06-30 11:43
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -83,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 11:06
+- [`web2/`](./web2.md) — updated 2026-06-30 11:43
