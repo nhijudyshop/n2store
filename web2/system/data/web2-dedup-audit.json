@@ -1,6 +1,6 @@
 {
     "generatedAt": "2026-06-30",
-    "note": "Audit các chỗ TRÙNG CHỨC NĂNG trong Web 2.0 + hướng gộp về 1 nguồn. Curated từ audit nhiều vòng + re-verify 2026-06-30 bằng 16 agent (adversarial, đọc code thật): sửa các status over-claim (util-money resolved→partial vì web2-format.js chưa load trên leaf page; util-escape đã FIX nốt 3 file leaf 4→5-char), thêm commit SHA đã xác minh, thêm nhóm print-unit. status: resolved=đã gộp xong, partial=phần lớn đã 1-nguồn còn vài bản RAW/chưa kích hoạt, pending=chưa làm/giữ riêng có chủ ý. category: business | shared-module | util.",
+    "note": "Audit các chỗ TRÙNG CHỨC NĂNG trong Web 2.0 + hướng gộp về 1 nguồn. Curated từ audit nhiều vòng + re-verify 2026-06-30 bằng 16 agent (adversarial, đọc code thật) + xác minh sâu: util-escape FIX nốt 3 file leaf 4→5-char (codemod bỏ sót); util-money giữ resolved vì web2-sidebar.js TỰ INJECT web2-format.js (₫ unify 13/14 trang), thêm load tĩnh cho unit-scan (không sidebar); thêm commit SHA đã xác minh + nhóm print-unit. status: resolved=đã gộp xong, partial=phần lớn đã 1-nguồn còn vài bản RAW/chưa kích hoạt, pending=chưa làm/giữ riêng có chủ ý. category: business | shared-module | util.",
     "groups": [
         {
             "id": "chohang-amma",
@@ -151,11 +151,11 @@
             "category": "util",
             "title": "Format tiền VND (fmtVnd / fmtMoney)",
             "severity": "medium",
-            "status": "partial",
+            "status": "resolved",
             "filesAffected": 11,
             "concept": "28 bản format tiền — 12 delegate, 16 RAW. Không nhất quán hậu tố (₫ vs đ) + làm tròn.",
             "canonical": "Web2Format.vnd(n) — web2/shared/web2-format.js",
-            "resolution": "Codemod 85f9fe06 thêm delegate-with-fallback Web2Format.vnd vào 11 file. NHƯNG re-verify 2026-06-30: web2-format.js KHÔNG được load ở 5 trang leaf (clearance/products/chi-tieu/unit-scan/kpi) → delegate INERT, fallback render 'đ' (không phải '₫' như claim). Để kích hoạt ₫ 1-nguồn: thêm <script src='../shared/web2-format.js'> vào các trang đó. Hạ về partial cho trung thực.",
+            "resolution": "Codemod 85f9fe06 thêm delegate-with-fallback Web2Format.vnd vào 11 file. Re-verify 2026-06-30: web2-format.js không nằm trong <script> tĩnh NHƯNG web2-sidebar.js TỰ INJECT (if !Web2Format) trên 50 trang có sidebar → ₫ kích hoạt runtime ở 13/14 trang consumer. Chỉ unit-scan (KHÔNG có sidebar) còn render 'đ' → đã thêm <script web2-format.js> tường minh. Nay ₫ 1-nguồn mọi trang (sidebar auto-inject + unit-scan/reconcile load tĩnh).",
             "commit": "85f9fe06",
             "sites": [
                 "web2/clearance/js/clearance.js",

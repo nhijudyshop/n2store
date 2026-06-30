@@ -4,18 +4,18 @@
 
 ### [web2 system/dedup] Re-verify audit trùng-lặp bằng 16 agent + fix esc 3 leaf + sync trang
 
-**Files:** `web2/system/data/web2-dedup-audit.json` · `web2/clearance/js/clearance.js` · `web2/unit-scan/js/unit-scan.js` · `web2/goods-weight/js/goods-weight.js`.
+**Files:** `web2/system/data/web2-dedup-audit.json` · `web2/clearance/js/clearance.js` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/index.html` · `web2/goods-weight/js/goods-weight.js`.
 
 User: "xem dedup tab đã xử lý hết lỗi chưa thì cập nhật trang". Chạy workflow 16 agent (adversarial, đọc code thật) verify từng nhóm trong tab "Trùng lặp / 1-nguồn" rồi mình verify lại trực tiếp các nhóm bị over-claim:
 
 - **util-escape** (claim resolved): codemod 85f9fe06 BỎ SÓT 3 file leaf (clearance/unit-scan/goods-weight) — `esc` vẫn 4-char `/[&<>"]/` thiếu `'`. → **FIX** nốt lên 5-char (thêm `&#39;`), giữ esc local (leaf nhẹ, tránh load-order). Nay 0 bản 4-char → resolved (thật).
-- **util-money** (claim resolved): `web2-format.js` KHÔNG load ở 5 trang leaf → delegate `Web2Format.vnd` INERT, fallback render `'đ'` ≠ `'₫'`. → hạ **resolved→partial** cho trung thực (path fix: thêm script tag).
+- **util-money**: đào sâu — `web2-sidebar.js` TỰ inject `web2-format.js` (`if !Web2Format`) trên 50 trang sidebar → ₫ đã unify runtime 13/14 trang consumer. Chỉ **unit-scan** (KHÔNG sidebar, dùng fmtVnd L239) render `'đ'` → **thêm `<script web2-format.js>` vào `unit-scan/index.html`** (trước app). Verify `Web2Format.vnd(1234567)='1.234.567₫'`. → resolved (₫ 1-nguồn mọi trang).
 - **util-datetime** (claim resolved, severity high): verify 5 `fmtTime` ĐỀU có `timeZone:'Asia/Ho_Chi_Minh'` → KHÔNG có bug TZ. Giữ resolved, hạ severity high→medium.
 - **chat-clients**: zalo-chat là hệ riêng WZChat (không phải dup) — làm rõ resolution.
 - Thêm commit SHA đã xác minh (153a6091/bd2c728e/eb65634/7e6f568/d68cf952/85f9fe06...); util-auth để trống (agent cite nhầm e1010c4b = session commit).
 - **Thêm nhóm mới `print-unit-builder`** (consolidation 24195eb8 hôm nay chưa có trong audit).
 
-Tab nay: 16 nhóm (10 resolved / 3 partial / 3 pending). 3 pending (customer-lookup/order-math/pagination) là xuyên-layer Web1⊥Web2 → KHÔNG finishable (chủ ý). Verified: `node --check` 3 JS OK, JSON parse + enum khớp render map, server serve đúng. Status: ✅
+Tab nay: 16 nhóm (**11 resolved / 2 partial / 3 pending**). 3 pending (customer-lookup/order-math/pagination) là xuyên-layer Web1⊥Web2 → KHÔNG finishable (chủ ý); 2 partial (compute-product-status SQL un-retire pattern khác, util-auth 4 bản giữ fallback session) là chủ ý. Verified: `node --check` 3 JS OK, JSON parse + enum khớp render map, `Web2Format.vnd`→₫, server serve đúng. Status: ✅
 
 ### [web2 zalo] Chat: tự chọn tài khoản khi chỉ có 1 tài khoản cá nhân
 
