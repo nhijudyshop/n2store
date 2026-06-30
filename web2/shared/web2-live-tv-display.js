@@ -7,8 +7,8 @@
 // nhau ở 2 nơi (nếu không, preview ở control khác trang thật trên TV).
 //
 // Khái niệm "card" = 1 group (theo mã SP, từ Web2VariantGroup.group(..., {by:'code'})).
-// Trạng thái card tính gộp từ các biến thể: ncc=Σ pendingQty, con=Σ max(0, ncc-giỏ),
-// newCust=Σ KH mới. soldOut khi ĐÃ báo NCC mà CÒN ≤ 0.
+// Trạng thái card gộp từ biến thể (#2 2026-06-30): stock=Σ tồn, choHang=Σ max(0,giỏ−tồn),
+// con=Σ max(0,tồn−giỏ), newCust=Σ KH mới. soldOut khi có tồn mà CÒN ≤ 0 (giỏ ≥ tồn).
 // =====================================================
 (function (global) {
     'use strict';
@@ -67,8 +67,6 @@
                 sold > 0 &&
                 con <= Math.max(1, Math.round(stock * LOW_RATIO)),
             hot: newCust >= HOT_THRESHOLD,
-            // compat model cũ:
-            ncc: stock,
         };
     }
 
@@ -132,9 +130,6 @@
             choHang: choHang,
             con: con,
             pending: Number(v && v.pendingQty) || 0, // "đã đặt NCC" (Sổ Order) — hiển thị phụ
-            // compat model cũ (sẽ gỡ sau khi mọi consumer chuyển field mới):
-            ncc: stock,
-            vuot: 0,
         };
     }
 

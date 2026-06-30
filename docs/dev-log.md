@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [shared] Dọn compat `ncc`/`vuot` trong khConModel/cardState (sau #2)
+
+**Files:** `web2/shared/web2-live-tv-display.js` (gỡ `ncc`/`vuot` khỏi khConModel return + `ncc` khỏi cardState; cập nhật header comment), `web2/live-control/index.html` + `web2/live-tv/index.html` (bump tv16).
+
+Sau #2, xác nhận KHÔNG consumer nào còn đọc `m.ncc`/`m.vuot`/`st.ncc` từ model: live-tv/live-control dùng field mới (stock/gio/choHang/con); `unit-scan` đọc `data.metrics` (backend riêng, KHÁC); `supplier-pay` là NCC nhà-cung-cấp (`dataset.ncc`). → gỡ compat. Self-check: ncc/vuot=undefined, field mới còn nguyên.
+
 ### [so-order][web2-products] Surface "Chờ hàng cần đặt" vào Sổ Order → bấm thêm vào đơn (#2 follow-up)
 
 **Files:** `render.com/routes/web2-products.js` (GET `/restock-needed`), `web2/shared/web2-products-api.js` (`restockNeeded()`), `so-order/js/so-order-restock.js` (MỚI — modal `SO.openRestockModal`), `so-order/js/so-order-toolbar.js` (wire `#soRestockBtn`), `so-order/index.html` (nút "Cần đặt" + load script + bump api/toolbar `→20260630a`).
