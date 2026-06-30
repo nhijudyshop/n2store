@@ -13,7 +13,7 @@
 - **Phân quyền:** detailedPermissions (thống nhất, chi tiết theo pageId/action)
 - **State Management:** BaseStore class (Firebase as Source of Truth + Real-time Listener)
 
-## Cấu trúc dự án.
+## Cấu trúc dự án
 
 ```
 n2store/
