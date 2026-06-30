@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [web2 sse] Migrate 6 trang pure-debounce → Web2SSE.subscribeReload
+
+**Files:** `web2/purchase-refund/js/purchase-refund-app.js` · `web2/clearance/js/clearance.js` · `web2/chi-tieu/js/chi-tieu-app.js` · `web2/fastsaleorder-refund/rf-app.js` · `web2/fastsaleorder-delivery/dlv-app.js` · `web2/goods-weight/js/goods-weight.js` (+ `web2-dedup-audit.json`).
+
+Tiếp item SSE: survey từng trang → migrate 6 trang **PURE-debounce** (subscribe + tự `clearTimeout/setTimeout(reload, N)`) sang 1 dòng `Web2SSE.subscribeReload(topic, fn, {debounce:N})`, giữ **fallback defensive** (`else if subscribe` cho bridge cache cũ). Tổng **7 trang** dùng subscribeReload (+ variants). Trang xử lý **per-event riêng** (reconcile/products/supplier-debt/customer-wallet/cham-cong/unit-scan/jt-tracking/pbh-app: lọc `msg.action`, nhiều timer/topic, async, factory) **GIỮ raw subscribe** (chủ ý, không phải dup). Verified browser: chi-tieu subscribe đúng `web2:cashbook` qua subscribeReload, 0 err. Smoke 105 trang clean. Status: ✅
+
 ### [web2 sse] Web2SSE.subscribeReload — 1 nguồn subscribe + debounce reload
 
 **Files:** `web2/shared/web2-sse-bridge.js` (thêm `subscribeReload` + export + header), `web2/variants/js/web2-variants-app.js` (wire), `web2/system/data/web2-dedup-audit.json`.
