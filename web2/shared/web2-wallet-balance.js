@@ -33,6 +33,8 @@
     const _inflight = new Map(); // phone -> Promise<number>
 
     function normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         if (window.Web2PhoneUtils) return window.Web2PhoneUtils.norm(p);
         let s = String(p || '').replace(/\D/g, '');
         if (!s) return '';

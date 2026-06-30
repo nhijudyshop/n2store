@@ -12,6 +12,8 @@
     // số khác bằng cách normalize rồi validate. Cho phép dấu cách/.- giữa cụm.
     const PHONE_RE = /(?:\+?84|0)\s?(?:\d[\s.\-]?){9}/g;
     function normalizePhone(raw) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(raw);
         let d = String(raw).replace(/\D/g, '');
         if (d.startsWith('84')) d = '0' + d.slice(2);
         if (d.length === 11 && d.startsWith('00')) d = d.slice(1);

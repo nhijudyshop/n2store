@@ -24,6 +24,8 @@
     const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/wallets';
 
     function normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         if (global.Web2PhoneUtils) return global.Web2PhoneUtils.norm(p);
         const s = String(p || '').replace(/\D/g, '');
         if (!s) return '';

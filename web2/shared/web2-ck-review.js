@@ -44,6 +44,8 @@
         return Number.isNaN(n) ? '' : new Date(n).toLocaleString('vi-VN');
     }
     function normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         if (global.Web2PhoneUtils) return global.Web2PhoneUtils.norm(p);
         let s = String(p || '').replace(/\D/g, '');
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);

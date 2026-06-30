@@ -152,6 +152,8 @@
     }
 
     function _normalizePhoneInput(raw) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(raw);
         let s = String(raw || '').replace(/[^0-9]/g, '');
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
         return s;

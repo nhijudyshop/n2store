@@ -54,6 +54,8 @@
                   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
               );
     function _normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         if (!p) return '';
         if (global.SharedUtils?.normalizePhone) return global.SharedUtils.normalizePhone(p) || '';
         return String(p).replace(/[^\d]/g, '');

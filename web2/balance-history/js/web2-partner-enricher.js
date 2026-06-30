@@ -18,6 +18,8 @@
     let observerActive = false;
 
     function normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         const s = String(p || '').replace(/\D/g, '');
         if (!s) return '';
         if (s.startsWith('84') && s.length >= 11) return '0' + s.slice(2);

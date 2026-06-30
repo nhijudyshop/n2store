@@ -105,6 +105,8 @@
         }
     }
     function normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         if (!p) return '';
         const s = String(p).replace(/\D/g, '');
         if (!s) return '';

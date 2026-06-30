@@ -10,28 +10,28 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <!-- CSS: Design tokens + Layout + Components + Module styles -->
-        <link rel="stylesheet" href="css/variables.css?v=20260625a" />
-        <link rel="stylesheet" href="css/layout.css?v=20260625a" />
-        <link rel="stylesheet" href="css/components.css?v=20260625a" />
+        <link rel="stylesheet" href="css/variables.css?v=20260630b" />
+        <link rel="stylesheet" href="css/layout.css?v=20260630b" />
+        <link rel="stylesheet" href="css/components.css?v=20260630b" />
         <!-- Old CSS (base styles still needed by Pancake pk-* classes) -->
-        <link rel="stylesheet" href="css/pancake-redesign-tokens.css?v=20260625a" />
-        <link rel="stylesheet" href="css/pancake-chat.css?v=20260625a" />
+        <link rel="stylesheet" href="css/pancake-redesign-tokens.css?v=20260630b" />
+        <link rel="stylesheet" href="css/pancake-chat.css?v=20260630b" />
         <!-- New CSS (overrides old styles with modern design) -->
-        <link rel="stylesheet" href="css/live/live-comments.css?v=20260625a" />
+        <link rel="stylesheet" href="css/live/live-comments.css?v=20260630b" />
         <!-- Component chat HỢP NHẤT (Web2ChatPanel) — dùng chung native-orders/balance-history -->
-        <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260630b" />
 
         <!-- Web 2.0 sidebar shell (giống các trang web2/* khác) -->
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260630b" />
 
         <!-- ESM Compat -->
-        <script type="module" src="../shared/esm/compat.js?v=20260625a"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260630b"></script>
         <!-- Auth: page là Web 2.0 module → dùng hệ thống user mới (web2/users/).
              Legacy AuthManager đã được gỡ. Page guard sẽ được wire qua web2-auth-guard
              trong Phase 2 (xem render.com/routes/web2-users.js). -->
 
         <!-- Storage Migration -->
-        <script src="../shared/js/storage-migration.js?v=20260625a"></script>
+        <script src="../shared/js/storage-migration.js?v=20260630b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.StorageMigration) window.StorageMigration.migrateModuleStorage('web2');
@@ -52,7 +52,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260625a" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260630b" />
 
         <!-- Web 2.0 shell layout — sidebar on the left, main content on the right -->
         <style>
@@ -226,12 +226,12 @@
                 if (isMobileTablet) document.documentElement.classList.add('lc-mobile');
             })();
         </script>
-        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260625anim" />
-        <link rel="stylesheet" href="css/inventory-panel.css?v=20260630a" />
-        <link rel="stylesheet" href="css/live/live-stats.css?v=20260625a" />
-        <link rel="stylesheet" href="css/live-livestream-gallery.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260630b" />
+        <link rel="stylesheet" href="css/inventory-panel.css?v=20260630b" />
+        <link rel="stylesheet" href="css/live/live-stats.css?v=20260630b" />
+        <link rel="stylesheet" href="css/live-livestream-gallery.css?v=20260630b" />
         <!-- Shared FX (native-orders style): glass/soft/glow/anim + barba-style transition -->
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260625a" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260630b" />
     </head>
 
     <body class="web2-theme">
@@ -790,89 +790,90 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-        <script src="../shared/js/firebase-config.js?v=20260625a"></script>
-        <script src="../shared/js/shared-cache-manager.js?v=20260625a"></script>
-        <script src="../shared/js/notification-system.js?v=20260625a"></script>
-        <script defer src="../shared/js/navigation-modern.js?v=20260625a"></script>
-        <script src="../shared/js/shop-config.js?v=20260625a"></script>
+        <script src="../shared/js/firebase-config.js?v=20260630b"></script>
+        <script src="../shared/js/shared-cache-manager.js?v=20260630b"></script>
+        <script src="../shared/js/notification-system.js?v=20260630b"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260630b"></script>
+        <script src="../shared/js/shop-config.js?v=20260630b"></script>
 
         <!-- Config -->
-        <script src="js/api-config.js?v=20260625a"></script>
-        <script src="js/config.js?v=20260625a"></script>
+        <script src="js/api-config.js?v=20260630b"></script>
+        <script src="js/config.js?v=20260630b"></script>
 
         <!-- Shared utilities (NEW modular) -->
-        <script src="js/shared/utils.js?v=20260625a"></script>
-        <script src="js/shared/cache-manager.js?v=20260625a"></script>
-        <script src="js/shared/debt-manager.js?v=20260625a"></script>
-        <script src="js/shared/event-bus.js?v=20260625a"></script>
+        <script src="js/shared/utils.js?v=20260630b"></script>
+        <script src="js/shared/cache-manager.js?v=20260630b"></script>
+        <script src="js/shared/debt-manager.js?v=20260630b"></script>
+        <script src="js/shared/event-bus.js?v=20260630b"></script>
 
         <!-- Layout modules: column-manager + settings-manager ĐÃ GỠ (2026-06-11
              single column — app-init tự skip khi window.ColumnManager absent). -->
 
         <!-- SHARED realtime livestream-comment modules (dùng chung index + comments-mobile) -->
-        <script src="js/shared/live-time.js?v=20260625a"></script>
-        <script src="js/shared/live-comments-stream.js?v=20260625a"></script>
+        <script src="js/shared/live-time.js?v=20260630b"></script>
+        <script src="js/shared/live-comments-stream.js?v=20260630b"></script>
         <!-- Web2CustomerStore: NGUỒN DUY NHẤT kho KH (load TRƯỚC live-status/live-customer-sync/live-api) -->
-        <script src="../web2/shared/web2-customer-store.js?v=20260625a"></script>
-        <script src="js/shared/live-status.js?v=20260625a"></script>
-        <script src="js/shared/live-customer-sync.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-phone-utils.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-customer-store.js?v=20260630b"></script>
+        <script src="js/shared/live-status.js?v=20260630b"></script>
+        <script src="js/shared/live-customer-sync.js?v=20260630b"></script>
         <!-- Live modules (NEW modular) -->
-        <script src="js/live/live-state.js?v=20260625a"></script>
-        <script src="js/live/live-api.js?v=20260625a"></script>
-        <script src="js/live/live-native-orders-api.js?v=20260629f"></script>
+        <script src="js/live/live-state.js?v=20260630b"></script>
+        <script src="js/live/live-api.js?v=20260630b"></script>
+        <script src="js/live/live-native-orders-api.js?v=20260630b"></script>
         <!-- live-comment-list split MOVE-only (2026-06-19) thành 7 module nhỏ
              (<800 dòng). Public API window.LiveCommentList: base tạo SHELL rỗng,
              các module Object.assign methods vào CÙNG object. Internal namespace
              window._LiveCmtList chứa helpers. Load theo thứ tự phụ thuộc:
              base → state → events → render-list → render-row → actions → orders. -->
-        <script src="js/live/live-comment-list-base.js?v=20260625a"></script>
-        <script src="js/live/live-comment-list-state.js?v=20260625a"></script>
-        <script src="js/live/live-comment-list-events.js?v=20260625a"></script>
-        <script src="js/live/live-comment-list-render-list.js?v=20260625a"></script>
-        <script src="js/live/live-comment-list-render-row.js?v=20260625a"></script>
-        <script src="js/live/live-comment-list-actions.js?v=20260625a"></script>
-        <script src="js/live/live-comment-list-orders.js?v=20260629f"></script>
-        <script src="js/live/live-hidden-commenters.js?v=20260626auth"></script>
-        <script src="js/live/live-customer-panel.js?v=20260625a"></script>
-        <script src="js/live/live-realtime.js?v=20260625a"></script>
+        <script src="js/live/live-comment-list-base.js?v=20260630b"></script>
+        <script src="js/live/live-comment-list-state.js?v=20260630b"></script>
+        <script src="js/live/live-comment-list-events.js?v=20260630b"></script>
+        <script src="js/live/live-comment-list-render-list.js?v=20260630b"></script>
+        <script src="js/live/live-comment-list-render-row.js?v=20260630b"></script>
+        <script src="js/live/live-comment-list-actions.js?v=20260630b"></script>
+        <script src="js/live/live-comment-list-orders.js?v=20260630b"></script>
+        <script src="js/live/live-hidden-commenters.js?v=20260630b"></script>
+        <script src="js/live/live-customer-panel.js?v=20260630b"></script>
+        <script src="js/live/live-realtime.js?v=20260630b"></script>
         <!-- Cột live = FB Graph (web2-fb-live) — Live đã gỡ HOÀN TOÀN, không fallback -->
-        <script src="js/live/live-source.js?v=20260625a"></script>
+        <script src="js/live/live-source.js?v=20260630b"></script>
         <!-- live-init split MOVE-only (2026-06-19) thành 4 module nhỏ (<800 dòng).
              Public API window.LiveColumnManager: state tạo SHELL (namespace
              window._LiveInit + _loadGen/_w2AuthHeaders), các module Object.assign
              methods vào CÙNG object. window.liveChatManager delegate xuất ở entry.
              Load theo thứ tự phụ thuộc: state → wiring → lifecycle → entry. -->
-        <script src="js/live/live-init-state.js?v=20260625a"></script>
-        <script src="js/live/live-init-wiring.js?v=20260625a"></script>
-        <script src="js/live/live-init-lifecycle.js?v=20260625a"></script>
-        <script src="js/live/live-init.js?v=20260625a"></script>
-        <script src="js/live/live-campaign-manager.js?v=20260627camp"></script>
-        <script src="js/live/live-order-history.js?v=20260625a"></script>
+        <script src="js/live/live-init-state.js?v=20260630b"></script>
+        <script src="js/live/live-init-wiring.js?v=20260630b"></script>
+        <script src="js/live/live-init-lifecycle.js?v=20260630b"></script>
+        <script src="js/live/live-init.js?v=20260630b"></script>
+        <script src="js/live/live-campaign-manager.js?v=20260630b"></script>
+        <script src="js/live/live-order-history.js?v=20260630b"></script>
         <!-- Enrich SĐT/địa chỉ từ kho KH warehouse Web 2.0 theo fb_id -->
-        <script src="js/live/live-kho-enricher.js?v=20260626tok"></script>
+        <script src="js/live/live-kho-enricher.js?v=20260630b"></script>
         <!-- Web 2.0 SSE bridge — multi-tab/-máy realtime (livestream snapshots + images) -->
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-campaign.js?v=20260627camp"></script>
-        <script src="../web2/shared/web2-wallet-balance.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-campaign.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-wallet-balance.js?v=20260630b"></script>
         <!-- Livestream Snapshot per customer (📸 button + popover) — split MOVE-only
              vào 10 module nhỏ (2026-06-19), chia sẻ state qua window.LiveSnap; public
              API window.LiveLivestreamSnap do snap-init dựng. Load theo thứ tự phụ thuộc:
              state → capture → stream → lock → seek → actions → extract → render → ui → init. -->
-        <script src="js/live/live-livestream-snap-state.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-capture.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-stream.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-lock.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-seek.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-actions.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-extract.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-render.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-ui.js?v=20260625a"></script>
-        <script src="js/live/live-livestream-snap-init.js?v=20260625a"></script>
+        <script src="js/live/live-livestream-snap-state.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-capture.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-stream.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-lock.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-seek.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-actions.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-extract.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-render.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-ui.js?v=20260630b"></script>
+        <script src="js/live/live-livestream-snap-init.js?v=20260630b"></script>
         <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
-        <script src="js/live/live-livestream-gallery.js?v=20260625a"></script>
+        <script src="js/live/live-livestream-gallery.js?v=20260630b"></script>
         <!-- Bảng "Thông tin Livestream" dưới ô video (cột video phải) — event-driven
              qua LiveCommentList._updateTotalBadge() → scheduleUpdate() (KHÔNG poller). -->
-        <script src="js/live/live-stats-panel.js?v=20260625a"></script>
+        <script src="js/live/live-stats-panel.js?v=20260630b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 if (window.LiveStatsPanel)
@@ -883,27 +884,27 @@
         <!-- Web2Chat client — syncs pancake JWT + page tokens from Render DB
              (same source native-orders uses). Must load BEFORE pancake-token-manager
              so getToken() can self-heal via Web2Chat.syncFromRenderDB(). -->
-        <script src="../web2/shared/web2-chat-utils.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-chat-tokens.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-chat-settings.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-chat-api.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-chat-live.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-chat-tags.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-chat-client.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-chat-utils.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-chat-tokens.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-chat-settings.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-chat-api.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-chat-live.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-chat-tags.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-chat-client.js?v=20260630b"></script>
         <!-- Nguồn DUY NHẤT quản lý account/token Pancake = pancake_accounts (web2/pancake-settings). -->
-        <script src="../web2/shared/web2-pancake-accounts.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-pancake-accounts.js?v=20260630b"></script>
         <!-- Component chat HỢP NHẤT — emoji data + panel (pancake-chat-window.js bọc qua adapter) -->
-        <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260625a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260625a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-sticker-data.js?v=20260625a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel-state.js?v=20260625a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel-render.js?v=20260625a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel-compose.js?v=20260625a"></script>
-        <script src="../web2/shared/chat-panel/web2-chat-panel.js?v=20260625a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260630b"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260630b"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-sticker-data.js?v=20260630b"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel-state.js?v=20260630b"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel-render.js?v=20260630b"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel-compose.js?v=20260630b"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel.js?v=20260630b"></script>
         <!-- Quick-reply: /shortcut autocomplete + chữ ký NV (dùng chung native-orders) -->
-        <script src="../web2/shared/web2-quick-reply.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-quick-reply.js?v=20260630b"></script>
         <!-- Extension bridge: gửi tin bypass-24h qua N2 extension khi Pancake API lỗi -->
-        <script src="../web2/shared/web2-extension-bridge.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-extension-bridge.js?v=20260630b"></script>
 
         <!-- Pancake CORE (token/state/api/chat-window adapter) — CHỈ phần cần cho
              modal hội thoại 💬 trên comment row. UI cột chat (page-selector,
@@ -911,25 +912,25 @@
              (2026-06-11). -->
         <!-- pancake-token-manager.js tách MOVE-only thành namespace modules (2026-06-18):
              codec → storage → sources → page-access → firestore → manager (class LAST). -->
-        <script src="js/pancake/pancake-token-codec.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-token-storage.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-token-sources.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-page-access-tokens.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-firestore-accounts.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-token-manager.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-state.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-api.js?v=20260625a"></script>
-        <script src="js/pancake/pancake-chat-window.js?v=20260625a"></script>
+        <script src="js/pancake/pancake-token-codec.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-token-storage.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-token-sources.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-page-access-tokens.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-firestore-accounts.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-token-manager.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-state.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-api.js?v=20260630b"></script>
+        <script src="js/pancake/pancake-chat-window.js?v=20260630b"></script>
         <!-- Modal hội thoại chat với KH từ comment row (full chức năng như native-orders) -->
-        <script src="js/live/live-chat-modal.js?v=20260625a"></script>
+        <script src="js/live/live-chat-modal.js?v=20260630b"></script>
         <!-- Kho SP panel phải — kéo SP vào comment row tạo đơn (giữ lại 2026-06-11) -->
-        <script src="../web2/shared/web2-so-order-reader.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-so-order-reader.js?v=20260630b"></script>
         <!-- 1 NGUỒN trạng thái SP (chip "chờ hàng" trên card) — load TRƯỚC render -->
-        <script src="../web2/shared/web2-product-status.js?v=20260630a"></script>
-        <script src="js/pancake/inventory-panel-state.js?v=20260625a"></script>
-        <script src="js/pancake/inventory-panel-render.js?v=20260630a"></script>
-        <script src="js/pancake/inventory-panel-actions.js?v=20260629g"></script>
-        <script src="js/pancake/inventory-panel-init.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-product-status.js?v=20260630b"></script>
+        <script src="js/pancake/inventory-panel-state.js?v=20260630b"></script>
+        <script src="js/pancake/inventory-panel-render.js?v=20260630b"></script>
+        <script src="js/pancake/inventory-panel-actions.js?v=20260630b"></script>
+        <script src="js/pancake/inventory-panel-init.js?v=20260630b"></script>
         <script>
             // Mount Kho SP vào panel phải (không qua mode-switcher như trước).
             // Toggle thu gọn lưu localStorage.
@@ -961,16 +962,16 @@
         </script>
 
         <!-- App Initialization (last - orchestrates everything) -->
-        <script src="js/layout/app-init.js?v=20260625a"></script>
+        <script src="js/layout/app-init.js?v=20260630b"></script>
 
         <!-- Web 2.0 sidebar mount -->
-        <script src="../web2/shared/web2-auth.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-user-info.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-ck-review.js?v=20260625a"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260629e"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260625a"></script>
-        <script type="module" src="../web2/shared/web2-motion.js?v=20260625a"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-user-info.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-ck-review.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260630b"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260630b"></script>
+        <script type="module" src="../web2/shared/web2-motion.js?v=20260630b"></script>
         <script>
             // Lucide load defer → có thể CHƯA sẵn khi inline script chạy.
             // Helper: tạo icon ngay nếu lucide đã có, không thì đợi window load.

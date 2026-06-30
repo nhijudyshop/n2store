@@ -11,6 +11,8 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     function _normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         if (!p) return '';
         let s = String(p).replace(/\D/g, '');
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);

@@ -122,6 +122,8 @@
 
     // ── PHONE (SĐT VN = ĐÚNG 10 số) ─────────────────────────────────────
     function normPhone(p) {
+        if (window.Web2PhoneUtils && window.Web2PhoneUtils.norm)
+            return window.Web2PhoneUtils.norm(p);
         var s = String(p == null ? '' : p).replace(/\D/g, '');
         if (!s) return '';
         if (s.indexOf('84') === 0 && s.length === 11) s = '0' + s.slice(2);
