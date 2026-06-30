@@ -3,20 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `359bea1` — security: client creds → env/config-endpoint (SIP fallback + SePay account password)
-**Last updated**: 2026-07-01 00:24:49 +07
-**Latest session**: [`RESUME:20260701-002449-359bea1`](../20260701-002449-359bea1.md)
-**Summary**: Client creds → env/config-endpoint: SIP fallback gỡ trống + SePay account password gỡ khỏi client (worker dùng env); user phải set worker secret + rotate
+**Latest commit**: `7cd62c2` — security: gỡ nốt api_key SePay dead khỏi service-costs (worker không validate)
+**Last updated**: 2026-07-01 05:51:14 +07
+**Latest session**: [`RESUME:20260701-055114-7cd62c2`](../20260701-055114-7cd62c2.md)
+**Summary**: security: gỡ nốt api_key SePay dead khỏi service-costs (worker không validate)
 
 ## Folders affected in this commit
 
-- [`.github/`](./.github.md) — 1 file(s)
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
-- [`orders-report/`](./orders-report.md) — 1 file(s)
 - [`service-costs/`](./service-costs.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -68,7 +62,7 @@
 - [`render.com/`](./render.com.md) — updated 2026-06-30 23:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
-- [`service-costs/`](./service-costs.md) — updated 2026-07-01 00:24
+- [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
 - [`shared/`](./shared.md) — updated 2026-07-01 00:24
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
