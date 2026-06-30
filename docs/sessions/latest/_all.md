@@ -3,23 +3,24 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `acce384` — docs(dev-log): security CI artifact triage + secret sanitization
-**Last updated**: 2026-06-30 23:31:00 +07
-**Latest session**: [`RESUME:20260630-233100-acce384`](../20260630-233100-acce384.md)
-**Summary**: docs(dev-log): security CI artifact triage + secret sanitization
+**Latest commit**: `0b723cb` — ci(security): gitleaks allowlist FP (storage-key/CORS/Firebase-public/.tmp/backups) — sót commit trước
+**Last updated**: 2026-07-01 00:05:45 +07
+**Latest session**: [`RESUME:20260701-000545-0b723cb`](../20260701-000545-0b723cb.md)
+**Summary**: ci(security): gitleaks allowlist FP (storage-key/CORS/Firebase-public/.tmp/backups) — sót commit trước
 
 ## Folders affected in this commit
 
 - [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`inbox/`](./inbox.md) — 2 file(s)
+- [`orders-report/`](./orders-report.md) — 4 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-28 22:00
 - [`.github/`](./.github.md) — updated 2026-06-30 23:19
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-30 23:31
+- [`_root/`](./_root.md) — updated 2026-07-01 00:05
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-24 14:02
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
@@ -29,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 23:31
+- [`docs/`](./docs.md) — updated 2026-07-01 00:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -39,7 +40,7 @@
 - [`gemini-tryon/`](./gemini-tryon.md) — updated 2026-06-28 09:30
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`hyperframes-render/`](./hyperframes-render.md) — updated 2026-06-24 18:48
-- [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
+- [`inbox/`](./inbox.md) — updated 2026-07-01 00:05
 - [`index/`](./index.md) — updated 2026-06-20 16:43
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-27 11:49
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
@@ -52,7 +53,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-30 22:16
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
-- [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
+- [`orders-report/`](./orders-report.md) — updated 2026-07-01 00:05
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-06-20 12:07
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-20 12:07
