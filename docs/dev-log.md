@@ -2,6 +2,15 @@
 
 ## 2026-06-30
 
+### [web2 system + ci] Siết services-overview admin-gate + tooling auto-audit (Gitleaks/Semgrep)
+
+**Files:** `render.com/routes/services-overview.js` · `web2/system/js/system-services.js` · `.gitleaks.toml` · `.github/workflows/security-audit.yml` (on-disk, chưa push — thiếu workflow scope).
+
+- **Services tab (task 2):** review code đã làm — đa số ĐÚNG (MAX_LOG_ROWS, EventSource close, start()-return latch, reload wiring OK, 0 console error). Phát hiện 1 lỗ hardening: web2/system là menu **CHỈ ADMIN** (web2-sidebar.js) nhưng backend chỉ `requireWeb2Auth` (mọi user login) → NV thường curl được cost+infra+tên-bảng-PII. **Siết → `requireWeb2Admin`** (403 non-admin); frontend phân biệt 401 (login) vs 403 (admin). Deploy verified: admin→200, no-token→401.
+- **Auto-audit tooling (task 3):** chạy thật trên source — **Gitleaks** (secrets): 7149 match/12853 commit nhưng ~6.6k FP (data-export/docs/Firebase web-key public); thật cần review: vài file tracked có `AIza`/JWT (rotate nếu là Gemini/server key, KHÔNG phải Firebase). **Semgrep** (p/javascript+security-audit): 34 finding (2 ERROR/32 WARN) — TLS-bypass ×4 (`NODE_TLS_REJECT_UNAUTHORIZED=0` invoice-status/odata/pancake/token), path-traversal ×2 (admin-migration), postMessage-`*` ×8, direct-response-write ×14 — phần lớn chủ ý (proxy/TPOS cert), cần triage. Thêm `.gitleaks.toml` (allowlist FP) + `security-audit.yml` (Gitleaks+Semgrep **on push** — ci.yml cũ chỉ on PR mà repo push thẳng main → gần như không chạy). ⚠ `npm run lint` cũ = no-op (glob `js/**/*.js` không tồn tại + thiếu eslint config).
+
+Status: ✅ services-tab hardening (deployed+verified) · ✅ gitleaks config pushed · ⬜ workflow file cần user push (workflow scope).
+
 ### [web2 audit] Follow-up đợt 2 — boost-purge wiring (desktop+mobile) + LiveCustomerSync token
 
 **Files:** `live-chat/js/live/live-comment-list-actions.js` · `live-init.js` · `comments-mobile-actions.js` · `live-chat/js/shared/live-customer-sync.js`.
