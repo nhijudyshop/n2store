@@ -1142,7 +1142,7 @@
                 body: JSON.stringify({
                     email: '',
                     password: '',
-                    api_key: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY',
+                    api_key: '' /* worker không validate api_key (dead); cred ở env */,
                 }),
             });
             if (!res.ok) return null;
