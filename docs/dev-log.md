@@ -2,6 +2,19 @@
 
 ## 2026-06-30
 
+### [security] CI gitleaks/semgrep artifact → gỡ 2 secret hardcode nguy hiểm nhất
+
+**Files:** `render.com/config/tpos.config.js` · `render.com/scripts/migrate-dropped-held-to-pg.js`.
+
+User push workflow `security-audit.yml` → CI chạy → tải artifact. Phân tích:
+
+- **Gitleaks (CI, allowlist)**: 54 leak working-tree. Phần lớn FP = Firebase web key (`AIza`, public theo thiết kế Google) + JWT TPOS hết hạn trong file dump (.txt/docs). THẬT nguy hiểm: (1) `tpos.config.js` JWT Bearer hardcode (fallback sau env), (2) `migrate-dropped-held-to-pg.js` (script CHẾT) chứa Firebase **service-account PRIVATE KEY** + client_email + DATABASE_URL(password).
+- **Semgrep (CI)**: 34 (2 ERROR/32 WARN) — TLS-bypass ×4 (`NODE_TLS_REJECT_UNAUTHORIZED=0` TPOS/Pancake), path-traversal ×2 (admin-migration), postMessage-`*` ×8, direct-write ×14 — phần lớn chủ ý, cần triage tay.
+
+**Fix (không echo value, regex in-place):** gỡ JWT hardcode → `process.env.TPOS_AUTH_TOKEN`; gỡ private-key + email + DB-pw hardcode → `process.env.*`. Verify count=0, node --check OK, gitleaks re-scan 2 file sạch.
+
+⚠ **BẮT BUỘC USER:** secret VẪN trong git history → **ROTATE** Firebase service-account key (n2shop-69e37) + DB password. History purge (git-filter-repo) = quyết định user. ~318 leak khác ở render.com/scripts = script migration CHẾT (Firebase public + cred cũ) — review/xoá hàng loạt nếu muốn.
+
 ### [web2 system + ci] Siết services-overview admin-gate + tooling auto-audit (Gitleaks/Semgrep)
 
 **Files:** `render.com/routes/services-overview.js` · `web2/system/js/system-services.js` · `.gitleaks.toml` · `.github/workflows/security-audit.yml` (on-disk, chưa push — thiếu workflow scope).
