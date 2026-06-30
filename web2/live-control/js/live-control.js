@@ -91,28 +91,8 @@
         }
     }
 
-    async function createCampaign() {
-        var name = null;
-        if (window.Popup && window.Popup.prompt) {
-            name = await window.Popup.prompt('Tên chiến dịch livestream (vd: Live 21/06 tối):', {
-                title: 'Tạo chiến dịch',
-                placeholder: 'Tên chiến dịch',
-                okText: 'Tạo',
-            });
-        } else {
-            name = window.prompt('Tên chiến dịch livestream:');
-        }
-        name = (name || '').trim();
-        if (!name) return;
-        try {
-            var id = await window.Web2Campaign.create(name);
-            await loadCampaigns(id);
-            selectCampaign(id);
-            toast('Đã tạo chiến dịch', 'success');
-        } catch (e) {
-            toast('Lỗi tạo: ' + (e && e.message), 'error');
-        }
-    }
+    // 2026-06-30: createCampaign() ĐÃ GỠ — chiến dịch chỉ tạo/gán ở live-chat (1 nguồn).
+    // live-control chỉ CHỌN chiến dịch (dropdown #lcCampaign) để chiếu lên TV.
 
     function selectCampaign(id) {
         state.campaignId = id ? Number(id) : null;
@@ -881,7 +861,7 @@
         $('lcCampaign').addEventListener('change', function () {
             selectCampaign(this.value);
         });
-        $('lcNewBtn').addEventListener('click', createCampaign);
+        // (BỎ listener #lcNewBtn — tạo chiến dịch chuyển hẳn về live-chat)
         $('lcOpenTv').addEventListener('click', function () {
             if (state.campaignId)
                 window.open('../live-tv/index.html?campaign=' + state.campaignId, '_blank');

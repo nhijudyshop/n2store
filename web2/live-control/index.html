@@ -34,12 +34,11 @@
                             Điều khiển TV Livestream
                         </div>
                         <div class="lc-toolbar">
+                            <!-- 2026-06-30: BỎ "Tạo" — chiến dịch chỉ tạo/gán ở live-chat (1 nguồn).
+                                 live-control chỉ CHỌN chiến dịch để chiếu, không tạo. -->
                             <select id="lcCampaign" class="lc-select" aria-label="Chọn chiến dịch">
                                 <option value="">— Chọn chiến dịch —</option>
                             </select>
-                            <button class="web2-btn web2-btn-default web2-btn-sm" id="lcNewBtn">
-                                <i data-lucide="plus" style="width: 13px; height: 13px"></i> Tạo
-                            </button>
                             <button
                                 class="web2-btn web2-btn-primary web2-btn-sm"
                                 id="lcOpenTv"
@@ -200,6 +199,6 @@
         <script src="../shared/web2-variant-group.js?v=20260627tv10"></script>
         <script src="../shared/web2-live-tv-display.js?v=20260630tv13"></script>
         <script src="../shared/web2-campaign.js?v=20260627tv10"></script>
-        <script src="./js/live-control.js?v=20260630tv13"></script>
+        <script src="./js/live-control.js?v=20260630tv14"></script>
     </body>
 </html>

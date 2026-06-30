@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [live-control] Gỡ "Tạo chiến dịch" → chiến dịch chỉ tạo/gán ở live-chat (1 nguồn) — bước 1/#1
+
+**Files:** `web2/live-control/index.html` (gỡ nút `#lcNewBtn` "Tạo"; giữ dropdown `#lcCampaign` để CHỌN; bump `live-control.js→tv14`), `web2/live-control/js/live-control.js` (gỡ `createCampaign()` + listener `#lcNewBtn`).
+
+User chốt: tạo/gán chiến dịch là 1 nguồn = live-chat; live-control + native-orders chỉ ĐỌC/CHỌN. Bước 1 = gỡ tạo ở live-control (UI-only, reversible, listeners không còn ref null).
+
+- **Verify E2E**: nút Tạo gỡ, dropdown chọn + Mở TV + Lịch sử còn, 0 lỗi console.
+- **Còn lại của #1** (chưa làm): gỡ tạo/gán ở native-orders + **bắc cầu id** (board dùng BIGINT, đơn dùng Pancake string KHÔNG khớp → thêm cột `pancake_id` vào `web2_live_parent_campaigns`, populate lúc live-chat tạo, native-orders GIỎ join qua đó) → mới lọc được GIỎ theo phiên live.
+- **#2 (chờ hàng derived)**: bỏ NCC gõ tay (Sổ Order thành writer duy nhất của pending_qty → hết race ghi đè); chờ hàng = max(0, committed − tồn), committed = SUM qty SP across đơn (Kho suy ra). Đợi user chốt 2 điểm.
+
 ### [products] Bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn DUY NHẤT (SP luôn có địa danh) — P4
 
 **Files:** `web2/products/index.html` (ẩn nút `btnCreateProduct` "Thêm SP" + `btnImportProducts` "Nhập" + `btnSampleProducts` "Tải mẫu"; giữ `btnReprintUnits` "In lại tem").
