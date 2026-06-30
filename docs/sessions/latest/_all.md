@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2458c99` — fix(web2 audit): boost-purge realtime (desktop+mobile) + LiveCustomerSync token fallback
-**Last updated**: 2026-06-30 22:35:18 +07
-**Latest session**: [`RESUME:20260630-223518-2458c99`](../20260630-223518-2458c99.md)
-**Summary**: Follow-up đợt 2: boost-purge realtime (desktop+mobile) + LiveCustomerSync token; vòng-4 audit gần như đóng hết
+**Latest commit**: `25af214` — docs(web2 audit): backend deploy VERIFIED — web2-api+fallback live 415e1eb3c, gated routes 401/200 đúng
+**Last updated**: 2026-06-30 22:47:05 +07
+**Latest session**: [`RESUME:20260630-224705-25af214`](../20260630-224705-25af214.md)
+**Summary**: Verify deploy Render: 2 service live 415e1eb3c; gated routes no-token→401 / token→200, không regression. Vòng-4 XONG HẾT.
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 22:35
+- [`docs/`](./docs.md) — updated 2026-06-30 22:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
