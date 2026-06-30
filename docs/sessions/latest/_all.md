@@ -3,22 +3,25 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0b723cb` — ci(security): gitleaks allowlist FP (storage-key/CORS/Firebase-public/.tmp/backups) — sót commit trước
-**Last updated**: 2026-07-01 00:05:45 +07
-**Latest session**: [`RESUME:20260701-000545-0b723cb`](../20260701-000545-0b723cb.md)
-**Summary**: ci(security): gitleaks allowlist FP (storage-key/CORS/Firebase-public/.tmp/backups) — sót commit trước
+**Latest commit**: `359bea1` — security: client creds → env/config-endpoint (SIP fallback + SePay account password)
+**Last updated**: 2026-07-01 00:24:49 +07
+**Latest session**: [`RESUME:20260701-002449-359bea1`](../20260701-002449-359bea1.md)
+**Summary**: Client creds → env/config-endpoint: SIP fallback gỡ trống + SePay account password gỡ khỏi client (worker dùng env); user phải set worker secret + rotate
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
+- [`.github/`](./.github.md) — 1 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`inbox/`](./inbox.md) — 2 file(s)
-- [`orders-report/`](./orders-report.md) — 4 file(s)
+- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
+- [`orders-report/`](./orders-report.md) — 1 file(s)
+- [`service-costs/`](./service-costs.md) — 1 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-28 22:00
-- [`.github/`](./.github.md) — updated 2026-06-30 23:19
+- [`.github/`](./.github.md) — updated 2026-07-01 00:24
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
 - [`_root/`](./_root.md) — updated 2026-07-01 00:05
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
@@ -27,10 +30,10 @@
 - [`balance-history/`](./balance-history.md) — updated 2026-06-20 12:07
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
 - [`bg-remover/`](./bg-remover.md) — updated 2026-06-24 16:53
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 00:24
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 00:05
+- [`docs/`](./docs.md) — updated 2026-07-01 00:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -47,13 +50,13 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-26 14:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
 - [`live-chat/`](./live-chat.md) — updated 2026-06-30 22:35
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-07-01 00:24
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
 - [`native-orders/`](./native-orders.md) — updated 2026-06-30 22:16
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
-- [`orders-report/`](./orders-report.md) — updated 2026-07-01 00:05
+- [`orders-report/`](./orders-report.md) — updated 2026-07-01 00:24
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-06-20 12:07
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-20 12:07
@@ -65,8 +68,8 @@
 - [`render.com/`](./render.com.md) — updated 2026-06-30 23:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
-- [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
-- [`shared/`](./shared.md) — updated 2026-06-29 18:22
+- [`service-costs/`](./service-costs.md) — updated 2026-07-01 00:24
+- [`shared/`](./shared.md) — updated 2026-07-01 00:24
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
 - [`so-order/`](./so-order.md) — updated 2026-06-30 22:16
