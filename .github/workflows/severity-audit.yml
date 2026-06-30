@@ -14,7 +14,6 @@ on:
 
 permissions:
     contents: read
-    security-events: write # upload SARIF lên tab Security
 
 jobs:
     gitleaks:
@@ -45,7 +44,7 @@ jobs:
         name: Static security (Semgrep OSS)
         runs-on: ubuntu-latest
         container:
-            image: returntocorp/semgrep:latest
+            image: semgrep/semgrep:latest
         steps:
             - uses: actions/checkout@v4
             - name: Semgrep scan (report-only)
