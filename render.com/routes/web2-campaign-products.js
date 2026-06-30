@@ -102,8 +102,9 @@ async function ensureTables(pool) {
             updated_at   BIGINT
         );
     `);
-    // 2026-06-27: ĐỊA DANH "pre-order" — SP đúng địa danh này dùng cột KH (tất cả
-    // khách, vượt NCC được + báo hiệu). Default 'HƯƠNG CHÂU'.
+    // 2026-06-27: ĐỊA DANH "CHO VƯỢT" — SP đúng địa danh này (hàng có sẵn, lấy về rồi
+    // bán) được đặt VƯỢT NCC + báo hiệu badge. Vùng KHÁC = pre-order (bán mẫu trước,
+    // đặt sau). Default 'HƯƠNG CHÂU'.
     await pool.query(
         `ALTER TABLE web2_live_tv_control
             ADD COLUMN IF NOT EXISTS region TEXT NOT NULL DEFAULT 'HƯƠNG CHÂU'`
@@ -302,7 +303,7 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         // GIỎ (sold = TỔNG SL món trong giỏ KH draft) + MỚI (new_cust = SL món của
         // khách chưa SĐT & địa chỉ — 1 phần của GIỎ) per mã SP. Dùng cho board +
         // màn TV. Cùng pool web2Db (native_orders ⊂ web2Db). CÒN = max(0, NCC − GIỎ)
-        // tính ở CLIENT (Web2LiveTvDisplay.khConModel); địa danh pre-order → GIỎ
+        // tính ở CLIENT (Web2LiveTvDisplay.khConModel); địa danh CHO VƯỢT → GIỎ
         // vượt NCC được (badge VƯỢT).
         const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
         if (codes.length) {
@@ -597,7 +598,7 @@ router.patch('/control', requireWeb2AuthSoft, async (req, res) => {
             [campaignId]
         );
         const base = readControl(cur.rows[0]);
-        // CHỈ admin được đổi ĐỊA DANH KH pre-order (quyết định vùng được đặt VƯỢT NCC +
+        // CHỈ admin được đổi ĐỊA DANH CHO VƯỢT (quyết định vùng được đặt VƯỢT NCC +
         // cách tính CÒN). Non-admin (operator live) vẫn đổi layout/trang bình thường —
         // region của họ bị BỎ QUA (giữ base), không reject cả request để khỏi vỡ lật trang.
         const isAdminReq = String(req.web2User?.role || '').toLowerCase() === 'admin';

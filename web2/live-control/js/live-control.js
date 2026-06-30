@@ -14,7 +14,7 @@
         pickerRegion: '', // lọc picker theo ĐỊA DANH ('' = tất cả)
         showRegion: true, // ẩn/hiện chip+badge địa danh (localStorage lc_show_region)
         editing: false, // đang gõ input pending → hoãn re-render board
-        // điều khiển màn TV (layout + trang) + địa danh pre-order (KH vượt được)
+        // điều khiển màn TV (layout + trang) + địa danh CHO VƯỢT (vùng được đặt vượt NCC)
         tvControl: { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' },
     };
     var boardTimer = null;
@@ -45,7 +45,7 @@
             .trim()
             .toUpperCase();
     }
-    // CHỈ admin được đổi địa danh KH pre-order (quyết định vùng nào được đặt VƯỢT NCC
+    // CHỈ admin được đổi địa danh CHO VƯỢT (quyết định vùng nào được đặt VƯỢT NCC
     // + cách tính CÒN trên màn TV đang chiếu). Web2Perm là nguồn chuẩn (role='admin');
     // fallback đọc session khi module chưa load (defensive, không chặn nhầm admin).
     function isAdmin() {
@@ -181,7 +181,7 @@
     // địa chỉ đang có SP trong giỏ = v.newCust) + CÒN (= max(0, NCC−GIỎ HÀNG)).
     // GIỎ HÀNG/KH MỚI/CÒN read-only (tự tính).
     function vrowHtml(v) {
-        // Mô hình GIỎ/MỚI/CÒN (shared, khớp màn TV). GIỎ vượt NCC (địa danh pre-order)
+        // Mô hình GIỎ/MỚI/CÒN (shared, khớp màn TV). GIỎ vượt NCC (địa danh CHO VƯỢT)
         // → số đỏ + badge "VƯỢT +N" trên cột GIỎ. MỚI = SL món của khách chưa SĐT/địa chỉ.
         var m = window.Web2LiveTvDisplay.khConModel(v, state.tvControl.region);
         var conCls = m.con <= 0 ? ' zero' : '';
@@ -428,7 +428,7 @@
             b.disabled =
                 op === 'first' || op === 'prev' ? pg.page <= 0 : pg.page >= pg.totalPages - 1;
         });
-        // Selector địa danh (KH pre-order) — options = địa danh trong board + hiện tại.
+        // Selector địa danh CHO VƯỢT — options = địa danh trong board + hiện tại.
         // CHỈ admin chỉnh được: non-admin → disabled (read-only) + hint khoá.
         var rsel = $('lcRegion');
         if (rsel) {
@@ -449,8 +449,8 @@
             rsel.disabled = !admin;
             rsel.classList.toggle('is-locked', !admin);
             rsel.title = admin
-                ? 'Địa danh KH pre-order (vùng được đặt VƯỢT số NCC báo)'
-                : '🔒 Chỉ admin được đổi địa danh KH';
+                ? 'Địa danh CHO VƯỢT (hàng có sẵn — vùng được đặt VƯỢT số NCC báo). Vùng KHÔNG chọn = pre-order (bán mẫu trước, đặt sau).'
+                : '🔒 Chỉ admin được đổi địa danh CHO VƯỢT';
         }
     }
     // Địa danh có thể chọn = địa danh trong board + hiện tại + 2 mặc định phổ biến.
@@ -991,12 +991,12 @@
                 var ok = true;
                 if (window.Popup && window.Popup.confirm) {
                     ok = await window.Popup.confirm(
-                        'Đổi địa danh KH pre-order từ "' +
+                        'Đổi địa danh CHO VƯỢT từ "' +
                             cur +
                             '" sang "' +
                             next +
-                            '"?\n\nĐịa danh này quyết định KH vùng nào được ĐẶT VƯỢT số NCC báo (badge VƯỢT) và cách tính CÒN. Đổi sẽ ÁP NGAY cho mọi người đang xem màn TV.',
-                        { title: '⚠️ Đổi địa danh KH', okText: 'Đổi địa danh', danger: true }
+                            '"?\n\nĐịa danh CHỌN = hàng có sẵn (lấy về rồi bán) → vùng đó được ĐẶT VƯỢT số NCC báo (badge VƯỢT). Vùng KHÔNG chọn = pre-order (bán mẫu trước, đặt sau). Đổi sẽ ÁP NGAY cho mọi người đang xem màn TV.',
+                        { title: '⚠️ Đổi địa danh CHO VƯỢT', okText: 'Đổi địa danh', danger: true }
                     );
                 } else {
                     ok = window.confirm('Đổi địa danh KH sang "' + next + '"?');

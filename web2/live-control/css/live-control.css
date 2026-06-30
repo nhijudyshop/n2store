@@ -919,7 +919,7 @@ span.lc-mini-noimg {
     letter-spacing: 0.04em;
 }
 
-/* ── Địa danh selector (KH pre-order) + báo hiệu VƯỢT ───────────────── */
+/* ── Địa danh selector (CHO VƯỢT) + báo hiệu VƯỢT ───────────────── */
 .lc-tvctl-region {
     display: inline-flex;
     align-items: center;
@@ -954,7 +954,7 @@ span.lc-mini-noimg {
     background: #f1f0f6;
     border-color: #e5e7eb;
 }
-/* GIỎ vượt ngưỡng NCC (địa danh pre-order): số đỏ + badge "VƯỢT +N" */
+/* GIỎ vượt ngưỡng NCC (địa danh CHO VƯỢT): số đỏ + badge "VƯỢT +N" */
 .lc-vnum.lc-vban.over {
     color: #dc2626;
 }

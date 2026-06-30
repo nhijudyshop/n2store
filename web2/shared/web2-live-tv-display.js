@@ -104,25 +104,26 @@
     //   • GIỎ = TỔNG số lượng món trong giỏ KH (mọi khách).
     //   • MỚI = số lượng món của khách CHƯA có SĐT & địa chỉ (1 PHẦN của GIỎ).
     //   • CÒN = max(0, NCC − GIỎ).
-    //   • Địa danh PRE-ORDER (SP đúng địa danh chọn): GIỎ được VƯỢT NCC → vuot =
-    //     max(0, GIỎ − NCC) (báo hiệu trên cột GIỎ). Địa danh khác: vuot = 0 (CÒN = 0
-    //     khi GIỎ ≥ NCC = hết).
+    //   • Địa danh CHO VƯỢT (SP đúng địa danh đang chọn = hàng có sẵn "lấy về rồi
+    //     bán"): GIỎ được VƯỢT NCC → vuot = max(0, GIỎ − NCC) (báo hiệu trên cột GIỎ,
+    //     để biết đặt thêm bao nhiêu). Địa danh KHÔNG chọn = pre-order (bán mẫu trước,
+    //     đặt về sau): vuot = 0, không báo VƯỢT (đặt vượt là chuyện bình thường).
     function khConModel(v, selectedRegion) {
         var ncc = Number(v && v.pendingQty) || 0;
         var gio = Number(v && v.sold) || 0; // GIỎ = tổng SL món
         var moi = Number(v && v.newCust) || 0; // MỚI = SL món của khách mới
-        var isPreOrder = !!(
+        var isVuotRegion = !!(
             selectedRegion && normRegion(v && v.region) === normRegion(selectedRegion)
         );
         var con = Math.max(0, ncc - gio);
-        var vuot = isPreOrder ? Math.max(0, gio - ncc) : 0;
+        var vuot = isVuotRegion ? Math.max(0, gio - ncc) : 0;
         return {
-            isPreOrder: isPreOrder,
+            isVuotRegion: isVuotRegion,
             ncc: ncc,
             gio: gio,
             moi: moi,
             con: con,
-            vuot: vuot, // >0 = GIỎ vượt NCC (chỉ địa danh pre-order)
+            vuot: vuot, // >0 = GIỎ vượt NCC (chỉ địa danh CHO VƯỢT, không phải pre-order)
         };
     }
 

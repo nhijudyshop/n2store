@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [live-control] Sửa nhầm "pre-order": vùng CHỌN = CHO VƯỢT (hàng có sẵn), vùng KHÔNG chọn mới là pre-order
+
+**Files:** `web2/shared/web2-live-tv-display.js` (rename `isPreOrder`→`isVuotRegion` + comment khConModel), `web2/live-control/js/live-control.js` (title selector + confirm dialog + 4 comment), `web2/live-control/css/live-control.css` (2 comment), `render.com/routes/web2-campaign-products.js` (3 comment), `web2/live-control/index.html` + `web2/live-tv/index.html` (bump `→20260630tv13`).
+
+User chốt nghĩa: **vùng CHỌN trong dropdown = hàng "lấy về rồi bán" (có sẵn) → CHO khách đặt VƯỢT số NCC báo (badge VƯỢT). Vùng KHÔNG chọn = pre-order thật** (bán mẫu 1 trước, đặt về sau — đặt vượt là bình thường nên không báo).
+
+- Trước đây code+UI gọi vùng chọn là "địa danh pre-order" → SAI nghĩa. Đổi hết "pre-order" (selected) → "CHO VƯỢT".
+- Hành vi KHÔNG đổi (logic `vuot = isVuotRegion ? max(0,gio-ncc) : 0` y cũ) — chỉ sửa tên biến + nhãn + comment. Property `.isPreOrder` không nơi nào đọc (chỉ `m.vuot`) → rename an toàn.
+- User-facing: title selector + confirm "Đổi địa danh CHO VƯỢT" giải thích rõ chọn=có sẵn, không chọn=pre-order. Status ✅
+
 ### [live-control] Đổi nhãn dropdown "MỚI theo" → "Cho VƯỢT theo" (đúng chức năng pre-order)
 
 **Files:** `web2/live-control/index.html` (label `lc-tvctl-region`).
