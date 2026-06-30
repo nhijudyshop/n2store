@@ -2,6 +2,18 @@
 
 ## 2026-06-30
 
+### [shared][products][live-chat] `Web2ProductStatus` — 1 nguồn trạng thái SP + badge "chờ hàng" ở live-chat (P2)
+
+**Files:** `web2/shared/web2-product-status.js` (MỚI — `meta/isChoHang/tableBadge/pill/chip`), `web2/products/js/web2-products-render.js` (`_statusBadgeHtml`→delegate `.tableBadge`), `web2/products/js/web2-product-detail.js` (statusPill→delegate `.pill`), `live-chat/js/pancake/inventory-panel-render.js` (thêm `.chip(p)` lên card), `live-chat/css/inventory-panel.css` (`.inv-status-badge` + tone pending/partial/gone), `web2/products/index.html` + `live-chat/index.html` (load module TRƯỚC consumer + bump `→20260630a`).
+
+User hỏi "tạo module chung à?" → đúng convention (status fork 6 nơi, KHÔNG có shared). Gộp về `Web2ProductStatus`.
+
+- **1 nguồn nhãn/icon/màu** status (CHO_MUA/MUA_1_PHAN/HET_HANG/DANG_BAN/Tạm dừng). Mỗi surface render CSS riêng nhưng nhãn/màu single-source → khỏi drift.
+- `tableBadge`/`pill` **port nguyên văn** markup cũ web2/products (KHÔNG đổi giao diện). `chip` MỚI cho live-chat: CHỈ hiện status đặc biệt (DANG_BAN→rỗng, không rối panel).
+- **P2 xong**: live-chat Kho SP giờ có badge "⏳ chờ hàng" → NV thấy "SL 0" là chờ NCC, không phải hết sạch.
+- **Verify E2E (localhost, browser test)**: web2/products 19 badge render qua module (10 chờ hàng), markup y hệt; live-chat module load + chip render thật trên card CHO_MUA (1/14); 0 lỗi console; self-check node 11 assert PASS.
+- ⚠ **Phát hiện cần user quyết** (chưa sửa): SP CHO_MUA tồn=0 → live-chat coi là OOS (`isOos=stock<=0`) → card mờ + **KHÔNG kéo được**. Trong khi live-control cho bán pre-order. Badge giờ giải thích "vì sao SL 0", nhưng có nên cho kéo SP chờ hàng ở live-chat không = quyết định nghiệp vụ.
+
 ### [system] Thêm card "Địa danh (vùng nguồn hàng)" vào tab Dịch vụ & Hệ thống
 
 **Files:** `web2/system/index.html` (section static cuối panel `data-panel="services"`).

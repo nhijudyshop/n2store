@@ -338,6 +338,44 @@
     color: var(--pkr-error-600);
 }
 
+/* badge trạng thái SP đặc biệt (chờ hàng / mua 1 phần / hết hàng) — góc trái card.
+   1 NGUỒN markup từ window.Web2ProductStatus.chip(). Báo cho NV biết SP "SL 0"
+   là CHỜ HÀNG (chờ NCC) chứ không phải hết sạch. */
+.inv-status-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: var(--pkr-r-full, 999px);
+    font-size: 10.5px;
+    font-weight: var(--pkr-fw-semibold, 600);
+    line-height: 1.4;
+    white-space: nowrap;
+    box-shadow: var(--pkr-shadow-xs);
+    opacity: 1; /* nổi rõ kể cả khi card .oos bị mờ */
+}
+.inv-status-badge i,
+.inv-status-badge svg {
+    width: 12px;
+    height: 12px;
+}
+.inv-status-pending {
+    background: #fef3c7;
+    color: #92400e;
+} /* chờ hàng */
+.inv-status-partial {
+    background: #ffedd5;
+    color: #9a3412;
+} /* mua 1 phần */
+.inv-status-gone {
+    background: #f3f4f6;
+    color: #6b7280;
+} /* hết hàng */
+
 /* nút "+" tap-to-add (chèn SP vào chat) — pointer-events ghi đè .inv-card * */
 .inv-card-add {
     flex: 0 0 auto;

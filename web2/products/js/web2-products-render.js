@@ -27,26 +27,11 @@
 
     // ---------- Render ----------
     //
-    // Badge trạng thái (CHỜ HÀNG / MUA 1 PHẦN / Đang bán / Tạm dừng) — 1 nguồn,
-    // dùng chung dòng thường + bảng con biến thể.
+    // Badge trạng thái (CHỜ HÀNG / MUA 1 PHẦN / Đang bán / Tạm dừng).
+    // 1 NGUỒN = window.Web2ProductStatus (web2/shared/web2-product-status.js).
+    // KHÔNG render inline ở đây nữa — nhãn/icon/màu single-source để khỏi drift.
     function _statusBadgeHtml(p) {
-        if (p.status === 'CHO_MUA') {
-            const pendingTxt = Number(p.pendingQty) > 0 ? ` (×${p.pendingQty})` : '';
-            return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
-        }
-        if (p.status === 'MUA_1_PHAN') {
-            const stock = Number(p.stock || 0);
-            const pend = Number(p.pendingQty || 0);
-            return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
-        }
-        // HẾT HÀNG (logic mới 2026-06-28): đã bán hết tồn → mất hiệu lực, tự ẩn khỏi
-        // Kho SP (filter mặc định) + bảng live; còn ở gợi ý Số Order để nhập lại.
-        if (p.status === 'HET_HANG') {
-            return `<span class="active-badge" style="background:#f3f4f6;color:#6b7280;border-color:#d1d5db;" title="Đã bán hết — nhập lại từ Số Order để bán tiếp"><i data-lucide="archive"></i>HẾT HÀNG</span>`;
-        }
-        return p.isActive
-            ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
-            : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
+        return (window.Web2ProductStatus && window.Web2ProductStatus.tableBadge(p)) || '';
     }
     // Cụm nút thao tác 1 SP (sửa/in/tạm dừng/lịch sử/xóa) — dùng chung.
     function _rowActionsHtml(p) {

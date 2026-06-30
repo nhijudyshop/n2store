@@ -245,16 +245,8 @@
         if (!pane) return;
         const stock = Number(p.stock || 0);
         const stockColor = stock === 0 ? '#dc2626' : stock < 5 ? '#d97706' : '#15803d';
-        let statusPill;
-        if (p.status === 'CHO_MUA')
-            statusPill = `<span class="w2pd-pill warn"><i data-lucide="clock"></i>Chờ hàng${Number(p.pendingQty) > 0 ? ` ×${p.pendingQty}` : ''}</span>`;
-        else if (p.status === 'MUA_1_PHAN')
-            statusPill = `<span class="w2pd-pill warn"><i data-lucide="package-2"></i>Mua 1 phần (${stock} nhận · ${Number(p.pendingQty || 0)} chờ)</span>`;
-        else if (p.status === 'HET_HANG')
-            statusPill = `<span class="w2pd-pill off"><i data-lucide="archive"></i>Hết hàng</span>`;
-        else if (p.isActive)
-            statusPill = `<span class="w2pd-pill ok"><i data-lucide="check"></i>Đang bán</span>`;
-        else statusPill = `<span class="w2pd-pill off"><i data-lucide="pause"></i>Tạm dừng</span>`;
+        // Pill trạng thái — 1 NGUỒN window.Web2ProductStatus (khỏi drift với bảng Kho SP).
+        const statusPill = (window.Web2ProductStatus && window.Web2ProductStatus.pill(p)) || '';
 
         pane.innerHTML = `
             <div class="w2pd-grid">

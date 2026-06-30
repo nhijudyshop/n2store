@@ -128,6 +128,7 @@
                             <span class="inv-card-stock${tier ? ' ' + tier : ''}">SL ${stock}</span>
                         </div>
                     </div>
+                    ${window.Web2ProductStatus ? window.Web2ProductStatus.chip(p) : ''}
                     ${isOos ? '' : `<button class="inv-card-add" title="Thêm SP vào ô soạn tin" data-add-product='${productJson}'><i data-lucide="plus"></i></button>`}
                 </div>`;
             })
