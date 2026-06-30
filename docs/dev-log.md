@@ -2,6 +2,17 @@
 
 ## 2026-06-30
 
+### [web2-campaign-products] GIỎ scope theo phiên live (join post→chiến dịch) — bước 3/#1 (HOÀN TẤT #1)
+
+**Files:** `render.com/routes/web2-campaign-products.js` (GET / GIỎ/MỚI query: thêm scope `live_campaign_id IN (post_id của chiến dịch)` + gate lũy tiến).
+
+Hoàn tất Redesign #1. Trước: GIỎ gộp TẤT CẢ draft (đơn buổi cũ thổi phồng). Sau: scope theo bài đã gán vào chiến dịch.
+
+- **Khóa nối (verify bằng real data)**: order `live_campaign_id` == `fb_post_id` == FB post id (`pageId_postId`) == `web2_live_post_assign.post_id`. Real data: order `117267091364524_1011638411752749`, `live_campaign_id == fb_post_id`. Join: `native_orders.live_campaign_id = web2_live_post_assign.post_id WHERE campaign_id = <board>`.
+- **Gate lũy tiến (ZERO risk)**: chiến dịch CHƯA gán bài → `NOT EXISTS` → KHÔNG lọc (giữ global). Có gán → scope. Real data hiện assignments=0 → wire này KHÔNG đổi gì cho tới khi user gán bài (qua live-chat) → adoption dần.
+- **Seed test local (psql)**: global=17; campaign 1 (gán POST_A) → 5 (3+2, loại POST_B=5 + null=7); campaign 99 (chưa gán) → 17 global. PASS.
+- 2 bảng cùng `web2Db`, `campaignId` finite-validated. Deploy Render khi push.
+
 ### [native-orders] Gỡ tạo + gán chiến dịch → chỉ CHỌN để lọc (1 nguồn = live-chat) — bước 2/#1
 
 **Files:** `native-orders/index.html` (gỡ input `#parentCampaignNew` + nút `#parentCampaignCreate` + cả `#parentPostsSection`/`#parentPostsList`; giữ `#parentCampaignList` radio lọc; bump 2 js `→20260630a`), `native-orders/js/native-orders-realtime-init.js` (gỡ `loadPagePosts()` + listener create/assign; giữ listener radio lọc), `native-orders/js/native-orders-filters-campaigns.js` (gỡ 4 hàm chết `createParentCampaign`/`loadPagePosts`/`renderPagePosts`/`assignPost`; sửa text "Tạo ở live-chat").

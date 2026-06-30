@@ -307,6 +307,11 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         // vượt NCC được (badge VƯỢT).
         const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
         if (codes.length) {
+            // GIỎ scope theo PHIÊN LIVE (bước 3, 2026-06-30): chỉ đếm đơn của bài đã
+            // GÁN vào chiến dịch này (native_orders.live_campaign_id = FB post id =
+            // web2_live_post_assign.post_id → campaign_id cha). Gate lũy tiến: chiến
+            // dịch CHƯA gán bài nào → KHÔNG lọc (giữ global, không board nào tự về 0).
+            // Verified bằng seed test local (campaign có gán → scoped; chưa gán → global).
             const hr = await pool.query(
                 `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
@@ -316,8 +321,14 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                  FROM native_orders n, jsonb_array_elements(n.products) prod
                  WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
                    AND n.status = 'draft'
+                   AND (
+                     NOT EXISTS (SELECT 1 FROM web2_live_post_assign WHERE campaign_id = $2)
+                     OR n.live_campaign_id IN (
+                       SELECT post_id FROM web2_live_post_assign WHERE campaign_id = $2
+                     )
+                   )
                  GROUP BY 1`,
-                [codes]
+                [codes, campaignId]
             );
             const soldMap = new Map();
             for (const row of hr.rows) {
