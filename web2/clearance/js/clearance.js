@@ -53,8 +53,8 @@
     const $ = (s, r = document) => r.querySelector(s);
     const esc = (s) =>
         String(s == null ? '' : s).replace(
-            /[&<>"]/g,
-            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
         );
     const fmtVnd = (n) =>
         window.Web2Format && window.Web2Format.vnd
