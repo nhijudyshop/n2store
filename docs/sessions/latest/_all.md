@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4aed604` — fix(web2 zalo): QR đăng nhập lỗi ảnh vỡ — re-add data:image/png;base64 prefix bị zca-js bóc
-**Last updated**: 2026-06-30 20:22:47 +07
-**Latest session**: [`RESUME:20260630-202247-4aed604`](../20260630-202247-4aed604.md)
-**Summary**: fix web2 zalo QR login broken image (re-add data:image base64 prefix)
+**Latest commit**: `2a85aca` — fix(web2 reconcile): scanner-box tràn — nút camera/OCR lòi ra ngoài viền bo tròn
+**Last updated**: 2026-06-30 20:25:17 +07
+**Latest session**: [`RESUME:20260630-202517-2a85aca`](../20260630-202517-2a85aca.md)
+**Summary**: fix scanner-box tràn: nút camera/OCR giữ trong viền (min-width:0 + pill ellipsis)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -82,4 +81,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 20:22
+- [`web2/`](./web2.md) — updated 2026-06-30 20:25
