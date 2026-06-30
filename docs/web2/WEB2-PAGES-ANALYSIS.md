@@ -6,6 +6,96 @@
 > **Vòng 2:** 2026-06-11 (8 agent re-audit + 3 đối chứng → 25 bug C1-C7/S1-S7/H1-H16 → fix đợt A-D cùng ngày — chi tiết: commit `1781023d5`).
 > **Vòng 3:** 2026-06-12 — **54 agent** (10 audit nhóm + sweep tách Web1/Web2 chuyên sâu + 2 adversarial verifier/finding). Mọi finding CRITICAL/HIGH trong file này đã qua 2 verifier độc lập HOẶC spot-check tay (ghi chú từng dòng).
 > Menu hiện tại: **36 entry / 35 trang unique**.
+> **Vòng 4:** 2026-06-30 — **92 agent** re-audit 6 trang lõi (services/so-order/products/native-orders/live-chat/live-control). Findings MỚI sau 13/06 → **mục 🔬 VÒNG 4** ngay dưới. 1 CRITICAL + 1 LOW đã fix; 4 HIGH + medium chờ.
+
+---
+
+## 🔬 VÒNG 4 — Re-audit 6 trang lõi (2026-06-30)
+
+> **92 agent** (6 map + 12 lens [bugs+convention / security+data-integrity] + ~70 adversarial verifier, 12M tokens, transcript `wf_36cef76a-bc9`). Dedupe với vòng 1–3 (0 finding trùng — tất cả là MỚI/sau 13/06). Mỗi finding ≥1 verifier độc lập đọc code thật; severity là mức **sau** verify (nhiều cái bị hạ).
+> Phạm vi: services tab + so-order + web2/products + native-orders + live-chat + web2/live-control (~49k dòng JS). Smoke authed: **0 console error** cả 6 trang.
+
+**Tổng: 1 CRITICAL · 4 HIGH · 15 MEDIUM · 26 LOW.** ✅ đã fix phiên này: CRITICAL + 1 LOW (nhãn nút confirm).
+
+### 4A. CRITICAL — mất dữ liệu
+
+| Trang    | Bug                                                                                                | File:Line                                      | Fix                                                                                                                                                                                                                           | Trạng thái           |
+| -------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| so-order | "Sửa lô" save hard-deletes every partial_received row (silent data loss + orphaned Kho stock/debt) | `so-order/js/so-order-modal-submit.js:172-178` | Add partial_received to the skip guard so locked rows survive bulk edit: `if (old.status === 'received' \|\| old.status === 'partial_received') continue;`. (Mirrors the same fix already applied in so-order-delete.js \_fin | ✅ fix `(phiên này)` |
+
+### 4B. HIGH — bảo mật / toàn vẹn dữ liệu
+
+| Trang         | Bug                                                                                                                                              | File:Line                                                                                                                     | Fix                                                                                                                                                                                                                          | Trạng thái         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| live-chat     | Unauthenticated PII dump: web2-customers GET routes lack auth gate that sibling endpoints enforce                                                | `render.com/routes/v2/web2-customers.js:191, 366, 413, 501, 563, 614`                                                         | Add `requireWeb2AuthSoft` middleware to the 6 read routes (/list, /search, /lookup-deep, /by-phone/:phone/orders, /:phone/fb-conversation, /:phone) to match the batch-by-fbid/batch-by-phone gating. Callers in live-chat a | ⬜ cần deploy+wire |
+| native-orders | KPI scope authorization is fail-open: restricted employee sees ALL orders + customer PII by omitting the token                                   | `render.com/routes/v2/kpi.js (+ render.com/routes/native-orders.js):kpi.js:393-428; native-orders.js:1769 (/load), 1867-1873` | Make scope fail-closed for non-admin: in applyKpiScope, when WEB2_AUTH_ENFORCE=1, a missing/invalid token or assignment-load error on /load must yield zero rows (e.g. set req.kpiScope to a sentinel '**deny_all**' and hav | ⬜ cần deploy+wire |
+| Services      | /api/services-overview is fully unauthenticated and leaks both DBs' table inventory + infra internals (incl. Web 1.0 PII table names/row counts) | `web2/system/js/system-services.js:79 (frontend); render.com/routes/services-overview.js:341 (backend)`                       | Add server-side admin gate to the route: require `x-web2-token` header, resolve user via the same `/me` lookup used elsewhere, and 403 non-admins (mirror the `isAdmin()` server check the SSE tab already does). On the fro | ⬜ cần deploy+wire |
+| live-control  | Cart-detail popup ignores campaign scope while board GIỎ/MỚI counts are campaign-scoped — numbers don't match                                    | `render.com/routes/web2-campaign-products.js:315-332 (GET /) vs 645-661 (GET /cart-detail)`                                   | Pass campaignId from the client (`getCartDetail(code, campaignId)` → `&campaignId=`) and apply the SAME assigned-post gate in /cart-detail as in GET /: add `AND ( NOT EXISTS (SELECT 1 FROM web2_live_post_assign WHERE cam | ⬜ cần deploy+wire |
+
+### 4C. MEDIUM (15) — bug/luồng hỏng/convention
+
+| Trang         | Bug                                                                                                                                                                              | File:Line                                                                                                                                                                 | Cat            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| live-chat     | Fresh live with zero saved comments never shows first incoming comments (zero-cursor delta deadlock)                                                                             | `live-chat/js/shared/live-comments-stream.js:93`                                                                                                                          | broken-flow    |
+| live-chat     | Boost-purge SSE ('reconcile') is a no-op on the desktop list — purged spam comments stay visible                                                                                 | `render.com/routes/web2-live-comments.js:471`                                                                                                                             | broken-flow    |
+| native-orders | Modal status dropdown offers 'Đã hủy' + 'Đã giao' but server PATCH rejects both → optimistic flicker + error toast, status never changes                                         | `native-orders/js/native-orders-modal-edit.js:73-80, 305-447`                                                                                                             | broken-flow    |
+| native-orders | SSE-triggered reload silently dropped when a load() is already in flight (no requeue) → UI stops updating without manual refresh                                                 | `native-orders/js/native-orders-render.js:980-981 (with realtime-init.js:24-32)`                                                                                          | race           |
+| native-orders | PBH SHOP detection regex `/pbh\s*shop\|shop/i` matches any carrier name containing the substring 'shop' → wrong PBH SHOP badge + ship forced to 0₫ on the bill                   | `native-orders/js/native-orders-pbh-bill.js:332 (and render.js:224)`                                                                                                      | data-integrity |
+| native-orders | PATCH /:code lets client overwrite reversedCode / printCount / partner\_\* / financial mirror fields with no validation                                                          | `render.com/routes/native-orders.js:1989-2037`                                                                                                                            | data-integrity |
+| so-order      | Receive confirm undercounts qtyReceived / mis-flips status when user confirms before background lookup resolves                                                                  | `so-order/js/so-order-receive.js:703-716`                                                                                                                                 | race           |
+| live-control  | Mutation handlers (onBoardOp remove/pin/reorder, addGroup) are await-then-render, not UI-first via Web2Optimistic — violates UI-first convention despite the helper being loaded | `web2/live-control/js/live-control.js:258-282 (onBoardOp), 748-762 (addGroup)`                                                                                            | convention     |
+| live-control  | web2:products SSE bursts trigger un-debounced loadPicker() — repeated /pending fetch storm during live                                                                           | `web2/live-control/js/live-control.js:785-787`                                                                                                                            | perf           |
+| live-control  | Board mutations (remove/pin/reorder/add) bypass Web2Optimistic — await-then-render, no rollback                                                                                  | `web2/live-control/js/live-control.js:258-282, 748-762`                                                                                                                   | convention     |
+| Kho SP        | Filter "Hết hàng" hoàn toàn không hoạt động — Web2ProductsApi.list() bỏ rơi tham số status                                                                                       | `web2/shared/web2-products-api.js:51-59`                                                                                                                                  | broken-flow    |
+| Kho SP        | Toàn bộ cơ chế badge "ĐANG DÙNG" (usage) là dead code — fetch /usage mỗi lần load + mỗi SSE order, không render gì                                                               | `web2/products/js/web2-products-render.js:507-541, 676`                                                                                                                   | dead-code      |
+| Kho SP        | In tem per-unit: quantity do user chỉnh > số units → tem thừa rơi về mã SP, trộn lẫn tem unit và tem SP-code                                                                     | `web2/products/js/web2-products-print-modal.js:466-490`                                                                                                                   | data-integrity |
+| Kho SP        | Orphaned usage feature: /usage (returns customer name + phone) fetched on every page load but rendered into a removed column — dead network round-trip pulling PII               | `web2/products/js/web2-products-render.js:520-541 (_loadUsageForCurrentPage), 507-518 (renderUsageBadge), 543-640 (openUsagePopover), 676 (call site in load())`          | dead-code      |
+| Kho SP        | Optimistic UPDATE never sends expectedStock, so the server's stale-stock 409 guard cannot protect Kho-SP edits from lost updates                                                 | `web2/products/js/web2-products-modal.js:632-698 (updatePayload / _saveModalImpl UPDATE branch); cf. web2/products/js/web2-product-detail.js:524-555 (_saveEdit payload)` | race           |
+
+### 4D. LOW (26) — gọn
+
+- **live-chat**: Campaign assign/unassign/create mutation handlers await-then-render instead of UI-first Web2Optimistic — `live-chat/js/live/live-campaign-manager.js:334-343`
+- **live-chat**: boost-suppress \_boostMarks Map is per-process — ineffective across multi-instance web2-api — `render.com/routes/web2-live-comments.js:271-292`
+- **native-orders**: splitPbh + cancelOrder confirm dialogs pass `confirmText` but Popup.confirm reads `okText` → primary button shows generic 'Đồng ý' instead of the intended action label — `native-orders/js/native-orders-pbh-bill.js:758, 814`
+- **native-orders**: toggleExpand references a `.expand-caret` element that \_buildOrderHtml never renders → caret swap is a permanent no-op (dead code) — `native-orders/js/native-orders-render.js:851-875`
+- **native-orders**: bulkSendMessage does a serial per-order Pancake fetchConversations await loop → slow N-request waterfall and partial-failure swallow on large selections — `native-orders/js/native-orders-bulk-operations.js:168-206`
+- **native-orders**: \_dateInputToIsoWithNowTime converts a date-only 'Ngày HĐ' to an ISO string built from browser-local time, but the server runs TZ=Asia/Saigon → date can shift when the operator's browser is not GMT+7 — `native-orders/js/native-orders-pbh-bill.js:310-325`
+- **native-orders**: Cancel-order optimistic local patch can desync from server (no SSE-debounce reconcile race guard) — `native-orders/js/native-orders-pbh-bill.js:843-847`
+- **native-orders**: soanHangPrintEnabled gate is fail-open and cached 15s — config disable lag lets bills print after admin turns printing off — `native-orders/js/native-orders-api.js:17-27, 172-182`
+- **native-orders**: bulkSendMessage builds Pancake message recipients (PII) entirely client-side from STATE with no server authorization on who can message which customers — `native-orders/js/native-orders-bulk-operations.js:168-207`
+- **Services**: SSE stat card labeled "Server uptime" actually displays the buffer sequence number — `web2/system/index.html:289-293 (label) / system-sse.js:227,280 (value)`
+- **Services**: SSE filter input re-fetches /sse/log on every keystroke with no debounce (filtering is already client-side) — `web2/system/js/system-sse.js:305-308`
+- **Services**: EventSource opened in subscribeLive() is never closed and reconnects forever — `web2/system/js/system-sse.js:253-286, 379`
+- **Services**: 60s DB refresh re-triggers heavy SePay login-scrape and per-machine /health probes as a side effect — `web2/system/js/system-services.js:108-109, 574-580`
+- **Services**: SSE tab marked inited before async admin check resolves — transient /me failure permanently shows access-denied — `web2/system/js/system-app.js:36-38 / system-sse.js:351-360`
+- **Services**: SSE stats polled every 2s via setTimeout chain — violates 'REALTIME = SSE, no background poll' convention on the one page that monitors SSE — `web2/system/js/system-sse.js:340-346, 9`
+- **Services**: renderDatabases computes DB usage % against a hardcoded 15 GB disk constant that can silently desync from the real Render plan — `web2/system/js/system-services.js:15-19, 141-184`
+- **Services**: Gemini machine /health rendered with per-account label/error from arbitrary self-hosted sidecar URLs — escaped but trusts unauthenticated machine responses — `web2/system/js/system-services.js:355-390`
+- **live-control**: Dead guard: state.editing is read but never set true after pending-input removal — `web2/live-control/js/live-control.js:16 + 155`
+- **live-control**: Both live-control.js (993 lines) and live-control.css (982 lines) exceed the 800-line cohesion cap — `web2/live-control/js/live-control.js:1-993 (and css/live-control.css 1-982)`
+- **live-control**: onBoardOp remove/pin loop leaves board in half-applied state on partial failure (no rollback) — `web2/live-control/js/live-control.js:263-269`
+- **live-control**: Customer avatar URL injected into <img src> without safeImg() — inconsistent with every other image in the file — `web2/live-control/js/live-control.js:470-487, 500-508`
+- **live-control**: cart-detail returns full PII (phone, address, name) even for mode='new' which only needs the isNewCust flag — `render.com/routes/web2-campaign-products.js:645-681`
+- **live-control**: URL ?campaign param accepted as campaignId with only DOM-option existence check, not numeric validation — `web2/live-control/js/live-control.js:982-986`
+- **Kho SP**: Optimistic mutation sửa trực tiếp object trong STATE.products (vi phạm immutability) — snapshot rollback dựa vào cùng reference — `web2/products/js/web2-products-actions.js:21-51`
+- **Kho SP**: Bulk-variant create has no rollback and swallows per-item failures, leaving a partial product set with only a toast — `web2/products/js/web2-products-variant-picker.js:233-251 (_bulkCreateVariants loop)`
+- **Kho SP**: Detail-drawer \_saveEdit awaits the PATCH but does not optimistically apply, so the row only updates via SSE echo — inconsistent with the project UI-first convention and silently no-ops if SSE is down — `web2/products/js/web2-product-detail.js:564-586 (_saveEdit success path)`
+
+### 4E. ⚠ CHƯA VERIFY (verifier bị rate-limit) — cần kiểm lại tay
+
+- **so-order**: Auto-invoice/gallery store transient worker image URLs into so-order rows → dead <img> when the NCC's images are deleted
+- **so-order**: render module and storage module exceed the 800-line convention ceiling
+- **so-order**: getNccBatchTotals attributes whole-order contractAmount/weightKg to the gid's first-row supplier even when that order mixes suppliers
+- **so-order**: Receive flow writes status/qtyReceived from stale alreadyReceived → supplier debt billed wrong on cache-miss
+- **so-order**: Auth/server failure on so-order load is silently treated as offline → keeps stale local + drops all writes with no user feedback
+- **so-order**: Payment dual-base fallback re-POSTs the money mutation to a second host on any worker error → double-charge risk if first POST committed
+- **so-order**: so-order-storage.js contains an embedded NUL byte (ALL_BATCH sentinel '\x00ALL') making the file binary to tooling and the sentinel fragile
+- **so-order**: State mutations are in-place (Object.assign on row, sh.rows.push/filter) violating the project immutability convention on the shared SO.state
+- **live-chat**: '🛒 N giỏ hàng' order badge goes stale when viewing a parent campaign
+- **live-chat**: LiveCustomerSync enrich()/harvest fallback paths POST batch-by-phone/fbid + harvest-comments without x-web2-token
+- **live-chat**: /ingest boost-suppress trusts client-supplied conv.page_id vs conv.from.id with no server cross-check
+
+> ⚠ **so-order 'Payment dual-base fallback re-POST'** (mục 4E) = nghi rủi ro double-charge tiền NCC (cùng họ 3H11) — ƯU TIÊN verify tay khi đụng ví NCC.
 
 ---
 

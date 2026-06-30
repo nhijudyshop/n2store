@@ -387,7 +387,11 @@
     };
 
     NO.w2pConfirm = function w2pConfirm(msg, opts) {
-        return window.Popup.confirm(msg, opts);
+        // Popup.confirm đọc `okText` cho nhãn nút chính; nhiều caller ở đây dùng
+        // `confirmText` (alias quen tay) → map cho khớp, nếu không nút hiện 'Đồng ý' mặc định.
+        const o =
+            opts && opts.confirmText && !opts.okText ? { ...opts, okText: opts.confirmText } : opts;
+        return window.Popup.confirm(msg, o);
     };
 
     NO.w2pAlert = function w2pAlert(msg, opts) {

@@ -173,7 +173,10 @@
             // Xóa rows bị remove khỏi modal
             const toDelete = (sh.rows || []).filter((r) => !keptIds.has(r.id));
             for (const old of toDelete) {
-                if (old.status === 'received') continue; // bảo vệ rows đã nhận
+                // Bảo vệ rows đã nhận / nhận 1 phần: chúng bị loại khỏi modal Sửa lô
+                // (isLocked ở so-order-shipment.js) nên KHÔNG nằm trong keptIds → nếu
+                // không skip ở đây sẽ bị xoá oan = mất tồn Kho + nợ NCC phần đã nhận.
+                if (old.status === 'received' || old.status === 'partial_received') continue;
                 window.SoOrderStorage.deleteRow(SO.state, tab.id, sh.id, old.id);
             }
             // Update / add rows.

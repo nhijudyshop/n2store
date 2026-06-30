@@ -2,6 +2,19 @@
 
 ## 2026-06-30
 
+### [web2 audit] Re-audit sâu 6 trang lõi (92 agent) — fix CRITICAL mất data so-order + nhãn confirm
+
+**Files:** `so-order/js/so-order-modal-submit.js` · `native-orders/js/native-orders-state.js` · `docs/web2/WEB2-PAGES-ANALYSIS.md`.
+
+Workflow 92 agent (6 map + 12 lens bugs/convention + security/data-integrity + ~70 adversarial verifier, 12M tokens, `wf_36cef76a-bc9`) audit services tab + so-order + web2/products + native-orders + live-chat + web2/live-control (~49k dòng JS). Smoke authed: 0 console error cả 6 trang. Findings MỚI sau vòng 1–3 (13/06): **1 CRITICAL · 4 HIGH · 15 MEDIUM · 26 LOW** (severity sau verify; nhiều cái bị hạ).
+
+- ✅ **CRITICAL (so-order)**: "Sửa lô" save **hard-delete mọi dòng `partial_received`** → mất tồn Kho + nợ NCC phần đã nhận. Root cause: `isLocked` (so-order-shipment.js:27) loại cả received+partial_received khỏi modal → không vào `keptIds` → `toDelete` xoá; guard skip ở modal-submit.js:176 CHỈ chặn `received`. Fix: thêm `|| old.status==='partial_received'` (mirror guard có sẵn ở so-order-delete.js). Verifier có node-repro xác nhận.
+- ✅ **LOW (native-orders)**: `NO.w2pConfirm` truyền thẳng `opts` cho `Popup.confirm` (đọc `okText`) nhưng 5 caller dùng `confirmText` → nút hiện 'Đồng ý' mặc định. Fix 1 nguồn: map `confirmText`→`okText` trong wrapper.
+- ⬜ **4 HIGH chờ deploy+wire** (backend render.com, rủi ro 401-regression cần wire caller): services-overview unauth leak DB inventory+PII · native-orders /load KPI scope fail-open (employee bỏ token → thấy hết PII) · web2-customers 6 GET routes thiếu auth (dump 64k KH, 10+ caller cần gắn token trước) · live-control cart-detail bỏ campaign scope (số GIỎ lệch).
+- ⚠ **so-order 'payment dual-base re-POST'** (chưa verify, verifier rate-limit) = nghi double-charge ví NCC — ưu tiên kiểm tay.
+
+Chi tiết đầy đủ + file:line + fix: `docs/web2/WEB2-PAGES-ANALYSIS.md` mục **🔬 VÒNG 4**. Status: ✅ (2 fix) / ⬜ (HIGH chờ greenlight).
+
 ### [web2 system/dedup] Re-verify audit trùng-lặp bằng 16 agent + fix esc 3 leaf + sync trang
 
 **Files:** `web2/system/data/web2-dedup-audit.json` · `web2/clearance/js/clearance.js` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/index.html` · `web2/goods-weight/js/goods-weight.js`.
