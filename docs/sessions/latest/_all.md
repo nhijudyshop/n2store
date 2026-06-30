@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b22ddd4` — auto: session update
-**Last updated**: 2026-06-30 18:27:54 +07
-**Latest session**: [`RESUME:20260630-182754-b22ddd4`](../20260630-182754-b22ddd4.md)
-**Summary**: auto: session update
+**Latest commit**: `eb65634` — refactor(web2 phone): gộp 14 helper → Web2PhoneUtils (norm+isMobile, đầu số VN từ GitHub) + load 9 trang [dedup hoàn chỉnh]
+**Last updated**: 2026-06-30 18:29:26 +07
+**Latest session**: [`RESUME:20260630-182926-eb65634`](../20260630-182926-eb65634.md)
+**Summary**: refactor(web2 phone): gộp 14 helper → Web2PhoneUtils (norm+isMobile, đầu số VN từ GitHub) + load 9 trang [...
 
 ## Folders affected in this commit
 
-- [`downloads/`](./downloads.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 17:12
+- [`docs/`](./docs.md) — updated 2026-06-30 18:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:27
