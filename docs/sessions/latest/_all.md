@@ -3,22 +3,19 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fc11720` — docs(dev-log): services admin-gate (deployed+verified) + auto-audit tooling (gitleaks/semgrep)
-**Last updated**: 2026-06-30 23:10:14 +07
-**Latest session**: [`RESUME:20260630-231014-fc11720`](../20260630-231014-fc11720.md)
-**Summary**: Services admin-gate deployed+verified; auto-audit tooling: gitleaks+semgrep ran (findings triaged) + CI security-audit.yml (cần user push workflow scope)
+**Latest commit**: `56f74ba` — Create severity-audit.yml
+**Last updated**: 2026-06-30 23:19:04 +07
+**Latest session**: [`RESUME:20260630-231904-56f74ba`](../20260630-231904-56f74ba.md)
+**Summary**: Create severity-audit.yml
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`.github/`](./.github.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-28 22:00
-- [`.github/`](./.github.md) — updated 2026-06-13 11:30
+- [`.github/`](./.github.md) — updated 2026-06-30 23:19
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
 - [`_root/`](./_root.md) — updated 2026-06-30 23:10
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
