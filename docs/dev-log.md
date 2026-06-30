@@ -9,7 +9,8 @@
 User: bấm ô (sơ đồ kệ) → mở modal xem chi tiết, KHÔNG cuộn xuống danh sách dưới.
 
 - Modal dùng data có sẵn từ `/sort-manifest` (o): STT badge + tên KH + mã đơn + SĐT + tag chip + 📍 vị trí + tiến độ đủ/thiếu + danh sách SP (×qty + #tem). Đóng: X / click nền / ESC.
-- **Test browser**: bấm ô STT1 → modal "HK Man · NJ-20260629-0001 · 0903618628 · Chờ hàng · 📍 Kệ 1·Hàng 1·Cột 1 · 0/6 món · 3 SP". Screenshot xác nhận card giữa màn sạch. Status ✅
+- **Ghi rõ SP nào đang CHỜ HÀNG**: đọc `tag cho_hang.detail.products[].code` → SP đó tô tên amber + pill `⏳ chờ hàng` (các SP khác bình thường). Vd HK Man: chỉ ÁO POLO BASIC chờ, ÁO BLAZER/GIÀY BÚP BÊ không.
+- **Test browser**: bấm ô STT1 → modal "HK Man · NJ-20260629-0001 · 0903618628 · Chờ hàng · 📍 Kệ 1·Hàng 1·Cột 1 · 0/6 món", 3 SP, đúng 1 pill ⏳ ở ÁO POLO BASIC. Screenshot xác nhận. Status ✅
 
 ### [unit-scan] Tag đơn hiện NGAY TRÊN Ô KỆ (sơ đồ kệ) — ô rộng còn chỗ
 

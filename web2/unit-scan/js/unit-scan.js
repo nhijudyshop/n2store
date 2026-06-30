@@ -508,12 +508,20 @@
                 return `<span class="o-tag" style="background:${c}">${esc(t.name || t.code || '')}</span>`;
             })
             .join('');
+        // SP nào đang CHỜ HÀNG (tồn 0, chờ NCC) — lấy từ tag cho_hang.detail.products[].code.
+        const choHangTag = (o.autoTags || []).find((t) => t.trigger === 'cho_hang');
+        const waitCodes = new Set(
+            (choHangTag?.detail?.products || []).map((p) => p.code).filter(Boolean)
+        );
         const prods = (o.products || [])
             .map((p) => {
                 const codes = (p.codes || []).map(shortCode).filter(Boolean);
-                return `<div class="cd-prod"><span class="cd-pname">${esc(p.name || p.code)}</span>${
+                const waiting = waitCodes.has(p.code);
+                return `<div class="cd-prod${waiting ? ' waiting' : ''}"><span class="cd-pname">${esc(p.name || p.code)}</span>${
                     (Number(p.qty) || 1) > 1 ? '<span class="cd-pqty">×' + p.qty + '</span>' : ''
-                }${codes.length ? `<span class="m-codes">#${codes.join(',')}</span>` : ''}</div>`;
+                }${codes.length ? `<span class="m-codes">#${codes.join(',')}</span>` : ''}${
+                    waiting ? '<span class="cd-wait">⏳ chờ hàng</span>' : ''
+                }</div>`;
             })
             .join('');
         const ov = document.createElement('div');
