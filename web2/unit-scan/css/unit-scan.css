@@ -1209,6 +1209,164 @@ body {
     line-height: 1.5;
 }
 
+/* ════ Danh sách đã quét (batch in tem QR) + Đã in (nhóm thời gian) ════ */
+.batch {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.bt-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--c-surface);
+    border: 1.5px solid var(--c-line);
+    border-radius: 12px;
+}
+.bt-info {
+    flex: 1;
+    min-width: 0;
+}
+.bt-code {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--c-text);
+    letter-spacing: -0.01em;
+}
+.bt-name {
+    font-size: 12px;
+    color: var(--c-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.bt-pos {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--c-primary-d);
+    background: #eef4ff;
+    border-radius: 8px;
+    padding: 3px 8px;
+    white-space: nowrap;
+}
+.bt-x {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 9px;
+    background: var(--c-bg);
+    color: var(--c-text-3);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 0.12s ease;
+}
+.bt-x:active {
+    transform: scale(0.9);
+    color: var(--c-red);
+}
+.bt-x i {
+    width: 15px;
+    height: 15px;
+}
+.batch-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+.batch-actions[hidden] {
+    display: none !important;
+}
+.batch-print-btn {
+    flex: 1;
+    height: 46px;
+    border: 0;
+    border-radius: 13px;
+    background: var(--c-primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(0, 104, 255, 0.25);
+    transition: transform 0.12s ease;
+}
+.batch-print-btn:active {
+    transform: scale(0.98);
+}
+.batch-print-btn i {
+    width: 18px;
+    height: 18px;
+}
+.batch-clear {
+    flex: 0 0 auto;
+    color: var(--c-red);
+}
+.printed {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pr-group {
+    background: var(--c-surface);
+    border: 1.5px solid var(--c-line);
+    border-radius: 13px;
+    padding: 11px 12px;
+}
+.pr-hd {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pr-meta {
+    flex: 1;
+    min-width: 0;
+}
+.pr-time {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--c-text);
+}
+.pr-sub {
+    font-size: 11.5px;
+    color: var(--c-text-2);
+    margin-top: 1px;
+}
+.pr-reprint {
+    flex: 0 0 auto;
+    border: 1.5px solid var(--c-primary);
+    background: #eef4ff;
+    color: var(--c-primary-d);
+    font-weight: 700;
+    font-size: 12.5px;
+    padding: 7px 11px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.12s ease;
+}
+.pr-reprint:active {
+    transform: scale(0.97);
+}
+.pr-reprint i {
+    width: 14px;
+    height: 14px;
+}
+.pr-codes {
+    margin-top: 7px;
+    font-size: 11.5px;
+    color: var(--c-text-2);
+    line-height: 1.4;
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation: none !important;

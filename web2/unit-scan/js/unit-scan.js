@@ -1,4 +1,4 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét tem (gộp bỏ tab 2026-06-29): 1 VIEW DUY NHẤT. Quét 1 món → hero "Bỏ vào KỆ X · STT · 📍 Hàng·Cột" + chi tiết SP (in lại, sibling, đơn, lịch sử) Ở TRÊN; tiến độ 9 kệ (xe) + sơ đồ kệ Ở DƯỚI. Bấm kệ → sheet chi tiết SP theo từng STT (cùng 1 mã ở nhiều STT → tô ô). Client: Web2ProductUnits + Web2ShelfMap. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Quét tem (gộp bỏ tab 2026-06-29): 1 VIEW DUY NHẤT. Quét 1 món → hero "Bỏ vào KỆ X · STT · 📍 Hàng·Cột" + chi tiết SP (in lại, sibling, đơn, lịch sử) Ở TRÊN; tiến độ 9 kệ (xe) + sơ đồ kệ Ở DƯỚI. Bấm kệ → sheet chi tiết SP theo từng STT (cùng 1 mã ở nhiều STT → tô ô). + Panel "Danh sách đã quét" (gom mọi tem quét, sơ đồ kệ riêng, IN tem QR cả batch) → in xong chuyển "Đã in" (1 đợt/lần in kèm giờ, in lại theo đợt; localStorage per-máy). Client: Web2ProductUnits + Web2ShelfMap + Web2ProductsPrint. Đặc tả: docs/web2/KB-PRODUCT-CODE-UNITS.md
 (function () {
     'use strict';
 
@@ -765,6 +765,276 @@
         $('#sheetBack').hidden = true;
     }
 
+    // =================================================================
+    // DANH SÁCH ĐÃ QUÉT (batch in tem QR) + ĐÃ IN (nhóm thời gian)
+    // Quét tất cả tem 1 lượt → danh sách → sơ đồ kệ → IN tem QR cả batch
+    // → chuyển sang "Đã in" (1 đợt/1 lần in, kèm thời gian) → in lại theo đợt.
+    // Local-first: localStorage per-máy (đây là workstation quét/in tem) — KHÔNG
+    // server (mỗi máy có batch riêng; print_count++ vẫn bump server qua reprint).
+    // =================================================================
+    const BATCH_KEY = 'web2_unitscan_batch_v1'; // danh sách đang quét (chưa in)
+    const PRINTED_KEY = 'web2_unitscan_printed_v1'; // các đợt đã in
+    const PRINTED_MAX = 60; // ponytail: giữ 60 đợt in gần nhất; cũ hơn rụng (đủ "in lại theo nhóm thời gian")
+    let batch = []; // {id,unitCode,productCode,name,price,orderStt,status,scannedAt}
+    let printed = []; // {id,printedAt,userName,count,units:[...]}
+
+    function loadStore() {
+        try {
+            batch = JSON.parse(localStorage.getItem(BATCH_KEY) || '[]');
+        } catch (_) {
+            batch = [];
+        }
+        try {
+            printed = JSON.parse(localStorage.getItem(PRINTED_KEY) || '[]');
+        } catch (_) {
+            printed = [];
+        }
+        if (!Array.isArray(batch)) batch = [];
+        if (!Array.isArray(printed)) printed = [];
+    }
+    const saveBatch = () => {
+        try {
+            localStorage.setItem(BATCH_KEY, JSON.stringify(batch));
+        } catch (_) {}
+    };
+    const savePrinted = () => {
+        try {
+            localStorage.setItem(PRINTED_KEY, JSON.stringify(printed.slice(0, PRINTED_MAX)));
+        } catch (_) {}
+    };
+
+    function addToBatch(data) {
+        const u = data && data.unit;
+        if (!u || u.id == null) return;
+        if (batch.some((x) => x.id === u.id)) {
+            toast('Tem này đã có trong danh sách');
+            return;
+        }
+        const p = data.product || {};
+        batch.push({
+            id: u.id,
+            unitCode: u.unitCode,
+            productCode: u.productCode,
+            name: p.name || u.productCode,
+            price: Number(p.price) || 0,
+            orderStt: u.orderStt != null ? u.orderStt : null,
+            status: u.status,
+            scannedAt: Date.now(),
+        });
+        saveBatch();
+        renderBatch();
+    }
+    function removeFromBatch(id) {
+        const n = Number(id);
+        batch = batch.filter((x) => x.id !== n);
+        saveBatch();
+        renderBatch();
+    }
+    function clearBatch() {
+        if (!batch.length) return;
+        batch = [];
+        saveBatch();
+        renderBatch();
+        toast('Đã xoá danh sách quét', 'ok');
+    }
+
+    // Gom batch theo mã SP → products[] cho Web2ProductsPrint ({code,name,price,units}).
+    function buildPrintProducts(units) {
+        const m = new Map();
+        for (const u of units) {
+            let g = m.get(u.productCode);
+            if (!g) {
+                g = {
+                    code: u.productCode,
+                    name: u.name || u.productCode,
+                    price: u.price || 0,
+                    variant: '',
+                    quantity: 0,
+                    units: [],
+                };
+                m.set(u.productCode, g);
+            }
+            g.units.push(PU().printUnit(u)); // {unitCode,qrUrl,orderStt} — 1 nguồn scheme QR
+            g.quantity = g.units.length;
+        }
+        return [...m.values()];
+    }
+
+    function printBatch() {
+        if (!batch.length) return;
+        if (!window.Web2ProductsPrint?.open) {
+            toast('Module in chưa tải xong — mở trên máy có máy in tem', 'err');
+            return;
+        }
+        const units = batch.slice();
+        window.Web2ProductsPrint.open(buildPrintProducts(units));
+        PU().reprint(units.map((u) => u.id)); // print_count++ (best-effort, không chặn in)
+        printed.unshift({
+            id: 'p' + Date.now() + Math.random().toString(36).slice(2, 6),
+            printedAt: Date.now(),
+            userName: PU()._userName ? PU()._userName() : '',
+            count: units.length,
+            units,
+        });
+        if (printed.length > PRINTED_MAX) printed = printed.slice(0, PRINTED_MAX);
+        batch = [];
+        saveBatch();
+        savePrinted();
+        renderBatch();
+        renderPrinted();
+        beep('done');
+        toast('Đã in ' + units.length + ' tem — chuyển sang Đã in', 'ok');
+    }
+    function reprintGroup(gid) {
+        const g = printed.find((x) => x.id === gid);
+        if (!g || !g.units || !g.units.length) return;
+        if (!window.Web2ProductsPrint?.open) {
+            toast('Module in chưa tải xong — mở trên máy có máy in tem', 'err');
+            return;
+        }
+        window.Web2ProductsPrint.open(buildPrintProducts(g.units));
+        PU().reprint(g.units.map((u) => u.id));
+        toast('In lại đợt ' + fmtTime(g.printedAt) + ' · ' + g.count + ' tem', 'ok');
+    }
+
+    function renderBatch() {
+        const host = $('#batchList');
+        const title = $('#batchTitle');
+        const actions = $('#batchActions');
+        if (title) title.textContent = `Danh sách đã quét (${batch.length})`;
+        if (!host) return;
+        if (!batch.length) {
+            host.innerHTML =
+                '<div class="muted">Chưa quét món nào — quét tem để thêm vào danh sách.</div>';
+            if (actions) actions.hidden = true;
+            return;
+        }
+        // Mới nhất lên đầu.
+        host.innerHTML = batch
+            .slice()
+            .reverse()
+            .map((u) => {
+                const l = u.orderStt != null ? locate(u.orderStt) : null;
+                const pos =
+                    l && l.ke
+                        ? `📍 ${esc(l.short)}`
+                        : u.orderStt != null
+                          ? `STT ${esc(u.orderStt)}`
+                          : 'kho';
+                return `<div class="bt-row">
+                    <div class="bt-info">
+                        <div class="bt-code">${esc(u.unitCode)}</div>
+                        <div class="bt-name">${esc(u.name || u.productCode)}</div>
+                    </div>
+                    <span class="bt-pos">${pos}</span>
+                    <button class="bt-x" data-id="${u.id}" type="button" aria-label="Bỏ khỏi danh sách"><i data-lucide="x"></i></button>
+                </div>`;
+            })
+            .join('');
+        if (actions) {
+            actions.hidden = false;
+            $('#batchCount').textContent = batch.length;
+        }
+        host.querySelectorAll('.bt-x').forEach((b) =>
+            b.addEventListener('click', () => removeFromBatch(b.dataset.id))
+        );
+        icons();
+    }
+
+    function renderPrinted() {
+        const host = $('#printedList');
+        const cnt = $('#printedGroups');
+        if (cnt) cnt.textContent = printed.length;
+        if (!host) return;
+        if (!printed.length) {
+            host.innerHTML = '<div class="muted">Chưa có đợt in nào.</div>';
+            return;
+        }
+        host.innerHTML = printed
+            .map((g) => {
+                const codes = new Map();
+                (g.units || []).forEach((u) =>
+                    codes.set(u.productCode, (codes.get(u.productCode) || 0) + 1)
+                );
+                const entries = [...codes.entries()];
+                const sum =
+                    entries
+                        .slice(0, 4)
+                        .map(([c, n]) => `${esc(c)}×${n}`)
+                        .join(' · ') + (entries.length > 4 ? ` +${entries.length - 4}` : '');
+                return `<div class="pr-group">
+                    <div class="pr-hd">
+                        <div class="pr-meta">
+                            <div class="pr-time">🕐 ${fmtTime(g.printedAt)}</div>
+                            <div class="pr-sub">${g.count} tem · ${entries.length} loại${g.userName ? ' · ' + esc(g.userName) : ''}</div>
+                        </div>
+                        <button class="pr-reprint" data-id="${esc(g.id)}" type="button"><i data-lucide="printer"></i> In lại</button>
+                    </div>
+                    <div class="pr-codes">${sum}</div>
+                </div>`;
+            })
+            .join('');
+        host.querySelectorAll('.pr-reprint').forEach((b) =>
+            b.addEventListener('click', () => reprintGroup(b.dataset.id))
+        );
+        icons();
+    }
+
+    // Sơ đồ kệ theo danh sách ĐÃ QUÉT (không phải toàn bộ đơn chờ) — ô có tem quét → tô.
+    function openBatchMap() {
+        $('#sheetTitle').textContent = 'Sơ đồ kệ — danh sách đã quét';
+        const body = $('#sheetBody');
+        const SMx = SM();
+        if (!batch.length || !SMx) {
+            body.innerHTML = '<div class="muted">Chưa quét món nào.</div>';
+            $('#sheetBack').hidden = false;
+            return;
+        }
+        const noShelf = [];
+        const byKe = new Map(); // ke → {ke, stts:Set, n}
+        for (const u of batch) {
+            const ke = u.orderStt != null ? SMx.keOf(u.orderStt) : null;
+            if (ke == null) {
+                noShelf.push(u);
+                continue;
+            }
+            let g = byKe.get(ke);
+            if (!g) {
+                g = { ke, stts: new Set(), n: 0 };
+                byKe.set(ke, g);
+            }
+            g.stts.add(u.orderStt);
+            g.n++;
+        }
+        const kes = [...byKe.values()].sort((a, b) => a.ke - b.ke);
+        let html = `<div class="m-sub" style="padding:2px 4px 8px">${batch.length} tem đã quét · ${kes.length} kệ${noShelf.length ? ` · ${noShelf.length} chưa gắn kệ` : ''}.</div>`;
+        for (const g of kes) {
+            html +=
+                `<div class="ke-map-wrap"><div class="ke-map-title">Kệ ${g.ke} ${esc(SMx.wallOf(g.ke) || '')} · ${g.n} tem</div><div class="ke-map">` +
+                SMx.keGrid(g.ke)
+                    .flat()
+                    .map((s) => {
+                        const on = g.stts.has(s);
+                        return `<span class="m-cell${on ? ' on' : ''}" title="STT ${s}">${on ? `<b class="mc-num">${s}</b>` : ''}</span>`;
+                    })
+                    .join('') +
+                `</div></div>`;
+        }
+        if (noShelf.length) {
+            html +=
+                `<div class="sec-title" style="margin-top:10px">Chưa gắn kệ (${noShelf.length})</div>` +
+                noShelf
+                    .map(
+                        (u) =>
+                            `<div class="m-row"><div class="m-info"><div class="m-name">${esc(u.name || u.productCode)}</div><div class="m-sub">${esc(u.unitCode)} · ${esc((STATUS_LABEL[u.status] || [u.status])[0] || '')}</div></div></div>`
+                    )
+                    .join('');
+        }
+        body.innerHTML = html;
+        icons();
+        $('#sheetBack').hidden = false;
+    }
+
     // ── Cài đặt đèn put-to-light (ESP32) ────────────────────────────
     function openPutwallSettings() {
         const PW = window.Web2PutWall;
@@ -950,8 +1220,14 @@
         $('#sheetBack')?.addEventListener('click', (e) => {
             if (e.target === $('#sheetBack')) closeSheet();
         });
+        $('#batchPrintBtn')?.addEventListener('click', printBatch);
+        $('#batchClearBtn')?.addEventListener('click', clearBatch);
+        $('#batchMapBtn')?.addEventListener('click', openBatchMap);
         wireManual();
         initSse();
+        loadStore(); // danh sách đã quét + đã in (localStorage per-máy)
+        renderBatch();
+        renderPrinted();
         sortLoad(); // tiến độ kệ luôn hiển thị
         // Deep-link: ?u= / ?code= → tra 1 món ngay. (?mode=sort cũ: bỏ qua, view đã gộp.)
         const qs = new URLSearchParams(location.search);
@@ -959,10 +1235,10 @@
         const code = qs.get('code');
         if (u) {
             $('.scanner')?.classList.add('compact');
-            resolve({ id: u });
+            resolve({ id: u }, { fromScan: true });
         } else if (code) {
             $('.scanner')?.classList.add('compact');
-            resolve({ code });
+            resolve({ code }, { fromScan: true });
         }
         initScanner();
     }
