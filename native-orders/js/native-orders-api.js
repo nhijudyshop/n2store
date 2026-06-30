@@ -20,7 +20,8 @@
         const now = Date.now();
         if (_tagListCache.list && now - _tagListCache.at < 15000) return _tagListCache.list;
         const d = await _fetchJson(`${TAGS_BASE}/list`);
-        const list = Array.isArray(d) ? d : d?.tags || d?.data || d?.items || [];
+        // /list trả { success, records, total } — records là mảng tag def.
+        const list = Array.isArray(d) ? d : d?.records || d?.tags || d?.data || [];
         _tagListCache = { at: now, list };
         return list;
     }
