@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `24195eb` — refactor(web2 product-units): gom builder per-tem về Web2ProductUnits.printUnit
-**Last updated**: 2026-06-30 20:06:04 +07
-**Latest session**: [`RESUME:20260630-200604-24195eb`](../20260630-200604-24195eb.md)
-**Summary**: gom builder per-tem về Web2ProductUnits.printUnit (3 fork → 1)
+**Latest commit**: `4aed604` — fix(web2 zalo): QR đăng nhập lỗi ảnh vỡ — re-add data:image/png;base64 prefix bị zca-js bóc
+**Last updated**: 2026-06-30 20:22:47 +07
+**Latest session**: [`RESUME:20260630-202247-4aed604`](../20260630-202247-4aed604.md)
+**Summary**: fix web2 zalo QR login broken image (re-add data:image base64 prefix)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 20:06
+- [`docs/`](./docs.md) — updated 2026-06-30 20:22
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 20:06
+- [`web2/`](./web2.md) — updated 2026-06-30 20:22
