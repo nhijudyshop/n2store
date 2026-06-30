@@ -517,14 +517,18 @@
     // ---- SSE realtime (đa máy/đa tab tự cập nhật) ----
     let sseDebounce = null;
     function setupSSE() {
-        if (!window.Web2SSE?.subscribe) return;
-        Web2SSE.subscribe('web2:goods-weight', () => {
-            clearTimeout(sseDebounce);
-            sseDebounce = setTimeout(() => {
-                load();
-                if (!$('#panelReport').hidden) loadReport();
-            }, 500);
-        });
+        const reload = () => {
+            load();
+            if (!$('#panelReport').hidden) loadReport();
+        };
+        if (window.Web2SSE?.subscribeReload) {
+            window.Web2SSE.subscribeReload('web2:goods-weight', reload, { debounce: 500 });
+        } else if (window.Web2SSE?.subscribe) {
+            Web2SSE.subscribe('web2:goods-weight', () => {
+                clearTimeout(sseDebounce);
+                sseDebounce = setTimeout(reload, 500);
+            });
+        }
     }
 
     function boot() {

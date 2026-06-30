@@ -17,11 +17,13 @@
     // ---------- SSE ----------
     function setupSSE() {
         if (!window.Web2SSE?.subscribe) return;
-        STATE.sseUnsub = window.Web2SSE.subscribe('web2:purchase-refund', () => {
-            // Debounce 600ms (chuẩn 500-600) để gom burst, tránh load liên tục.
-            clearTimeout(setupSSE._t);
-            setupSSE._t = setTimeout(() => loadList(), 600);
-        });
+        // 1 nguồn debounce (Web2SSE.subscribeReload); fallback subscribe nếu bridge cũ.
+        STATE.sseUnsub = window.Web2SSE.subscribeReload
+            ? window.Web2SSE.subscribeReload('web2:purchase-refund', loadList, { debounce: 600 })
+            : window.Web2SSE.subscribe('web2:purchase-refund', () => {
+                  clearTimeout(setupSSE._t);
+                  setupSSE._t = setTimeout(() => loadList(), 600);
+              });
         // 2026-06-28: picker Section A đọc SP đã nhận từ Sổ Order (web2_so_order) gom
         // theo lô → phải subscribe web2:so-order (+ web2:products khi nhận hàng đổi
         // tồn) để picker tự cập nhật, không cần bấm "Đồng bộ"/reload tay.

@@ -239,7 +239,9 @@
         load();
         // SSE: gán/đổi unit ở nơi khác → refresh (debounce)
         try {
-            if (window.Web2SSE?.subscribe) {
+            if (window.Web2SSE?.subscribeReload) {
+                window.Web2SSE.subscribeReload('web2:product-units', load, { debounce: 800 });
+            } else if (window.Web2SSE?.subscribe) {
                 let deb = null;
                 window.Web2SSE.subscribe('web2:product-units', () => {
                     clearTimeout(deb);

@@ -252,7 +252,9 @@
         load();
         // 2026-06-04: SSE realtime web2:delivery — backend delivery-invoices.js
         // _notify create/ship/deliver/return/cancel → tự refresh đa tab/máy.
-        if (window.Web2SSE?.subscribe) {
+        if (window.Web2SSE?.subscribeReload) {
+            window.Web2SSE.subscribeReload('web2:delivery', load, { debounce: 600 });
+        } else if (window.Web2SSE?.subscribe) {
             let _t = null;
             window.Web2SSE.subscribe('web2:delivery', () => {
                 clearTimeout(_t);

@@ -614,7 +614,9 @@
 
         if (global.lucide) global.lucide.createIcons();
         loadAll();
-        if (global.Web2SSE?.subscribe) {
+        if (global.Web2SSE?.subscribeReload) {
+            global.Web2SSE.subscribeReload('web2:cashbook', loadAll, { debounce: 600 });
+        } else if (global.Web2SSE?.subscribe) {
             let t = null;
             global.Web2SSE.subscribe('web2:cashbook', () => {
                 clearTimeout(t);

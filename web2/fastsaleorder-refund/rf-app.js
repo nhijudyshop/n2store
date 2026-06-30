@@ -260,7 +260,9 @@
         load();
         // 2026-06-04: SSE realtime web2:refunds — backend refunds.js _notify mọi
         // create/approve/complete/cancel → tự refresh không cần F5 (đồng bộ đa tab/máy).
-        if (window.Web2SSE?.subscribe) {
+        if (window.Web2SSE?.subscribeReload) {
+            window.Web2SSE.subscribeReload('web2:refunds', load, { debounce: 600 });
+        } else if (window.Web2SSE?.subscribe) {
             let _t = null;
             window.Web2SSE.subscribe('web2:refunds', () => {
                 clearTimeout(_t);
