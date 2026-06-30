@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-07-01
+
+### [security] Dọn secret toàn repo (CI gitleaks) — sanitize source + rotate (KHÔNG purge history)
+
+**Files:** `render.com/config/tpos.config.js` · `render.com/scripts/migrate-dropped-held-to-pg.js` · `.gitleaks.toml` · xoá 5 dump .txt · sanitize `INBOX_PREVIEW_VARIABLES.md`.
+
+CI gitleaks (artifact user push) → triage 54 leak tracked-tree. Phân loại + xử:
+
+- **Đã fix source:** Firebase service-account PRIVATE KEY + DB-password (`migrate-dropped-held-to-pg.js`, script chết) → env; TPOS JWT hardcode (`tpos.config.js`) → env; xoá 5 file dump JWT hết hạn (inbox/script*.txt + docs1/*.txt); sanitize token trong INBOX_PREVIEW_VARIABLES.md.
+- **Allowlist FP** (`.gitleaks.toml`): localStorage/cache KEY names, CORS header names, Firebase **web key (public theo Google)**, doc placeholder, .tmp/backups local.
+- **Còn lại = client-side creds** (SIP/Metered VoIP ở extension+phone-widget, SePay key ở service-costs/navigation-modern, attendance secret, ImgBB worker key) — KHÔNG env hoá được trong file browser/extension tĩnh → **FLAG cho user** (rotate + chuyển config-endpoint nếu muốn ẩn).
+- **⚠ Repo PUBLIC** → secret đã công khai trong history → **ROTATE BẮT BUỘC** (Firebase SA key, DB pw, SIP, SePay, ImgBB, attendance, Gemini/TPOS token sống).
+- **History purge:** user chọn **BỎ** (git-filter-repo đổi hết SHA → phá 2014 file session-resume; giá trị biên thấp sau rotate). KHÔNG force-push.
+
+Status: ✅ source sạch + allowlist + CI standing-audit live · ⬜ user ROTATE (mandatory) + client-cred architecture (optional).
+
 ## 2026-06-30
 
 ### [security] CI gitleaks/semgrep artifact → gỡ 2 secret hardcode nguy hiểm nhất
