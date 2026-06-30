@@ -10,7 +10,8 @@ User: thêm tag SOẠN HÀNG cho giỏ khi in phiếu soạn hàng; toggle bật
 
 - **Tag**: chỉ giỏ (`status==='draft'`) đã in phiếu soạn hàng (`soan_hang_print_count>0`). Derived mỗi /load → khi giỏ thành đơn (status≠draft) tag TỰ MẤT. Tách counter riêng vì `print_count` gộp cả bill PBH (tag `da_in` không phân biệt được).
 - **Toggle** = `is_active` của thẻ `soan_hang` ở trang Cấu hình thẻ (admin có sẵn). BẬT → in được + tag tính; TẮT → engine bỏ thẻ (ẩn) + 4 entry-point khoá nút In Phiếu Soạn Hàng (`_canPrintSoanHang` fail-open nếu lỗi/chưa seed). Trang order-tags KHÔNG đổi code — thẻ tự seed + dùng toggle sẵn.
-- Status 🔄 (chờ deploy web2-api + verify in→tag, toggle off→khoá in, thành đơn→mất tag)
+- **Bug fix** `345a9c000`: `/web2-order-tags/list` trả `{records}` không phải `{tags}` → gate luôn fail-open. Sửa `_orderTagList` đọc `d.records`.
+- **Test E2E (deploy web2-api live)**: (1) thẻ `soan_hang` seed isActive=true; (2) mark-printed kind=soan_hang đơn draft NJ-...0007 → `soanHangPrintCount=1`, `printCount` 3→4, autoTags=[Chờ hàng, **Soạn hàng**]; (3) toggle OFF → tag biến mất (BE) + gate FE `soanHangPrintEnabled()=false` (khoá in); toggle ON → tag về + gate true; (4) đơn non-draft KHÔNG có soan_hang (status≠draft → mất khi thành đơn). Status ✅
 
 ### [unit-scan] Bấm ô sơ đồ kệ → MỞ MODAL chi tiết đơn (thay vì cuộn xuống)
 
