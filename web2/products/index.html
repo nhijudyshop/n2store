@@ -48,22 +48,9 @@
                     <div class="page-head-counters">
                         <span class="counter-pill" id="totalCounter">— sản phẩm</span>
                         <span class="source-pill">Kho sản phẩm</span>
-                        <button
-                            class="btn-ghost page-head-action"
-                            id="btnImportProducts"
-                            type="button"
-                            title="Nhập SP hàng loạt từ file CSV / JSON"
-                        >
-                            <i data-lucide="upload"></i> Nhập
-                        </button>
-                        <button
-                            class="btn-ghost page-head-action"
-                            id="btnSampleProducts"
-                            type="button"
-                            title="Tải file CSV mẫu để xem cấu trúc"
-                        >
-                            <i data-lucide="download"></i> Tải mẫu
-                        </button>
+                        <!-- 2026-06-30: BỎ tạo SP trực tiếp ở Kho (Thêm SP / Nhập / Tải mẫu).
+                             Sổ Order là NGUỒN DUY NHẤT tạo SP → SP luôn có địa danh (region từ
+                             tab Sổ Order). Sửa/in tem SP đã có vẫn giữ. Listeners null-safe (?.). -->
                         <button
                             class="btn-ghost page-head-action"
                             id="btnReprintUnits"
@@ -71,13 +58,6 @@
                             title="In lại tem đơn vị — chọn mã đơn vị (qr1..qrN) của 1 SP rồi in"
                         >
                             <i data-lucide="printer"></i> In lại tem
-                        </button>
-                        <button
-                            class="btn-primary page-head-action"
-                            id="btnCreateProduct"
-                            type="button"
-                        >
-                            <i data-lucide="plus"></i> Thêm SP
                         </button>
                     </div>
                 </header>

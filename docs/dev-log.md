@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [products] Bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn DUY NHẤT (SP luôn có địa danh) — P4
+
+**Files:** `web2/products/index.html` (ẩn nút `btnCreateProduct` "Thêm SP" + `btnImportProducts` "Nhập" + `btnSampleProducts` "Tải mẫu"; giữ `btnReprintUnits` "In lại tem").
+
+User chốt: thay vì thêm rổ "Chưa phân loại" (P4 cũ), **bỏ luôn đường tạo SP ở Kho** → SP chỉ sinh qua Sổ Order (luôn gán region từ tab địa danh) → region không bao giờ null. Verify (workflow): Sổ Order `syncRowsToKho` LUÔN set `region: trimLabel` (so-order-kho-sync.js:329), sticky không ghi đè.
+
+- Chỉ ẩn UI (listeners null-safe `?.`), KHÔNG đụng backend → 0 rủi ro data. Sửa/in tem/xem chi tiết SP đã có vẫn chạy.
+- **Verify E2E**: 3 nút tạo ẩn, "In lại tem" giữ, 17 nút sửa + 19 dòng SP vẫn render, 0 lỗi console.
+- (Tùy chọn chưa làm) hardening backend: POST /api/web2-products trả 409 nếu thiếu region — defense-in-depth, để sau nếu cần.
+
 ### [shared][products][live-chat] `Web2ProductStatus` — 1 nguồn trạng thái SP + badge "chờ hàng" ở live-chat (P2)
 
 **Files:** `web2/shared/web2-product-status.js` (MỚI — `meta/isChoHang/tableBadge/pill/chip`), `web2/products/js/web2-products-render.js` (`_statusBadgeHtml`→delegate `.tableBadge`), `web2/products/js/web2-product-detail.js` (statusPill→delegate `.pill`), `live-chat/js/pancake/inventory-panel-render.js` (thêm `.chip(p)` lên card), `live-chat/css/inventory-panel.css` (`.inv-status-badge` + tone pending/partial/gone), `web2/products/index.html` + `live-chat/index.html` (load module TRƯỚC consumer + bump `→20260630a`).
