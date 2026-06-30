@@ -16,6 +16,8 @@
 //
 // Public API:
 //   Web2SSE.subscribe(topic, callback) → unsubscribe fn
+//   Web2SSE.subscribeReload(topic|topic[], reloadFn, {debounce=500}) → unsub
+//       (subscribe + debounce reload — 1 nguồn thay boilerplate clearTimeout/setTimeout)
 //   Web2SSE.topics() → string[] of currently-subscribed topics
 //   Web2SSE.close() → tear down EventSource
 //
@@ -242,6 +244,39 @@
         };
     }
 
+    // subscribeReload(topics, reloadFn, opts?) — subscribe + DEBOUNCE reload. Thay
+    // boilerplate `clearTimeout(t); t=setTimeout(load,500)` + subscribe lặp ở ~15
+    // page-app: gom burst event (nhiều mutation liên tiếp → CHỈ 1 reload). topics =
+    // string HOẶC string[]. opts.debounce mặc định 500ms (trailing). Trả unsub (tự
+    // clear timer + unsubscribe mọi topic).
+    function subscribeReload(topicOrList, reloadFn, opts) {
+        if (typeof reloadFn !== 'function') return function () {};
+        const delay = (opts && Number(opts.debounce)) || 500;
+        const list = Array.isArray(topicOrList) ? topicOrList : [topicOrList];
+        let timer = null;
+        function schedule() {
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                timer = null;
+                try {
+                    reloadFn();
+                } catch (e) {
+                    console.error('[Web2SSE] subscribeReload reload error', e);
+                }
+            }, delay);
+        }
+        const unsubs = list.map(function (t) {
+            return subscribe(t, schedule);
+        });
+        return function () {
+            clearTimeout(timer);
+            timer = null;
+            unsubs.forEach(function (u) {
+                if (u) u();
+            });
+        };
+    }
+
     function topics() {
         return Array.from(subscribers.keys());
     }
@@ -284,5 +319,5 @@
         });
     }
 
-    global.Web2SSE = { subscribe, topics, close };
+    global.Web2SSE = { subscribe, subscribeReload, topics, close };
 })(typeof window !== 'undefined' ? window : globalThis);
