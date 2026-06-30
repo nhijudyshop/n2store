@@ -1,6 +1,6 @@
 # Smoke Test Report — 105 pages
 
-Generated: 2026-06-30T09:51:11.674Z
+Generated: 2026-06-30T10:08:14.021Z
 
 - ✅ Clean: **93**
 - ❌ Issues: **12**
@@ -18,7 +18,7 @@ Generated: 2026-06-30T09:51:11.674Z
 | `/orders-report/tab1-orders.html`             | 200  | Quản lý đơn hàng               | 2      | 0         |         | ✓     |       |
 | `/product-warehouse/index.html`               | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/purchase-orders/goods-receiving/index.html` | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
-| `/purchase-orders/index.html`                 | 200  | Nhi Judy House — Hệ thống quản | 3      | 0         |         | ✓     |       |
+| `/purchase-orders/index.html`                 | 200  | Nhi Judy House — Hệ thống quản | 2      | 0         |         | ✓     |       |
 | `/render-data-manager/index.html`             | 200  | Nhi Judy House — Hệ thống quản | 1      | 0         |         | ✓     |       |
 | `/web2/photo-editor/index.html`               | 404  | Error response                 | 0      | 0         |         | ✓     |       |
 
@@ -26,15 +26,15 @@ Generated: 2026-06-30T09:51:11.674Z
 
 ### `/balance-history/index.html`
 
-- err: [ACCOUNTANT] Stats error: TypeError: Failed to fetch
-  at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:623:36)
-  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:207:9)
 - err: [ACCOUNTANT] Load queue error: TypeError: Failed to fetch
   at loadPendingQueue (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:709:36)
   at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:208:9)
-- err: [VERIFICATION-STATS] Error: TypeError: Failed to fetch
-  at loadVerificationStats (http://localhost:8080/balance-history/js/balance-filters.js?v=20260521b:222:32)
-  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:37:13)
+- err: [ACCOUNTANT] Stats error: TypeError: Failed to fetch
+  at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:623:36)
+  at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:207:9)
+- err: Error loading statistics: TypeError: Failed to fetch
+  at loadStatistics (http://localhost:8080/balance-history/js/balance-core.js?v=20260521b:440:32)
+  at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:36:13)
 
 ### `/customer-hub/index.html`
 
@@ -78,12 +78,12 @@ Generated: 2026-06-30T09:51:11.674Z
 - err: [FULFILLMENT] Error loading delete entries: TypeError: Failed to fetch
   at \_loadInvoiceDeletes (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:50:36)
   at Object.init (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:104:23)
-  at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782812914073:225:44)
+  at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782813937125:225:44)
 
 ### `/orders-report/tab1-orders.html`
 
 - err: [PANCAKE-TOKEN] ❌ All accounts failed to generate PAT for page: 193642490509664
-- err: [2026-06-30T09:48:46.287Z] @firebase/firestore: Firestore (10.14.1): Failed to obtain primary lease for action 'Apply remote event'.
+- err: [2026-06-30T10:05:49.293Z] @firebase/firestore: Firestore (10.14.1): Failed to obtain primary lease for action 'Apply remote event'.
 
 ### `/product-warehouse/index.html`
 
@@ -104,7 +104,7 @@ Generated: 2026-06-30T09:51:11.674Z
   at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage
 - err: [TPOS Stats] Failed to load: TypeError: Failed to fetch
   at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260626b:351:32)
-  at async Promise.all (index 2)
+  at async Promise.all (index 0)
   at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260626b:629:57)
 
 ### `/purchase-orders/index.html`
@@ -113,10 +113,9 @@ Generated: 2026-06-30T09:51:11.674Z
   at PurchaseOrderService.\_fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:74:32)
   at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:215:37)
   at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage
-- err: [VariantGenerator] Failed to load CSV: TypeError: Failed to fetch
 - err: [TPOS Stats] Failed to load: TypeError: Failed to fetch
   at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260626b:351:32)
-  at async Promise.all (index 1)
+  at async Promise.all (index 2)
   at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260626b:629:57)
 
 ### `/render-data-manager/index.html`

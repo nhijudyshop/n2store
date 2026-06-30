@@ -5,7 +5,7 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7071,
+        "durationMs": 7627,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -17,11 +17,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7251,
+        "durationMs": 7124,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:50.519Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:50.507Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -31,18 +31,18 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7391,
+        "durationMs": 7183,
         "errors": [
             "[ACCOUNTANT] Stats error: TypeError: Failed to fetch\n    at loadDashboardStats (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:623:36)\n    at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:207:9)",
             "[ACCOUNTANT] Load queue error: TypeError: Failed to fetch\n    at loadPendingQueue (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:709:36)\n    at HTMLDocument.init (http://localhost:8080/balance-history/js/accountant.js?v=20260611b:208:9)",
+            "[VERIFICATION-STATS] Error: TypeError: Failed to fetch\n    at loadVerificationStats (http://localhost:8080/balance-history/js/balance-filters.js?v=20260521b:222:32)\n    at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:37:13)",
             "Error loading statistics: TypeError: Failed to fetch\n    at loadStatistics (http://localhost:8080/balance-history/js/balance-core.js?v=20260521b:440:32)\n    at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:36:13)",
             "[CUSTOMER-INFO] Failed to sync from database: TypeError: Failed to fetch\n    at Object.syncFromDatabase (http://localhost:8080/balance-history/js/customer-info.js?v=20260521b:69:36)\n    at Object.init (http://localhost:8080/balance-history/js/customer-info.js?v=20260521b:27:14)\n    at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:29:36)",
-            "[VERIFICATION-STATS] Error: TypeError: Failed to fetch\n    at loadVerificationStats (http://localhost:8080/balance-history/js/balance-filters.js?v=20260521b:222:32)\n    at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:37:13)",
             "Error loading data: TypeError: Failed to fetch\n    at fetchFromAPI (http://localhost:8080/balance-history/js/balance-core.js?v=20260521b:334:28)\n    at loadData (http://localhost:8080/balance-history/js/balance-core.js?v=20260521b:291:30)\n    at HTMLDocument.<anonymous> (http://localhost:8080/balance-history/js/main.js?v=20260521b:35:13)"
         ],
         "networkNoise": 2,
         "warns": [
-            "[2026-06-23T18:02:52.724Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:54.050Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -52,11 +52,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7475,
+        "durationMs": 7174,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:53.596Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:54.879Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -66,14 +66,14 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7345,
+        "durationMs": 7143,
         "errors": [
             "API Service Error: TypeError: Failed to fetch\n    at fetchJson (http://localhost:8080/shared/js/api-service.js?v=20260521b:2064:32)\n    at Object.getUnlinkedTransactionsCount (http://localhost:8080/shared/js/api-service.js?v=20260521b:1906:36)\n    at updateUnlinkedBadge (http://localhost:8080/customer-hub/js/main.js?v=20260521b:111:47)\n    at HTMLDocument.<anonymous> (http://localhost:8080/custome",
             "[API] getUnlinkedTransactionsCount failed: TypeError: Failed to fetch\n    at fetchJson (http://localhost:8080/shared/js/api-service.js?v=20260521b:2064:32)\n    at Object.getUnlinkedTransactionsCount (http://localhost:8080/shared/js/api-service.js?v=20260521b:1906:36)\n    at updateUnlinkedBadge (http://localhost:8080/customer-hub/js/main.js?v=20260521b:111:47)\n    at HTMLDocument.<anonymous> (http:"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:55.257Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:56.108Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -83,13 +83,13 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 12623,
+        "durationMs": 12415,
         "errors": [
             "[DELIVERY-REPORT] Fetch error: TypeError: Failed to fetch\n    at fetchData (http://localhost:8080/delivery-report/js/delivery-report.js?v=20260620e:1055:36)"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:55.728Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:48:57.793Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
             "[delivery-report] prefetchDateShifts failed: Failed to fetch",
             "[DELIVERY-REPORT] SumDeliveryReport fetch failed: Failed to fetch"
         ],
@@ -101,11 +101,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7190,
+        "durationMs": 7189,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:56.163Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:58.108Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -115,17 +115,16 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7481,
+        "durationMs": 7232,
         "errors": [
             "[INVOICE-STATUS] API load error: TypeError: Failed to fetch\n    at Object._loadFromAPI (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a:271:40)\n    at Object.init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a:222:28)\n    at init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=202606",
             "[INVOICE-DELETE] API load error: TypeError: Failed to fetch\n    at Object._loadFromAPI (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260611b:60:40)\n    at Object.init (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260611b:47:28)\n    at HTMLDocument.initWorkflow (http://localhost:8080/orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:57.986Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:49:01.187Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
             "[WEB-WAREHOUSE-CACHE] SSE disconnected, auto-reconnect…",
-            "[PANCAKE-TOKEN] _loadPageTokensFromRenderDB error: Failed to fetch",
-            "[PANCAKE-TOKEN] _loadAccountsFromRenderDB error: Failed to fetch",
+            "[WEB-WAREHOUSE-CACHE] API fetch failed: Failed to fetch",
             "[INVOICE-STATUS] FulfillmentData not available for sync",
             "[INVOICE-STATUS] showFastSaleResultsModal not found, will retry..."
         ],
@@ -137,11 +136,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7186,
+        "durationMs": 7185,
         "errors": [],
-        "networkNoise": 2,
+        "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:00.118Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:02.159Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -151,11 +150,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7101,
+        "durationMs": 7097,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:01.261Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:03.412Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -165,11 +164,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7172,
+        "durationMs": 7132,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:02.678Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:05.356Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -179,11 +178,12 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 8115,
+        "durationMs": 7774,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:03.510Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:08.547Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:49:09.398Z]  @firebase/firestore: Firestore (10.14.1): WebChannelConnection RPC 'Listen' stream 0x46a84614 transport errored: ln"
         ],
         "unhandled": []
     },
@@ -193,7 +193,7 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7066,
+        "durationMs": 7045,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -205,10 +205,13 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7314,
+        "durationMs": 7380,
         "errors": [],
         "networkNoise": 0,
-        "warns": ["[VARIANT] No TPOS token, using defaults", "[APP] User not authenticated"],
+        "warns": [
+            "[APP] User not authenticated",
+            "[VARIANT] Failed to load shared attributes, using cache/defaults: Failed to fetch"
+        ],
         "unhandled": []
     },
     {
@@ -217,11 +220,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7228,
+        "durationMs": 7157,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:07.465Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:10.333Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -231,14 +234,14 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7671,
+        "durationMs": 7396,
         "errors": [
             "[API-SSE] SSE connection error: Event",
-            "[API-V2] Subscribe to tickets error: TypeError: Failed to fetch\n    at fetchTickets (http://localhost:8080/shared/js/api-service.js?v=20260611a:560:44)\n    at Object.subscribeToTickets (http://localhost:8080/shared/js/api-service.js?v=20260611a:622:13)\n    at HTMLDocument.<anonymous> (http://localhost:8080/issue-tracking/js/script.js?v=20260612a:99:44)"
+            "[API-V2] Subscribe to tickets error: TypeError: Failed to fetch\n    at fetchTickets (http://localhost:8080/shared/js/api-service.js?v=20260611a:560:44)\n    at Object.subscribeToTickets (http://localhost:8080/shared/js/api-service.js?v=20260611a:622:13)\n    at HTMLDocument.<anonymous> (http://localhost:8080/issue-tracking/js/script.js?v=20260626b:99:44)"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:08.646Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:10.830Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -248,11 +251,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7302,
+        "durationMs": 7370,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:08.536Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:12.652Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -262,7 +265,7 @@
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6980,
+        "durationMs": 6918,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -274,11 +277,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7286,
+        "durationMs": 7151,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:11.720Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:17.088Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -288,11 +291,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7185,
+        "durationMs": 6972,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:16.000Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:20.161Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -302,11 +305,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7204,
+        "durationMs": 7117,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:13.006Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:17.614Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -316,11 +319,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7200,
+        "durationMs": 7019,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:14.853Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:18.120Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -330,15 +333,16 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 9543,
+        "durationMs": 8834,
         "errors": [
-            "[FULFILLMENT] Error loading delete entries: TypeError: Failed to fetch\n    at _loadInvoiceDeletes (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:50:36)\n    at Object.init (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:104:23)\n    at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782237755440:225:44)"
+            "[FULFILLMENT] Error loading delete entries: TypeError: Failed to fetch\n    at _loadInvoiceDeletes (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:50:36)\n    at Object.init (http://localhost:8080/orders-report/js/fulfillment-data.js?v=20260521b:104:23)\n    at HTMLDocument.<anonymous> (http://localhost:8080/orders-report/main.html?t=1782812914073:225:44)"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:36.324Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-            "[2026-06-23T18:02:37.591Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-            "[WEB-WAREHOUSE-CACHE] SSE disconnected, auto-reconnect…"
+            "[2026-06-30T09:48:34.767Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:48:35.942Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[WEB-WAREHOUSE-CACHE] SSE disconnected, auto-reconnect…",
+            "[WEB-WAREHOUSE-CACHE] API fetch failed: Failed to fetch"
         ],
         "unhandled": []
     },
@@ -348,11 +352,11 @@
         "title": "Migration: KPI per-user attribution",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6968,
+        "durationMs": 6792,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:45.535Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:49.210Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -362,11 +366,11 @@
         "title": "KPI - Hoa Hồng Upselling",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 12956,
+        "durationMs": 12467,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:43.183Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:42.296Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -376,7 +380,7 @@
         "title": "Sổ Sách - Live Order Tracking",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7444,
+        "durationMs": 7076,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -391,11 +395,11 @@
         "title": "Báo Cáo Tổng Hợp",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 8282,
+        "durationMs": 7611,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:37.185Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:48:41.608Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -405,7 +409,7 @@
         "title": "Bill Đã Xóa - N2Store",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 12467,
+        "durationMs": 12211,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -417,13 +421,16 @@
         "title": "Quản lý đơn hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 19245,
-        "errors": [],
+        "durationMs": 14043,
+        "errors": [
+            "[PANCAKE-TOKEN] ❌ All accounts failed to generate PAT for page: 193642490509664",
+            "[2026-06-30T09:48:46.287Z]  @firebase/firestore: Firestore (10.14.1): Failed to obtain primary lease for action 'Apply remote event'."
+        ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:36.391Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:48:34.767Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
             "[USER-STORAGE] No authenticated user found",
-            "[2026-06-23T18:02:39.179Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"timestamp\" at /tag_updates to your security rules for better performance. ",
+            "[2026-06-30T09:48:37.290Z]  @firebase/database: FIREBASE WARNING: Using an unspecified index. Your data will be downloaded and filtered on the client. Consider adding \".indexOn\": \"timestamp\" at /tag_updates to your security rules for better performance. ",
             "[PHOENIX] Join FAILED: multiple_pages:99d3d4e1-7483-4ef2-8ff5-d14ab1c313fe — Gói cước hết hạn",
             "[PHOENIX] 🔄 Retry 1/4: without page 117267091364524 → [193642490509664, 112678138086607, 270136663390370]",
             "[PHOENIX] Join FAILED: multiple_pages:99d3d4e1-7483-4ef2-8ff5-d14ab1c313fe — Gói cước hết hạn",
@@ -432,8 +439,10 @@
             "[PANCAKE-TOKEN] Account Thu Lai failed: Gói cước của người dùng này đã hết hạn",
             "[PANCAKE-TOKEN] Account Thu Huyền failed: Gói cước của người dùng này đã hết hạn",
             "[PANCAKE-TOKEN] Account Huyền Nhi failed: Không có quyền hạn trên trang này. Nếu trang vừa được cập nhập gần đây, vui lòng đăng nhập lại",
+            "[PANCAKE-TOKEN] Account Kỹ Thuật NJD failed: Gói cước của người dùng này đã hết hạn",
+            "[PANCAKE-TOKEN] Account longxienc failed: Gói cước của người dùng này đã hết hạn",
             "[INVOICE-STATUS] FulfillmentData not available for sync",
-            "[PANCAKE-TOKEN] Account Kỹ Thuật NJD failed: Gói cước của người dùng này đã hết hạn"
+            "[INVOICE-STATUS] FulfillmentData not available for sync"
         ],
         "unhandled": []
     },
@@ -443,11 +452,11 @@
         "title": "Gán Sản Phẩm - STT",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 9244,
+        "durationMs": 9339,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:02:44.954Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:48:48.733Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
             "[USER-STORAGE] No authenticated user found"
         ],
         "unhandled": []
@@ -458,7 +467,7 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7145,
+        "durationMs": 7085,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -473,7 +482,7 @@
         "title": "Monitor 10 Line - N2STORE",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7073,
+        "durationMs": 6931,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -488,7 +497,7 @@
         "title": "Privacy Policy - N2Store Messenger Extension",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7055,
+        "durationMs": 6949,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -500,14 +509,14 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7428,
+        "durationMs": 7358,
         "errors": [
             "[TOKEN] Error in authenticated fetch: TypeError: Failed to fetch\n    at TokenManager.authenticatedFetch (http://localhost:8080/shared/js/token-manager.js?v=20260620d:653:36)\n    at async fetchProducts (http://localhost:8080/product-warehouse/js/main.js?v=20260604h:1612:30)\n    at async HTMLDocument.init (http://localhost:8080/product-warehouse/js/main.js?v=20260604h:5557:9)",
             "[Warehouse] TPOS fetch error: TypeError: Failed to fetch\n    at TokenManager.authenticatedFetch (http://localhost:8080/shared/js/token-manager.js?v=20260620d:653:36)\n    at async fetchProducts (http://localhost:8080/product-warehouse/js/main.js?v=20260604h:1612:30)\n    at async HTMLDocument.init (http://localhost:8080/product-warehouse/js/main.js?v=20260604h:5557:9)"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:19.144Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:24.805Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -517,12 +526,12 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7468,
+        "durationMs": 7453,
         "errors": [],
         "networkNoise": 0,
         "warns": [
             "cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation",
-            "[2026-06-23T18:03:20.578Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:25.532Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -532,15 +541,15 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7697,
+        "durationMs": 7511,
         "errors": [
-            "[PurchaseOrderService] Stats failed: TypeError: Failed to fetch\n    at PurchaseOrderService._fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:74:32)\n    at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:215:37)\n    at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage",
-            "[TPOS Stats] Failed to load: TypeError: Failed to fetch\n    at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260525a:351:32)\n    at async Promise.all (index 1)\n    at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260525a:620:57)"
+            "[PurchaseOrderService] Stats failed: TypeError: Failed to fetch\n    at PurchaseOrderService._fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:74:32)\n    at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:215:37)\n    at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage",
+            "[TPOS Stats] Failed to load: TypeError: Failed to fetch\n    at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260626b:351:32)\n    at async Promise.all (index 2)\n    at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260626b:629:57)"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:23.306Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
-            "[2026-06-23T18:03:23.765Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:30.643Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:49:30.987Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -550,14 +559,15 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7356,
+        "durationMs": 7198,
         "errors": [
-            "[PurchaseOrderService] Stats failed: TypeError: Failed to fetch\n    at PurchaseOrderService._fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:74:32)\n    at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260525a:215:37)\n    at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage",
-            "[TPOS Stats] Failed to load: TypeError: Failed to fetch\n    at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260525a:351:32)\n    at async Promise.all (index 1)\n    at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260525a:620:57)"
+            "[PurchaseOrderService] Stats failed: TypeError: Failed to fetch\n    at PurchaseOrderService._fetch (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:74:32)\n    at PurchaseOrderService.getStatsAndCounts (http://localhost:8080/purchase-orders/js/service.js?v=20260626b:215:37)\n    at async PurchaseOrderDataManager.loadStatsAndCounts (http://localhost:8080/purchase-orders/js/data-manage",
+            "[VariantGenerator] Failed to load CSV: TypeError: Failed to fetch",
+            "[TPOS Stats] Failed to load: TypeError: Failed to fetch\n    at Object.authenticatedFetch (http://localhost:8080/purchase-orders/js/lib/tpos-search.js?v=20260626b:351:32)\n    at async Promise.all (index 1)\n    at async PurchaseOrderUIComponents.renderTPOSStats (http://localhost:8080/purchase-orders/js/ui-components.js?v=20260626b:629:57)"
         ],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:22.190Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:27.236Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -567,7 +577,7 @@
         "title": "",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6720,
+        "durationMs": 6612,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -579,11 +589,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7523,
+        "durationMs": 7106,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:24.561Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:32.425Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -593,11 +603,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7082,
+        "durationMs": 7034,
         "errors": [
             "[DATA-MANAGER] Load tables error: TypeError: Failed to fetch\n    at loadTableList (http://localhost:8080/render-data-manager/js/main.js?v=20260521b:126:28)\n    at HTMLDocument.<anonymous> (http://localhost:8080/render-data-manager/js/main.js?v=20260521b:65:5)"
         ],
-        "networkNoise": 0,
+        "networkNoise": 1,
         "warns": [],
         "unhandled": []
     },
@@ -607,7 +617,7 @@
         "title": "Resident — Quản lý BĐS & Cư dân số",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6975,
+        "durationMs": 6805,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -619,7 +629,7 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7125,
+        "durationMs": 7221,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -634,11 +644,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7122,
+        "durationMs": 7075,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:34.991Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:45.503Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -648,11 +658,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7300,
+        "durationMs": 7092,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:30.413Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:38.305Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -662,11 +672,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7189,
+        "durationMs": 7002,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:31.252Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:39.496Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -676,11 +686,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7190,
+        "durationMs": 7051,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:31.978Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:40.093Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -690,11 +700,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7031,
+        "durationMs": 7001,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:33.979Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:41.457Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -704,11 +714,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7207,
+        "durationMs": 7108,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:36.992Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
+            "[2026-06-30T09:49:45.511Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.",
             "User not authenticated, redirecting..."
         ],
         "unhandled": []
@@ -719,7 +729,7 @@
         "title": "KiotViet - Phần mềm quản lý bán hàng Phổ Biến Nhất",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 12643,
+        "durationMs": 7935,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -733,11 +743,11 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7203,
+        "durationMs": 7327,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:37.779Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:46.599Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
         "unhandled": []
     },
@@ -747,7 +757,7 @@
         "title": "Customer 360 Hub - Customer Search",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7476,
+        "durationMs": 7373,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -761,7 +771,7 @@
         "title": "Transaction Activity Log",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7292,
+        "durationMs": 7095,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -775,7 +785,7 @@
         "title": "Customer 360 Hub - Unlinked Transactions",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 9185,
+        "durationMs": 8108,
         "errors": [],
         "networkNoise": 0,
         "warns": [
@@ -789,24 +799,12 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7205,
+        "durationMs": 7016,
         "errors": [],
         "networkNoise": 0,
         "warns": [
-            "[2026-06-23T18:03:39.387Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
+            "[2026-06-30T09:49:48.536Z]  @firebase/firestore: Firestore (10.14.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead."
         ],
-        "unhandled": []
-    },
-    {
-        "path": "/tpos-pancake/index.html",
-        "httpStatus": 404,
-        "title": "Error response",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6523,
-        "errors": [],
-        "networkNoise": 1,
-        "warns": [],
         "unhandled": []
     },
     {
@@ -815,62 +813,14 @@
         "title": "Nhi Judy House — Hệ thống quản lý bán hàng",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 7216,
+        "durationMs": 7174,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/audit-log/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6818,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/balance-history/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6973,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/customer-wallet/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6980,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/dashboard/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6791,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/fastsaleorder-delivery/index.html",
+        "path": "/web2/admin-sse-monitor/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
@@ -882,175 +832,79 @@
         "unhandled": []
     },
     {
-        "path": "/web2/fastsaleorder-invoice/index.html",
+        "path": "/web2/ai-hub/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6920,
+        "durationMs": 6806,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/fastsaleorder-refund/index.html",
+        "path": "/web2/audit-log/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6881,
+        "durationMs": 6777,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/kpi/index.html",
+        "path": "/web2/balance-history/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6898,
+        "durationMs": 6886,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/live-campaign/index.html",
-        "httpStatus": 404,
-        "title": "Error response",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6582,
-        "errors": [],
-        "networkNoise": 1,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/login/index.html",
+        "path": "/web2/cham-cong/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6751,
+        "durationMs": 6815,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/notifications/index.html",
+        "path": "/web2/chi-tieu/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6802,
+        "durationMs": 6791,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/overview/index.html",
+        "path": "/web2/ck-dashboard/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6995,
+        "durationMs": 6897,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/pancake-settings/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6922,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/partner-customer/index.html",
-        "httpStatus": 404,
-        "title": "Error response",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6523,
-        "errors": [],
-        "networkNoise": 1,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/products/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6871,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/products/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6924,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/purchase-refund/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6856,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/reconcile/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6906,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/report-delivery/index.html",
-        "httpStatus": 200,
-        "title": "Đăng nhập - WEB 2.0",
-        "bodyHasContent": true,
-        "visibleError": "",
-        "durationMs": 6817,
-        "errors": [],
-        "networkNoise": 0,
-        "warns": [],
-        "unhandled": []
-    },
-    {
-        "path": "/web2/report-revenue/index.html",
+        "path": "/web2/customer-wallet/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
@@ -1062,31 +916,259 @@
         "unhandled": []
     },
     {
-        "path": "/web2/supplier-debt/index.html",
+        "path": "/web2/customers/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6995,
+        "durationMs": 6839,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/supplier-wallet/index.html",
+        "path": "/web2/dashboard/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6920,
+        "durationMs": 6778,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
         "unhandled": []
     },
     {
-        "path": "/web2/system/index.html",
+        "path": "/web2/delivery-zone/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 7035,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/fastsaleorder-delivery/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6968,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/fastsaleorder-invoice/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6829,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/fastsaleorder-refund/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6833,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/fb-ads-stats/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6820,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/fb-insights/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6786,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/fb-posts/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6792,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/jt-tracking/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6792,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/kpi/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6831,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/live-control/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6841,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/live-tv/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6811,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/livestream-poller/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6817,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/login/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6732,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/multi-tool/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6848,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/notifications/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6773,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/order-tags/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6881,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/overview/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6847,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/pancake-settings/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6872,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/photo-editor/index.html",
+        "httpStatus": 404,
+        "title": "Error response",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6525,
+        "errors": [],
+        "networkNoise": 1,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/photo-studio/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
@@ -1098,7 +1180,163 @@
         "unhandled": []
     },
     {
-        "path": "/web2/users-permissions/index.html",
+        "path": "/web2/printer-settings/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6899,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/product-card/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6818,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/product-counter/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6757,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/products/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6915,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/products/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6861,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/purchase-refund/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6845,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/reconcile/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6890,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/report-delivery/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6789,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/report-revenue/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6843,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/returns/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6833,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/services-dashboard/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6839,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/supplier-debt/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6917,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/supplier-wallet/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6885,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/system/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
@@ -1110,12 +1348,24 @@
         "unhandled": []
     },
     {
+        "path": "/web2/users-permissions/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6777,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
         "path": "/web2/users/index.html",
         "httpStatus": 200,
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6868,
+        "durationMs": 6841,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
@@ -1127,7 +1377,43 @@
         "title": "Đăng nhập - WEB 2.0",
         "bodyHasContent": true,
         "visibleError": "",
-        "durationMs": 6882,
+        "durationMs": 6851,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/video-beauty/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6851,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/video-maker/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6802,
+        "errors": [],
+        "networkNoise": 0,
+        "warns": [],
+        "unhandled": []
+    },
+    {
+        "path": "/web2/zalo/index.html",
+        "httpStatus": 200,
+        "title": "Đăng nhập - WEB 2.0",
+        "bodyHasContent": true,
+        "visibleError": "",
+        "durationMs": 6835,
         "errors": [],
         "networkNoise": 0,
         "warns": [],
