@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0d00e40` — feat(unit-scan): modal đặt lên kệ hiện tag đơn (CHỜ HÀNG/PBH…) — tái dùng engine order-tags
-**Last updated**: 2026-06-30 07:45:59 +07
-**Latest session**: [`RESUME:20260630-074559-0d00e40`](../20260630-074559-0d00e40.md)
-**Summary**: unit-scan modal đặt lên kệ hiện tag đơn (CHỜ HÀNG/PBH) — tái dùng engine order-tags
+**Latest commit**: `c3121db` — fix(unit-scan): sort-manifest tag join — String() 2 phía (id BIGSERIAL=string vs order_id INTEGER=number)
+**Last updated**: 2026-06-30 07:51:14 +07
+**Latest session**: [`RESUME:20260630-075114-c3121db`](../20260630-075114-c3121db.md)
+**Summary**: fix(unit-scan): sort-manifest tag join — String() 2 phía (id BIGSERIAL=string vs order_id INTEGER=number)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +59,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-30 07:46
+- [`render.com/`](./render.com.md) — updated 2026-06-30 07:51
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-29 18:22
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
