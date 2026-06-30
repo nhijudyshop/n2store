@@ -2,6 +2,15 @@
 
 ## 2026-06-30
 
+### [unit-scan] Tag đơn hiện NGAY TRÊN Ô KỆ (sơ đồ kệ) — ô rộng còn chỗ
+
+**Files:** `web2/unit-scan/js/unit-scan.js` (mapHtml `openKe`: mỗi `.m-cell` có đơn → `<b class="mc-num">STT</b>` + `.mc-tags` pill từ `o.autoTags`), `web2/unit-scan/css/unit-scan.css` (`.m-cell` grid→flex-column; thêm `.mc-num` 13px, `.mc-tag` pill trắng đọc rõ trên nền cam/xanh), `index.html` (bump asset `→20260630b`).
+
+User: "Tag hiện ở hình 2 (ô sơ đồ kệ), ô còn rộng" → đưa tag lên ô kệ (không chỉ ở danh sách STT bên dưới).
+
+- Ô kệ ~125px chỉ có số 8px → thừa chỗ. Giờ: số STT to (13px) trên, pill tag trắng (`Chờ hàng`/`Khách lạ`…) dưới. Ô trống vẫn sạch. Giữ nguyên tag ở danh sách STT bên dưới (2 nơi: bản đồ + chi tiết).
+- **Test browser (web2 login admin/admin!!)**: modal Kệ 1 → 90 ô, 6 ô có số, 3 ô có pill tag (STT1/6 "Chờ hàng", STT2 "Khách lạ"). Screenshot xác nhận pill trắng đọc rõ trên ô cam. Status ✅
+
 ### [unit-scan][native-orders][render] Modal "đặt lên kệ" hiện TAG đơn (CHỜ HÀNG / PHIẾU BÁN HÀNG…) — 1 nguồn, không drift
 
 **Files:** `render.com/routes/native-orders.js` (tách block enrich PBH/CK/ví + `enrichOrdersWithTags` của `/load` ra hàm `enrichOrdersTags(pool, orders, opts)` — byte-identical, export thêm `enrichOrdersTags` + `mapRowToOrder`), `render.com/routes/web2-product-units.js` (`/sort-manifest`: sau khi gom đơn → load `native_orders` theo id → `enrichOrdersTags` → gắn `o.autoTags` lọc bỏ `kpi_user`; try/catch defensive → `autoTags=[]`), `web2/unit-scan/js/unit-scan.js` (row modal `openKe`: render `o.autoTags` thành chip màu theo def thẻ), `web2/unit-scan/css/unit-scan.css` (`.o-tags`/`.o-tag`).

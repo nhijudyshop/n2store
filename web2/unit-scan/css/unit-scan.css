@@ -755,8 +755,12 @@ body {
     border-radius: 3px;
     background: #f1f5f9;
     border: 1px solid #e7ebf1;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px;
     font-size: 8px;
     font-weight: 700;
     color: transparent;
@@ -771,6 +775,30 @@ body {
     background: var(--c-amber);
     border-color: var(--c-amber);
     color: #fff;
+}
+.m-cell .mc-num {
+    font-size: 13px;
+    line-height: 1;
+}
+.mc-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    justify-content: center;
+}
+.mc-tag {
+    font-style: normal;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1.15;
+    color: #1f2937;
+    background: rgba(255, 255, 255, 0.94);
+    padding: 1px 4px;
+    border-radius: 5px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 /* Bottom sheet */
 .sheet-back {

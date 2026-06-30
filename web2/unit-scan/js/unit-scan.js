@@ -560,7 +560,17 @@
                     .map((s) => {
                         const o = sttMap.get(s);
                         const cls = o ? (oDone(o) ? 'm-cell on' : 'm-cell part') : 'm-cell';
-                        return `<span class="${cls}" data-stt="${s}" title="STT ${s}${o ? ' · ' + esc(o.customerName || '') : ''}">${o ? s : ''}</span>`;
+                        // Tag đơn ngay trên ô kệ (ô rộng, còn chỗ) — pill trắng đọc rõ trên nền cam/xanh.
+                        const ctags = o && Array.isArray(o.autoTags) ? o.autoTags : [];
+                        const ctagHtml = ctags.length
+                            ? `<span class="mc-tags">${ctags
+                                  .map(
+                                      (t) => `<i class="mc-tag">${esc(t.name || t.code || '')}</i>`
+                                  )
+                                  .join('')}</span>`
+                            : '';
+                        const inner = o ? `<b class="mc-num">${s}</b>${ctagHtml}` : '';
+                        return `<span class="${cls}" data-stt="${s}" title="STT ${s}${o ? ' · ' + esc(o.customerName || '') : ''}">${inner}</span>`;
                     })
                     .join('') +
                 `</div></div>`;
