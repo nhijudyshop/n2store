@@ -57,6 +57,9 @@
                     <button class="sys-tab" role="tab" data-tab="thirdparty" type="button">
                         <i data-lucide="plug"></i> <span>Bên thứ 3</span>
                     </button>
+                    <button class="sys-tab" role="tab" data-tab="dedup" type="button">
+                        <i data-lucide="copy-x"></i> <span>Trùng lặp / 1-nguồn</span>
+                    </button>
                     <button class="sys-tab" role="tab" data-tab="ai" type="button">
                         <i data-lucide="sparkles"></i> <span>Gợi ý AI</span>
                     </button>
@@ -384,6 +387,23 @@
                     </div>
                 </section>
 
+                <!-- ============ PANEL: TRÙNG LẶP / 1-NGUỒN ============ -->
+                <section class="sys-panel" data-panel="dedup" role="tabpanel">
+                    <p class="sys-panel-intro">
+                        Audit các chỗ <strong>trùng chức năng</strong> trong Web 2.0 + hướng gộp về
+                        <strong>1 nguồn (single source)</strong>. Lọc theo loại (nghiệp vụ / module
+                        chung / util) &amp; trạng thái (đã gộp / một phần / chưa làm). Nguồn:
+                        <code>web2/system/data/web2-dedup-audit.json</code>.
+                    </p>
+                    <div class="sys-pages-summary" id="ddSummary">
+                        <div class="sd-loading">Đang tải audit…</div>
+                    </div>
+                    <div class="tp-toolbar" id="ddToolbar"></div>
+                    <div class="tp-host" id="ddHost">
+                        <div class="sd-loading">Đang tải…</div>
+                    </div>
+                </section>
+
                 <!-- ============ PANEL: GỢI Ý AI WIDGET ============ -->
                 <section class="sys-panel" data-panel="ai" role="tabpanel">
                     <p class="sys-panel-intro">
@@ -412,6 +432,7 @@
         <script src="js/system-sse-registry.js?v=20260628sse"></script>
         <script src="js/system-modules.js?v=20260624b"></script>
         <script src="js/system-thirdparty.js?v=20260624a"></script>
+        <script src="js/system-dedup.js?v=20260630a"></script>
         <!-- Tab "Gợi ý AI" — đọc window.Web2AiPageRegistry (sidebar autoload, load thêm cho chắc). -->
         <script src="../shared/web2-ai-page-registry.js?v=20260628a"></script>
         <script src="js/system-ai-suggestions.js?v=20260628a"></script>

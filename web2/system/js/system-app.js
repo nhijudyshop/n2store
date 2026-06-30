@@ -4,7 +4,7 @@
 (function () {
     'use strict';
 
-    const VALID_TABS = ['services', 'sse', 'pages', 'modules', 'thirdparty', 'ai'];
+    const VALID_TABS = ['services', 'sse', 'pages', 'modules', 'thirdparty', 'dedup', 'ai'];
     const _inited = new Set();
 
     function $(id) {
@@ -45,6 +45,9 @@
         } else if (tab === 'thirdparty' && !_inited.has('thirdparty')) {
             _inited.add('thirdparty');
             window.SystemThirdParty?.start?.();
+        } else if (tab === 'dedup' && !_inited.has('dedup')) {
+            _inited.add('dedup');
+            window.SystemDedup?.start?.();
         } else if (tab === 'ai' && !_inited.has('ai')) {
             _inited.add('ai');
             window.SystemAiSuggestions?.start?.();
@@ -74,6 +77,7 @@
             else if (active === 'pages') buildPages(true);
             else if (active === 'modules') window.SystemModules?.reload?.();
             else if (active === 'thirdparty') window.SystemThirdParty?.reload?.();
+            else if (active === 'dedup') window.SystemDedup?.reload?.();
         });
     }
 

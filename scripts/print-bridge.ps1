@@ -5,7 +5,23 @@
 
 $ErrorActionPreference = 'Stop'
 $port = 17777
-$VERSION = 'ps-1.0.0'
+$VERSION = 'ps-1.1.0'
+
+# ponytail: bridge co the lo ra Internet qua cloudflared tunnel (in tu DT/PC khac) ->
+# chan SSRF: chi cho relay toi may in mang NOI BO (IP private) + CONG may in. Hostname
+# (khong phai IP literal) = admin tu cau hinh -> cho qua. Upgrade: them x-print-token.
+$PRINTER_PORTS = @(9100, 9101, 9102, 9103, 9104, 9105, 9106, 9107, 9108, 9109, 515, 631, 6101, 9200)
+function Test-Target($ip, $prt) {
+    if ($PRINTER_PORTS -notcontains [int]$prt) { throw "Cong $prt khong phai cong may in (chi 9100...)" }
+    if ($ip -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
+        $o = $ip.Split('.') | ForEach-Object { [int]$_ }
+        $priv = ($o[0] -eq 10) -or ($o[0] -eq 127) -or `
+            ($o[0] -eq 192 -and $o[1] -eq 168) -or `
+            ($o[0] -eq 169 -and $o[1] -eq 254) -or `
+            ($o[0] -eq 172 -and $o[1] -ge 16 -and $o[1] -le 31)
+        if (-not $priv) { throw "IP cong khai $ip bi chan (chi in may in noi bo)" }
+    }
+}
 
 function Send-Http($stream, $status, $bodyStr) {
     $body = [System.Text.Encoding]::UTF8.GetBytes($bodyStr)
@@ -25,6 +41,7 @@ function Send-Http($stream, $status, $bodyStr) {
 
 # Mo TCP toi may in, ghi bytes (timeout 6s). $bytes = $null -> chi test ket noi.
 function Send-Printer($ip, $prt, $bytes) {
+    Test-Target $ip $prt
     $tcp = New-Object System.Net.Sockets.TcpClient
     $iar = $tcp.BeginConnect($ip, [int]$prt, $null, $null)
     if (-not $iar.AsyncWaitHandle.WaitOne(6000, $false)) {
@@ -96,7 +113,7 @@ while ($true) {
             Send-Http $ns '204 No Content' ''
         }
         elseif ($path -eq '/health') {
-            Send-Http $ns '200 OK' ('{"ok":true,"version":"' + $VERSION + '"}')
+            Send-Http $ns '200 OK' ('{"ok":true,"version":"' + $VERSION + '","engine":"printer"}')
         }
         elseif ($path -eq '/print' -and $method -eq 'POST') {
             try {

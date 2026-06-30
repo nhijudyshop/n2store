@@ -35,10 +35,14 @@
     const LS_CACHE = 'web2_printers_cache';
     const LS_LEGACY_LIST = 'web2_printers'; // danh sách local cũ → đẩy lên server
     const LS_LEGACY = 'web2_printer_config'; // cấu hình đơn rất cũ
-    const API_BASE =
-        (global.API_CONFIG && global.API_CONFIG.WORKER_URL
-            ? global.API_CONFIG.WORKER_URL
-            : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/printer';
+    const WORKER_BASE =
+        (global.WEB2_CONFIG && global.WEB2_CONFIG.WORKER_URL) ||
+        (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE = WORKER_BASE + '/api/web2/printer';
+    // Registry máy shop tự host (dùng chung gemini/hyperframes) — máy POS chạy print-tunnel.ps1
+    // báo danh engine='printer' URL tunnel HTTPS → máy KHÁC (ĐT/PC) dò ra ở đây để in qua tunnel.
+    const REGISTRY_LIST = WORKER_BASE + '/api/web2-vieneu-registry/list?engine=printer';
 
     function _w2Auth(extra) {
         if (global.Web2Auth && global.Web2Auth.authHeaders)
@@ -439,9 +443,51 @@
         return btoa(bin);
     }
 
+    // /health 1 bridge URL còn sống không (timeout ngắn để không treo UI).
+    async function _bridgeOk(url) {
+        if (!url) return false;
+        try {
+            const r = await fetch(url.replace(/\/$/, '') + '/health', {
+                signal: AbortSignal.timeout(1500),
+            });
+            return r.ok;
+        } catch {
+            return false;
+        }
+    }
+
+    // URL tunnel máy in shop (registry) — cache 60s để không hỏi registry mỗi lần in.
+    let _tunnel = { url: '', ts: 0 };
+    // URL bridge DÙNG ĐƯỢC cho máy HIỆN TẠI: ưu tiên 127.0.0.1 (máy POS có bridge) →
+    // nếu không (ĐT/PC khác) thì URL tunnel máy shop từ registry. Trả local làm fallback
+    // cuối (lỗi sẽ rõ ràng khi in nếu không có máy nào reachable).
+    async function resolveBridgeUrl(printer) {
+        const local = ((printer && printer.bridgeUrl) || PRINTER_DEFAULTS.bridgeUrl).replace(
+            /\/$/,
+            ''
+        );
+        if (await _bridgeOk(local)) return local;
+        const now = Date.now();
+        if (_tunnel.url && now - _tunnel.ts < 60000 && (await _bridgeOk(_tunnel.url)))
+            return _tunnel.url;
+        try {
+            const res = await fetch(REGISTRY_LIST, { signal: AbortSignal.timeout(6000) });
+            const d = await res.json();
+            for (const s of (d && d.servers) || []) {
+                const u = String((s && s.url) || '').replace(/\/+$/, '');
+                if (u && (await _bridgeOk(u))) {
+                    _tunnel = { url: u, ts: now };
+                    return u;
+                }
+            }
+        } catch {}
+        return local;
+    }
+
     async function printEscpos(bytes, printer) {
         if (!printer || !printer.ip) throw new Error('Máy in chưa cấu hình IP');
-        const r = await fetch(printer.bridgeUrl.replace(/\/$/, '') + '/print', {
+        const base = await resolveBridgeUrl(printer);
+        const r = await fetch(base + '/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

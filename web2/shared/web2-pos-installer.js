@@ -42,6 +42,9 @@
     function batContent() {
         const root = siteRoot();
         const pbUrl = root + '/scripts/print-bridge.ps1';
+        const ptUrl = root + '/scripts/print-tunnel.ps1';
+        const cfUrl =
+            'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe';
         const vBase = root + '/vieneu-tts';
         const vPs1 = vBase + '/vieneu-windows-setup.ps1';
         const gBase = root + '/gemini-tryon';
@@ -54,6 +57,8 @@
             'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
             'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
             'set "PBURL=' + pbUrl + '"',
+            'set "PTURL=' + ptUrl + '"',
+            'set "CFURL=' + cfUrl + '"',
             'set "VPS1=' + vPs1 + '"',
             'set "VBASE=' + vBase + '"',
             'set "GPS1=' + gPs1 + '"',
@@ -64,7 +69,7 @@
             'echo   N2Store POS - Cai dat (bam so roi Enter)',
             'echo =========================================================',
             'echo.',
-            'echo   [1] May in (Print Bridge)   - in bill may IP, chay nen',
+            'echo   [1] May in (Print Bridge + tunnel) - in bill may IP; DT/PC khac in qua tunnel',
             'echo   [2] Giong VieNeu            - tieng Viet, clone 3-5s (~595MB)',
             'echo   [3] Giong OmniVoice         - 600+ ngon ngu, clone + Voice Design (~vai GB)',
             'echo   [4] Gemini Ghep do/Ghep mat - tao anh FREE bang acc Google (xoay tua nhieu acc)',
@@ -118,6 +123,19 @@
             'copy /Y "%DIR%\\run-hidden.vbs" "%STARTUP%\\N2StorePrintBridge.vbs" >nul',
             'wscript "%DIR%\\run-hidden.vbs"',
             'echo   [OK] May in chay nen (http://127.0.0.1:17777)',
+            'echo [May in] Cai tunnel (DT/PC khac in qua) ...',
+            // tat tunnel CU truoc khi chay lai (tranh 2 cloudflared = 2 URL).
+            "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-tunnel.ps1*' -or ($_.Name -eq 'cloudflared.exe' -and $_.CommandLine -like '*17777*') } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
+            'del /f /q "%STARTUP%\\N2StorePrintTunnel.vbs" 2>nul',
+            "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%PTURL%' -OutFile '%DIR%\\print-tunnel.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
+            // cloudflared ~30MB: chi tai khi thieu (idempotent, lan sau khoi tai lai).
+            'if not exist "%DIR%\\cloudflared.exe" ( echo   Tai cloudflared (~30MB, lan dau)... & powershell -NoProfile -Command "try{ Invoke-WebRequest -Uri \'%CFURL%\' -OutFile \'%DIR%\\cloudflared.exe\' -UseBasicParsing; exit 0 }catch{ exit 1 }" )',
+            'if not exist "%DIR%\\print-tunnel.ps1" ( echo   [BO QUA] Khong tai duoc tunnel - van in duoc tren may nay & exit /b 0 )',
+            'if not exist "%DIR%\\cloudflared.exe" ( echo   [BO QUA] Khong tai duoc cloudflared - van in duoc tren may nay & exit /b 0 )',
+            '> "%DIR%\\run-tunnel-hidden.vbs" echo CreateObject("WScript.Shell").Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%DIR%\\print-tunnel.ps1""", 0, False',
+            'copy /Y "%DIR%\\run-tunnel-hidden.vbs" "%STARTUP%\\N2StorePrintTunnel.vbs" >nul',
+            'wscript "%DIR%\\run-tunnel-hidden.vbs"',
+            'echo   [OK] Tunnel chay nen - DT/PC khac in duoc ma KHONG can chay Print Bridge.',
             'exit /b 0',
             ':VIENEU',
             'echo.',
@@ -166,11 +184,12 @@
             'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
             'echo Dang tat va go N2Store POS (Print Bridge + VieNeu + OmniVoice + Gemini) ...',
             'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
+            'del /f /q "%STARTUP%\\N2StorePrintTunnel.vbs" 2>nul',
             'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
             'del /f /q "%STARTUP%\\N2StoreOmniVoice.vbs" 2>nul',
             'del /f /q "%STARTUP%\\N2StoreGeminiTryon.vbs" 2>nul',
             'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
-            "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-bridge.ps1*' -or $_.CommandLine -like '*serve.py*' -or $_.CommandLine -like '*N2Store*' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
+            "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-bridge.ps1*' -or $_.CommandLine -like '*print-tunnel.ps1*' -or ($_.Name -eq 'cloudflared.exe' -and $_.CommandLine -like '*17777*') -or $_.CommandLine -like '*serve.py*' -or $_.CommandLine -like '*N2Store*' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
             'rmdir /s /q "%DIR%" 2>nul',
             'rmdir /s /q "%VDIR%" 2>nul',
             'rmdir /s /q "%ODIR%" 2>nul',

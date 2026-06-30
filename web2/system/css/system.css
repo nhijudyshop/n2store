@@ -1759,3 +1759,125 @@ body.sd-modal-open {
     font-size: 12.5px;
     color: var(--web2-text-3, #6b7280);
 }
+
+/* ============ TAB: TRÙNG LẶP / 1-NGUỒN (dedup audit) ============ */
+.dd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 12px;
+}
+.dd-card {
+    border: 1px solid var(--web2-border, #e5e7eb);
+    border-left: 4px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 13px 15px;
+    background: var(--web2-surface, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.dd-card.st-ok {
+    border-left-color: #16a34a;
+}
+.dd-card.st-partial {
+    border-left-color: #f59e0b;
+}
+.dd-card.st-pending {
+    border-left-color: #6366f1;
+}
+.dd-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+.dd-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    line-height: 1.35;
+    color: var(--web2-text-1, #111827);
+}
+.dd-status {
+    flex: none;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.dd-status.st-ok {
+    background: #dcfce7;
+    color: #15803d;
+}
+.dd-status.st-partial {
+    background: #fef3c7;
+    color: #b45309;
+}
+.dd-status.st-pending {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+.dd-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.dd-sev,
+.dd-files,
+.dd-commit {
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: 6px;
+    background: var(--web2-surface-2, #f1f5f9);
+    color: var(--web2-text-2, #475569);
+}
+.dd-sev.sev-high {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.dd-sev.sev-med {
+    background: #fef3c7;
+    color: #b45309;
+}
+.dd-sev.sev-low {
+    background: #ecfdf5;
+    color: #047857;
+}
+.dd-commit code {
+    font-size: 10px;
+}
+.dd-concept {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--web2-text-2, #374151);
+}
+.dd-canon,
+.dd-res,
+.dd-sites {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--web2-text-2, #475569);
+}
+.dd-lbl {
+    font-weight: 700;
+    color: var(--web2-text-1, #334155);
+}
+.dd-canon code,
+.dd-sites code {
+    background: var(--web2-surface-2, #f1f5f9);
+    border-radius: 5px;
+    padding: 1px 5px;
+    font-size: 11px;
+    word-break: break-all;
+}
+.dd-sites {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: baseline;
+}
+.dd-more {
+    font-size: 11px;
+    color: var(--web2-text-3, #94a3b8);
+}

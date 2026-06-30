@@ -24,7 +24,33 @@ const net = require('net');
 const http = require('http');
 
 const PORT = Number(process.env.PRINT_BRIDGE_PORT) || 17777;
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
+
+// ponytail: bridge giờ có thể lộ ra Internet qua cloudflared tunnel (in từ ĐT/PC khác)
+// → chặn SSRF: chỉ cho relay tới máy in mạng NỘI BỘ (IP private) + CỔNG máy in. Khoá đường
+// pivot tới host công khai / cổng nhạy cảm. Upgrade path: thêm x-print-token nếu lo bị in
+// rác lên máy in LAN. Hostname (không phải IP literal) = do admin tự cấu hình → cho qua.
+const PRINTER_PORTS = new Set([
+    9100, 9101, 9102, 9103, 9104, 9105, 9106, 9107, 9108, 9109, 515, 631, 6101, 9200,
+]);
+function isPrivateIPv4(ip) {
+    const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(ip));
+    if (!m) return null; // không phải IPv4 literal → hostname (admin cấu hình) → cho qua
+    const o = m.slice(1).map(Number);
+    if (o.some((n) => n > 255)) return false;
+    if (o[0] === 10 || o[0] === 127) return true;
+    if (o[0] === 192 && o[1] === 168) return true;
+    if (o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
+    if (o[0] === 169 && o[1] === 254) return true; // link-local
+    return false;
+}
+function targetReason(ip, port) {
+    const p = Number(port) || 9100;
+    if (!PRINTER_PORTS.has(p)) return 'cổng ' + p + ' không phải cổng máy in (chỉ 9100…)';
+    if (isPrivateIPv4(ip) === false)
+        return 'IP công khai ' + ip + ' bị chặn (chỉ in máy in mạng nội bộ)';
+    return null;
+}
 
 function cors(res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,6 +82,9 @@ function readBody(req) {
 // Mở TCP tới máy in, ghi buffer, đóng. Timeout 6s.
 function sendToPrinter(ip, port, buf) {
     return new Promise((resolve, reject) => {
+        // Guard chung cho cả /print lẫn /tcp-test (mọi đường ra TCP đi qua đây).
+        const reason = targetReason(ip, port);
+        if (reason) return reject(new Error(reason));
         const sock = net.connect({ host: ip, port: port || 9100 });
         let done = false;
         const finish = (err) => {
@@ -85,7 +114,8 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(204);
         return res.end();
     }
-    if (req.url === '/health') return json(res, 200, { ok: true, version: VERSION });
+    if (req.url === '/health')
+        return json(res, 200, { ok: true, version: VERSION, engine: 'printer' });
 
     if (req.url === '/print' && req.method === 'POST') {
         const b = await readBody(req);
