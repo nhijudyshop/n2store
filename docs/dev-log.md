@@ -2,6 +2,12 @@
 
 ## 2026-06-30
 
+### [printer] Tunnel cloudflared cho Print Bridge — ĐT/PC khác in qua tunnel, KHÔNG cần cài bridge
+
+**Files:** `scripts/print-tunnel.ps1` (MỚI — cloudflared tunnel → bridge 17777 + heartbeat registry `engine='printer'`, tự hồi sinh), `scripts/print-bridge.{js,ps1}` (allowlist SSRF: chỉ IP private + cổng máy in; `/health` thêm `engine:'printer'`; ver 1.1.0), `web2/shared/web2-printer.js` (`resolveBridgeUrl()` — local 127.0.0.1 sống thì dùng, không thì dò registry tunnel máy shop; `printEscpos`/`testConnection`/`bridgeAlive` đi qua resolver; cache tunnel 60s), `web2/shared/web2-pos-installer.js` (`:PRINTER` tải thêm cloudflared.exe + print-tunnel.ps1, chạy nền + auto-start `N2StorePrintTunnel.vbs`; uninstall gỡ kèm), `web2/printer-settings/index.html` (copy giải thích tunnel + cache-bust), bump `web2-printer.js`/`web2-pos-installer.js` `?v=20260630tun` ở mọi trang dùng.
+
+User: "File .bat máy chấm công có cài tunnel cloudflare cho gemini, làm 1 tunnel cho máy in" — tái dùng Y CHANG pattern gemini-tryon/hyperframes (cloudflared quick-tunnel + heartbeat `web2-vieneu-registry`, chỉ thêm `engine='printer'`, KHÔNG route/bảng mới). Máy POS (máy cắm máy in) cài 1 lần → mở tunnel HTTPS → ĐT/PC khác cùng mạng dò URL từ registry → in qua tunnel (https→https, vượt mixed-content) mà KHÔNG cần chạy Print Bridge trên từng máy. **Bảo mật**: bridge giờ lộ Internet → allowlist chỉ relay IP nội bộ (10/172.16-31/192.168/127/169.254) + cổng máy in (9100… ) → khoá SSRF pivot ra host công khai/cổng nhạy cảm (residual: in rác lên máy in LAN — chấp nhận như gemini, URL xoay + TTL 90s; upgrade: thêm `x-print-token`). **Verify**: bridge thật probe — public IP/cổng 22 bị chặn, IP private/hostname qua guard (timeout/DNS thật); registry live `?engine=printer` trả `{ok:true,servers:[]}`; JS `node --check` 3 file OK. Status: ✅
+
 ### [system] Tab "Trùng lặp / 1-nguồn" (dedup audit) — audit toàn bộ Web 2.0
 
 **Files:** `web2/system/js/system-dedup.js` (MỚI — renderer JSON-driven), `web2/system/data/web2-dedup-audit.json` (MỚI — 15 nhóm trùng), `web2/system/index.html` (tab + panel + script), `web2/system/js/system-app.js` (VALID_TABS + lazy-init + reload `dedup`), `web2/system/css/system.css` (`.dd-*` styles).
