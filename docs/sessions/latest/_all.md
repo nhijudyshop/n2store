@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2ae3f06` — feat(web2 products-print): in STT kệ TO lên tem per-unit (phải QR, dưới giá)
-**Last updated**: 2026-06-30 19:53:31 +07
-**Latest session**: [`RESUME:20260630-195331-2ae3f06`](../20260630-195331-2ae3f06.md)
-**Summary**: in STT kệ TO lên tem per-unit (phải QR, dưới giá) — unit-scan/reprint
+**Latest commit**: `f547f29` — auto: session update
+**Last updated**: 2026-06-30 20:03:23 +07
+**Latest session**: [`RESUME:20260630-200323-f547f29`](../20260630-200323-f547f29.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -60,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-30 19:20
+- [`render.com/`](./render.com.md) — updated 2026-06-30 20:03
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 19:53
+- [`web2/`](./web2.md) — updated 2026-06-30 20:03
