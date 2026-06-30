@@ -347,7 +347,7 @@
             .join('');
         if (!(NO.STATE.parentCampaigns || []).length)
             html +=
-                '<div style="padding:4px 6px;color:#9ca3af;font-size:11.5px;">Chưa có chiến dịch cha. Tạo bên dưới hoặc ở live-chat.</div>';
+                '<div style="padding:4px 6px;color:#9ca3af;font-size:11.5px;">Chưa có chiến dịch cha. Tạo ở live-chat.</div>';
         box.innerHTML = html;
     };
 
@@ -388,105 +388,9 @@
         NO.load();
     };
 
-    NO.createParentCampaign = async function createParentCampaign() {
-        const inp = NO.$('#parentCampaignNew');
-        const name = (inp?.value || '').trim();
-        if (!name) return;
-        try {
-            await window.Web2Campaign.create(name);
-            if (inp) inp.value = '';
-            await NO.loadParentCampaigns();
-            NO.renderPagePosts(); // options select cập nhật theo parent mới
-        } catch (e) {
-            console.warn('[native-orders] create parent fail:', e.message);
-        }
-    };
-
-    NO.loadPagePosts = async function loadPagePosts() {
-        try {
-            // Hai nguồn: (1) page-posts = bài live gần đây (poller — có thể trả 0 trên
-            // web2-api sau split); (2) assignments = bảng-sự-thật gán bài↔chiến dịch
-            // (độc lập comment). Trạng-thái-gán LẤY TỪ (2), và bổ sung bài ĐÃ GOM mà
-            // (1) không trả để vẫn quản lý được (gỡ/đổi) — fix picker rỗng + live cũ.
-            const [pagePosts, assigns] = await Promise.all([
-                window.Web2Campaign.listPagePosts().catch(() => []),
-                window.Web2Campaign.listAssignments().catch(() => []),
-            ]);
-            const aMap = {};
-            for (const a of assigns || []) aMap[String(a.post_id)] = a;
-            const list = (pagePosts || []).map((p) => ({
-                ...p,
-                campaign_id: aMap[String(p.postId)]?.campaign_id ?? p.campaign_id ?? null,
-            }));
-            const have = new Set(list.map((p) => String(p.postId)));
-            for (const a of assigns || []) {
-                const pid = String(a.post_id);
-                if (have.has(pid)) continue;
-                list.push({
-                    postId: pid,
-                    pageId: a.page_id || '',
-                    title: a.post_title || '(bài đã gom)',
-                    pageName: '',
-                    date: '',
-                    campaign_id: a.campaign_id,
-                });
-                have.add(pid);
-            }
-            NO.STATE.pagePosts = list;
-            NO.renderPagePosts();
-        } catch (e) {
-            console.warn('[native-orders] page-posts fail:', e.message);
-        }
-    };
-
-    NO.renderPagePosts = function renderPagePosts() {
-        const box = NO.$('#parentPostsList');
-        if (!box) return;
-        const posts = NO.STATE.pagePosts || [];
-        if (!posts.length) {
-            box.innerHTML =
-                '<div style="color:#9ca3af;font-size:11px;padding:2px 0;">Chưa có bài livestream gần đây.</div>';
-            return;
-        }
-        const opts = (sel) =>
-            `<option value="">— chưa gom —</option>` +
-            (NO.STATE.parentCampaigns || [])
-                .map(
-                    (c) =>
-                        `<option value="${NO.escapeHtml(String(c.id))}" ${String(sel) === String(c.id) ? 'selected' : ''}>${NO.escapeHtml(c.name)}</option>`
-                )
-                .join('');
-        box.innerHTML = posts
-            .map(
-                (p) => `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;">
-                    <div style="flex:1;min-width:0;">
-                        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;">${NO.escapeHtml((p.title || '').slice(0, 50))}</div>
-                        <div style="color:#9ca3af;font-size:10px;">${NO.escapeHtml(p.pageName || '')} · ${NO.escapeHtml(String(p.date || '').slice(0, 10))}</div>
-                    </div>
-                    <select class="np-post-assign" data-post="${NO.escapeHtml(p.postId)}" data-page="${NO.escapeHtml(p.pageId || '')}" data-title="${NO.escapeHtml((p.title || '').slice(0, 80))}" style="border:1px solid #d1d5db;border-radius:6px;padding:3px 6px;font-size:11px;max-width:140px;">${opts(p.campaign_id)}</select>
-                </div>`
-            )
-            .join('');
-    };
-
-    NO.assignPost = async function assignPost(postId, campaignId, pageId, title) {
-        try {
-            if (campaignId) {
-                await window.Web2Campaign.assignPost(campaignId, {
-                    postId,
-                    postTitle: title,
-                    pageId,
-                });
-            } else {
-                await window.Web2Campaign.unassignPost(postId);
-            }
-            await NO.loadParentCampaigns();
-            await NO.loadPagePosts();
-            if (NO.STATE.parentCampaignId) NO.selectParentCampaign(NO.STATE.parentCampaignId);
-        } catch (e) {
-            console.warn('[native-orders] assign post fail:', e.message);
-        }
-    };
+    // 2026-06-30: ĐÃ GỠ createParentCampaign / loadPagePosts / renderPagePosts /
+    // assignPost — tạo chiến dịch + gom bài là 1 nguồn = live-chat. native-orders chỉ
+    // CHỌN chiến dịch cha (renderParentCampaigns + selectParentCampaign) để LỌC đơn.
 
     NO.renderCampaignLabel = function renderCampaignLabel() {
         const label = NO.$('#filterCampaignLabel');

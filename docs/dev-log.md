@@ -2,6 +2,15 @@
 
 ## 2026-06-30
 
+### [native-orders] Gỡ tạo + gán chiến dịch → chỉ CHỌN để lọc (1 nguồn = live-chat) — bước 2/#1
+
+**Files:** `native-orders/index.html` (gỡ input `#parentCampaignNew` + nút `#parentCampaignCreate` + cả `#parentPostsSection`/`#parentPostsList`; giữ `#parentCampaignList` radio lọc; bump 2 js `→20260630a`), `native-orders/js/native-orders-realtime-init.js` (gỡ `loadPagePosts()` + listener create/assign; giữ listener radio lọc), `native-orders/js/native-orders-filters-campaigns.js` (gỡ 4 hàm chết `createParentCampaign`/`loadPagePosts`/`renderPagePosts`/`assignPost`; sửa text "Tạo ở live-chat").
+
+Tiếp bước 1 (live-control). Giờ native-orders chỉ CHỌN chiến dịch cha (radio) để LỌC đơn — KHÔNG tạo/gán.
+
+- **Verify E2E**: create input/btn + assign list = gone; `createParentCampaign`/`assignPost` = undefined; `selectParentCampaign` = function (lọc còn); `#parentCampaignList` còn; 0 lỗi console.
+- **Còn lại #1 = bước 3 (id bridge)**: board dùng BIGINT (web2_live_parent_campaigns.id), đơn dùng Pancake string (native_orders.live_campaign_id) → cần nối để GIỎ lọc đúng phiên. ⚠ Phức tạp hơn 1 cột: 1 parent campaign gom NHIỀU bài Pancake → map qua web2_live_post_assign, không phải 1-1.
+
 ### [live-control] Gỡ "Tạo chiến dịch" → chiến dịch chỉ tạo/gán ở live-chat (1 nguồn) — bước 1/#1
 
 **Files:** `web2/live-control/index.html` (gỡ nút `#lcNewBtn` "Tạo"; giữ dropdown `#lcCampaign` để CHỌN; bump `live-control.js→tv14`), `web2/live-control/js/live-control.js` (gỡ `createCampaign()` + listener `#lcNewBtn`).

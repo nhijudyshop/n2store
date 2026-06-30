@@ -228,7 +228,7 @@
         NO.renderCampaignLabel();
         NO.loadAvailableCampaigns();
         NO.loadParentCampaigns();
-        NO.loadPagePosts();
+        // (BỎ loadPagePosts — gom bài chuyển hẳn về live-chat)
 
         NO.$('#filterCampaignBtn')?.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -242,26 +242,11 @@
             if (btn.contains(e.target) || dd.contains(e.target)) return;
             NO.toggleCampaignDropdown(false);
         });
-        // Chiến dịch cha: chọn (radio) + tạo.
+        // Chiến dịch cha: CHỌN (radio) để LỌC đơn. Tạo/gán đã chuyển hẳn về live-chat.
         NO.$('#parentCampaignList')?.addEventListener('change', (e) => {
             const r = e.target.closest('.np-parent-radio');
             if (!r) return;
             NO.selectParentCampaign(r.value || null);
-        });
-        NO.$('#parentCampaignCreate')?.addEventListener('click', () => NO.createParentCampaign());
-        NO.$('#parentCampaignNew')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') NO.createParentCampaign();
-        });
-        // Gom bài livestream vào chiến dịch cha (select per bài).
-        NO.$('#parentPostsList')?.addEventListener('change', (e) => {
-            const sel = e.target.closest('.np-post-assign');
-            if (!sel) return;
-            NO.assignPost(
-                sel.getAttribute('data-post'),
-                sel.value || null,
-                sel.getAttribute('data-page'),
-                sel.getAttribute('data-title')
-            );
         });
         NO.$('#campaignList')?.addEventListener('change', (e) => {
             const cb = e.target.closest('.campaign-check');

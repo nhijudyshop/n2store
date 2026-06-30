@@ -263,63 +263,9 @@
                                             id="parentCampaignList"
                                             style="display: flex; flex-direction: column; gap: 2px"
                                         ></div>
-                                        <div style="display: flex; gap: 6px; margin-top: 6px">
-                                            <input
-                                                id="parentCampaignNew"
-                                                placeholder="Tên chiến dịch cha mới"
-                                                style="
-                                                    flex: 1;
-                                                    border: 1px solid #d1d5db;
-                                                    border-radius: 6px;
-                                                    padding: 4px 8px;
-                                                    font-size: 12px;
-                                                "
-                                            />
-                                            <button
-                                                id="parentCampaignCreate"
-                                                style="
-                                                    font-size: 11px;
-                                                    padding: 3px 10px;
-                                                    background: #2a96ff;
-                                                    color: #fff;
-                                                    border: 0;
-                                                    border-radius: 6px;
-                                                    cursor: pointer;
-                                                "
-                                            >
-                                                + Tạo
-                                            </button>
-                                        </div>
-                                        <!-- Bài livestream của page → gom vào chiến dịch (chung live-chat) -->
-                                        <div
-                                            id="parentPostsSection"
-                                            style="
-                                                margin-top: 8px;
-                                                border-top: 1px dashed #e5e7eb;
-                                                padding-top: 6px;
-                                            "
-                                        >
-                                            <div
-                                                style="
-                                                    font-size: 10.5px;
-                                                    font-weight: 600;
-                                                    color: #6b7280;
-                                                    padding: 0 0 4px;
-                                                "
-                                            >
-                                                Bài livestream → gom vào chiến dịch
-                                            </div>
-                                            <div
-                                                id="parentPostsList"
-                                                style="
-                                                    display: flex;
-                                                    flex-direction: column;
-                                                    gap: 4px;
-                                                    max-height: 220px;
-                                                    overflow-y: auto;
-                                                "
-                                            ></div>
-                                        </div>
+                                        <!-- 2026-06-30: BỎ tạo chiến dịch + gom bài ở native-orders.
+                                             Tạo/gán chiến dịch là 1 nguồn = live-chat. Đây chỉ CHỌN
+                                             (radio) chiến dịch cha để LỌC đơn. -->
                                     </div>
                                     <!-- Toolbar -->
                                     <div
@@ -633,9 +579,9 @@
         <script src="js/native-orders-pbh-bill.js?v=20260630b"></script>
         <script src="js/native-orders-inbox-add.js?v=20260628c"></script>
         <script src="js/native-orders-bulk-operations.js?v=20260629i"></script>
-        <script src="js/native-orders-filters-campaigns.js?v=20260629l"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260630a"></script>
         <script src="js/native-orders-control-drawer.js?v=20260629m"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260629l"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260630a"></script>
         <script src="js/native-orders-customer360.js?v=20260628c"></script>
         <script src="js/native-orders-interactions.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-resolve.js?v=20260628c"></script>
