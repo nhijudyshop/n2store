@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1b22053` — feat(shared): Web2ProductStatus 1 nguồn trạng thái SP + badge 'chờ hàng' live-chat (P2); migrate web2/products khỏi fork
-**Last updated**: 2026-06-30 11:43:32 +07
-**Latest session**: [`RESUME:20260630-114332-1b22053`](../20260630-114332-1b22053.md)
-**Summary**: feat(shared): Web2ProductStatus 1 nguồn trạng thái SP + badge 'chờ hàng' live-chat (P2); migrate web2/product...
+**Latest commit**: `79ba6e5` — feat(products): bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn duy nhất (SP luôn có địa danh) [P4]
+**Last updated**: 2026-06-30 12:03:34 +07
+**Latest session**: [`RESUME:20260630-120334-79ba6e5`](../20260630-120334-79ba6e5.md)
+**Summary**: feat(products): bỏ tạo SP trực tiếp ở Kho → Sổ Order là nguồn duy nhất (SP luôn có địa danh) ...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 11:43
+- [`docs/`](./docs.md) — updated 2026-06-30 12:03
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -83,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 11:43
+- [`web2/`](./web2.md) — updated 2026-06-30 12:03
