@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e69f961` — feat(unit-scan): bấm ô sơ đồ kệ → mở modal chi tiết đơn (thay vì cuộn xuống)
-**Last updated**: 2026-06-30 08:40:32 +07
-**Latest session**: [`RESUME:20260630-084032-e69f961`](../20260630-084032-e69f961.md)
-**Summary**: feat(unit-scan): bấm ô sơ đồ kệ → mở modal chi tiết đơn (thay vì cuộn xuống)
+**Latest commit**: `a45eb07` — feat(unit-scan): modal chi tiết ghi rõ SP nào đang chờ hàng (pill ⏳ từ cho_hang.detail)
+**Last updated**: 2026-06-30 08:44:12 +07
+**Latest session**: [`RESUME:20260630-084412-a45eb07`](../20260630-084412-a45eb07.md)
+**Summary**: feat(unit-scan): modal chi tiết ghi rõ SP nào đang chờ hàng (pill ⏳ từ cho_hang.detail)
 
 ## Folders affected in this commit
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 08:40
+- [`docs/`](./docs.md) — updated 2026-06-30 08:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 08:40
+- [`web2/`](./web2.md) — updated 2026-06-30 08:44
