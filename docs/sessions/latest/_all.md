@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c3121db` — fix(unit-scan): sort-manifest tag join — String() 2 phía (id BIGSERIAL=string vs order_id INTEGER=number)
-**Last updated**: 2026-06-30 07:51:14 +07
-**Latest session**: [`RESUME:20260630-075114-c3121db`](../20260630-075114-c3121db.md)
-**Summary**: fix(unit-scan): sort-manifest tag join — String() 2 phía (id BIGSERIAL=string vs order_id INTEGER=number)
+**Latest commit**: `6671b5b` — docs(dev-log): unit-scan tag — E2E verified ✅ + id-type fix note
+**Last updated**: 2026-06-30 07:57:51 +07
+**Latest session**: [`RESUME:20260630-075751-6671b5b`](../20260630-075751-6671b5b.md)
+**Summary**: docs(dev-log): unit-scan tag — E2E verified ✅ + id-type fix note
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 07:46
+- [`docs/`](./docs.md) — updated 2026-06-30 07:57
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-24 01:35
