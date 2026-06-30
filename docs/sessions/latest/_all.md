@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2da2cde` — refactor(web2 dedup): re-verify audit 16-agent — fix esc 4→5char (3 leaf), util-money→partial, +print-unit group
-**Last updated**: 2026-06-30 20:33:40 +07
-**Latest session**: [`RESUME:20260630-203340-2da2cde`](../20260630-203340-2da2cde.md)
-**Summary**: Re-verify dedup audit (16 agent) + fix esc 3 leaf 4→5char + util-money→partial + thêm nhóm print-unit
+**Latest commit**: `b97a54d` — feat(web2 zalo): tự chọn tài khoản chat khi chỉ có 1 tài khoản cá nhân
+**Last updated**: 2026-06-30 20:39:35 +07
+**Latest session**: [`RESUME:20260630-203935-b97a54d`](../20260630-203935-b97a54d.md)
+**Summary**: web2 zalo: auto-select chat account when only 1 personal account
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-30 20:33
+- [`docs/`](./docs.md) — updated 2026-06-30 20:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -82,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 20:33
+- [`web2/`](./web2.md) — updated 2026-06-30 20:39
