@@ -31,6 +31,12 @@
                 .join('');
         if (prev) el.value = prev;
         else if (state.conv.accountKey) el.value = state.conv.accountKey;
+        else if (list.length === 1) {
+            // Chỉ 1 tài khoản cá nhân được gán → tự chọn, khỏi bắt user pick.
+            // loadConversations gọi hàm này TRƯỚC khi fetch nên set state ngay là kịp.
+            state.conv.accountKey = list[0].accountKey;
+            el.value = list[0].accountKey;
+        }
     }
 
     let _firstConvLoad = true;

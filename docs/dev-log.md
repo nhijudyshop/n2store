@@ -17,6 +17,12 @@ User: "xem dedup tab đã xử lý hết lỗi chưa thì cập nhật trang". C
 
 Tab nay: 16 nhóm (10 resolved / 3 partial / 3 pending). 3 pending (customer-lookup/order-math/pagination) là xuyên-layer Web1⊥Web2 → KHÔNG finishable (chủ ý). Verified: `node --check` 3 JS OK, JSON parse + enum khớp render map, server serve đúng. Status: ✅
 
+### [web2 zalo] Chat: tự chọn tài khoản khi chỉ có 1 tài khoản cá nhân
+
+**Files:** `web2/zalo/js/web2-zalo-chat.js` · `web2/zalo/index.html`.
+
+Dropdown chọn tài khoản (`#wzChatAccount`) mặc định đứng ở placeholder `— Chọn tài khoản —`, chỉ set khi user click (event `change`). Có 1 tài khoản vẫn bắt chọn tay. Fix trong `fillAccountSelect`: nếu `list.length === 1` và chưa có lựa chọn (`!prev && !state.conv.accountKey`) → set `state.conv.accountKey` + `el.value` luôn. `loadConversations` gọi `fillAccountSelect` TRƯỚC khi fetch nên cùng lần load đã nạp hội thoại của tài khoản đó. Idempotent (lần sau vào nhánh `state.conv.accountKey`). Bump `?v=20260630autoacc`. Status: ✅
+
 ### [web2 zalo] Fix mã QR đăng nhập Zalo lỗi (ảnh vỡ)
 
 **Files:** `web2/zalo/js/web2-zalo-accounts.js` · `web2/zalo/index.html`.
