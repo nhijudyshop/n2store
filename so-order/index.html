@@ -59,6 +59,16 @@
                             <i data-lucide="settings-2"></i>
                             Ẩn/Hiện cột
                         </button>
+                        <!-- #2 follow-up: SP cần đặt thêm NCC (giỏ nháp > tồn) → thêm vào đơn nhanh -->
+                        <button
+                            id="soRestockBtn"
+                            class="btn btn-secondary"
+                            type="button"
+                            title="SP đang chờ hàng (giỏ khách vượt tồn) — gợi ý cần đặt thêm từ NCC"
+                        >
+                            <i data-lucide="package-plus"></i>
+                            Cần đặt
+                        </button>
                         <button
                             id="soHistoryBtn"
                             class="btn btn-secondary"
@@ -706,7 +716,7 @@
             );
         </script>
 
-        <script src="../web2/shared/web2-products-api.js?v=20260628a"></script>
+        <script src="../web2/shared/web2-products-api.js?v=20260630a"></script>
         <!-- In tem/mã SP: dùng CHUNG module in của web2/products (Web2ProductsPrint).
              [SPLIT 2026-06-18] module in tách 5 file — PHẢI load đủ THEO THỨ TỰ
              (utils → barcode → render → modal → entry) thì window.W2PP.open mới có,
@@ -773,7 +783,9 @@
         <!-- Quản lý ảnh NCC theo đợt (BYTEA web2Db) -->
         <script src="js/so-order-image-manager.js?v=20260628a"></script>
         <script src="js/so-order-confirm.js?v=20260629a"></script>
-        <script src="js/so-order-toolbar.js?v=20260629a"></script>
+        <!-- #2 follow-up: gợi ý "chờ hàng cần đặt" → thêm vào đơn (load TRƯỚC toolbar wiring) -->
+        <script src="js/so-order-restock.js?v=20260630a"></script>
+        <script src="js/so-order-toolbar.js?v=20260630a"></script>
         <script src="js/so-order-app.js?v=20260628a"></script>
     </body>
 </html>

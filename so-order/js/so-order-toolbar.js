@@ -39,6 +39,10 @@
         document
             .getElementById('soColumnSettingsBtn')
             .addEventListener('click', SO.openColumnModal);
+        // #2 follow-up: SP chờ hàng cần đặt thêm NCC (giỏ nháp > tồn).
+        document
+            .getElementById('soRestockBtn')
+            ?.addEventListener('click', () => SO.openRestockModal && SO.openRestockModal());
         // Lịch sử chỉnh sửa Sổ Order (document-level) — module chung Web2AuditLog.
         document.getElementById('soHistoryBtn')?.addEventListener('click', () => {
             if (window.Web2AuditLog) {

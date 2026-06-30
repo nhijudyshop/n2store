@@ -649,6 +649,53 @@ router.get('/pending', async (req, res) => {
 });
 
 // =====================================================
+// GET /api/web2-products/restock-needed[?supplier=]
+// SP CẦN ĐẶT THÊM NCC: cầu giỏ NHÁP (draft native_orders) > TỒN hiện tại.
+// "Chờ hàng cần đặt" = max(0, demand − stock). PBH (đã trừ tồn) KHÔNG tính (chỉ
+// draft). is_parent=false. Dùng cho Sổ Order surface bấm-đặt-NCC nhanh
+// (#2 follow-up 2026-06-30). Seed-tested.
+// =====================================================
+router.get('/restock-needed', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const supplier = req.query.supplier ? String(req.query.supplier).trim() : null;
+        const params = [];
+        let supFilter = '';
+        if (supplier) {
+            params.push(supplier);
+            supFilter = ` AND p.supplier = $${params.length}`;
+        }
+        const sql = `
+            WITH committed AS (
+                SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
+                       SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS demand
+                FROM native_orders n, jsonb_array_elements(n.products) prod
+                WHERE n.status = 'draft'
+                GROUP BY 1
+            )
+            SELECT p.*, c.demand::int AS _demand,
+                   GREATEST(0, c.demand - p.stock)::int AS _needed
+            FROM committed c
+            JOIN web2_products p ON p.code = c.code
+            WHERE c.demand > p.stock AND p.is_parent = false${supFilter}
+            ORDER BY (c.demand - p.stock) DESC, p.supplier, p.name`;
+        const r = await pool.query(sql, params);
+        const items = r.rows.map((row) => {
+            const m = mapRow(row);
+            m.demand = Number(row._demand) || 0; // tổng SL trong giỏ nháp (GIỎ)
+            m.needed = Number(row._needed) || 0; // cần đặt thêm = max(0, GIỎ − TỒN)
+            return m;
+        });
+        res.json({ success: true, items });
+    } catch (e) {
+        console.error('[WEB2-PRODUCTS] restock-needed error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
 // GET /api/web2-products/usage?codes=A,B,C
 // Returns map: productCode → array of native-orders that currently contain
 // that product (excluding cancelled). Each entry includes order code,

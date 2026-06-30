@@ -141,6 +141,11 @@
             const qs = supplier ? `?supplier=${encodeURIComponent(supplier)}` : '';
             return _fetchJson(`${BASE}/pending${qs}`);
         },
+        // SP CẦN ĐẶT THÊM NCC: cầu giỏ nháp > tồn → {…, demand, needed}. (#2 follow-up)
+        async restockNeeded(supplier) {
+            const qs = supplier ? `?supplier=${encodeURIComponent(supplier)}` : '';
+            return _fetchJson(`${BASE}/restock-needed${qs}`);
+        },
         // Adjust pending_qty của SP theo delta (+/-).
         // adjustments: [{ code?, name?, variant?, supplier?, delta }]
         // Server: clamp 0, auto delete ghost (pending=0+stock=0+createdBy=so-order),

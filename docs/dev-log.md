@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [so-order][web2-products] Surface "Chờ hàng cần đặt" vào Sổ Order → bấm thêm vào đơn (#2 follow-up)
+
+**Files:** `render.com/routes/web2-products.js` (GET `/restock-needed`), `web2/shared/web2-products-api.js` (`restockNeeded()`), `so-order/js/so-order-restock.js` (MỚI — modal `SO.openRestockModal`), `so-order/js/so-order-toolbar.js` (wire `#soRestockBtn`), `so-order/index.html` (nút "Cần đặt" + load script + bump api/toolbar `→20260630a`).
+
+Hoàn tất follow-up #1 của #2: board hiện CHỜ HÀNG, giờ Sổ Order surface để **bấm-đặt-NCC nhanh**.
+
+- **Backend** `/restock-needed`: SP có **cầu giỏ NHÁP > TỒN** → `{…, demand, needed=max(0,demand−stock)}`. CHỈ draft (PBH đã trừ tồn → loại), `is_parent=false`. **Seed-tested** (X giỏ5>tồn1→cần 4; Y đủ tồn loại; Z parent loại; O3 confirmed không tính). Optional `?supplier=`.
+- **Frontend**: nút toolbar "📦 Cần đặt" → modal liệt kê SP (Tồn·Giỏ·**cần đặt N**·NCC) + checkbox → "Thêm vào đơn mới" → `openOrderModal(null)` + prefill rows (qty=cần đặt, tái dùng `_fillRowFromProduct` quy đổi giá/ảnh).
+- **Verify**: seed-test query PASS; browser so-order: nút hiện, `restockNeeded`/`openRestockModal` defined, click→overlay mở, 0 lỗi app (404 /restock-needed là do backend chưa deploy — chạy sau push).
+
 ### [live-control][live-tv][shared] Bỏ NCC gõ tay → "Chờ hàng" = GIỎ−TỒN (tự suy từ Kho) — Redesign #2
 
 **Files:** `web2/shared/web2-live-tv-display.js` (`khConModel` + `cardState`: baseline = `stock` thật thay vì pending; `choHang = max(0, GIỎ−TỒN)`, `con = max(0, TỒN−GIỎ)`; giữ field cũ map compat), `web2/live-control/js/live-control.js` (vrowHtml → TỒN·GIỎ·MỚI·CHỜ; bỏ input NCC + `savePending` + 4 listener; miniCardHtml dùng stock/choHang), `web2/live-tv/js/live-tv.js` (vrow → TỒN·GIỎ·CHỜ), `web2/live-control/index.html` (bỏ selector "Cho VƯỢT theo" `#lcRegion`; sửa hint; bump tv15), `web2/live-control/css/live-control.css` (`.lc-vton`/`.lc-vcho`), `web2/live-tv/index.html` (bump tv15).
