@@ -268,6 +268,10 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0,
                 -- 2026-06-07: epoch ms lần in gần nhất (hover icon máy in ở list → hiện thời gian).
                 ADD COLUMN IF NOT EXISTS last_printed_at        BIGINT,
+                -- 2026-06-30: counter RIÊNG cho Phiếu Soạn Hàng (giỏ) — tách khỏi print_count
+                -- (print_count gộp cả bill PBH). Tag soan_hang = giỏ draft đã in phiếu soạn hàng.
+                ADD COLUMN IF NOT EXISTS soan_hang_print_count  INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS soan_hang_last_printed_at BIGINT,
                 -- 2026-06-04: kênh đơn — 'web2_livestream' (drag từ tpos-pancake/comment)
                 -- vs 'web2_inbox' (tạo tay từ tab Đơn Inbox). Default web2_livestream cho
                 -- đơn cũ + from-comment. (2026-06-05: prefix web2_ — xem migration dưới.)
@@ -551,6 +555,7 @@ function mapRowToOrder(row) {
         reversedCode: row.reversed_code,
         printCount: Number(row.print_count || 0),
         lastPrintedAt: row.last_printed_at != null ? Number(row.last_printed_at) : null,
+        soanHangPrintCount: Number(row.soan_hang_print_count || 0), // tag soan_hang (giỏ đã in phiếu soạn hàng)
         channel: row.channel || 'web2_livestream', // kênh đơn (web2_livestream/web2_inbox)
         // 2026-06-04: phương thức giao hàng auto-detect (hiện ở cột địa chỉ)
         deliveryMethod: row.delivery_method || null,
@@ -2280,11 +2285,18 @@ router.post('/mark-printed', requireWeb2AuthSoft, async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const codes = Array.isArray(req.body && req.body.codes) ? req.body.codes.filter(Boolean) : [];
     if (!codes.length) return res.status(400).json({ error: 'codes required' });
+    // 2026-06-30: kind='soan_hang' (in Phiếu Soạn Hàng) → bump THÊM soan_hang_print_count
+    // (tag soan_hang). Mặc định 'pbh' (in bill) → chỉ print_count (giữ backward-compat).
+    const kind = (req.body && req.body.kind) === 'soan_hang' ? 'soan_hang' : 'pbh';
     try {
         await ensureTables(pool);
         const now = Date.now();
+        const extra =
+            kind === 'soan_hang'
+                ? ', soan_hang_print_count = soan_hang_print_count + 1, soan_hang_last_printed_at = $1'
+                : '';
         const r = await pool.query(
-            `UPDATE native_orders SET print_count = print_count + 1, last_printed_at = $1, updated_at = $1
+            `UPDATE native_orders SET print_count = print_count + 1, last_printed_at = $1, updated_at = $1${extra}
              WHERE code = ANY($2::text[]) RETURNING code, print_count, last_printed_at`,
             [now, codes]
         );

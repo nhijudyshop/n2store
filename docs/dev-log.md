@@ -2,6 +2,16 @@
 
 ## 2026-06-30
 
+### [order-tags][native-orders][render] Tag SOẠN HÀNG cho giỏ khi in phiếu soạn hàng + toggle admin bật/tắt in
+
+**Files:** `render.com/routes/native-orders.js` (cột mới `soan_hang_print_count`/`soan_hang_last_printed_at`; map `soanHangPrintCount`; `/mark-printed` nhận `kind:'soan_hang'` → bump counter riêng + print_count), `render.com/services/web2-order-tags-service.js` (trigger `soan_hang` + predicate `status==='draft' && soanHangPrintCount>0` + seed thẻ `#7c3aed`/clipboard-list/priority 47), `native-orders/js/native-orders-api.js` (`markPrinted(codes,kind)` + `soanHangPrintEnabled()` cache 15s `/web2-order-tags/list`), `native-orders/js/native-orders-pbh-bill.js` (`_markPrintedCodes(codes,kind)` + `_canPrintSoanHang()` gate; 4 entry-point in Phiếu Soạn Hàng truyền `kind='soan_hang'` + gate toggle), `native-orders/index.html` (bump api+pbh-bill `→20260630a`).
+
+User: thêm tag SOẠN HÀNG cho giỏ khi in phiếu soạn hàng; toggle bật/tắt CHỨC NĂNG IN, admin chỉnh. (User chốt: toggle = bật/tắt in; tag thuộc GIỎ → thành đơn thì mất.)
+
+- **Tag**: chỉ giỏ (`status==='draft'`) đã in phiếu soạn hàng (`soan_hang_print_count>0`). Derived mỗi /load → khi giỏ thành đơn (status≠draft) tag TỰ MẤT. Tách counter riêng vì `print_count` gộp cả bill PBH (tag `da_in` không phân biệt được).
+- **Toggle** = `is_active` của thẻ `soan_hang` ở trang Cấu hình thẻ (admin có sẵn). BẬT → in được + tag tính; TẮT → engine bỏ thẻ (ẩn) + 4 entry-point khoá nút In Phiếu Soạn Hàng (`_canPrintSoanHang` fail-open nếu lỗi/chưa seed). Trang order-tags KHÔNG đổi code — thẻ tự seed + dùng toggle sẵn.
+- Status 🔄 (chờ deploy web2-api + verify in→tag, toggle off→khoá in, thành đơn→mất tag)
+
 ### [unit-scan] Bấm ô sơ đồ kệ → MỞ MODAL chi tiết đơn (thay vì cuộn xuống)
 
 **Files:** `web2/unit-scan/js/unit-scan.js` (thêm `openCellDetail(o)` module-level; click `.m-cell` giờ `openCellDetail(sttMap.get(stt))` thay vì scroll `#mrow`), `web2/unit-scan/css/unit-scan.css` (`.cd-back`/`.cd-modal`/`.cd-hd`/`.cd-stt`/`.cd-prods`… popup giữa màn, shadow ≤24px, no backdrop blur — anti-lag), `index.html` (bump `→20260630c`).

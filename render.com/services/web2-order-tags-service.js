@@ -69,6 +69,12 @@ const TRIGGERS = [
         desc: 'Bản ghi đang ở trạng thái Giỏ hàng (chưa tạo PBH).',
     },
     {
+        id: 'soan_hang',
+        label: 'Soạn hàng',
+        group: 'PBH / Trạng thái',
+        desc: 'GIỎ đã in Phiếu Soạn Hàng (chờ NCC giao). CHỈ ở giỏ — khi thành đơn/PBH thì mất. ⚙ TẮT thẻ này = KHOÁ luôn nút "In Phiếu Soạn Hàng" (toggle bật/tắt chức năng in, admin chỉnh).',
+    },
+    {
         id: 'is_confirmed',
         label: 'Đã xác nhận',
         group: 'PBH / Trạng thái',
@@ -318,6 +324,9 @@ const PREDICATES = {
     pbh_created: (o) => Number(o.pbhTotal || 0) > 0,
     pbh_chua_tt: (o) => Number(o.pbhTotal || 0) > 0 && Number(o.pbhResidual || 0) > 0,
     is_draft: (o) => o.status === 'draft',
+    // Soạn hàng: GIỎ (draft) đã in Phiếu Soạn Hàng (soan_hang_print_count > 0). CHỈ ở giỏ →
+    // khi thành đơn (status ≠ draft) predicate false → tag tự mất (derived mỗi /load).
+    soan_hang: (o) => o.status === 'draft' && Number(o.soanHangPrintCount || 0) > 0,
     is_confirmed: (o) => o.status === 'confirmed',
     is_cancelled: (o) => o.status === 'cancelled',
     // Giỏ trống: giỏ (chưa huỷ) KHÔNG có sản phẩm nào. Đối nghịch kpi_user
@@ -776,6 +785,14 @@ async function ensureTable(pool) {
                ('co_coc',     'Có đặt cọc',   'co_coc',     '#0891b2', 'hand-coins', 39, 'system', $1, $1),
                ('ship_tinh',  'Ship Tỉnh',    'ship_tinh',  '#f59e0b', 'truck',      36, 'system', $1, $1),
                ('ship_tp',    'Ship nội thành','ship_tp',   '#10b981', 'truck',      37, 'system', $1, $1)
+             ON CONFLICT (code) DO NOTHING`,
+            [Date.now()]
+        );
+        // 2026-06-30: seed thẻ 'Soạn hàng' — giỏ (draft) đã in Phiếu Soạn Hàng. is_active=true
+        // mặc định; admin TẮT = ẩn thẻ + KHOÁ nút In Phiếu Soạn Hàng. ON CONFLICT idempotent.
+        await pool.query(
+            `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
+             VALUES ('soan_hang', 'Soạn hàng', 'soan_hang', '#7c3aed', 'clipboard-list', 47, 'system', $1, $1)
              ON CONFLICT (code) DO NOTHING`,
             [Date.now()]
         );

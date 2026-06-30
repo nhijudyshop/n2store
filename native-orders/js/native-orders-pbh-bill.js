@@ -54,9 +54,10 @@
                 { title: 'Đơn có hàng chờ', okText: 'Tạo Phiếu soạn hàng', cancelText: 'Để sau' }
             );
             if (goSlip && window.NativeOrdersPackingSlip) {
+                if (!(await NO._canPrintSoanHang())) return;
                 window.NativeOrdersPackingSlip.open(src, {
                     sttDisplay: NO.computeOrderStt(src),
-                    onPrint: (od) => NO._markPrintedCodes([od.code]),
+                    onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
                 });
             }
             return;
@@ -382,10 +383,10 @@
 
     // Ghi số lần in (print_count) → tránh in trùng. Bump local + re-render badge.
     // Lỗi mạng → bỏ qua (không chặn in).
-    NO._markPrintedCodes = function _markPrintedCodes(codes) {
+    NO._markPrintedCodes = function _markPrintedCodes(codes, kind) {
         const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
         if (!arr.length || !window.NativeOrdersApi?.markPrinted) return;
-        window.NativeOrdersApi.markPrinted(arr)
+        window.NativeOrdersApi.markPrinted(arr, kind)
             .then((r) => {
                 const counts = (r && r.counts) || {};
                 const printedAt = (r && r.printedAt) || {};
@@ -412,6 +413,23 @@
     NO._getDeliveryOpts = async function _getDeliveryOpts() {
         const DMP = window.DeliveryMethodPicker;
         return DMP && DMP.getOptionsAsync ? await DMP.getOptionsAsync() : [];
+    };
+
+    // Gate nút "In Phiếu Soạn Hàng" — toggle is_active thẻ 'soan_hang' (admin chỉnh ở
+    // trang Cấu hình thẻ). Tắt = khoá in. Fail-open nếu lỗi/thẻ chưa seed. Toast khi tắt.
+    NO._canPrintSoanHang = async function _canPrintSoanHang() {
+        try {
+            if (!window.NativeOrdersApi?.soanHangPrintEnabled) return true;
+            const ok = await window.NativeOrdersApi.soanHangPrintEnabled();
+            if (!ok)
+                NO.notify?.(
+                    'Chức năng In Phiếu Soạn Hàng đang TẮT — admin bật lại ở Cấu hình thẻ → "Soạn hàng".',
+                    'warning'
+                );
+            return ok;
+        } catch {
+            return true;
+        }
     };
 
     // IN bill (nút "In bill" toolbar — các đơn đang chọn). Mỗi đơn in ĐÚNG LOẠI
@@ -453,6 +471,11 @@
                     `${drafts.length} giỏ hàng (soạn hàng) + ${others.length} đơn in bill PBH`,
                     'info'
                 );
+            // Soạn hàng bị admin tắt → bỏ qua phần giỏ, vẫn in bill PBH cho đơn còn lại.
+            if (!(await NO._canPrintSoanHang())) {
+                await printConfirmedBills();
+                return;
+            }
             let i = 0;
             const openNext = () => {
                 if (i >= drafts.length) {
@@ -463,7 +486,7 @@
                 window.NativeOrdersPackingSlip.open(o, {
                     sttDisplay: NO.computeOrderStt(o),
                     onClose: openNext,
-                    onPrint: (od) => NO._markPrintedCodes([od.code]),
+                    onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
                 });
             };
             openNext();
@@ -492,9 +515,10 @@
                 NO.notify('Phiếu soạn hàng chưa load', 'error');
                 return;
             }
+            if (!(await NO._canPrintSoanHang())) return;
             window.NativeOrdersPackingSlip.open(o, {
                 sttDisplay: NO.computeOrderStt(o),
-                onPrint: (od) => NO._markPrintedCodes([od.code]),
+                onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
             });
             return;
         }
@@ -620,9 +644,10 @@
                           )
                         : false;
                     if (goSlip && ord && window.NativeOrdersPackingSlip) {
+                        if (!(await NO._canPrintSoanHang())) return;
                         window.NativeOrdersPackingSlip.open(ord, {
                             sttDisplay: NO.computeOrderStt(ord),
-                            onPrint: (od) => NO._markPrintedCodes([od.code]),
+                            onPrint: (od) => NO._markPrintedCodes([od.code], 'soan_hang'),
                         });
                     }
                     return;

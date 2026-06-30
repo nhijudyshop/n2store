@@ -12,6 +12,18 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = `${WORKER_URL}/api/native-orders`;
     const PRODUCTS_BASE = `${WORKER_URL}/api/web2-products`;
+    const TAGS_BASE = `${WORKER_URL}/api/web2-order-tags`;
+
+    // Cache cấu hình thẻ (15s) — dùng cho gate "bật/tắt in Phiếu Soạn Hàng".
+    let _tagListCache = { at: 0, list: null };
+    async function _orderTagList() {
+        const now = Date.now();
+        if (_tagListCache.list && now - _tagListCache.at < 15000) return _tagListCache.list;
+        const d = await _fetchJson(`${TAGS_BASE}/list`);
+        const list = Array.isArray(d) ? d : d?.tags || d?.data || d?.items || [];
+        _tagListCache = { at: now, list };
+        return list;
+    }
 
     // Sprint 3 KPI: extract Web2Auth token để backend resolve visibility scope.
     // Header `x-web2-token` được kpi.js middleware đọc.
@@ -137,16 +149,35 @@
         /**
          * Tăng print_count (số lần in bill) cho các đơn → tránh in trùng.
          * @param {string[]} codes
+         * @param {string} [kind] 'soan_hang' (in Phiếu Soạn Hàng) → bump thêm soan_hang_print_count.
          * @returns {Promise<{success, counts:{[code]:number}}>}
          */
-        async markPrinted(codes) {
+        async markPrinted(codes, kind) {
             const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean);
             if (!arr.length) return { success: false };
             return _fetchJson(`${BASE}/mark-printed`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ codes: arr }),
+                body: JSON.stringify(kind ? { codes: arr, kind } : { codes: arr }),
             });
+        },
+
+        /**
+         * Tag 'Soạn hàng' (trigger soan_hang) có đang BẬT không → gate nút In Phiếu Soạn Hàng.
+         * Toggle là is_active của thẻ ở trang order-tags (admin chỉnh). Cache 15s.
+         * Fail-open: lỗi mạng / thẻ chưa seed → true (KHÔNG chặn in).
+         * @returns {Promise<boolean>}
+         */
+        async soanHangPrintEnabled() {
+            try {
+                const list = await _orderTagList();
+                const t = list.find((x) => (x.trigger || x.code) === 'soan_hang');
+                if (!t) return true; // chưa seed (chưa deploy) → cho in
+                const active = t.isActive != null ? t.isActive : t.is_active;
+                return active !== false;
+            } catch {
+                return true;
+            }
         },
 
         /** Tăng print_count (số lần in tem) cho các SP → tránh in tem trùng. */
