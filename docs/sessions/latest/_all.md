@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7cd62c2` — security: gỡ nốt api_key SePay dead khỏi service-costs (worker không validate)
-**Last updated**: 2026-07-01 05:51:14 +07
-**Latest session**: [`RESUME:20260701-055114-7cd62c2`](../20260701-055114-7cd62c2.md)
-**Summary**: security: gỡ nốt api_key SePay dead khỏi service-costs (worker không validate)
+**Latest commit**: `3868f6b` — auto: session update
+**Last updated**: 2026-07-01 06:19:21 +07
+**Latest session**: [`RESUME:20260701-061921-3868f6b`](../20260701-061921-3868f6b.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`service-costs/`](./service-costs.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 00:24
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 00:24
+- [`docs/`](./docs.md) — updated 2026-07-01 06:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -81,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-30 23:10
+- [`web2/`](./web2.md) — updated 2026-07-01 06:19
