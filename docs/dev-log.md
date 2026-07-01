@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [goods-weight] Thanh lọc báo cáo → drawer (Web2Drawer edge-toggle "BỘ LỌC")
+
+**Files:** `web2/goods-weight/js/goods-weight.js` (`ensureFilterDrawer`/`showTab`/`selectMonth`/`setPreset`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (bump v=20260701c).
+
+Theo yêu cầu user: `.rp-bar` (12 tháng + từ/đến ngày + nhân viên + preset + đơn giá ship) chiếm nhiều chỗ trên đầu báo cáo → **chuyển vào drawer** (tái dùng `Web2Drawer` với `toggle:{label:'BỘ LỌC',icon:'filter'}` — nút mép phải như native-orders).
+
+- `ensureFilterDrawer()` (setupReport): tạo drawer phải + **`appendChild` chính element `.rp-bar`** vào body drawer → wiring theo ID (`buildMonths`, filter listeners) còn nguyên, không re-wire. CSS `.w2dw-body .rp-bar` bỏ chrome card.
+- Toggle chỉ hiện ở tab Báo cáo (`showTab` gọi `showToggle`); rời tab → đóng drawer + ẩn toggle. Chọn tháng/preset = auto-đóng (xong → xem bảng ngay).
+- Verify browser: bar vào drawer (12 tháng, 2 date, 4 preset, NV), toggle "BỘ LỌC" hiện/ẩn đúng tab, preset 30 ngày auto-close → 2 hàng+thumbnail, photo-drawer vẫn mở song song OK, 0 console error.
+
+Status: ✅
+
 ### [so-order + live-control] Hiện `return_qty` (thu về chờ duyệt) → tránh đặt dư NCC
 
 **Files:** `so-order/js/so-order-receive.js` · `render.com/routes/web2-products.js` (restock-needed) · `web2/shared/web2-live-tv-display.js` · `web2/live-control/js/live-control.js` · `web2/live-control/css/live-control.css`.
