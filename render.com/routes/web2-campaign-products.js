@@ -320,8 +320,11 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                 `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0))
-                          FILTER (WHERE COALESCE(n.phone, '') = ''
-                                    AND COALESCE(n.address, '') = '') AS new_cust
+                          -- M2 fix (audit 2026-07-01): TRIM để khớp cart-detail (JS .trim()) →
+                          -- badge MỚI trên board = số row popup KH-MỚI, không lệch với
+                          -- address/phone toàn khoảng trắng.
+                          FILTER (WHERE COALESCE(TRIM(n.phone), '') = ''
+                                    AND COALESCE(TRIM(n.address), '') = '') AS new_cust
                  FROM native_orders n, jsonb_array_elements(n.products) prod
                  WHERE COALESCE(prod->>'productCode', prod->>'code') = ANY($1::text[])
                    AND n.status = 'draft'
