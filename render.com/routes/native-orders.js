@@ -382,6 +382,14 @@ async function ensureTables(pool) {
             -- yeu cau KH ...). Save modal ghi vao user_note, KHONG dung note.
             ALTER TABLE native_orders
                 ADD COLUMN IF NOT EXISTS user_note TEXT;
+
+            -- Migration 082 (#2 + H4): parent_campaign_id — chiến dịch CHA span 2
+            -- page. 1 bài (fb_post_id) → 1 cha (web2_live_post_assign.campaign_id).
+            -- Là KEY NHÓM thống nhất cho campaign_stt (put-wall) + gộp giỏ cross-page.
+            ALTER TABLE native_orders
+                ADD COLUMN IF NOT EXISTS parent_campaign_id BIGINT;
+            CREATE INDEX IF NOT EXISTS idx_native_orders_parent_campaign
+                ON native_orders(parent_campaign_id, campaign_stt);
         `);
 
         // Backfill existing rows with display_stt (one-shot, ordered by created_at ASC)
@@ -498,6 +506,50 @@ async function ensureTables(pool) {
                         UPDATE native_orders SET campaign_stt = counter WHERE id = r.id;
                     END LOOP;
                     INSERT INTO native_orders_migrations(name) VALUES ('080_backfill_campaign_stt');
+                END IF;
+            END $$;
+        `);
+        // Migration 082 (#2 + H4): backfill parent_campaign_id từ web2_live_post_assign
+        // rồi RE-NUMBER campaign_stt theo group key mới (parent → name-group → live_id).
+        // Beta data-safe (user chốt 2026-07-01): đơn cũ được đánh lại STT theo cha.
+        // Self-gated; guard bảng post_assign chưa tồn tại (fresh DB).
+        await pool.query(`
+            DO $$
+            DECLARE r RECORD; current_group TEXT; counter INTEGER; has_assign BOOLEAN;
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM native_orders_migrations
+                    WHERE name = '082_parent_campaign_and_stt_rekey'
+                ) THEN
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'web2_live_post_assign'
+                    ) INTO has_assign;
+                    IF has_assign THEN
+                        UPDATE native_orders o
+                        SET parent_campaign_id = pa.campaign_id
+                        FROM web2_live_post_assign pa
+                        WHERE o.fb_post_id = pa.post_id
+                          AND o.parent_campaign_id IS NULL
+                          AND pa.campaign_id IS NOT NULL;
+                    END IF;
+                    current_group := NULL; counter := 0;
+                    FOR r IN
+                        SELECT id, COALESCE(
+                            NULLIF(parent_campaign_id::text, ''),
+                            NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+                            live_campaign_id, 'NO_CAMPAIGN') AS grp
+                        FROM native_orders
+                        ORDER BY 2, created_at ASC
+                    LOOP
+                        IF current_group IS DISTINCT FROM r.grp THEN
+                            current_group := r.grp; counter := 1;
+                        ELSE
+                            counter := counter + 1;
+                        END IF;
+                        UPDATE native_orders SET campaign_stt = counter WHERE id = r.id;
+                    END LOOP;
+                    INSERT INTO native_orders_migrations(name) VALUES ('082_parent_campaign_and_stt_rekey');
                 END IF;
             END $$;
         `);
@@ -718,6 +770,56 @@ async function lockCampaignSttKey(client, campaignKey) {
     ]);
 }
 
+// #2 + H4 (2026-07-01): chiến dịch CHA span 2 page (NhiJudy Store + House).
+// 1 bài Facebook (fb_post_id) → 1 chiến dịch cha (web2_live_post_assign.campaign_id).
+// Resolve best-effort: bài chưa gán / bảng chưa tồn tại → null (rơi về key cũ).
+async function resolveParentCampaignId(db, fbPostId) {
+    if (!fbPostId) return null;
+    try {
+        const r = await db.query(
+            'SELECT campaign_id FROM web2_live_post_assign WHERE post_id = $1 LIMIT 1',
+            [String(fbPostId)]
+        );
+        const cid = r.rows[0]?.campaign_id;
+        return cid != null ? cid : null;
+    } catch (_) {
+        return null; // bảng chưa tồn tại (fresh DB) hoặc lỗi → best-effort
+    }
+}
+
+// KEY NHÓM CHIẾN DỊCH THỐNG NHẤT (1 nguồn) cho campaign_stt + advisory lock.
+// Ưu tiên: parent_campaign_id (cha, gộp 2 page) → name-group (strip STORE/HOUSE,
+// backward-compat khi bài chưa gán cha) → live_campaign_id (per-post) → 'NO_CAMPAIGN'.
+// JS-side này PHẢI khớp precedence của SQL_CAMPAIGN_GROUP_ROW bên dưới.
+function campaignGroupKeyJs(parentCampaignId, liveCampaignName, liveCampaignId) {
+    if (parentCampaignId != null && String(parentCampaignId) !== '')
+        return String(parentCampaignId);
+    const ng = String(liveCampaignName || '')
+        .replace(/^(STORE|HOUSE)\s+/i, '')
+        .trim();
+    if (ng) return ng;
+    if (liveCampaignId) return String(liveCampaignId);
+    return 'NO_CAMPAIGN';
+}
+
+// Biểu thức SQL group key cho 1 ROW native_orders (dùng trong subquery MAX+1 của
+// campaign_stt). Khớp precedence campaignGroupKeyJs. parent_campaign_id::text ''
+// không xảy ra (BIGINT) nhưng giữ NULLIF cho an toàn.
+const SQL_CAMPAIGN_GROUP_ROW = `COALESCE(
+    NULLIF(parent_campaign_id::text, ''),
+    NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+    live_campaign_id,
+    'NO_CAMPAIGN')`;
+
+// Biểu thức SQL group key cho ĐƠN MỚI từ params ($parent, $name, $liveId).
+function sqlCampaignGroupFromParams(pParent, pName, pLiveId) {
+    return `COALESCE(
+        NULLIF(${pParent}::text, ''),
+        NULLIF(TRIM(REGEXP_REPLACE(COALESCE(${pName}::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+        ${pLiveId},
+        'NO_CAMPAIGN')`;
+}
+
 async function nextSessionIndex(pool, fbUserId) {
     if (!fbUserId) return 1;
     const r = await pool.query(
@@ -871,128 +973,18 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
             }
         }
 
-        // ============================================================
-        // MERGE LOGIC (Feature 2): nếu khách đã có đơn DRAFT trong
-        // chiến dịch hiện tại → append comment + message vào đơn cũ,
-        // không tạo đơn mới.
-        // ============================================================
-        if (b.fbUserId && b.liveCampaignId) {
-            // CHỈ merge vào đơn 'draft' — KHÔNG merge vào 'confirmed' (đã PBH).
-            // Lý do: sau khi PBH success, đơn phải bị LOCK. User muốn thêm SP nữa
-            // phải tạo đơn mới (drag SP lên panel → cart tạo draft mới) hoặc
-            // hủy PBH. Trước đây cho merge 'confirmed' → vô tình unlock đơn đã PBH.
-            const draft = await pool.query(
-                `SELECT * FROM native_orders
-                 WHERE fb_user_id = $1
-                   AND live_campaign_id = $2
-                   AND status = 'draft'
-                 ORDER BY created_at DESC
-                 LIMIT 1`,
-                [b.fbUserId, b.liveCampaignId]
-            );
-            if (draft.rows.length > 0) {
-                const src = draft.rows[0];
-                const newCommentIds = Array.from(
-                    new Set([
-                        ...(src.comment_ids || []),
-                        ...(src.fb_comment_id ? [src.fb_comment_id] : []),
-                        ...(b.fbCommentId ? [b.fbCommentId] : []),
-                    ])
-                );
-                // Prefix '[Tên Page]' vào mỗi line note → user phân biệt
-                // comment đến từ page nào khi gộp nhiều page về 1 KH.
-                const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
-                const appendedNote = b.message
-                    ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
-                    : src.note;
-                // 2026-06-09: merge brings phone → upsert vào KHO KH web2_customers
-                // (KHÔNG hệ cũ). Same logic as fresh create above.
-                const mergedPhone = b.phone || src.phone;
-                let mergedCustomerId = src.customer_id;
-                if (mergedPhone && !mergedCustomerId) {
-                    try {
-                        const created = await getOrCreateWeb2OrderCustomer(pool, mergedPhone, {});
-                        mergedCustomerId = created?.customerId || null;
-                    } catch (e) {
-                        console.warn('[native-orders] merge customer sync failed:', e.message);
-                        mergedCustomerId = await lookupCustomerIdByPhone(pool, mergedPhone).catch(
-                            () => null
-                        );
-                    }
-                }
-                // Self-heal FB context: nếu draft cũ thiếu fb_page_id/fb_post_id
-                // (vd đơn tạo từ drag SP trước fix 6b05bc3cb có ctx NULL), điền
-                // từ request mới — KHÔNG override nếu draft đã có giá trị.
-                const updated = await pool.query(
-                    `UPDATE native_orders
-                     SET note = $1,
-                         comment_ids = $2::jsonb,
-                         comment_count = comment_count + 1,
-                         message_count = COALESCE(message_count, 0) + 1,
-                         customer_id = COALESCE(customer_id, $5),
-                         fb_user_name = COALESCE(fb_user_name, $6),
-                         fb_page_id   = COALESCE(fb_page_id,   $7),
-                         fb_page_name = COALESCE(fb_page_name, $8),
-                         fb_post_id   = COALESCE(fb_post_id,   $9),
-                         fb_comment_id= COALESCE(fb_comment_id,$10),
-                         live_campaign_name = COALESCE(live_campaign_name, $11),
-                         updated_at = $3
-                     WHERE id = $4
-                     RETURNING *`,
-                    [
-                        appendedNote,
-                        JSON.stringify(newCommentIds),
-                        Date.now(),
-                        src.id,
-                        mergedCustomerId,
-                        b.fbUserName || null,
-                        b.fbPageId || null,
-                        b.fbPageName || null,
-                        b.fbPostId || null,
-                        b.fbCommentId || null,
-                        b.liveCampaignName || null,
-                    ]
-                );
-                const order = mapRowToOrder(updated.rows[0]);
-                // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
-                _notify('comment-merged', order.code);
-                return res.json({ success: true, order, merged: true });
-            }
-        }
+        // #2 + H4 (2026-07-01): resolve chiến dịch CHA (span 2 page) + KH cross-page
+        // TRƯỚC merge → gộp giỏ theo (customer_id | fb_user_id) + parent_campaign_id.
+        const parentCampaignId = await resolveParentCampaignId(pool, b.fbPostId);
 
-        const now = Date.now();
-        // Mã đơn sinh trong insertWithCodeRetry (retry nếu đụng mã do race).
-        const sessionIndex = await nextSessionIndex(pool, b.fbUserId);
-
-        // Campaign group key (JS-side) cho advisory lock — phải khớp logic SQL
-        // bên dưới: bỏ prefix 'STORE '/'HOUSE ' của live_campaign_name; fallback
-        // live_campaign_id; cuối cùng 'NO_CAMPAIGN'.
-        const _campaignGroupKey =
-            (b.liveCampaignName || '').replace(/^(STORE|HOUSE)\s+/i, '').trim() ||
-            b.liveCampaignId ||
-            'NO_CAMPAIGN';
-
-        // Note format: '[timestamp] [Tên Page] message' — page name giúp phân
-        // biệt khi sau gộp comment từ nhiều page về 1 KH.
-        const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
-        const note = b.note
-            ? b.note
-            : b.message
-              ? `[${new Date().toLocaleString('vi-VN')}] ${pageTag}${String(b.message).slice(0, 500)}`
-              : null;
-
-        // Resolve KH từ kho warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG
-        // hệ cũ, KHÔNG Web 1.0:
-        //   1. Có b.phone → get/create KH trong warehouse theo SĐT.
-        //   2. Không SĐT nhưng có b.fbUserId → lookup warehouse theo fb_id, enrich
-        //      phone/name/address vào đơn.
-        //   3. Không tìm thấy → để trống, UI hiện "Khách lạ" (KH sẽ được tạo khi
-        //      có SĐT).
+        // Resolve KH từ kho warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG Web 1.0:
+        //   1. Có b.phone → get/create KH theo SĐT (customer_id CROSS-PAGE theo SĐT).
+        //   2. Không SĐT nhưng có b.fbUserId → lookup theo fb_id (page-scoped), enrich.
+        //   3. Không tìm thấy → để trống, UI hiện "Khách lạ".
         let customerId = null;
         let enrichedPhone = b.phone || null;
         let enrichedName = b.fbUserName || null;
         let enrichedAddress = b.address || null;
-
         if (b.phone) {
             try {
                 const created = await getOrCreateWeb2OrderCustomer(pool, b.phone, {
@@ -1009,8 +1001,6 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                 customerId = await lookupCustomerIdByPhone(pool, b.phone).catch(() => null);
             }
         } else if (b.fbUserId) {
-            // Phone trống → lookup kho KH warehouse theo fb_id. KHÔNG hệ cũ
-            // (warehouse là nguồn duy nhất; KH lạ chưa SĐT → để trống, UI tự xử).
             try {
                 const r = await pool.query(
                     'SELECT id, name, phone, address FROM web2_customers WHERE fb_id = $1 LIMIT 1',
@@ -1026,6 +1016,111 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                 console.warn('[native-orders] fb_id warehouse lookup failed:', e.message);
             }
         }
+
+        // ============================================================
+        // MERGE LOGIC (Feature 2 + #2 cross-page): nếu khách đã có đơn
+        // DRAFT trong CHIẾN DỊCH CHA hiện tại → append comment + message
+        // vào đơn cũ, không tạo đơn mới. Identity: customer_id (cross-page
+        // theo SĐT) HOẶC fb_user_id (page-scoped fallback). Gate: parent
+        // campaign (span 2 page) HOẶC live_campaign_id (per-post fallback).
+        // ============================================================
+        if (b.fbUserId && (b.liveCampaignId || parentCampaignId != null)) {
+            // CHỈ merge vào đơn 'draft' — KHÔNG merge vào 'confirmed' (đã PBH).
+            // Lý do: sau khi PBH success, đơn phải bị LOCK. User muốn thêm SP nữa
+            // phải tạo đơn mới (drag SP lên panel → cart tạo draft mới) hoặc
+            // hủy PBH. Trước đây cho merge 'confirmed' → vô tình unlock đơn đã PBH.
+            const draft = await pool.query(
+                `SELECT * FROM native_orders
+                 WHERE status = 'draft'
+                   AND (customer_id = $1 OR fb_user_id = $2)
+                   AND (parent_campaign_id = $3 OR live_campaign_id = $4)
+                 ORDER BY created_at DESC
+                 LIMIT 1`,
+                [customerId, b.fbUserId, parentCampaignId, b.liveCampaignId || null]
+            );
+            if (draft.rows.length > 0) {
+                const src = draft.rows[0];
+                const newCommentIds = Array.from(
+                    new Set([
+                        ...(src.comment_ids || []),
+                        ...(src.fb_comment_id ? [src.fb_comment_id] : []),
+                        ...(b.fbCommentId ? [b.fbCommentId] : []),
+                    ])
+                );
+                // Prefix '[Tên Page]' vào mỗi line note → user phân biệt
+                // comment đến từ page nào khi gộp nhiều page về 1 KH.
+                const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
+                const appendedNote = b.message
+                    ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
+                    : src.note;
+                // #2 (2026-07-01): customer_id đã resolve up-front theo b.phone. Giữ của
+                // draft nếu đã có, else điền customerId mới (đơn ẩn danh nay có SĐT).
+                const mergedCustomerId = src.customer_id || customerId;
+                // Self-heal FB context + parent_campaign_id: draft cũ thiếu → điền từ
+                // request mới; KHÔNG override nếu draft đã có giá trị (COALESCE).
+                const updated = await pool.query(
+                    `UPDATE native_orders
+                     SET note = $1,
+                         comment_ids = $2::jsonb,
+                         comment_count = comment_count + 1,
+                         message_count = COALESCE(message_count, 0) + 1,
+                         customer_id = COALESCE(customer_id, $5),
+                         fb_user_name = COALESCE(fb_user_name, $6),
+                         fb_page_id   = COALESCE(fb_page_id,   $7),
+                         fb_page_name = COALESCE(fb_page_name, $8),
+                         fb_post_id   = COALESCE(fb_post_id,   $9),
+                         fb_comment_id= COALESCE(fb_comment_id,$10),
+                         live_campaign_name = COALESCE(live_campaign_name, $11),
+                         parent_campaign_id = COALESCE(parent_campaign_id, $12),
+                         updated_at = $3
+                     WHERE id = $4
+                     RETURNING *`,
+                    [
+                        appendedNote,
+                        JSON.stringify(newCommentIds),
+                        Date.now(),
+                        src.id,
+                        mergedCustomerId,
+                        b.fbUserName || null,
+                        b.fbPageId || null,
+                        b.fbPageName || null,
+                        b.fbPostId || null,
+                        b.fbCommentId || null,
+                        b.liveCampaignName || null,
+                        parentCampaignId,
+                    ]
+                );
+                const order = mapRowToOrder(updated.rows[0]);
+                // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
+                _notify('comment-merged', order.code);
+                return res.json({ success: true, order, merged: true });
+            }
+        }
+
+        const now = Date.now();
+        // Mã đơn sinh trong insertWithCodeRetry (retry nếu đụng mã do race).
+        const sessionIndex = await nextSessionIndex(pool, b.fbUserId);
+
+        // Campaign group key (JS-side) cho advisory lock — helper 1 nguồn
+        // (parent_campaign_id → name-group STORE/HOUSE → live_campaign_id). PHẢI
+        // khớp precedence SQL_CAMPAIGN_GROUP_ROW dùng trong subquery campaign_stt.
+        const _campaignGroupKey = campaignGroupKeyJs(
+            parentCampaignId,
+            b.liveCampaignName,
+            b.liveCampaignId
+        );
+
+        // Note format: '[timestamp] [Tên Page] message' — page name giúp phân
+        // biệt khi sau gộp comment từ nhiều page về 1 KH.
+        const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
+        const note = b.note
+            ? b.note
+            : b.message
+              ? `[${new Date().toLocaleString('vi-VN')}] ${pageTag}${String(b.message).slice(0, 500)}`
+              : null;
+
+        // (customerId + enrichedPhone/Name/Address + parentCampaignId đã resolve
+        // up-front, TRƯỚC merge — xem block "#2 + H4" ở trên.)
 
         // Per-campaign STT: subquery MAX+1 scoped theo "campaign group key" — gộp
         // các campaign cùng tên sau khi bỏ prefix STORE/HOUSE (case-insensitive).
@@ -1046,12 +1141,14 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                 // cùng fbUser+campaign đều thấy "chưa có draft" → 2 đơn trùng.
                 // Giờ request thứ 2 (sau khi chờ lock) thấy draft của request 1
                 // đã COMMIT → MERGE vào nó thay vì INSERT (atomic trong cùng lock).
-                if (b.fbUserId && b.liveCampaignId) {
+                if (b.fbUserId && (b.liveCampaignId || parentCampaignId != null)) {
                     const lateDraft = await client.query(
                         `SELECT * FROM native_orders
-                         WHERE fb_user_id = $1 AND live_campaign_id = $2 AND status = 'draft'
+                         WHERE status = 'draft'
+                           AND (customer_id = $1 OR fb_user_id = $2)
+                           AND (parent_campaign_id = $3 OR live_campaign_id = $4)
                          ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-                        [b.fbUserId, b.liveCampaignId]
+                        [customerId, b.fbUserId, parentCampaignId, b.liveCampaignId || null]
                     );
                     if (lateDraft.rows.length > 0) {
                         const src = lateDraft.rows[0];
@@ -1077,6 +1174,7 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                                  fb_page_name = COALESCE(fb_page_name, $8),
                                  fb_post_id = COALESCE(fb_post_id, $9),
                                  fb_comment_id = COALESCE(fb_comment_id, $10),
+                                 parent_campaign_id = COALESCE(parent_campaign_id, $11),
                                  updated_at = $3
                              WHERE id = $4 RETURNING *`,
                             [
@@ -1090,6 +1188,7 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                                 b.fbPageName || null,
                                 b.fbPostId || null,
                                 b.fbCommentId || null,
+                                parentCampaignId,
                             ]
                         );
                         await client.query('COMMIT');
@@ -1104,28 +1203,21 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                         products, total_quantity, total_amount,
                         status, tags,
                         live_campaign_id, live_campaign_name,
-                        customer_id,
+                        customer_id, parent_campaign_id,
                         created_by, created_by_name, created_at, updated_at
                     ) VALUES (
                         $1, $2, nextval('native_orders_display_stt_seq'),
                         (SELECT COALESCE(MAX(campaign_stt), 0) + 1
                          FROM native_orders
-                         WHERE COALESCE(
-                             NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
-                             live_campaign_id,
-                             'NO_CAMPAIGN'
-                         ) = COALESCE(
-                             NULLIF(TRIM(REGEXP_REPLACE(COALESCE($13::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
-                             $12,
-                             'NO_CAMPAIGN'
-                         )),
+                         WHERE ${SQL_CAMPAIGN_GROUP_ROW}
+                             = ${sqlCampaignGroupFromParams('$18', '$13', '$12')}),
                         'NATIVE_WEB',
                         $3, $4, $5, $6,
                         $7, $8, $9, $10, $11,
                         '[]'::jsonb, 0, 0,
                         'draft', '[]'::jsonb,
                         $12, $13,
-                        $14,
+                        $14, $18::bigint,
                         $15, $16, $17, $17
                     ) RETURNING *`,
                     [
@@ -1149,6 +1241,7 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                         b.createdBy || null,
                         b.createdByName || null,
                         now,
+                        parentCampaignId,
                     ]
                 );
                 await client.query('COMMIT');
@@ -2854,10 +2947,18 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
 
         const now = Date.now();
 
-        // Merge tạo đơn mới → cấp campaign_stt mới scope theo base.live_campaign_id.
-        // H14: advisory lock theo campaign key (khớp scope subquery COALESCE(
-        // live_campaign_id,'NO_CAMPAIGN') bên dưới) → MAX+1 campaign_stt tuần tự.
-        await lockCampaignSttKey(client, base.live_campaign_id);
+        // Merge tạo đơn mới → cấp campaign_stt mới scope theo CHIẾN DỊCH CHA (H4).
+        // H14 + #2 (2026-07-01): advisory lock + subquery MAX+1 dùng group key
+        // THỐNG NHẤT (parent_campaign_id → name-group → live_campaign_id) như
+        // from-comment → merge KHÔNG còn cấp STT lệch scope 1 page (bug MP1/CAMP-1).
+        await lockCampaignSttKey(
+            client,
+            campaignGroupKeyJs(
+                base.parent_campaign_id,
+                base.live_campaign_name,
+                base.live_campaign_id
+            )
+        );
         // C7: mã NJ (giờ VN) MAX-based + retry 23505 qua SAVEPOINT — COUNT+1 cũ
         // sinh mã trùng vì /merge DELETE đơn nguồn làm COUNT < MAX.
         const ins = await insertWithCodeRetryTx(client, (newCode) =>
@@ -2869,20 +2970,21 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
                 products, total_quantity, total_amount,
                 status, live_campaign_id, live_campaign_name,
                 customer_id, comment_ids, comment_count,
-                merged_display_stt, merged_codes,
+                merged_display_stt, merged_codes, parent_campaign_id,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
                 $1, nextval('native_orders_display_stt_seq'),
                 (SELECT COALESCE(MAX(campaign_stt), 0) + 1
                  FROM native_orders
-                 WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = COALESCE($13, 'NO_CAMPAIGN')),
+                 WHERE ${SQL_CAMPAIGN_GROUP_ROW}
+                     = ${sqlCampaignGroupFromParams('$23', '$14', '$13')}),
                 'NATIVE_WEB',
                 $2, $3, $4, $5,
                 $6, $7, $8, $9,
                 $10, $11, $12,
                 'draft', $13, $14,
                 $15, $16, $17,
-                $18, $19,
+                $18, $19, $23::bigint,
                 $20, $21, $22, $22
             ) RETURNING *`,
                 [
@@ -2908,6 +3010,7 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
                     base.created_by,
                     base.created_by_name,
                     now,
+                    base.parent_campaign_id,
                 ]
             )
         );
