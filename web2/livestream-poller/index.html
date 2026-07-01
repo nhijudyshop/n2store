@@ -117,20 +117,39 @@
                     <div class="lp-card">
                         <h2>Trang tự lấy comment</h2>
                         <div id="lpList"><div class="lp-sub">Đang tải…</div></div>
-                        <div class="lp-form">
-                            <input
-                                id="lpPageId"
-                                placeholder="Page ID (vd 270136663390370)"
-                                style="width: 220px"
-                            />
-                            <input id="lpPageName" placeholder="Tên trang" style="width: 160px" />
-                            <input
-                                id="lpPageUrl"
-                                placeholder="URL facebook (tuỳ chọn)"
-                                style="flex: 1; min-width: 180px"
-                            />
-                            <button class="lp-btn" id="lpAdd">+ Thêm trang</button>
+
+                        <!-- Picker: chọn từ page Pancake đã đồng bộ (không cần gõ ID tay). -->
+                        <div class="lp-form" id="lpPickWrap" hidden>
+                            <select id="lpPagePick" style="flex: 1; min-width: 240px">
+                                <option value="">— Chọn trang Pancake để bật lấy comment —</option>
+                            </select>
+                            <button class="lp-btn" id="lpAddPick">+ Bật lấy comment</button>
                         </div>
+                        <p class="lp-sub" id="lpPickHint" style="margin: 6px 0 0" hidden></p>
+
+                        <details style="margin-top: 12px">
+                            <summary class="lp-sub" style="cursor: pointer">
+                                Nhập thủ công (nâng cao)
+                            </summary>
+                            <div class="lp-form">
+                                <input
+                                    id="lpPageId"
+                                    placeholder="Page ID (vd 270136663390370)"
+                                    style="width: 220px"
+                                />
+                                <input
+                                    id="lpPageName"
+                                    placeholder="Tên trang"
+                                    style="width: 160px"
+                                />
+                                <input
+                                    id="lpPageUrl"
+                                    placeholder="URL facebook (tuỳ chọn)"
+                                    style="flex: 1; min-width: 180px"
+                                />
+                                <button class="lp-btn" id="lpAdd">+ Thêm trang</button>
+                            </div>
+                        </details>
                     </div>
 
                     <p class="lp-sub" style="margin-top: 4px">
@@ -185,6 +204,9 @@
                         // GET /poller-pages soft-gated → PHẢI gửi x-web2-token (_httpJson).
                         const d = await _httpJson(`${API}/poller-pages`).then((r) => r.json());
                         const rows = d.data || [];
+                        // Cập nhật tập page đã cấu hình → picker disable/ẩn các trang đã bật.
+                        _configuredIds = new Set(rows.map((p) => String(p.page_id)));
+                        renderPickerOptions();
                         if (!rows.length) {
                             list.innerHTML = '<div class="lp-sub">Chưa có trang nào.</div>';
                             return;
@@ -369,8 +391,108 @@
                         .catch((err) => notify('Lỗi thêm trang: ' + err.message, 'error'));
                 });
 
+                // ---- Page picker: chọn từ page Pancake đã đồng bộ (khỏi gõ ID tay) ----
+                // Nguồn = cùng endpoint Web2Chat.listPages() dùng (worker + JWT Pancake
+                // ở localStorage). Không kéo cả bundle chat 7-script chỉ để list page.
+                let _pancakePages = [];
+                let _configuredIds = new Set();
+                const WORKER =
+                    window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+                function renderPickerOptions() {
+                    const sel = $('#lpPagePick');
+                    if (!sel || !_pancakePages.length) return;
+                    const avail = _pancakePages.filter((p) => !_configuredIds.has(String(p.id)));
+                    sel.innerHTML =
+                        '<option value="">— Chọn trang Pancake để bật lấy comment —</option>' +
+                        avail
+                            .map(
+                                (p) =>
+                                    `<option value="${esc(p.id)}" data-name="${esc(p.name || '')}">${esc(p.name || p.id)} (${esc(p.id)})</option>`
+                            )
+                            .join('');
+                    const hint = $('#lpPickHint');
+                    if (hint && !avail.length) {
+                        hint.hidden = false;
+                        hint.textContent = 'Mọi trang Pancake đã bật lấy comment.';
+                    } else if (hint) {
+                        hint.hidden = true;
+                    }
+                }
+
+                async function loadPancakePages() {
+                    const jwt = localStorage.getItem('pancake_jwt_token');
+                    const hint = $('#lpPickHint');
+                    if (!jwt) {
+                        // Chưa cấu hình Pancake → chỉ nhập tay. Chỉ hint, không lỗi.
+                        if (hint) {
+                            hint.hidden = false;
+                            hint.innerHTML =
+                                'Đăng nhập Pancake ở <a href="../pancake-settings/index.html">Cài đặt Pancake</a> để chọn nhanh (khỏi gõ ID).';
+                        }
+                        return;
+                    }
+                    try {
+                        const r = await fetch(
+                            `${WORKER}/api/pancake/pages?access_token=${encodeURIComponent(jwt)}`
+                        );
+                        const d = await r.json();
+                        _pancakePages =
+                            d?.categorized?.activated ||
+                            d?.pages ||
+                            (Array.isArray(d) ? d : []) ||
+                            [];
+                        if (_pancakePages.length) {
+                            $('#lpPickWrap').hidden = false;
+                            renderPickerOptions();
+                        }
+                    } catch (e) {
+                        if (hint) {
+                            hint.hidden = false;
+                            hint.textContent =
+                                'Không tải được danh sách page Pancake — nhập tay bên dưới.';
+                        }
+                    }
+                }
+
+                // Chọn 1 page trong dropdown → thêm thẳng vào /poller-pages (UI-first).
+                $('#lpAddPick').addEventListener('click', () => {
+                    const sel = $('#lpPagePick');
+                    const pageId = sel.value.trim();
+                    if (!pageId) return notify('Chọn một trang', 'error');
+                    const opt = sel.selectedOptions[0];
+                    const pageName = (opt && opt.dataset.name) || null;
+                    const doAdd = () =>
+                        _httpJson(`${API}/poller-pages`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pageId, pageName }),
+                        });
+                    if (window.Web2Optimistic?.run) {
+                        window.Web2Optimistic.run({
+                            apply: () => {
+                                sel.value = '';
+                            },
+                            run: doAdd,
+                            onSuccess: () => loadPages(), // sync list + picker (bỏ trang vừa bật)
+                            successMsg: 'Đã bật lấy comment',
+                            errLabel: 'bật lấy comment',
+                        });
+                        return;
+                    }
+                    doAdd()
+                        .then(() => {
+                            sel.value = '';
+                            loadPages();
+                            notify('Đã bật lấy comment', 'success');
+                        })
+                        .catch((err) => notify('Lỗi: ' + err.message, 'error'));
+                });
+
                 loadStat();
                 loadPages();
+                loadPancakePages();
                 // Poll stat 15s = fallback an toàn (GIỮ). Thêm SSE để loadStat NGAY khi
                 // poller push comment mới (web2:live-comments) — số liệu cập nhật realtime.
                 setInterval(loadStat, 15000);

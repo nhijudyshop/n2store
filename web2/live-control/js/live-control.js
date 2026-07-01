@@ -13,8 +13,9 @@
         search: '',
         pickerRegion: '', // lọc picker theo ĐỊA DANH ('' = tất cả)
         showRegion: true, // ẩn/hiện chip+badge địa danh (localStorage lc_show_region)
-        // điều khiển màn TV (layout + trang) + địa danh CHO VƯỢT (vùng được đặt vượt NCC)
-        tvControl: { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' },
+        // điều khiển màn TV (layout + trang). ponytail: field `region` (CHO VƯỢT) đã
+        // gỡ 2026-07-01 (M10) — selector bỏ 2026-06-30, không phép tính/badge nào đọc.
+        tvControl: { rows: 1, cols: 4, page: 0 },
     };
     var boardTimer = null;
     var searchTimer = null;
@@ -44,24 +45,7 @@
             .trim()
             .toUpperCase();
     }
-    // CHỈ admin được đổi địa danh CHO VƯỢT (quyết định vùng nào được đặt VƯỢT NCC
-    // + cách tính CÒN trên màn TV đang chiếu). Web2Perm là nguồn chuẩn (role='admin');
-    // fallback đọc session khi module chưa load (defensive, không chặn nhầm admin).
-    function isAdmin() {
-        try {
-            if (window.Web2Perm && typeof window.Web2Perm.isAdmin === 'function')
-                return window.Web2Perm.isAdmin();
-            var u =
-                (window.Web2Auth &&
-                    window.Web2Auth.getStored &&
-                    window.Web2Auth.getStored()?.user) ||
-                (window.Web2UserInfo && window.Web2UserInfo.get && window.Web2UserInfo.get()) ||
-                null;
-            return !!u && String(u.role || '').toLowerCase() === 'admin';
-        } catch (_) {
-            return false;
-        }
-    }
+    // ponytail: isAdmin() gỡ (M10, 2026-07-01) — chỉ dùng gate selector CHO VƯỢT đã bỏ.
 
     // ── Campaigns ─────────────────────────────────────
     async function loadCampaigns(selectId) {
@@ -435,54 +419,8 @@
             b.disabled =
                 op === 'first' || op === 'prev' ? pg.page <= 0 : pg.page >= pg.totalPages - 1;
         });
-        // Selector địa danh CHO VƯỢT — options = địa danh trong board + hiện tại.
-        // CHỈ admin chỉnh được: non-admin → disabled (read-only) + hint khoá.
-        var rsel = $('lcRegion');
-        if (rsel) {
-            rsel.innerHTML = regionOptions()
-                .map(function (rr) {
-                    return (
-                        '<option value="' +
-                        esc(rr) +
-                        '"' +
-                        (normRegion(rr) === normRegion(tc.region) ? ' selected' : '') +
-                        '>' +
-                        esc(rr) +
-                        '</option>'
-                    );
-                })
-                .join('');
-            var admin = isAdmin();
-            rsel.disabled = !admin;
-            rsel.classList.toggle('is-locked', !admin);
-            rsel.title = admin
-                ? 'Địa danh CHO VƯỢT (hàng có sẵn — vùng được đặt VƯỢT số NCC báo). Vùng KHÔNG chọn = pre-order (bán mẫu trước, đặt sau).'
-                : '🔒 Chỉ admin được đổi địa danh CHO VƯỢT';
-        }
-    }
-    // Địa danh có thể chọn = địa danh trong board + hiện tại + 2 mặc định phổ biến.
-    function regionOptions() {
-        var seen = {};
-        var out = [];
-        function add(r) {
-            r = String(r || '').trim();
-            if (!r) return;
-            var k = normRegion(r);
-            if (!seen[k]) {
-                seen[k] = 1;
-                out.push(r);
-            }
-        }
-        add(state.tvControl.region);
-        (state.board || []).forEach(function (g) {
-            add(g.region);
-            (g.variants || []).forEach(function (v) {
-                add(v.region);
-            });
-        });
-        add('HƯƠNG CHÂU');
-        add('HÀ NỘI');
-        return out;
+        // ponytail: selector địa danh CHO VƯỢT (#lcRegion) đã gỡ 2026-06-30 + dead
+        // code liên quan gỡ 2026-07-01 (M10 — region không tới phép tính/badge nào).
     }
     async function loadTvControl() {
         if (!state.campaignId) return;
@@ -493,20 +431,17 @@
                     rows: c.rows || 1,
                     cols: c.cols || 4,
                     page: c.page || 0,
-                    region: c.region || 'HƯƠNG CHÂU',
                 };
         } catch (e) {
-            /* default 1×4 + Hương Châu */
+            /* default 1×4 */
         }
         renderTvCtl();
-        if (state.board.length) renderBoard(); // địa danh đổi cột KH ở board
     }
-    // Ghi layout/trang/địa danh → backend + SSE (TV + tab khác cập nhật). Optimistic UI.
+    // Ghi layout/trang → backend + SSE (TV + tab khác cập nhật). Optimistic UI.
     async function saveTvControl(patch) {
         if (!state.campaignId) return;
         state.tvControl = Object.assign({}, state.tvControl, patch);
         renderTvCtl();
-        if (patch && 'region' in patch && state.board.length) renderBoard();
         try {
             await window.Web2Campaign.setTvControl(state.campaignId, patch);
         } catch (e) {
@@ -517,11 +452,6 @@
         rows = Math.max(1, Math.min(6, Math.floor(Number(rows) || 1)));
         cols = Math.max(1, Math.min(10, Math.floor(Number(cols) || 1)));
         saveTvControl({ rows: rows, cols: cols, page: 0 });
-    }
-    function setTvRegion(region) {
-        region = String(region || '').trim();
-        if (!region || region === state.tvControl.region) return;
-        saveTvControl({ region: region });
     }
     function goTvPage(op) {
         var pg = tvPaginate();
@@ -536,15 +466,12 @@
     function applyTvControlSse(d) {
         if (!d) return;
         if (d.campaignId != null && Number(d.campaignId) !== Number(state.campaignId)) return;
-        var oldRegion = state.tvControl.region;
         state.tvControl = {
             rows: Number(d.rows) || state.tvControl.rows,
             cols: Number(d.cols) || state.tvControl.cols,
             page: d.page != null ? Math.max(0, Number(d.page) || 0) : state.tvControl.page,
-            region: d.region != null ? d.region : state.tvControl.region,
         };
         renderTvCtl();
-        if (state.tvControl.region !== oldRegion && state.board.length) renderBoard();
     }
 
     // ── Popup chi tiết GIỎ / KH MỚI (bấm số ở board) ──
@@ -1009,42 +936,8 @@
                 var b = e.target.closest('.lc-navbtn');
                 if (b && !b.disabled) goTvPage(b.dataset.pg);
             });
-        var rsel = $('lcRegion');
-        if (rsel)
-            rsel.addEventListener('change', async function () {
-                var sel = this;
-                var next = sel.value;
-                var cur = state.tvControl.region;
-                if (!next || next === cur) return;
-                // CHỈ admin được đổi (select đã disabled cho non-admin; defensive revert
-                // phòng DOM bị can thiệp).
-                if (!isAdmin()) {
-                    sel.value = cur;
-                    toast('🔒 Chỉ admin được đổi địa danh KH', 'warning');
-                    return;
-                }
-                // CẢNH BÁO trước khi đổi: ảnh hưởng ngay toàn bộ màn TV đang chiếu.
-                var ok = true;
-                if (window.Popup && window.Popup.confirm) {
-                    ok = await window.Popup.confirm(
-                        'Đổi địa danh CHO VƯỢT từ "' +
-                            cur +
-                            '" sang "' +
-                            next +
-                            '"?\n\nĐịa danh CHỌN = hàng có sẵn (lấy về rồi bán) → vùng đó được ĐẶT VƯỢT số NCC báo (badge VƯỢT). Vùng KHÔNG chọn = pre-order (bán mẫu trước, đặt sau). Đổi sẽ ÁP NGAY cho mọi người đang xem màn TV.',
-                        { title: '⚠️ Đổi địa danh CHO VƯỢT', okText: 'Đổi địa danh', danger: true }
-                    );
-                } else {
-                    ok = window.confirm('Đổi địa danh KH sang "' + next + '"?');
-                }
-                if (!ok) {
-                    // Huỷ → trả lại địa danh HIỆN TẠI (đọc state, không phải snapshot cur:
-                    // phòng SSE đổi region trong lúc dialog mở → select khớp state thật).
-                    sel.value = state.tvControl.region;
-                    return;
-                }
-                setTvRegion(next);
-            });
+        // ponytail: wiring selector #lcRegion (CHO VƯỢT) đã gỡ (M10, 2026-07-01) —
+        // selector không còn trong DOM + region không tới phép tính/badge nào.
         // Bàn phím: ←/→ lật trang, Home/End đầu/cuối, Space trang sau (bỏ khi đang gõ).
         document.addEventListener('keydown', function (e) {
             if (!state.campaignId) return;

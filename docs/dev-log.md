@@ -2,6 +2,17 @@
 
 ## 2026-07-01
 
+### [livestream-poller + live-control] #1 picker page Pancake cho poller + M10 gỡ region CHO VƯỢT (dead)
+
+**Files:** `web2/livestream-poller/index.html` (#1 picker), `web2/live-control/js/live-control.js` + `css/live-control.css` + `web2/shared/web2-live-tv-display.js` (M10 dead-code cleanup).
+
+- **#1 (pancake-settings → /poller-pages):** thêm SP dropdown "Chọn trang Pancake để bật lấy comment" ở trang Cài đặt lấy comment Live — khỏi gõ Page ID tay. Nguồn = **cùng endpoint** `Web2Chat.listPages()` dùng (`GET {WORKER}/api/pancake/pages?access_token=<pancake_jwt_token>`), 1 `fetch` KHÔNG kéo bundle chat 7-script. Pick → POST /poller-pages (UI-first). Dedup: ẩn trang đã bật. Không JWT → hint "Đăng nhập Pancake ở Cài đặt Pancake" + nhập tay (nâng cao, collapsed). **Backend không đổi.**
+- **M10 (region/CHO VƯỢT dead — audit CAMPAIGN-AUDIT-2026-07-01):** selector `#lcRegion` đã bỏ 2026-06-30 → còn orphan đọc DOM null + field `region` broadcast/persist vô ích (cả 2 caller `khConModel(v)` không truyền region, `cardState` không region). Gỡ client end-to-end: `tvControl.region` (default/load/save/sse), `regionOptions()`, `setTvRegion()`, block renderTvCtl + wiring `$('lcRegion')`, `isAdmin()` (chỉ gate selector đã bỏ), dead CSS `.lc-tvctl-region/.lc-region-select/.lc-over-badge (VƯỢT +N)`, param `selectedRegion` + export `normRegion` ở shared. **GIỮ:** `pickerRegion` + chip lọc địa danh picker + `.lc-region-badge` + toggle `📍 Địa danh` (feature sống). Server `web2_live_tv_control.region` để lại (inert — tránh migration risk).
+
+**Test:** browser localhost — live-control render sạch, KHÔNG còn selector CHO VƯỢT, toggle 📍 Địa danh còn; poller hiện picker + "+ Bật lấy comment" + hint khỏi gõ ID. `node --check` cả 2 JS OK, không dangling ref.
+
+Status: ✅ (front-end only, chạy ngay Pages)
+
 ### [web2-campaign-manager] Nút "Đồng bộ đơn nháp" — dời đơn nháp theo gán bài hiện tại (fix gán nhầm)
 
 **Files:** `render.com/routes/native-orders.js` (POST /resync-campaigns, admin), `web2/campaign-manager/index.html` + `js/campaign-manager.js` (nút + doResync).

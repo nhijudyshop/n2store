@@ -107,12 +107,6 @@
         };
     }
 
-    function normRegion(s) {
-        return String(s == null ? '' : s)
-            .trim()
-            .toUpperCase();
-    }
-
     // Mô hình TỒN / GIỎ / MỚI / CHỜ HÀNG cho 1 BIẾN THỂ (NGUỒN DUY NHẤT, dùng CHUNG
     // board + TV + preview). Định nghĩa user 2026-06-30 (#2 — bỏ NCC gõ tay):
     //   • TỒN = tồn kho thật (web2_products.stock).
@@ -124,8 +118,8 @@
     // ⚠ 1-NGUỒN CÔNG THỨC "CHỜ HÀNG" (giỏ−tồn): `sold`(GIỎ) = Σ SL draft mỗi code —
     //   khớp `held` (tag cho_hang, web2-order-tags-service.js) + `demand` (/restock-needed,
     //   web2-products.js). Đổi định nghĩa giỏ-vượt-tồn → sửa CẢ 3 cho khớp.
-    // selectedRegion: giữ tham số cho call-compat, KHÔNG còn dùng.
-    function khConModel(v, selectedRegion) {
+    // ponytail: param selectedRegion gỡ (M10, 2026-07-01) — region không tới phép tính.
+    function khConModel(v) {
         var stock = Number(v && v.stock) || 0; // TỒN thật
         var gio = Number(v && v.sold) || 0; // GIỎ nháp
         var moi = Number(v && v.newCust) || 0; // MỚI = SL món khách mới
@@ -151,7 +145,6 @@
         cardState: cardState,
         orderForDisplay: orderForDisplay,
         paginate: paginate,
-        normRegion: normRegion,
         khConModel: khConModel,
     };
 })(typeof window !== 'undefined' ? window : this);

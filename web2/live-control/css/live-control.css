@@ -941,50 +941,6 @@ span.lc-mini-noimg {
     letter-spacing: 0.04em;
 }
 
-/* ── Địa danh selector (CHO VƯỢT) + báo hiệu VƯỢT ───────────────── */
-.lc-tvctl-region {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #475569;
-    white-space: nowrap;
-}
-.lc-region-select {
-    font: inherit;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #7c3aed;
-    background: #f5f3ff;
-    border: 1px solid #ddd6fe;
-    border-radius: 7px;
-    padding: 4px 7px;
-    cursor: pointer;
-}
-.lc-region-select:focus {
-    outline: none;
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
-}
-/* Non-admin: địa danh KH read-only (chỉ admin chỉnh được) — giữ màu chữ rõ, thêm
-   con trỏ "không cho phép" + giảm nhẹ nền để báo hiệu khoá. */
-.lc-region-select.is-locked,
-.lc-region-select:disabled {
-    cursor: not-allowed;
-    opacity: 0.75;
-    background: #f1f0f6;
-    border-color: #e5e7eb;
-}
-/* GIỎ vượt ngưỡng NCC (địa danh CHO VƯỢT): số đỏ + badge "VƯỢT +N" */
-.lc-vnum.lc-vban.over {
-    color: #dc2626;
-}
-.lc-vnum.lc-vban.over small.lc-over-badge {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-radius: 5px;
-    padding: 0 4px;
-    margin-top: 1px;
-    white-space: nowrap;
-}
+/* ponytail: CSS selector địa danh CHO VƯỢT (.lc-tvctl-region/.lc-region-select) +
+   badge "VƯỢT +N" (.lc-vnum.lc-vban.over/.lc-over-badge) gỡ (M10, 2026-07-01) —
+   region dead end-to-end (selector bỏ 2026-06-30, không phép tính/badge nào đọc). */
