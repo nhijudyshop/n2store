@@ -857,7 +857,7 @@
         $('lcCampaign').addEventListener('change', function () {
             selectCampaign(this.value);
         });
-        // (BỎ listener #lcNewBtn — tạo chiến dịch chuyển hẳn về live-chat)
+        // (BỎ listener #lcNewBtn — tạo chiến dịch 1 nguồn = trang campaign-manager)
         $('lcOpenTv').addEventListener('click', function () {
             if (state.campaignId)
                 window.open('../live-tv/index.html?campaign=' + state.campaignId, '_blank');

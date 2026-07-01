@@ -225,7 +225,7 @@
 
         // Campaign filter — GOM 1 NGUỒN: Web2CampaignPicker (thay 2 dropdown cha+con cũ).
         // Chọn 1 chiến dịch cha → onChange set parentPostIds → lọc đơn theo fb_post_id.
-        // Tạo/gán chiến dịch là 1 nguồn = live-chat (native-orders chỉ CHỌN để lọc).
+        // Tạo/gán chiến dịch 1 nguồn = trang campaign-manager (native-orders chỉ CHỌN để lọc).
         NO.mountCampaignPicker();
         // Check-all + per-row check + bulk bar
         NO.$('#checkAll')?.addEventListener('change', (e) => {

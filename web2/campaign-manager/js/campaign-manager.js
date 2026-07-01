@@ -617,6 +617,15 @@
             await loadCampaigns();
             renderList();
             renderDetail();
+            // Deep-link ?create=1 — nút "Tạo chiến dịch" các trang khác (live-chat,
+            // sidebar) mở thẳng chế độ tạo. 1 NGUỒN tạo/quản lý = trang này.
+            if (new URLSearchParams(location.search).get('create') === '1' && isAdmin()) {
+                state.mode = 'create';
+                state.selectedId = null;
+                state.picked.clear();
+                renderList();
+                renderDetail();
+            }
         } catch (e) {
             const el = $('cmDetail');
             if (el)

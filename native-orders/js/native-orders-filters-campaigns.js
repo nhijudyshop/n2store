@@ -412,8 +412,9 @@
     };
 
     // 2026-06-30: ĐÃ GỠ createParentCampaign / loadPagePosts / renderPagePosts /
-    // assignPost — tạo chiến dịch + gom bài là 1 nguồn = live-chat. native-orders chỉ
-    // CHỌN chiến dịch cha (renderParentCampaigns + selectParentCampaign) để LỌC đơn.
+    // assignPost — tạo chiến dịch + gom bài là 1 nguồn = trang campaign-manager
+    // (web2/campaign-manager/, 2026-07-01). native-orders chỉ CHỌN chiến dịch cha
+    // (renderParentCampaigns + selectParentCampaign) để LỌC đơn.
 
     NO.renderCampaignLabel = function renderCampaignLabel() {
         const label = NO.$('#filterCampaignLabel');

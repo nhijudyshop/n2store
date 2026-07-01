@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [live-chat + campaign-manager] Gộp 1 NGUỒN chiến dịch — live-chat CHỈ XEM, tạo/quản lý ở campaign-manager
+
+**Files:** `live-chat/js/live/live-campaign-manager.js` (gut → read-only viewer), `live-chat/index.html` (bump v), `web2/campaign-manager/js/campaign-manager.js` (deep-link `?create=1`), `web2/livestream-poller/index.html` + `web2/live-control/js/live-control.js` + `native-orders/js/native-orders-filters-campaigns.js` + `native-orders-realtime-init.js` (pointer/comment → campaign-manager).
+
+Yêu cầu user: mọi trang dùng chiến dịch tham chiếu **1 nguồn module `web2/campaign-manager/`**; nút tạo mở trang này. live-chat "đổi giống native-orders" (chỉ CHỌN/XEM, KHÔNG quản lý).
+
+- **live-chat `LiveCampaignManager` → read-only:** GỠ tạo (input + ✨AI-name + Tạo), gán bài (`_pagePosts` + assign selects + change handler), xoá. GIỮ: list chiến dịch (read-only) + **"Xem comment"** (consumer live-chat — gom comment mọi bài vào cột) + back-banner + `exitCampaignView`. Thêm nút header **"+ Tạo / Quản lý"** + link note → mở `web2/campaign-manager/index.html`. Export `{mount,open,exitCampaignView}` giữ nguyên (không vỡ caller). 469→~250 dòng.
+- **campaign-manager deep-link `?create=1`:** boot() đọc query → mở thẳng chế độ "Tạo chiến dịch mới" (nút tạo các trang → landing create). Admin-gate giữ.
+- **Pointer đồng bộ:** poller hint + comment live-control/native-orders đổi "live-chat" → "campaign-manager" (nguồn cũ 2026-06-30 là live-chat; giờ dời hẳn về campaign-manager). native-orders/live-control vốn đã bỏ create (chỉ filter) → không đổi hành vi.
+
+**Test:** browser localhost — live-chat fab "📁 Chiến dịch" mở viewer read-only (chỉ "Xem comment", note "1 nguồn duy nhất"); `campaign-manager?create=1` mở thẳng form tạo. `node --check` cả 2 OK, không caller nào gọi method đã gỡ.
+
+Status: ✅ (front-end; live-chat read route + campaign-manager deploy Render sẵn)
+
 ### [livestream-poller + live-control] #1 picker page Pancake cho poller + M10 gỡ region CHO VƯỢT (dead)
 
 **Files:** `web2/livestream-poller/index.html` (#1 picker), `web2/live-control/js/live-control.js` + `css/live-control.css` + `web2/shared/web2-live-tv-display.js` (M10 dead-code cleanup).
