@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [web2-campaign] Foundation: shared Web2CampaignPicker (bộ lọc chiến dịch 1 nguồn) + postsForCampaign helper
+
+**Files:** `web2/shared/web2-campaign-picker.js` (MỚI — `Web2CampaignPicker.mount(el,{storageKey,onChange,...})` dropdown lọc chiến dịch self-contained, CSS inject, realtime refresh qua Web2Campaign.subscribe, persist per-page localStorage), `web2/shared/web2-campaign.js` (+`postsForCampaign(campaignId)` → [postId] từ web2_live_post_assign, fallback listPosts).
+
+Foundation cho overhaul chiến dịch (yêu cầu user 6 mục 2026-07-01): gom mọi dropdown chiến dịch fork rời (native-orders 2 dropdown + trang khác) về 1 component dùng chung. Mount trả `{campaignId, campaign, postIds}` để trang tự lọc data (native_orders lọc `fb_post_id ∈ postIds`). CHƯA wire vào trang nào (module độc lập, zero-risk). Syntax OK cả 2.
+
+Quyết định user: #1 tạo+gán FB 1 luồng → khóa sau lưu (admin edit), bỏ 2 dropdown native-orders → 1 selector chung. #2 gắn picker (lọc) vào MỌI trang (Sổ Order, Kho SP, Bán hàng HĐ, Đối soát, Quét tem, Trả hàng, Thu về, Phiếu giao, Đơn Web, Live Chat). #4 audit drag SP (inventory-panel `application/x-web2-product`)→drop comment→giỏ. #5 audit live-control board drag/GIỎ. H4=name-group. Còn lại xem plan/TodoWrite.
+
+⚠ Mapper phát hiện race: `comment._campaignId` có thể resolve sai chiến dịch nếu user đổi chiến dịch giữa render-comment và click → draft gắn sai live_campaign_id (audit #4 sẽ verify). Chi tiết: `docs/web2/CAMPAIGN-AUDIT-2026-07-01.md`.
+
+Status: 🔄 foundation xong, đang overhaul (Phase A/2 của 6 mục)
+
 ### [web2-campaign] Audit chiến dịch livestream + sửa 2 lỗi HIGH (gate join sai cột, TV không hiện lại SP)
 
 **Files:** `render.com/routes/web2-campaign-products.js` (H1: gate GIỎ/MỚI GET / + /cart-detail đổi `n.live_campaign_id IN (post_assign.post_id)` → `n.fb_post_id IN (...)`), `web2/live-tv/js/live-tv.js` (H2: +`state.allCodes` tập thành viên đầy đủ trước filter, dùng cho relevance SSE `web2:products`), `docs/web2/CAMPAIGN-AUDIT-2026-07-01.md` (báo cáo audit 32 phát hiện).

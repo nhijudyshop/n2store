@@ -117,6 +117,24 @@
             const j = await _json(`${LC_BASE()}/assignments`);
             return (j && j.data) || [];
         },
+        // Bài (post_id) đã gán vào 1 chiến dịch cha → [postId]. Dùng cho bộ lọc mọi
+        // trang: chiến dịch → tập bài → lọc native_orders theo fb_post_id ∈ tập này.
+        // Nguồn-sự-thật = web2_live_post_assign (độc lập comment). Fallback listPosts
+        // (comment-driven) khi backend chưa có /assignments (deploy gap).
+        async postsForCampaign(campaignId) {
+            const cid = String(campaignId);
+            try {
+                const a = await this.listAssignments();
+                return (a || [])
+                    .filter((p) => String(p.campaign_id) === cid)
+                    .map((p) => String(p.post_id));
+            } catch (e) {
+                const posts = await this.listPosts();
+                return (posts || [])
+                    .filter((p) => String(p.campaign_id) === cid)
+                    .map((p) => String(p.post_id));
+            }
+        },
         async listPagePosts() {
             const j = await _json(`${LC_BASE()}/page-posts`);
             return (j && j.data) || [];
