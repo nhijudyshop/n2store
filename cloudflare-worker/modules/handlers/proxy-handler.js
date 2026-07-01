@@ -762,12 +762,18 @@ export async function handleCustomer360Proxy(request, url, pathname) {
                     : null,
         };
 
+        // AI generation (Nano Banana tạo ảnh / img2img / ghép đồ qua /api/web2-ai/*)
+        // chạy ~15-40s — cap 15s mặc định giết chúng ngay sát mép (img2img đo được 13.7s
+        // trực tiếp, chập chờn 502 qua worker). Nới ceiling cho đúng nhóm AI gen; các
+        // mutation khác giữ 15s để không treo. ponytail: chỉ nới path AI, không nới toàn bộ.
+        const timeoutMs = pathname.startsWith('/api/web2-ai/') ? 90000 : 15000;
+
         // Web 2.0 writes (native-orders/fast-sale-orders/purchase-refund/wallet-deposits…)
         // flow through here. Retry ONLY idempotent (or idempotency-keyed) requests so a
         // transient 5xx/429/timeout never re-fires a mutation twice.
         const response = canRetryMethod(request.method, request)
-            ? await fetchWithRetry(targetUrl, fetchInit, 3, 1000, 15000)
-            : await fetchWithTimeout(targetUrl, fetchInit, 15000);
+            ? await fetchWithRetry(targetUrl, fetchInit, 3, 1000, timeoutMs)
+            : await fetchWithTimeout(targetUrl, fetchInit, timeoutMs);
 
         return proxyResponseWithCors(response);
     } catch (error) {
