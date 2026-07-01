@@ -409,8 +409,8 @@
                 const act = admin
                     ? `<button class="rp-del" data-del-day="${esc(d.day)}" data-count="${d.count}" title="Xoá toàn bộ ngày này"><i data-lucide="trash-2"></i></button>`
                     : '';
-                return `<tr>
-                    <td class="rp-day"><b>${dl.date}</b><span>${dl.wd}</span></td>
+                return `<tr class="rp-drow" data-day="${esc(d.day)}" title="Bấm để xem ảnh cân trong ngày">
+                    <td class="rp-day"><i class="rp-caret" data-lucide="chevron-right"></i><b>${dl.date}</b><span>${dl.wd}</span></td>
                     <td class="num">${fmtInt(d.count)}</td>
                     <td class="num">${fmtKg(d.kg)}</td>
                     <td class="num">${fmtInt(d.bales)}</td>
@@ -418,7 +418,8 @@
                     <td class="num">${money(d.shipBale)}</td>
                     <td class="num rp-ship">${money(d.ship)}</td>
                     <td class="rp-act">${act}</td>
-                </tr>`;
+                </tr>
+                <tr class="rp-detail" hidden><td colspan="8"><div class="rp-photos"></div></td></tr>`;
             })
             .join('');
         $('#rpFoot').innerHTML = `<tr class="rp-total">
@@ -431,6 +432,14 @@
             <td class="num rp-ship">${money(t.ship)}</td>
             <td class="rp-act"></td>
         </tr>`;
+        $('#rpBody')
+            .querySelectorAll('.rp-drow')
+            .forEach((row) =>
+                row.addEventListener('click', (e) => {
+                    if (e.target.closest('[data-del-day]')) return; // nút xoá ngày → không bung ảnh
+                    toggleDay(row);
+                })
+            );
         if (admin)
             $('#rpBody')
                 .querySelectorAll('[data-del-day]')
@@ -440,6 +449,66 @@
                     )
                 );
         icons($('#panelReport'));
+    }
+
+    // Bung 1 ngày trong báo cáo → tải chi tiết lần cân + ảnh đã chụp (lazy, cache theo hàng).
+    async function toggleDay(row) {
+        const detail = row.nextElementSibling; // <tr class="rp-detail">
+        if (!detail || !detail.classList.contains('rp-detail')) return;
+        const opening = detail.hidden;
+        detail.hidden = !opening;
+        row.classList.toggle('is-open', opening);
+        if (!opening) return;
+        const box = detail.querySelector('.rp-photos');
+        if (box.dataset.loaded) return; // đã tải → giữ cache, không refetch
+        box.innerHTML = '<div class="rp-muted">Đang tải ảnh…</div>';
+        try {
+            const qs = new URLSearchParams({ day: row.dataset.day, limit: '500' });
+            const user = $('#rpUser').value; // tôn trọng bộ lọc NV của báo cáo
+            if (user) qs.set('username', user);
+            const data = await api('/list?' + qs.toString());
+            renderDayPhotos(box, data.items || []);
+            box.dataset.loaded = '1';
+        } catch (e) {
+            box.innerHTML = `<div class="rp-muted">Lỗi tải ảnh: ${esc(e.message)}</div>`;
+        }
+    }
+
+    function renderDayPhotos(box, items) {
+        if (!items.length) {
+            box.innerHTML = '<div class="rp-muted">Không có bản ghi.</div>';
+            return;
+        }
+        const withImg = items.filter((x) => x.hasImage);
+        const urls = withImg.map((x) => `${GW}/img/${encodeURIComponent(x.id)}`); // lightbox swipe
+        box.innerHTML = items
+            .map((x) => {
+                const idx = withImg.findIndex((w) => w.id === x.id);
+                const media = x.hasImage
+                    ? `<img src="${GW}/img/${esc(x.id)}" loading="lazy" data-idx="${idx}" alt="Ảnh cân" />`
+                    : `<div class="rp-photo-empty"><i data-lucide="image-off"></i></div>`;
+                return `<figure class="rp-photo">
+                    ${media}
+                    <figcaption>
+                        <b>${esc(x.weightKg)} kg</b> · ${esc(x.baleCount)} kiện
+                        <span>${esc(x.username || '—')} · ${esc(fmtTime(x.createdAt))}</span>
+                        ${x.note ? `<span class="rp-photo-note">${esc(x.note)}</span>` : ''}
+                    </figcaption>
+                </figure>`;
+            })
+            .join('');
+        box.querySelectorAll('img[data-idx]').forEach((im) =>
+            im.addEventListener('click', () => {
+                const i = Number(im.dataset.idx) || 0;
+                try {
+                    if (window.Web2ImageLightbox?.open) Web2ImageLightbox.open(urls, i);
+                    else window.open(urls[i], '_blank');
+                } catch (_) {
+                    window.open(urls[i], '_blank');
+                }
+            })
+        );
+        icons(box);
     }
 
     async function deleteDay(ymd, count) {

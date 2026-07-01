@@ -93,19 +93,29 @@ function mapRow(x) {
 }
 
 // GET /list — danh sách mới nhất trước (không trả bytea).
+//   Optional: day=YYYY-MM-DD (GMT+7) + username → lấy chi tiết 1 ngày (báo cáo bung ảnh).
 router.get('/list', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = getPool(req);
         await ensureTables(pool);
-        const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+        const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 50));
         const offset = Math.max(0, Number(req.query.offset) || 0);
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(req.query.day || '') ? req.query.day : null;
+        const user = req.query.username ? String(req.query.username) : null;
+        // day tính theo GMT+7 → độc lập TZ server (đồng bộ với /report, /day).
+        const where = `WHERE ($1::text IS NULL OR to_char(to_timestamp(created_at/1000.0) AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') = $1)
+                         AND ($2::text IS NULL OR username = $2)`;
         const r = await pool.query(
             `SELECT id, username, weight_kg, bale_count, note, created_at, (data IS NOT NULL) AS has_image
-             FROM web2_goods_weight ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-            [limit, offset]
+             FROM web2_goods_weight ${where} ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
+            [day, user, limit, offset]
         );
-        const total = (await pool.query(`SELECT COUNT(*)::int AS n FROM web2_goods_weight`)).rows[0]
-            .n;
+        const total = (
+            await pool.query(`SELECT COUNT(*)::int AS n FROM web2_goods_weight ${where}`, [
+                day,
+                user,
+            ])
+        ).rows[0].n;
         res.json({ success: true, total, items: r.rows.map(mapRow) });
     } catch (e) {
         console.error('[WEB2-GOODS-WEIGHT] list:', e.message);

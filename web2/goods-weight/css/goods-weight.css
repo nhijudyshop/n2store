@@ -732,6 +732,86 @@ body:not(.rp-admin) .rp-act {
     border-color: #f4c4c6;
 }
 
+/* ── Bung ngày → ảnh cân đã chụp ────────────────────── */
+.rp-drow {
+    cursor: pointer;
+}
+.rp-caret {
+    width: 15px;
+    height: 15px;
+    vertical-align: -2px;
+    margin-right: 5px;
+    color: var(--c-text-3);
+    transition: transform 0.15s ease;
+}
+.rp-drow.is-open .rp-caret {
+    transform: rotate(90deg);
+    color: var(--c-primary);
+}
+.rp-drow.is-open {
+    background: #f2f7ff;
+}
+.rp-detail > td {
+    padding: 0 !important;
+    background: #fafbfe;
+    white-space: normal;
+}
+.rp-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 12px;
+    padding: 14px;
+}
+.rp-photo {
+    margin: 0;
+    background: var(--c-surface);
+    border: 1px solid var(--c-line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--c-shadow);
+}
+.rp-photo img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+    cursor: zoom-in;
+    background: var(--c-bg);
+}
+.rp-photo-empty {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    display: grid;
+    place-items: center;
+    color: var(--c-text-3);
+    background: var(--c-bg);
+}
+.rp-photo-empty i {
+    width: 26px;
+    height: 26px;
+}
+.rp-photo figcaption {
+    padding: 7px 9px 9px;
+    font-size: 12px;
+    color: var(--c-text-2);
+    line-height: 1.35;
+}
+.rp-photo figcaption b {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--c-text);
+}
+.rp-photo figcaption span {
+    display: block;
+    color: var(--c-text-3);
+    font-weight: 600;
+    margin-top: 1px;
+}
+.rp-photo-note {
+    color: var(--c-text-2) !important;
+    word-break: break-word;
+}
+
 /* mobile: summary xuống 2 cột, ô tổng tiền chiếm hết hàng */
 @media (max-width: 720px) {
     .rp-summary {
