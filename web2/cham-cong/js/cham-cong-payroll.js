@@ -121,6 +121,8 @@
         // Tháng đã KHOÁ → entries từ snapshot (đóng băng); chưa khoá → tính live.
         const locked = isLocked();
         const entries = entriesForRender();
+        // NV chưa đủ công (ít ngày công) xuống đáy bảng; nhiều công lên trên (sort ổn định).
+        entries.sort((a, b) => (b.m.workedDays || 0) - (a.m.workedDays || 0));
         if (!entries.length) {
             el.innerHTML = `<div class="cc-empty"><p>Chưa có PIN máy nào được gán nhân viên. Vào tab <b>Nhân viên</b> để gán.</p></div>`;
             return;
@@ -165,19 +167,22 @@
                 tot.con += m.conCanTra;
             }
             rows += `<tr>
-                <td class="cc-pl-name">${cc.esc(en.name)}${nameExtra}</td>
+                <td class="cc-pl-name">
+                  <span class="cc-pl-nm">${cc.esc(en.name)}</span>${nameExtra}
+                  <button class="cc-pl-ico cc-pl-cal" data-uid="${cc.esc(en.uid)}" title="Chi tiết chấm công"><i data-lucide="calendar-days"></i></button>
+                  <button class="cc-pl-ico cc-pl-print" data-uid="${cc.esc(en.uid)}" title="In phiếu lương"><i data-lucide="printer"></i></button>
+                </td>
                 <td class="num">${m.workedDays}</td>
                 <td class="num">${fmt(m.luongChinh)}</td>
-                <td class="num ot">${m.lamThem ? '+' + fmt(m.lamThem) : '—'}</td>
-                <td class="num">${m.phuCap ? fmt(m.phuCap) : '—'}</td>
-                <td class="num thuong">${m.thuong ? '+' + fmt(m.thuong) : '—'}</td>
-                <td class="num giam" title="Phạt muộn ${fmt(m.lateDeduction)} + thủ công ${fmt(m.giamTruManual)}">${m.giamTru ? '−' + fmt(m.giamTru) : '—'}</td>
+                ${otCell(en, locked)}
+                ${moneyCell(en, 'allowance', locked)}
+                ${moneyCell(en, 'thuong', locked)}
+                ${moneyCell(en, 'giam', locked)}
                 <td class="num tong">${fmt(m.tongLuong)}</td>
-                <td class="num">${m.daTra ? fmt(m.daTra) : '—'}</td>
+                ${moneyCell(en, 'datra', locked)}
                 <td class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</td>
+                ${noteCell(en, locked)}
                 <td class="cc-pl-acts">
-                    <button class="cc-btn cc-btn-ghost cc-pl-detail" data-uid="${cc.esc(en.uid)}">Chi tiết</button>
-                    <button class="cc-btn cc-btn-ghost cc-pl-print" data-uid="${cc.esc(en.uid)}" title="In phiếu lương">🖨 In</button>
                     ${locked ? '' : `<button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(en.uid)}">Sửa</button>`}
                 </td>
             </tr>`;
@@ -202,7 +207,7 @@
               <thead><tr>
                 <th>Nhân viên</th><th>Công</th><th>Lương chính</th><th>Tăng ca</th>
                 <th>Phụ cấp</th><th>Thưởng</th><th>Giảm trừ</th><th>Tổng lương</th>
-                <th>Đã trả</th><th>Còn lại</th><th></th>
+                <th>Đã trả</th><th>Còn lại</th><th>Ghi chú</th><th></th>
               </tr></thead>
               <tbody>${rows}</tbody>
               <tfoot><tr>
@@ -210,7 +215,7 @@
                 <td class="num">${fmt(tot.luong)}</td><td class="num ot">${fmt(tot.ot)}</td>
                 <td class="num">${fmt(tot.pc)}</td><td class="num thuong">${fmt(tot.thuong)}</td>
                 <td class="num giam">${fmt(tot.giam)}</td><td class="num tong">${fmt(tot.tong)}</td>
-                <td class="num">${fmt(tot.datra)}</td><td class="num con">${fmt(tot.con)}</td><td></td>
+                <td class="num">${fmt(tot.datra)}</td><td class="num con">${fmt(tot.con)}</td><td></td><td></td>
               </tr></tfoot>
             </table>
           </div>
@@ -221,11 +226,20 @@
         el.querySelectorAll('.cc-pl-edit').forEach((b) => {
             b.addEventListener('click', () => openEdit(b.dataset.uid));
         });
-        el.querySelectorAll('.cc-pl-detail').forEach((b) => {
-            b.addEventListener('click', () => openDetail(b.dataset.uid));
+        el.querySelectorAll('.cc-pl-cal').forEach((b) => {
+            b.addEventListener('click', () => openAttendance(b.dataset.uid));
         });
         el.querySelectorAll('.cc-pl-print').forEach((b) => {
             b.addEventListener('click', () => printPayslip(b.dataset.uid));
+        });
+        el.querySelectorAll('.cc-pl-ot').forEach((inp) => {
+            inp.addEventListener('change', () => saveInlineOt(inp));
+        });
+        el.querySelectorAll('.cc-pl-money').forEach((inp) => {
+            inp.addEventListener('change', () => saveInlineMoney(inp));
+        });
+        el.querySelectorAll('.cc-pl-note').forEach((inp) => {
+            inp.addEventListener('change', () => saveInlineNote(inp));
         });
         document.getElementById('ccExportPayroll')?.addEventListener('click', exportPayroll);
         document.getElementById('ccLockPeriod')?.addEventListener('click', doLock);
@@ -315,6 +329,196 @@
                     `<div class="cc-dl-line"><span>${CC().esc(it.label || '(không nhãn)')}</span><span class="num">${sign}${fmt(Math.abs(Number(it.amount) || 0))}</span></div>`
             )
             .join('');
+    }
+
+    // ── Inline sửa 1 cột tiền / ghi chú trong bảng (không mở popup) ───────────
+    // Backend PUT /payroll là MERGE cho items nhưng override set THẲNG → gửi FULL body
+    // (dựng lại từ pr hiện tại) + patch 1 field để KHÔNG xoá nhầm khoản khác. Giống openEdit.
+    async function saveInline(uid, pr, patch) {
+        const cc = CC();
+        if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
+        const body = {
+            thuongItems: pr.thuong_items || [],
+            giamTruItems: pr.giam_tru_items || [],
+            allowances: pr.allowances || [],
+            daTraItems: pr.da_tra_items || [],
+            ghiChu: pr.ghi_chu ?? '',
+            salaryDaysOverride: pr.salary_days_override ?? null,
+            otHoursOverride: pr.ot_hours_override ?? null,
+            lamThemOverride: pr.lam_them_override ?? null,
+            giamTruLateOverride: pr.giam_tru_late_override ?? null,
+            ...patch,
+        };
+        try {
+            await cc.Api.putPayroll(`${uid}_${cc.state.monthKey}`, body);
+            cc.toast('Đã lưu.', 'success');
+            await cc.loadAll();
+        } catch (e) {
+            cc.toast(e.message, 'error');
+        }
+    }
+    const INLINE_LABEL = {
+        allowances: 'Phụ cấp',
+        thuongItems: 'Thưởng',
+        giamTruItems: 'Giảm trừ',
+        daTraItems: 'Đã trả',
+    };
+    const INLINE_SRC = {
+        allowances: 'allowances',
+        thuongItems: 'thuong_items',
+        giamTruItems: 'giam_tru_items',
+        daTraItems: 'da_tra_items',
+    };
+    function saveInlineMoney(inp) {
+        const cc = CC();
+        const uid = inp.dataset.uid;
+        const field = inp.dataset.field;
+        const amount = Number(String(inp.value).replace(/[^\d]/g, '')) || 0;
+        const pr = cc.payrollFor(uid) || {};
+        const existing = Array.isArray(pr[INLINE_SRC[field]]) ? pr[INLINE_SRC[field]] : [];
+        const label = (existing[0] && existing[0].label) || INLINE_LABEL[field];
+        const patch = { [field]: amount === 0 ? [] : [{ label, amount }] };
+        // Giảm trừ: ô hiển thị TỔNG (phạt muộn auto + thủ công) → ép phạt muộn về 0
+        // để tổng đúng bằng số vừa nhập.
+        if (field === 'giamTruItems') patch.giamTruLateOverride = 0;
+        return saveInline(uid, pr, patch);
+    }
+    function saveInlineNote(inp) {
+        const cc = CC();
+        return saveInline(inp.dataset.uid, cc.payrollFor(inp.dataset.uid) || {}, {
+            ghiChu: inp.value,
+        });
+    }
+    // Tăng ca: override tiền THẲNG. Rỗng → null (auto OT lại); có số → chốt số đó.
+    function saveInlineOt(inp) {
+        const cc = CC();
+        const raw = String(inp.value).replace(/[^\d]/g, '');
+        return saveInline(inp.dataset.uid, cc.payrollFor(inp.dataset.uid) || {}, {
+            lamThemOverride: raw === '' ? null : Number(raw) || 0,
+        });
+    }
+    function otCell(en, locked) {
+        const cc = CC();
+        const amt = en.m.lamThem || 0;
+        if (locked) return `<td class="num ot">${amt ? '+' + fmt(amt) : '—'}</td>`;
+        return `<td class="num ot"><input class="cc-pl-ot" type="text" inputmode="numeric" data-uid="${cc.esc(en.uid)}" value="${amt ? amt.toLocaleString('vi-VN') : ''}" placeholder="—"></td>`;
+    }
+    // 1 ô cột tiền: input sửa thẳng nếu ≤1 khoản (& Giảm trừ không có phạt muộn auto);
+    // nhiều khoản / có phạt muộn / đã khoá → read-only tổng + gợi ý bấm "Sửa".
+    function moneyCell(en, key, locked) {
+        const cc = CC();
+        const m = en.m;
+        const pr = en.pr || {};
+        const MAP = {
+            allowance: { src: 'allowances', field: 'allowances', sign: '', cls: '', val: m.phuCap },
+            thuong: {
+                src: 'thuong_items',
+                field: 'thuongItems',
+                sign: '+',
+                cls: 'thuong',
+                val: m.thuong,
+            },
+            giam: {
+                src: 'giam_tru_items',
+                field: 'giamTruItems',
+                sign: '−',
+                cls: 'giam',
+                val: m.giamTru,
+            },
+            datra: { src: 'da_tra_items', field: 'daTraItems', sign: '', cls: '', val: m.daTra },
+        }[key];
+        const items = Array.isArray(pr[MAP.src]) ? pr[MAP.src] : [];
+        // Giảm trừ: input = TỔNG (phạt muộn auto + thủ công). Sửa → ép phạt muộn về 0
+        // (saveInlineMoney) để số hiển thị đúng bằng số nhập.
+        const editable = !locked && items.length <= 1;
+        if (!editable) {
+            return `<td class="num ${MAP.cls}" title="Nhiều khoản — bấm Sửa để chi tiết">${MAP.val ? MAP.sign + fmt(MAP.val) : '—'}</td>`;
+        }
+        const amt = MAP.val || 0;
+        return `<td class="num ${MAP.cls}"><input class="cc-pl-money" type="text" inputmode="numeric" data-uid="${cc.esc(en.uid)}" data-field="${MAP.field}" value="${amt ? amt.toLocaleString('vi-VN') : ''}" placeholder="—"></td>`;
+    }
+    function noteCell(en, locked) {
+        const cc = CC();
+        const note = (en.pr && en.pr.ghi_chu) || '';
+        if (locked) return `<td class="cc-pl-note-cell">${cc.esc(note)}</td>`;
+        return `<td class="cc-pl-note-cell"><input class="cc-pl-note" type="text" data-uid="${cc.esc(en.uid)}" value="${String(note).replace(/"/g, '&quot;')}" placeholder="Ghi chú…"></td>`;
+    }
+
+    // ── Modal Chi tiết chấm công (lịch tháng 1 NV) — icon 📅 sau tên ──────────
+    function openAttendance(uid) {
+        const cc = CC();
+        const S = cc.S;
+        const R = resolveRow(uid);
+        if (!R) return;
+        const m = R.m || {};
+        const dr = m.dayResults || {};
+        const [y, mo] = cc.state.monthKey.split('-').map(Number);
+        const days = S.daysOfMonth(cc.state.monthKey);
+        const isFullDay = (dk) =>
+            cc.state.fulldaySet.has(`${uid}_${dk}`) || cc.state.holidaySet.has(dk);
+        let lateCnt = 0;
+        let missCnt = 0;
+        let absCnt = 0;
+        for (const dk of days) {
+            const st = S.dayStatus(dr[dk], isFullDay(dk));
+            if (st === 'lateearly') lateCnt++;
+            else if (st === 'missing') missCnt++;
+            else if (st === 'absent') absCnt++;
+        }
+        const firstDow = new Date(y, mo - 1, 1).getDay(); // 0=CN
+        let cells = '';
+        for (let i = 0; i < firstDow; i++) cells += `<div class="cc-cal-cell empty"></div>`;
+        for (const dk of days) {
+            const d = Number(dk.slice(8));
+            const r = dr[dk] || {};
+            const dd = r.dayData || {};
+            const st = S.dayStatus(r, isFullDay(dk));
+            const late = r.lateMinutes || 0;
+            const early = r.earlyMinutes || 0;
+            let lbl = S.STATUS_LABEL[st] || '';
+            if (st === 'lateearly')
+                lbl = late > 0 ? `Muộn ${late}p` : early > 0 ? `Về sớm ${early}p` : 'Đúng giờ';
+            const inHM = dd.checkIn ? S.fmtHM(dd.checkIn) : '';
+            const outHM = dd.checkOut ? S.fmtHM(dd.checkOut) : '';
+            const time = inHM || outHM ? `${inHM}${outHM ? ' - ' + outHM : ''}` : '';
+            const sun = new Date(y, mo - 1, d).getDay() === 0 ? ' sun' : '';
+            cells += `<div class="cc-cal-cell${sun}"><div class="cc-cal-d">${d}</div><div class="cc-cal-st"><span class="cc-dot cc-dot-${st}"></span>${lbl}</div>${time ? `<div class="cc-cal-t">${time}</div>` : ''}</div>`;
+        }
+        const mount = document.getElementById('ccModalMount');
+        mount.innerHTML = `
+          <div class="cc-modal-backdrop" id="ccAtBackdrop">
+            <div class="cc-modal cc-modal-lg" role="dialog" aria-modal="true" aria-label="Chi tiết chấm công">
+              <div class="cc-modal-head">
+                <div>Chi tiết chấm công · <b>${cc.esc(R.name)}</b> · ${cc.esc(cc.state.monthKey)}</div>
+                <button class="cc-x" id="ccAtClose">✕</button>
+              </div>
+              <div class="cc-modal-body">
+                <div class="cc-at-stats">
+                  <span><b>${m.workedDays || 0}</b> ngày công</span>
+                  <span><b>${lateCnt}</b> lần muộn</span>
+                  <span><b>${missCnt}</b> thiếu</span>
+                  <span><b>${absCnt}</b> nghỉ</span>
+                  <span>Trừ muộn: <b class="giam">${m.lateDeduction ? '−' + fmt(m.lateDeduction) : '0đ'}</b></span>
+                  <span>OT: <b class="ot">${m.lamThem ? '+' + fmt(m.lamThem) : '0đ'}</b></span>
+                </div>
+                <div class="cc-cal-wk"><span class="sun">CN</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span></div>
+                <div class="cc-cal-grid">${cells}</div>
+                <div class="cc-legend">
+                  <span><i class="cc-dot cc-dot-ontime"></i> Đúng giờ</span>
+                  <span><i class="cc-dot cc-dot-lateearly"></i> Đi muộn / Về sớm</span>
+                  <span><i class="cc-dot cc-dot-missing"></i> Chấm công thiếu</span>
+                  <span><i class="cc-dot cc-dot-absent"></i> Nghỉ làm</span>
+                </div>
+              </div>
+              <div class="cc-modal-foot"><button class="cc-btn cc-btn-ghost" id="ccAtClose2">Đóng</button></div>
+            </div>
+          </div>`;
+        const close = () => (mount.innerHTML = '');
+        document.getElementById('ccAtClose').onclick = close;
+        document.getElementById('ccAtClose2').onclick = close;
+        document.getElementById('ccAtBackdrop').onclick = (e) => {
+            if (e.target.id === 'ccAtBackdrop') close();
+        };
     }
 
     function openDetail(deviceUserId) {
@@ -677,6 +881,7 @@
                 ghiChu: document.getElementById('ccNote').value,
                 salaryDaysOverride: numOrNull('ccOvDays'),
                 otHoursOverride: numOrNull('ccOvOt'),
+                lamThemOverride: pr.lam_them_override ?? null,
                 giamTruLateOverride: numOrNull('ccOvLate'),
             };
             try {

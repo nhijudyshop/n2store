@@ -194,9 +194,11 @@ async function ensureSchema(pool) {
             ghi_chu                  TEXT,
             salary_days_override     NUMERIC,
             ot_hours_override        NUMERIC,
+            lam_them_override        NUMERIC,
             giam_tru_late_override   BIGINT,
             updated_at               BIGINT NOT NULL
         );
+        ALTER TABLE web2_attendance_payroll ADD COLUMN IF NOT EXISTS lam_them_override NUMERIC;
         -- Ngày công đủ (full) override thủ công (vd nghỉ phép có lương / lỗi máy).
         CREATE TABLE IF NOT EXISTS web2_attendance_fullday (
             id          VARCHAR(80) PRIMARY KEY, -- '{emp_id}_{date_key}'
@@ -777,11 +779,11 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
         const r = await db.query(
             `INSERT INTO web2_attendance_payroll
                 (id, emp_id, month_key, thuong_items, giam_tru_items, da_tra_items, allowances,
-                 ghi_chu, salary_days_override, ot_hours_override, giam_tru_late_override, updated_at)
+                 ghi_chu, salary_days_override, ot_hours_override, lam_them_override, giam_tru_late_override, updated_at)
              VALUES ($1,$2,$3,
                  COALESCE($4::jsonb,'[]'::jsonb), COALESCE($5::jsonb,'[]'::jsonb),
                  COALESCE($6::jsonb,'[]'::jsonb), COALESCE($7::jsonb,'[]'::jsonb),
-                 $8,$9,$10,$11,$12)
+                 $8,$9,$10,$11,$12,$13)
              ON CONFLICT (id) DO UPDATE SET
                 thuong_items   = COALESCE($4::jsonb, web2_attendance_payroll.thuong_items),
                 giam_tru_items = COALESCE($5::jsonb, web2_attendance_payroll.giam_tru_items),
@@ -790,8 +792,9 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
                 ghi_chu        = COALESCE($8, web2_attendance_payroll.ghi_chu),
                 salary_days_override   = $9,
                 ot_hours_override      = $10,
-                giam_tru_late_override = $11,
-                updated_at = $12
+                lam_them_override      = $11,
+                giam_tru_late_override = $12,
+                updated_at = $13
              RETURNING *`,
             [
                 id,
@@ -804,6 +807,7 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
                 b.ghiChu !== undefined ? b.ghiChu : null,
                 b.salaryDaysOverride ?? null,
                 b.otHoursOverride ?? null,
+                b.lamThemOverride ?? null,
                 b.giamTruLateOverride ?? null,
                 now(),
             ]

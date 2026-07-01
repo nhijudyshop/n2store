@@ -419,6 +419,144 @@
 .cc-pl-name {
     font-weight: 700;
     color: var(--web2-text);
+    white-space: nowrap;
+}
+.cc-pl-nm {
+    color: var(--web2-info);
+}
+/* Icon 📅 / 🖨 sau tên NV */
+.cc-pl-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-left: 4px;
+    padding: 0;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    background: var(--web2-surface, #fff);
+    color: var(--web2-text-2);
+    cursor: pointer;
+    vertical-align: middle;
+    transition:
+        background 0.12s,
+        color 0.12s,
+        border-color 0.12s;
+}
+.cc-pl-ico:hover {
+    background: var(--web2-bg-light);
+    color: var(--web2-info);
+    border-color: var(--web2-info);
+}
+.cc-pl-ico i {
+    width: 15px;
+    height: 15px;
+}
+/* Input sửa thẳng trong bảng lương */
+.cc-pl-money,
+.cc-pl-ot,
+.cc-pl-note {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 5px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--web2-surface, #fff);
+    transition:
+        border-color 0.12s,
+        box-shadow 0.12s;
+}
+.cc-pl-money,
+.cc-pl-ot {
+    max-width: 116px;
+    text-align: right;
+    font-weight: 600;
+}
+.cc-pl-ot {
+    color: var(--web2-info-hover);
+}
+.cc-pl-money:focus,
+.cc-pl-ot:focus,
+.cc-pl-note:focus {
+    outline: none;
+    border-color: var(--web2-info);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.14);
+}
+.cc-pl-note-cell {
+    min-width: 150px;
+}
+/* Modal Chi tiết chấm công — thống kê + lịch tháng */
+.cc-at-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    align-items: center;
+    margin-bottom: 14px;
+    font-size: 13.5px;
+    color: var(--web2-text-2);
+}
+.cc-at-stats b {
+    color: var(--web2-text);
+    font-size: 15px;
+}
+.cc-at-stats b.giam {
+    color: var(--web2-danger);
+}
+.cc-at-stats b.ot {
+    color: var(--web2-info-hover);
+}
+.cc-cal-wk {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--web2-text-2);
+    text-align: center;
+}
+.cc-cal-wk .sun {
+    color: var(--web2-danger);
+}
+.cc-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+.cc-cal-cell {
+    min-height: 62px;
+    padding: 6px 7px;
+    border: 1px solid var(--web2-border);
+    border-radius: 9px;
+    background: var(--web2-surface, #fff);
+}
+.cc-cal-cell.empty {
+    border: none;
+    background: transparent;
+}
+.cc-cal-cell.sun .cc-cal-d {
+    color: var(--web2-danger);
+}
+.cc-cal-d {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--web2-text);
+}
+.cc-cal-st {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--web2-text-2);
+}
+.cc-cal-t {
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--web2-text-3, #9ca3af);
 }
 .cc-payroll .ot {
     color: var(--web2-info-hover);

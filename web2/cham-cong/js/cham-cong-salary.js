@@ -243,6 +243,11 @@
                 : 1;
             lamThem = Math.round(Number(pr.ot_hours_override) * hr * otMultOv);
         }
+        // Override tiền tăng ca THẲNG (admin chỉnh ở bảng lương) — thắng cả auto + override giờ,
+        // áp cho cả lương ngày lẫn tháng. Rỗng = auto.
+        if (pr.lam_them_override != null && pr.lam_them_override !== '') {
+            lamThem = Number(pr.lam_them_override) || 0;
+        }
         if (pr.giam_tru_late_override != null && pr.giam_tru_late_override !== '') {
             lateDeduction = Number(pr.giam_tru_late_override);
         }

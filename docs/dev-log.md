@@ -2,6 +2,23 @@
 
 ## 2026-07-01
 
+### [cham-cong] Bảng lương redesign: sửa inline + icon 📅🖨 + lịch chấm công + sort + nhớ tab
+
+**Files:** `web2/cham-cong/js/cham-cong-payroll.js`, `cham-cong-salary.js` (override tiền OT), `cham-cong-app.js` (nhớ tab), `css/cham-cong.css`, `render.com/routes/web2-attendance.js` (cột `lam_them_override`).
+
+Bảng lương (tab Bảng lương) làm giống mẫu inline-editable:
+
+- **Sửa thẳng trong bảng** (không mở popup): Phụ cấp / Thưởng / Giảm trừ / Đã trả / **Tăng ca** + Ghi chú = input, lưu khi `change` qua `Web2…putPayroll` (full body dựng lại từ pr + patch — merge-safe, KHÔNG xoá khoản khác). Ô >1 khoản → read-only + gợi ý bấm "Sửa".
+- **Giảm trừ**: ô = TỔNG (phạt muộn auto + thủ công); sửa → ép `giam_tru_late_override=0` để số đúng bằng số nhập.
+- **Tăng ca**: thêm override tiền THẲNG `lam_them_override` (BE column mới + `calcMonth` áp, thắng auto/override-giờ, cả lương ngày lẫn tháng). Rỗng = auto OT lại.
+- **Icon sau tên**: 📅 (calendar) → modal **Chi tiết chấm công** (lịch tháng 1 NV: ngày công/muộn/thiếu/nghỉ + trừ muộn + OT, tái dùng `calcMonth.dayResults`); 🖨 → in phiếu lương. Bỏ nút "Chi tiết"/"In" text.
+- **Sort**: NV ít ngày công xuống đáy bảng (workedDays desc, ổn định).
+- **Nhớ tab**: refresh vẫn ở tab đang xem (`localStorage cc_tab`).
+
+⚠ `lam_them_override` cần Render web2-api deploy migration mới có tác dụng (~3p sau push). Verified live: 64 money input + 16 note + icon + calendar modal + note save round-trip + sort.
+
+Status: ✅ (chờ BE deploy cho Tăng ca override)
+
 ### [web2-campaign] #2 cross-page cart merge + H4/MP1/CAMP-1 — gom 1 fix theo parent_campaign_id
 
 **Files:** `render.com/routes/native-orders.js` (cột + helper + from-comment merge/INSERT + /merge + migration 082 + fb_psids populate), `render.com/routes/v2/cart.js` (\_findDraft + \_batchCounts customer-aware cross-page).
