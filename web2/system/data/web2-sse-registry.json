@@ -1,60 +1,57 @@
 {
-    "_note": "Sổ tay SSE Web 2.0 — CURATED (sửa tay). Nguồn: audit luồng dữ liệu so-order + docs/web2/SSE-REALTIME.md + CLAUDE.md. Mục đích: hiển thị trong web2/system?tab=sse để dev biết topic nào ai publish/subscribe + luật 'đừng sửa hỏng' trước khi đụng SSE. Cập nhật khi thêm/sửa topic hoặc subscriber.",
-    "updatedAt": "2026-06-28",
+    "_note": "Sổ tay SSE Web 2.0 — CURATED (sửa tay + refresh trace code). Nguồn: grep render.com/routes+services (publishers) + web2/native-orders/so-order/live-chat (subscribers) + docs/web2/SSE-REALTIME.md + CLAUDE.md. Mục đích: hiển thị trong web2/system?tab=sse để dev biết topic nào ai publish/subscribe + luật 'đừng sửa hỏng' trước khi đụng SSE. Cập nhật khi thêm/sửa topic hoặc subscriber. File-path repo-relative theo code hiện tại (2026-07-01).",
+    "updatedAt": "2026-07-01",
     "globalRules": [
         "2 HUB TÁCH HẲN: Web 2.0 = hub web2 (routes/realtime-sse-web2.js, endpoint /api/realtime/web2/sse, log [SSE-WEB2]); Web 1.0 = hub riêng (routes/realtime-sse.js, /api/realtime/sse, log [SSE]). KHÔNG trộn notifyClients giữa 2 hub.",
         "Topic Web 2.0 LUÔN prefix 'web2:'. Bare snake_case (celebration, kpi_statistics…) là của hub Web 1.0 — đừng publish nhầm sang hub web2.",
         "Backend emit ĐÚNG THỨ TỰ: gọi _notify(action, code) / notifyClients('web2:<entity>', …) SAU pg COMMIT, TRƯỚC res.json. Bắn trước commit = client reload thấy data cũ.",
-        "Payload KHÔNG chứa PII — chỉ {action, code/codes, ts} (hoặc {action, version, ts}). Client tự re-fetch state thật.",
+        "Payload KHÔNG chứa PII — chỉ {action, code/codes/id, ts} (hoặc {action, version, ts}). Client tự re-fetch state thật.",
         "Client subscribe qua Web2SSE.subscribe('web2:<entity>', cb) (web2/shared/web2-sse-bridge.js) + DEBOUNCE 500-1500ms gom burst → reload(). KHÔNG reload thẳng mỗi event.",
-        "Wiring server: server.js phải gọi <module>Routes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients) — thiếu = route không bắn được.",
+        "Wiring server: server.js phải gọi <module>Routes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients) — thiếu = route không bắn được. Một số route publish qua req.app.locals.web2RealtimeSseNotify thay vì _notify injected.",
         "HTML phải load web2-sse-bridge.js TRƯỚC script app, rồi page mới subscribe được trong init().",
-        "Cross-instance: hub in-RAM per-process → fan-out qua Postgres LISTEN/NOTIFY channel 'web2_sse'. Nhiều instance không tự thấy nhau nếu thiếu fan-out này.",
+        "Cross-instance: hub in-RAM per-process → fan-out qua Postgres LISTEN/NOTIFY channel 'web2_sse'. Nhiều instance (web2-api vs n2store-fallback) không tự thấy nhau nếu thiếu fan-out này.",
+        "Relay-notify: các nguồn ngoài Express (WS relay Pancake, browser) publish qua POST /api/realtime/web2/sse/relay-notify {key,data,evt}. Test bằng POST /api/realtime/web2/sse/test (admin-gated).",
         "Web2ProductsCache.pushTickle() / SmartCache.invalidate() = LOCAL-only (same-tab refresh), KHÔNG broadcast SSE. Cross-device CHỈ đến từ backend route _notify. Đừng tưởng pushTickle là đồng bộ máy khác.",
         "Verify nhanh: web2/system?tab=sse (live monitor) — mở topic + mutate → thấy 'notify topic clientsNotified=N'. Hoặc curl /api/realtime/web2/sse/stats."
     ],
     "topics": [
         {
             "topic": "web2:so-order",
-            "purpose": "Sổ Order (web2_so_order doc 'main') đổi → đồng bộ cross-device + các trang derive từ Sổ Order.",
+            "purpose": "Sổ Order (web2_so_order) đổi → đồng bộ cross-device + các trang derive từ Sổ Order (công nợ, hoàn/trả, tồn phái sinh).",
             "publishers": [
                 {
-                    "route": "render.com/routes/web2-so-order.js",
-                    "where": ":127 create, :165 update (helper _notify :37-47)",
-                    "action": "POST /save sau INSERT/UPDATE"
+                    "file": "render.com/routes/web2-so-order.js:41",
+                    "when": "POST /save sau INSERT/UPDATE web2_so_order (helper _notify, topic 'web2:so-order')"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "so-order (máy/tab khác)",
-                    "file": "so-order/js/so-order-storage-sync.js:108",
-                    "status": "OK",
-                    "note": "pullOnce + version-guard"
+                    "file": "so-order/js/so-order-storage-sync.js:145",
+                    "reload": "pullOnce + version-guard đồng bộ Sổ Order sang tab/máy khác"
                 },
                 {
-                    "page": "Ví NCC (supplier-wallet)",
-                    "file": "web2/supplier-wallet/js/supplier-wallet-app.js:232",
-                    "status": "OK"
+                    "file": "web2/supplier-wallet/js/supplier-wallet-app.js:229",
+                    "reload": "refresh Ví NCC (đợt mua từ Sổ Order)"
                 },
                 {
-                    "page": "Công nợ NCC (supplier-debt)",
-                    "file": "web2/supplier-debt/js/supplier-debt-app.js (_sseConnect)",
-                    "status": "OK (fix 2026-06-28)"
+                    "file": "web2/supplier-debt/js/supplier-debt-app.js:262",
+                    "reload": "refresh Công nợ NCC (derive từ rows so-order received/partial)"
                 },
                 {
-                    "page": "Hoàn/Trả NCC (purchase-refund)",
-                    "file": "web2/purchase-refund/js/purchase-refund-app.js (setupSSE)",
-                    "status": "OK (fix 2026-06-28)"
+                    "file": "web2/purchase-refund/js/purchase-refund-app.js:37",
+                    "reload": "refresh picker Hoàn/Trả NCC (gom nhóm theo đợt Sổ Order)"
                 },
                 {
-                    "page": "live-chat inventory-panel",
-                    "file": "live-chat/js/pancake/inventory-panel-actions.js:_subscribeSSE",
-                    "status": "OK (fix 2026-06-28)"
+                    "file": "live-chat/js/pancake/inventory-panel-actions.js:308",
+                    "reload": "refresh panel tồn kho/đơn trong live-chat"
                 },
                 {
-                    "page": "Dashboard KPI",
-                    "file": "web2/dashboard/index.html (reloadDebounced)",
-                    "status": "OK (fix 2026-06-28)"
+                    "file": "web2/dashboard/index.html:420",
+                    "reload": "reloadDebounced KPI dashboard"
+                },
+                {
+                    "file": "web2/report-warehouse/index.html:853",
+                    "reload": "refresh báo cáo kho"
                 }
             ],
             "gaps": [],
@@ -69,63 +66,99 @@
             "purpose": "Kho SP (web2_products) đổi tồn/pending/giá → Kho SP + mọi nơi hiện tồn.",
             "publishers": [
                 {
-                    "route": "render.com/routes/web2-products.js",
-                    "where": ":1800 upsert-pending, :1554 adjust-pending, :2007 confirm-purchase-partial, :151 PATCH stock/price (helper _notify :92)",
-                    "action": "sau COMMIT"
+                    "file": "render.com/routes/web2-products.js:124",
+                    "when": "sau COMMIT các action upsert-pending / adjust-pending / confirm-purchase-partial / PATCH stock|price (helper _notify)"
+                },
+                {
+                    "file": "render.com/routes/native-orders.js:2717",
+                    "when": "khi tạo/sửa đơn Web chạm tồn SP"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "Kho SP (web2/products)",
                     "file": "web2/products/js/web2-products-app.js:67",
-                    "status": "OK",
-                    "note": "row đang hiển thị patch tại chỗ; SP off-page chỉ cập nhật khi lọc tới — trừ SP MỚI (upsert-pending) full reload"
+                    "reload": "patch row đang hiển thị tại chỗ; SP MỚI (upsert-pending) full reload"
                 },
                 {
-                    "page": "Ví NCC / dropdown NCC",
-                    "file": "Web2SmartCache web2-suppliers-cache + supplier-wallet",
-                    "status": "OK",
-                    "note": "products route cross-broadcast web2:supplier-wallet khi đổi tồn"
+                    "file": "web2/supplier-wallet/js/supplier-wallet-app.js:222",
+                    "reload": "refresh Ví NCC khi đổi tồn (nhận hàng)"
                 },
                 {
-                    "page": "Công nợ / purchase-refund / live-chat",
-                    "file": "đã thêm subscribe web2:products",
-                    "status": "OK"
+                    "file": "web2/supplier-debt/js/supplier-debt-app.js:252",
+                    "reload": "refresh công nợ khi tồn đổi"
+                },
+                {
+                    "file": "web2/purchase-refund/js/purchase-refund-app.js:38",
+                    "reload": "refresh picker hoàn/trả"
+                },
+                {
+                    "file": "live-chat/js/pancake/inventory-panel-actions.js:304",
+                    "reload": "refresh panel tồn kho live-chat"
+                },
+                {
+                    "file": "web2/live-control/js/live-control.js:988 + web2/live-tv/js/live-tv.js:391",
+                    "reload": "refresh SP trên màn live-control + live-tv"
                 }
             ],
             "gaps": [
                 "confirm-purchase-partial KHÔNG có new-code full-reload path ở web2/products (chỉ upsert-pending có) → SP nhận-hàng đang off-page ở máy khác chưa hiện ngay tới khi page/filter tới (PARTIAL, by design)."
             ],
             "dontBreak": [
-                "Cross-broadcast web2:supplier-wallet nằm trong web2-products.js:112-118 cho các action đổi tồn — xoá nó thì trang Ví NCC ngừng live-update khi nhận hàng.",
-                "Response confirm-purchase-partial KHÔNG trả price → đường in tem so-order phải tự lấy giá (đã fix 2026-06-28). Nếu sau này thêm price vào response thì giữ fallback client."
+                "Cross-broadcast web2:supplier-wallet nằm trong web2-products.js cho các action đổi tồn — xoá nó thì trang Ví NCC ngừng live-update khi nhận hàng.",
+                "Response confirm-purchase-partial KHÔNG trả price → đường in tem so-order phải tự lấy giá. Nếu sau này thêm price vào response thì giữ fallback client."
             ]
         },
         {
-            "topic": "web2:supplier-wallet",
-            "purpose": "NCC mới + công nợ NCC (derive) refresh.",
+            "topic": "web2:variants",
+            "purpose": "Kho Biến Thể (web2_variants) đổi → trang Biến Thể refresh.",
             "publishers": [
                 {
-                    "route": "render.com/routes/web2-supplier-wallet.js",
-                    "where": ":444 (tạo NCC)",
-                    "action": "POST /suppliers sau upsert"
-                },
-                {
-                    "route": "render.com/routes/web2-products.js",
-                    "where": ":112-118 cross-broadcast",
-                    "action": "khi action đổi tồn (upsert/adjust/confirm)"
+                    "file": "render.com/routes/web2-variants.js:48",
+                    "when": "sau COMMIT mutation biến thể (helper _notifyClients)"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "Ví NCC (supplier-wallet)",
-                    "file": "supplier-wallet-app.js:225",
-                    "status": "OK"
+                    "file": "web2/variants/js/web2-variants-app.js:498",
+                    "reload": "reload danh sách biến thể"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:supplier-wallet",
+            "purpose": "NCC mới + công nợ/ví NCC (derive) refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-supplier-wallet.js:40",
+                    "when": "POST /suppliers sau upsert NCC (helper _notify)"
                 },
                 {
-                    "page": "Dropdown chọn NCC (mọi trang)",
-                    "file": "web2/shared/web2-suppliers-cache.js (SmartCache topic web2:supplier-wallet)",
-                    "status": "OK"
+                    "file": "render.com/routes/web2-products.js",
+                    "when": "cross-broadcast khi action đổi tồn (upsert/adjust/confirm)"
+                },
+                {
+                    "file": "render.com/routes/purchase-refund.js:267",
+                    "when": "_notifySupplierWallet khi duyệt/hoàn ảnh hưởng ví NCC (web2RealtimeSseNotify)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/supplier-wallet/js/supplier-wallet-app.js:235",
+                    "reload": "refresh Ví NCC + detail modal"
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-app.js:249",
+                    "reload": "refresh Công nợ NCC"
+                },
+                {
+                    "file": "so-order/js/so-order-payments.js:413",
+                    "reload": "refresh trạng thái thanh toán NCC trong so-order"
+                },
+                {
+                    "file": "web2/shared/web2-suppliers-cache.js (Web2SmartCache topic)",
+                    "reload": "invalidate cache dropdown chọn NCC mọi trang"
                 }
             ],
             "gaps": [],
@@ -135,38 +168,115 @@
         },
         {
             "topic": "web2:wallet:<phone> / web2:wallet:* / web2:customer-wallet",
-            "purpose": "Ví khách + SePay nạp/chi → Ví KH live.",
+            "purpose": "Ví khách + SePay nạp/chi → Ví KH live (topic động per-SĐT + wildcard + canonical customer-wallet).",
             "publishers": [
                 {
-                    "route": "services/web2-wallet-service.js (web2WalletEvents) → realtime-sse-web2.js",
-                    "where": "—",
-                    "action": "SePay webhook / nạp/chi sau commit"
+                    "file": "render.com/services/web2-wallet-service.js:125-126",
+                    "when": "web2WalletEvents.emit('web2:wallet:update' + 'web2:wallet:<normPhone>') sau nạp/chi commit"
+                },
+                {
+                    "file": "render.com/routes/realtime-sse-web2.js:653-675",
+                    "when": "listener web2WalletEvents → notifyClients('web2:wallet:<phone>') + notifyClients('web2:customer-wallet')"
+                },
+                {
+                    "file": "render.com/routes/fast-sale-orders.js:3424 + native-orders.js:3424",
+                    "when": "cross-broadcast web2:customer-wallet khi PBH/đơn trừ ví"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "Ví KH (customer-wallet) / balance pill",
-                    "file": "web2/shared/web2-wallet-balance.js + customer-wallet",
-                    "status": "OK"
+                    "file": "web2/shared/web2-wallet-balance.js:297+303",
+                    "reload": "balance pill re-fetch số dư (web2:wallet:<phone> + web2:customer-wallet)"
+                },
+                {
+                    "file": "web2/customer-wallet/js/web2-customer-wallet-app.js:251",
+                    "reload": "refresh trang Ví KH"
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-app.js:251 + supplier-wallet-app.js:194",
+                    "reload": "refresh số dư ví liên quan NCC"
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-data.js:62 + web2-pending-match.js:69",
+                    "reload": "refresh lịch sử số dư"
                 }
             ],
             "gaps": [],
             "dontBreak": [
-                "SePay → Ví KH Web 2.0 CHỈ qua web2WalletEvents listener trong realtime-sse-web2.js — KHÔNG cross-publish từ legacy walletEvents (đã remove)."
+                "SePay → Ví KH Web 2.0 CHỈ qua web2WalletEvents listener trong realtime-sse-web2.js — KHÔNG cross-publish từ legacy walletEvents (đã remove).",
+                "'web2:wallet-config' KHÔNG match prefix 'web2:wallet' trong routing wildcard — giữ nguyên logic slice trong realtime-sse-web2.js:440-442."
+            ]
+        },
+        {
+            "topic": "web2:balance-history",
+            "purpose": "Lịch sử biến động số dư (SePay CK về, khớp nạp) → trang balance-history + ck-dashboard.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/sepay-webhook-core.js:68",
+                    "when": "webhook SePay ghi giao dịch mới (_sseNotify)"
+                },
+                {
+                    "file": "render.com/routes/v2/web2-balance-history.js:364,1115",
+                    "when": "sau ghi/khớp balance_history (notify)"
+                },
+                {
+                    "file": "render.com/routes/web2-payment-signals.js:525",
+                    "when": "khi detect tín hiệu thanh toán ghi vào balance-history"
+                },
+                {
+                    "file": "render.com/services/web2-ck-watcher.js:274",
+                    "when": "watcher CK phát hiện giao dịch mới"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/balance-history/js/web2-bh-data.js:64",
+                    "reload": "reload bảng lịch sử số dư"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Topic Web 2.0 (web2_balance_history) — KHÔNG trộn với balance-history hub Web 1.0 (bare snake_case)."
             ]
         },
         {
             "topic": "web2:native-orders / web2:fast-sale-orders / web2:cart",
-            "purpose": "Đơn Web (native-orders) / PBH / giỏ kéo-thả realtime.",
+            "purpose": "Đơn Web (native-orders) / PBH (fast_sale_orders) / giỏ kéo-thả realtime.",
             "publishers": [
                 {
-                    "route": "render.com/routes/native-orders.js, fast-sale-orders.js, v2/cart.js",
-                    "where": "sau commit",
-                    "action": "create/update/delete"
+                    "file": "render.com/routes/native-orders.js:168 (web2:native-orders) + :2711 (web2:fast-sale-orders)",
+                    "when": "sau commit create/update/delete đơn Web"
+                },
+                {
+                    "file": "render.com/routes/fast-sale-orders.js:193 (web2:fast-sale-orders) + :155,876 (web2:native-orders)",
+                    "when": "sau commit mutation PBH; cross-bc native-orders khi PBH đổi đơn nguồn"
+                },
+                {
+                    "file": "render.com/routes/v2/cart.js:148",
+                    "when": "sau commit thay đổi giỏ kéo-thả (web2:cart)"
                 }
             ],
             "subscribers": [
-                { "page": "native-orders, live-chat panel, PBH pages", "file": "—", "status": "OK" }
+                {
+                    "file": "native-orders/js/native-orders-realtime-init.js:41,60 + native-orders-kpi.js:110-111",
+                    "reload": "reload list Đơn Web + KPI"
+                },
+                {
+                    "file": "web2/fastsaleorder-invoice/pbh-app.js:68-69",
+                    "reload": "reload trang PBH"
+                },
+                {
+                    "file": "web2/products/js/web2-products-app.js:121,125 + web2/customer-wallet/js/web2-customer-wallet-app.js:267-268",
+                    "reload": "refresh tồn/ví khi PBH/đơn thay đổi"
+                },
+                {
+                    "file": "live-chat/js/pancake/inventory-panel-actions.js:302 + comments-mobile-entry.js:154",
+                    "reload": "refresh panel đơn trong live-chat"
+                },
+                {
+                    "file": "web2/report-delivery/index.html:438 + report-revenue/index.html:703 + report-warehouse/index.html:854 + reconcile/js/reconcile-api.js:251",
+                    "reload": "refresh báo cáo + đối soát"
+                }
             ],
             "gaps": [],
             "dontBreak": [
@@ -174,20 +284,674 @@
             ]
         },
         {
-            "topic": "web2:notifications",
-            "purpose": "Chuông thông báo (lô chưa nhận, nhắc việc…).",
+            "topic": "web2:delivery",
+            "purpose": "Phiếu giao (fastsaleorder-delivery) tạo/sửa/xoá + hủy giao từ PBH → trang giao + báo cáo giao.",
             "publishers": [
                 {
-                    "route": "render.com/routes/v2/notifications.js",
-                    "where": ":409",
-                    "action": "scan cron đọc web2_so_order (KHÔNG edit-triggered)"
+                    "file": "render.com/routes/delivery-invoices.js:358,429,489,521",
+                    "when": "sau commit create/update/patch/delete phiếu giao (web2RealtimeSseNotify)"
+                },
+                {
+                    "file": "render.com/routes/fast-sale-orders.js:2568",
+                    "when": "cancel-from-pbh khi hủy PBH kéo theo hủy phiếu giao"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "web2-notification-bell",
+                    "file": "web2/fastsaleorder-delivery/dlv-app.js:259",
+                    "reload": "reload danh sách phiếu giao"
+                },
+                {
+                    "file": "web2/report-delivery/index.html:437",
+                    "reload": "refresh báo cáo giao hàng"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "WS broadcast cũ (3W4) đã gỡ — SSE web2:delivery là kênh realtime DUY NHẤT. DELETE/PATCH cũng phải notify."
+            ]
+        },
+        {
+            "topic": "web2:refunds",
+            "purpose": "Đơn trả hàng (return/refund KH) tạo/sửa/xoá → trang Trả hàng refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/refunds.js:310,374,408",
+                    "when": "sau commit create/update/delete refund (web2RealtimeSseNotify)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/fastsaleorder-refund/rf-app.js:267",
+                    "reload": "reload trang trả hàng PBH"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "WS broadcast cũ (3W4) đã gỡ — SSE web2:refunds là kênh realtime DUY NHẤT, DELETE cũng phải báo."
+            ]
+        },
+        {
+            "topic": "web2:returns",
+            "purpose": "Đổi/trả NCC hoặc luồng returns riêng (web2/returns) → refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-returns.js:63",
+                    "when": "sau commit mutation returns (helper _notifyClients). Ví (hoàn tiền) đi qua topic riêng web2:wallet:<phone>."
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/returns/js/returns-app.js:30",
+                    "reload": "reload danh sách returns"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "web2:returns (đổi/trả) KHÁC web2:refunds (trả hàng PBH) — 2 luồng, đừng gộp."
+            ]
+        },
+        {
+            "topic": "web2:purchase-refund",
+            "purpose": "Hoàn/Trả hàng NCC (approve/refund/reject) → trang purchase-refund refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/purchase-refund.js:54",
+                    "when": "sau commit approve/cancel-approve/refunded/reject (helper _notify). Kèm cross-bc web2:supplier-wallet + web2:products qua web2RealtimeSseNotify."
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/purchase-refund/js/purchase-refund-app.js:23",
+                    "reload": "reload trạng thái đợt hoàn/trả"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Approve/refund purchase-refund PHẢI cross-broadcast web2:supplier-wallet + web2:products (đổi công nợ + tồn) — xoá thì 2 trang kia không live-update."
+            ]
+        },
+        {
+            "topic": "web2:reconcile",
+            "purpose": "Đối soát TPOS×Pancake / PBH → trang reconcile refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/reconcile.js:46",
+                    "when": "sau commit mutation đối soát (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/reconcile/js/reconcile-api.js:238",
+                    "reload": "reload bảng đối soát"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:customers",
+            "purpose": "Kho KH (web2_customers) đổi/thêm mới (harvest comment, import) → trang KH + store + live-chat.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/v2/web2-customers.js:45",
+                    "when": "sau commit create/update/harvest customer (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/customers/js/customers-app.js:71",
+                    "reload": "reload danh sách KH"
+                },
+                {
+                    "file": "web2/shared/web2-customer-store.js:487",
+                    "reload": "invalidate Web2CustomerStore cache (dùng mọi trang lookup KH)"
+                },
+                {
+                    "file": "native-orders/js/native-orders-realtime-init.js:51 + live-chat/js/live/live-init.js:103 + comments-mobile-entry.js:158",
+                    "reload": "refresh thông tin KH trong đơn/live-chat"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:customer-intents",
+            "purpose": "Ý định thanh toán/mua của KH (payment-signal-detector sinh) → ck-dashboard đánh dấu done.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-customer-intents.js:107",
+                    "when": "PATCH đánh dấu intent done (helper _notifyClients)"
+                },
+                {
+                    "file": "render.com/services/web2-payment-signal-detector.js:388",
+                    "when": "detector phát hiện intent mới từ tín hiệu thanh toán"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/ck-dashboard/js/ck-dashboard-app.js:477",
+                    "reload": "refresh danh sách intent chờ xác nhận"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:payment-signals",
+            "purpose": "Tín hiệu thanh toán realtime (CK khớp đơn) → panel xác nhận thanh toán + live-chat + native-orders.",
+            "publishers": [
+                {
+                    "file": "render.com/services/web2-payment-signal-detector.js:316",
+                    "when": "detector match CK↔đơn phát tín hiệu (web2:payment-signals)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/payment-confirm/js/payment-confirm-app.js:390",
+                    "reload": "refresh panel xác nhận thanh toán"
+                },
+                {
+                    "file": "web2/ck-dashboard/js/ck-dashboard-app.js:465 + web2/balance-history/index.html:463",
+                    "reload": "refresh dashboard CK + lịch sử"
+                },
+                {
+                    "file": "native-orders/js/native-orders-realtime-init.js:46 + live-chat/index.html:1029 + chat.html:460",
+                    "reload": "highlight đơn có tín hiệu thanh toán"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:unread",
+            "purpose": "Tin nhắn chưa đọc (inbox tracker) → panel unread + payment-confirm + ck-dashboard.",
+            "publishers": [
+                {
+                    "file": "render.com/services/web2-unread-tracker.js:53",
+                    "when": "tracker reconcileAll cập nhật số chưa đọc (notify web2:unread)"
+                },
+                {
+                    "file": "render.com/routes/web2-unread.js:86",
+                    "when": "trigger reconcile qua route (truyền web2RealtimeSseNotify)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/web2-unread-panel.js:144",
+                    "reload": "refresh panel tin chưa đọc (dùng chung)"
+                },
+                {
+                    "file": "web2/payment-confirm/js/payment-confirm-app.js:393 + web2/ck-dashboard/js/ck-dashboard-app.js:482",
+                    "reload": "refresh tab tin nhắn chưa đọc"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "web2:unread do tracker/reconcile sinh — KHÔNG có mark-seen thủ công. Đừng thêm mark-seen route riêng lệch với tracker."
+            ]
+        },
+        {
+            "topic": "web2:messages",
+            "purpose": "Tin nhắn inbox Pancake realtime (WS relay → SSE) → live-chat + customer-chat refresh hội thoại.",
+            "publishers": [
+                {
+                    "file": "live-chat/server/relay.js (→ POST /api/realtime/web2/sse/relay-notify)",
+                    "when": "WS Pancake inbox conversation/message → relay-notify key 'web2:messages'"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "live-chat/js/pancake/pancake-realtime.js:11,57",
+                    "reload": "refresh danh sách hội thoại + tin mới"
+                },
+                {
+                    "file": "live-chat/js/live/live-chat-modal.js:184 + web2/shared/web2-customer-chat-core.js:544",
+                    "reload": "refresh modal chat KH"
+                }
+            ],
+            "gaps": [
+                "Không publish từ Express route — chỉ từ WS relay qua /sse/relay-notify. Nếu relay chết thì topic im (không có fallback poller theo policy REALTIME-KHÔNG-POLLER)."
+            ],
+            "dontBreak": [
+                "relay-notify không có auth chặt — giữ key namespace 'web2:' để không đụng hub web1."
+            ]
+        },
+        {
+            "topic": "web2:zalo:accounts / web2:zalo:messages / web2:zalo:<owner>:<suffix>",
+            "purpose": "Zalo per-owner: tài khoản/QR/thread/tin nhắn realtime → trang Zalo + zalo-chat.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-zalo.js:2096,2233,2248,2344 (accounts) + :1920,1937,1958,2345 (messages)",
+                    "when": "sau commit thay đổi account/tracked-thread/tin nhắn Zalo"
+                },
+                {
+                    "file": "render.com/routes/web2-zalo.js:456,473,1536 (_ownerTopic → web2:zalo:<owner>:thread:<id> / :accounts / :messages)",
+                    "when": "tin nhắn/QR/thread theo owner (per-máy gate)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/zalo/js/web2-zalo-app.js:186-197",
+                    "reload": "refresh accounts + messages (per-owner + broadcast)"
+                },
+                {
+                    "file": "web2/shared/zalo-chat/realtime.js:41",
+                    "reload": "refresh thread chat Zalo (web2:zalo:<own>:thread:<threadId>)"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Topic Zalo GATE theo owner (_ownerTopic dùng _ownerByAccount map) — đừng broadcast tin nhắn 1 máy sang máy owner khác. Session Zalo = Postgres web2_zalo_accounts, không Firestore."
+            ]
+        },
+        {
+            "topic": "web2:live-comments",
+            "purpose": "Bình luận livestream Pancake realtime (WS relay ingest + poller reconcile) → live-chat + campaign.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-live-comments.js:39",
+                    "when": "ingest/campaign/saved mutations (helper _notify, actions: realtime/reconcile/campaign/saved/poll)"
+                },
+                {
+                    "file": "render.com/services/web2-livestream-poller.js:429,605",
+                    "when": "poll on-demand + reconcileFullText (vá '…') gọi _liveComments._notify('poll'|'reconcile')"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "live-chat/js/live/live-init.js:91 + comments-mobile-entry.js:146 + comments-mobile-actions.js:341",
+                    "reload": "refresh feed bình luận live"
+                },
+                {
+                    "file": "live-chat/js/pancake/pancake-livestream-filter.js:397",
+                    "reload": "refresh filter bài live"
+                },
+                {
+                    "file": "web2/shared/web2-campaign.js:231",
+                    "reload": "refresh chiến dịch derive từ comment live"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "REALTIME event-driven only — poller nền đã DISABLED (2026-06-15), poll chỉ on-demand. KHÔNG reintroduce setInterval.",
+                "⚠ Action 'poller-pages' + route /poller-pages ĐÃ XOÁ (session 2026-07-01) — không ghi lại như action/gap."
+            ]
+        },
+        {
+            "topic": "web2:campaign-products",
+            "purpose": "SP trong chiến dịch live (add/remove/reorder/pin/pending/auto-add) → live-control + live-tv + campaign.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-campaign-products.js:45 (_notify → web2:campaign-products)",
+                    "when": "sau commit add/remove/reorder/pin/pending/auto-add SP chiến dịch"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/web2-campaign.js:234",
+                    "reload": "refresh danh sách SP chiến dịch (dùng chung live-control/live-tv)"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "'Số NCC báo' broadcast qua đây (đổi web2_products.pending_qty) — giữ đồng bộ với web2:products."
+            ]
+        },
+        {
+            "topic": "web2:live-tv-control",
+            "purpose": "Điều khiển màn TV live (rows/cols/page/layout) → live-tv + live-control lật trang/đổi layout realtime.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-campaign-products.js:62 (_notifyTvControl → web2:live-tv-control)",
+                    "when": "khi đổi layout/lật trang màn TV"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/live-tv/js/live-tv.js:400 + web2/live-control/js/live-control.js:997",
+                    "reload": "áp layout/trang mới lên màn TV realtime"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Topic riêng khỏi web2:campaign-products để control (layout) không kéo full reload SP."
+            ]
+        },
+        {
+            "topic": "web2:livestream-snapshots / web2:livestream-images",
+            "purpose": "Ảnh chụp màn hình livestream (snapshot + gallery ảnh) → live gallery/snap.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/livestream-snapshots.js:44 (web2:livestream-snapshots)",
+                    "when": "sau ghi snapshot mới"
+                },
+                {
+                    "file": "render.com/routes/livestream-images.js:31 (web2:livestream-images)",
+                    "when": "sau upload/xoá ảnh live gallery"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "live-chat/js/live/live-livestream-snap-init.js:100",
+                    "reload": "refresh snapshot mới nhất"
+                },
+                {
+                    "file": "live-chat/js/live/live-livestream-gallery.js:566",
+                    "reload": "refresh gallery ảnh live"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:order-tags",
+            "purpose": "TAG đơn (native-orders) auto theo trigger → trang order-tags + native-orders.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-order-tags.js:40",
+                    "when": "sau commit thêm/sửa/xoá tag (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/order-tags/js/order-tags-app.js:613",
+                    "reload": "reload danh sách tag"
+                },
+                {
+                    "file": "native-orders/js/native-orders-realtime-init.js:63",
+                    "reload": "refresh tag hiển thị trên đơn"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:product-units",
+            "purpose": "Đơn vị/serial SP (đếm/quét) → clearance + unit-scan + native-orders serials.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-product-units.js:38",
+                    "when": "sau commit mutation đơn vị/serial (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/unit-scan/js/unit-scan.js:1326 + web2/clearance/js/clearance.js:246",
+                    "reload": "refresh danh sách serial/đơn vị đã quét"
+                },
+                {
+                    "file": "native-orders/js/native-orders-unit-serials.js:67",
+                    "reload": "refresh serial gán cho đơn"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:product-types",
+            "purpose": "Loại SP (danh mục) đổi → trang product-types refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-product-types.js:40",
+                    "when": "sau commit mutation loại SP (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/product-types/js/web2-product-types-app.js:379",
+                    "reload": "reload danh sách loại SP"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:msg-templates",
+            "purpose": "Mẫu tin nhắn (template) đổi → mọi nơi dùng template refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-msg-templates.js:35",
+                    "when": "sau commit mutation template (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/web2-msg-template-core.js:272",
+                    "reload": "reload danh sách mẫu tin (dùng chung)"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:bulk-send:<jobId>",
+            "purpose": "Tiến độ gửi tin hàng loạt theo job → UI hiển thị progress bar realtime.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-msg-send.js:155 (_notify → web2:bulk-send:<jobId>)",
+                    "when": "mỗi bước tiến độ job gửi hàng loạt"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/web2-msg-template-send.js:134",
+                    "reload": "cập nhật progress gửi tin hàng loạt"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Topic động per-job — 1 job 1 kênh; đừng gom chung mọi job vào 1 topic (nhiễu progress giữa job)."
+            ]
+        },
+        {
+            "topic": "web2:quick-replies",
+            "purpose": "Câu trả lời nhanh đổi → mọi nơi dùng quick-reply refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-quick-replies.js:27",
+                    "when": "sau commit mutation quick-reply (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/web2-quick-reply.js:650",
+                    "reload": "reload danh sách câu trả lời nhanh"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:attendance",
+            "purpose": "Chấm công (DG-600/ADMS) records/device-users/payroll/day-note/fullday/holidays/sync → trang chấm công.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-attendance.js:37",
+                    "when": "sau commit mutation chấm công (records/payroll/day-note/holidays…)"
+                },
+                {
+                    "file": "render.com/routes/web2-attendance-adms.js:34",
+                    "when": "ADMS push từ máy chấm công (sync/heartbeat/device-users)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/cham-cong/js/cham-cong-app.js:964",
+                    "reload": "reload bảng chấm công"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "2 route (attendance + attendance-adms) publish CÙNG topic web2:attendance — client 1 handler xử lý mọi action."
+            ]
+        },
+        {
+            "topic": "web2:cashbook",
+            "purpose": "Sổ quỹ / quản lý chi tiêu → trang chi-tieu refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-cashbook.js:42",
+                    "when": "sau commit mutation thu/chi (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/chi-tieu/js/chi-tieu-app.js:621",
+                    "reload": "reload sổ quỹ + chi tiêu"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:jt-tracking",
+            "purpose": "Tra cứu vận đơn J&T → trang jt-tracking refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-jt-tracking.js:66",
+                    "when": "sau commit mutation tracking (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-app.js:132",
+                    "reload": "reload trạng thái vận đơn"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:fb-posts",
+            "purpose": "Bài FB (đăng/lên lịch qua Meta Graph) đổi → trang fb-posts refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-fb-posts.js:77",
+                    "when": "sau commit mutation bài FB (helper _notifyClients)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/fb-posts/js/fb-posts-app.js:227",
+                    "reload": "reload danh sách bài FB"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Pancake READ-ONLY — đăng/lên lịch qua Meta Graph API, đừng route publish qua Pancake."
+            ]
+        },
+        {
+            "topic": "web2:goods-weight",
+            "purpose": "Cân ký hàng hoá (goods-weight) → trang cân refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-goods-weight.js:46 (_notify → web2:goods-weight)",
+                    "when": "sau commit create/update/delete/delete-day (helper _notify)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/goods-weight/js/goods-weight.js:648",
+                    "reload": "reload bảng cân ký"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:so-order-images",
+            "purpose": "Ảnh NCC theo đợt Sổ Order (BYTEA) upload/xoá → image-manager refresh.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-so-order-images.js:31 (_notify → web2:so-order-images)",
+                    "when": "sau commit upload/delete/delete-ncc ảnh đợt (helper _notify)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "so-order/js/so-order-image-manager.js:363",
+                    "reload": "reload gallery ảnh NCC theo đợt"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:comment-boost",
+            "purpose": "Job đẩy tương tác comment (worker) → trang multi-tool theo dõi tiến độ.",
+            "publishers": [
+                {
+                    "file": "render.com/services/web2-comment-boost-worker.js:197 (_notifyJob → web2:comment-boost)",
+                    "when": "worker cập nhật trạng thái job boost"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/multi-tool/js/multi-tool.js:668",
+                    "reload": "cập nhật trạng thái job comment-boost"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:pancake-accounts",
+            "purpose": "Token/tài khoản Pancake refresh (rotate token) → tab nào dùng token Pancake tự cập nhật.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-pancake-refresh.js:187 (_notify → web2:pancake-accounts)",
+                    "when": "sau refresh/rotate token Pancake"
+                }
+            ],
+            "subscribers": [],
+            "gaps": [
+                "Chỉ thấy PUBLISHER, chưa thấy trang nào Web2SSE.subscribe('web2:pancake-accounts'). Nếu token đổi cần UI cập nhật ngay thì thiếu subscriber — hiện client re-fetch token lazy khi gọi (đủ dùng, by design)."
+            ],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:kpi-dashboard",
+            "purpose": "KPI dashboard broadcast (thêm bản ghi KPI) → Dashboard F01 + KPI leaderboard.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/v2/kpi.js:317 (_notifyClients → web2:kpi-dashboard)",
+                    "when": "sau INSERT bản ghi KPI (broadcast, KHÔNG per-NV)"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/dashboard/index.html:415",
+                    "reload": "refresh KPI dashboard"
+                },
+                {
+                    "file": "web2/kpi/js/kpi-dashboard.js:240 + kpi-assignments.js:433",
+                    "reload": "refresh leaderboard + phân bổ KPI"
+                }
+            ],
+            "gaps": [
+                "Per-NV topic 'web2:kpi:<beneficiary_id>' đã GỠ emit 2026-06-22 (không trang nào subscribe). Cần realtime per-NV sau → mở lại emit + subscribe ở web2/kpi/."
+            ],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:notifications",
+            "purpose": "Chuông thông báo (lô chưa nhận, nhắc việc…).",
+            "publishers": [
+                {
+                    "file": "render.com/routes/v2/notifications.js:409 (_notifyClients → web2:notifications)",
+                    "when": "scan CRON đọc web2_so_order sinh so_shipment_unreceived (KHÔNG edit-triggered)"
+                }
+            ],
+            "subscribers": [
+                {
                     "file": "web2/shared/web2-notification-bell.js:143",
-                    "status": "OK (trễ theo cron)"
+                    "reload": "refresh chuông thông báo (dùng chung)"
+                },
+                {
+                    "file": "web2/notifications/index.html:367",
+                    "reload": "reload trang danh sách thông báo"
                 }
             ],
             "gaps": [
@@ -196,40 +960,113 @@
             "dontBreak": []
         },
         {
-            "topic": "web2:<slug> (generic page-builder)",
-            "purpose": "~78 trang generic (Web2Page) auto realtime theo slug.",
+            "topic": "web2:users",
+            "purpose": "Người dùng Web 2.0 (web2_users) đổi → trang users refresh.",
             "publishers": [
                 {
-                    "route": "render.com/routes/web2-generic (/api/web2/:entity)",
-                    "where": "sau commit",
-                    "action": "create/update/delete theo slug"
+                    "file": "render.com/routes/web2-users.js:53 (_notifyClients → web2:users)",
+                    "when": "sau commit create/update/delete user"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "trang page-builder tương ứng",
-                    "file": "web2/shared (Web2Page)",
-                    "status": "OK"
+                    "file": "web2/users/js/users-app.js:927",
+                    "reload": "reload danh sách người dùng"
                 }
             ],
             "gaps": [],
-            "dontBreak": ["Topic = web2:<slug>; trùng slug = trùng kênh. Đặt slug duy nhất."]
+            "dontBreak": []
         },
         {
-            "topic": "web2:_admin:sse-log",
-            "purpose": "Feed cho Live Monitor (tab này). Mỗi connect/disconnect/notify đẩy 1 entry.",
+            "topic": "web2:capture-lock",
+            "purpose": "Leader-lock chụp snapshot livestream (1 máy chụp) → live snap khoá/nhường.",
             "publishers": [
                 {
-                    "route": "render.com/routes/realtime-sse-web2.js",
-                    "where": "ring buffer 500 + event: log",
-                    "action": "mọi hoạt động hub web2"
+                    "file": "render.com/routes/web2-generic.js:30 (route /api/web2/capture-lock → web2:<slug> = web2:capture-lock)",
+                    "when": "acquire/release lock qua generic entity route"
                 }
             ],
             "subscribers": [
                 {
-                    "page": "web2/system?tab=sse (Live Monitor)",
+                    "file": "live-chat/js/live/live-livestream-snap-lock.js:159",
+                    "reload": "cập nhật ai đang giữ lock chụp"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Lock qua generic slug 'capture-lock' — đừng đặt slug trùng gây tranh chấp kênh."
+            ]
+        },
+        {
+            "topic": "web2:live-hidden-commenters",
+            "purpose": "Danh sách người bình luận bị ẩn (generic slug) → live-chat ẩn/hiện.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-generic.js:30 (route /api/web2/live-hidden-commenters → web2:<slug>)",
+                    "when": "hide/unhide commenter qua generic entity route"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "live-chat/js/live/live-hidden-commenters.js:369",
+                    "reload": "refresh danh sách commenter ẩn"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:printer",
+            "purpose": "Cấu hình máy in (generic slug) → mọi trang dùng printer reload danh sách.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-generic.js:30 (route /api/web2/printer → web2:<slug>)",
+                    "when": "thêm/sửa/xoá máy in qua generic entity route"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/web2-printer.js:778",
+                    "reload": "loadPrinters() reload danh sách máy in"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": []
+        },
+        {
+            "topic": "web2:<slug> (generic page-builder)",
+            "purpose": "~78 trang generic (Web2Page/page-builder) + entity slug (capture-lock, printer, live-hidden-commenters…) auto realtime theo slug.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/web2-generic.js:30 (_notifyClients(`web2:${entity}`) + :474,597,705,778 create/update/delete/bulk)",
+                    "when": "sau commit create/update/delete/delete-all/bulk-create theo :entity slug"
+                }
+            ],
+            "subscribers": [
+                {
+                    "file": "web2/shared/page-builder.js:730 (Web2SSE.subscribe(`web2:${config.slug}`))",
+                    "reload": "reload dữ liệu trang page-builder tương ứng slug"
+                }
+            ],
+            "gaps": [],
+            "dontBreak": [
+                "Topic = web2:<slug>; trùng slug = trùng kênh. Đặt slug duy nhất.",
+                "Các slug đặc thù (capture-lock, printer, live-hidden-commenters) đi CÙNG route generic này — sửa web2-generic.js ảnh hưởng cả chúng."
+            ]
+        },
+        {
+            "topic": "web2:_admin:sse-log",
+            "purpose": "Feed cho Live Monitor (tab Realtime SSE). Mỗi connect/disconnect/notify đẩy 1 entry.",
+            "publishers": [
+                {
+                    "file": "render.com/routes/realtime-sse-web2.js (ring buffer 500 + event: log)",
+                    "when": "mọi hoạt động hub web2 (connect/disconnect/notify)"
+                }
+            ],
+            "subscribers": [
+                {
                     "file": "web2/system/js/system-sse.js:255",
-                    "status": "OK (admin-gated, cần ?admintoken=)"
+                    "reload": "append entry vào Live Monitor (admin-gated, cần ?admintoken=)"
                 }
             ],
             "gaps": [],

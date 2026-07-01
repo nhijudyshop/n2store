@@ -2,6 +2,27 @@
 
 ## 2026-07-01
 
+### [web2-system/sse] Re-audit SSE registry — 8 → 44 topic (trace code thật, sổ tay SSE tab Realtime)
+
+**Files:** `web2/system/data/web2-sse-registry.json` (tab Realtime SSE).
+
+Registry cũ chỉ 8 topic-group trong khi code có ~44 topic `web2:*` active → stale nặng. Agent trace: grep publisher server (`notifyClients('web2:…')`/`_notify`/`web2RealtimeSseNotify`/relay-notify) + subscriber client (`Web2SSE.subscribe`) → **44 entry** đầy đủ `{topic, purpose, publishers[{file,when}], subscribers[{file,reload}], gaps, dontBreak}`, mọi file:line thật (spot-check 87 ref: 0 fabricate).
+
+- Carry-over toàn bộ `gaps`/`dontBreak` curated 8 group cũ (so-order activeTabId, products cross-broadcast, wallet SePay-chỉ-qua-web2WalletEvents, notifications CRON-delay…) + cập nhật pub/sub khớp code.
+- Gộp topic động đúng spec: `web2:wallet:<phone>`+`*`+`customer-wallet`; `web2:zalo:*`; `web2:bulk-send:<jobId>`; `web2:<slug>` generic.
+- Ghi rõ **poller-pages ĐÃ GỠ** trong `web2:live-comments.dontBreak` (không mất tri thức). Tách rõ `web2:returns` vs `web2:refunds` vs `web2:purchase-refund` (đừng nhầm).
+- Gaps từ code: `web2:pancake-accounts` có publisher không subscriber (token re-fetch lazy, by-design); `web2:messages` chỉ qua WS relay; `web2:kpi:<beneficiary>` per-NV đã bỏ 2026-06-22. globalRules 10→11 (thêm luật `/sse/relay-notify`).
+
+Status: ✅
+
+### [web2-system/dedup] Re-audit dedup registry — 16 → 20 groups (verify code thật 2026-07-01)
+
+**Files:** `web2/system/data/web2-dedup-audit.json` (tab dedup).
+
+Re-run audit (agent đọc code thật + codemap dup-names tươi). 16 group cũ re-verify: status giữ nguyên (util-escape/money/datetime/phone vẫn resolved — leaf delegate + GMT+7; pending giữ-riêng #14/#15/#16 nguyên; commit SHA + category immutable). Thêm 1 group **campaign-manager** (resolved — live-chat gut read-only, CRUD gộp về `web2/campaign-manager/`) + **3 group mới** từ dup-name signal (đọc verify): `biz-web2-pagination` (pending, 10 file — renderPagination ellipsis copy-paste, tách khỏi #16 Web1), `util-worker-base` (pending, 16 file — workerBase fallback chain + literal chatomni 79 file), `util-fetch-json` (pending, 13 file — \_fetchJson wrapper byte-identical). Bỏ noise (ensureStyles/toast/norm — khác domain). Tổng: 12 resolved · 2 partial · 6 pending.
+
+Status: ✅
+
 ### [docs/KB] Thêm LUẬT VÀNG "luôn cập nhật data web2/system" vào KB-SYSTEM-SERVICES.md
 
 **Files:** `docs/web2/KB-SYSTEM-SERVICES.md` (§0 mới + fix §1 tab 5→7).

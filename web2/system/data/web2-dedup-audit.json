@@ -1,6 +1,6 @@
 {
-    "generatedAt": "2026-06-30",
-    "note": "Audit các chỗ TRÙNG CHỨC NĂNG trong Web 2.0 + hướng gộp về 1 nguồn. Curated từ audit nhiều vòng + re-verify 2026-06-30 bằng 16 agent (adversarial, đọc code thật) + xác minh sâu: util-escape FIX nốt 3 file leaf 4→5-char (codemod bỏ sót); util-money giữ resolved vì web2-sidebar.js TỰ INJECT web2-format.js (₫ unify 13/14 trang), thêm load tĩnh cho unit-scan (không sidebar); thêm commit SHA đã xác minh + nhóm print-unit. status: resolved=đã gộp xong, partial=phần lớn đã 1-nguồn còn vài bản RAW/chưa kích hoạt, pending=chưa làm/giữ riêng có chủ ý. category: business | shared-module | util.",
+    "generatedAt": "2026-07-01",
+    "note": "Audit các chỗ TRÙNG CHỨC NĂNG trong Web 2.0 + hướng gộp về 1 nguồn. Re-verify 2026-07-01 bằng codemap dup-names (188 hàm trùng ≥3 file) + đọc code thật: 16 group cũ giữ nguyên trạng thái (escape/phone/money/date vẫn resolved — verify 5-char esc + Web2PhoneUtils delegate còn đúng). THÊM 4 group từ signal mới: renderPagination (10 file Web2 fork thuật toán ellipsis), workerBase/workerUrl (fallback chain + literal chatomni-proxy lặp 79 file), _fetchJson/jsonFetch (wrapper fetch+auth+parse+throw byte-identical 3 api), campaign-manager (GỘP xong session này → 1 trang web2/campaign-manager, live-chat gut còn viewer). BỎ QUA noise: ensureStyles/injectCss (CSS scoped theo module, logic guard giống nhưng nội dung khác — cohesion không phải dup), toast (đa số thin wrapper notificationManager, vài bản clearance/unit-scan tự dựng DOM toast — low signal), client _notify/norm/normalize (logic khác nhau). status: resolved=đã gộp xong, partial=phần lớn đã 1-nguồn còn vài bản RAW/chủ ý, pending=chưa làm/giữ riêng có chủ ý. category: business | shared-module | util.",
     "groups": [
         {
             "id": "chohang-amma",
@@ -55,6 +55,23 @@
             ]
         },
         {
+            "id": "campaign-manager",
+            "category": "business",
+            "title": "Quản lý chiến dịch (tạo/gán/xoá) — gộp 1 trang",
+            "severity": "medium",
+            "status": "resolved",
+            "filesAffected": 2,
+            "concept": "Logic tạo/gán/xoá chiến dịch từng fork ở live-chat (live-campaign-manager) + rải các nơi (native-orders/live-control gọi chiến dịch). Cần 1 nguồn quản lý để đổi luồng không sót nơi.",
+            "canonical": "Trang web2/campaign-manager/ (1 nguồn tạo/gán/xoá) · Web2Campaign (web2/shared/web2-campaign.js) = 1 nguồn đọc/state chiến dịch",
+            "resolution": "2026-07-01: GỘP về trang web2/campaign-manager/ làm nguồn DUY NHẤT tạo/gán/xoá chiến dịch. live-chat/js/live/live-campaign-manager.js đã GUT thành read-only viewer (bỏ create/assign/delete local), chỉ _openManager() → mở web2/campaign-manager/ (deep-link ?create=1). Các trang khác đọc chiến dịch qua Web2Campaign shared. Không còn fork create-campaign.",
+            "commit": "",
+            "sites": [
+                "web2/campaign-manager/js/campaign-manager.js (nguồn CRUD)",
+                "web2/shared/web2-campaign.js (state 1-nguồn)",
+                "live-chat/js/live/live-campaign-manager.js (viewer read-only)"
+            ]
+        },
+        {
             "id": "caches-smartcache",
             "category": "shared-module",
             "title": "Cache engines (SWR + IDB + SSE)",
@@ -100,7 +117,7 @@
             "filesAffected": 0,
             "concept": "Popup vs Web2Notify vs notificationManager; Web2QR vs Web2QrModal; 6 module ảnh.",
             "canonical": "Popup (alert/confirm) · Web2Notify=bridge mỏng · Web2QR=engine, QrModal=VietQR wrapper",
-            "resolution": "Re-verify: KHÔNG trùng — Web2Notify chỉ bridge sang notificationManager→Popup→console; Web2QR=engine sinh QR, QrModal=fetch VietQR API (khác nhiệm vụ); ảnh đều orthogonal. Giữ nguyên.",
+            "resolution": "Re-verify: KHÔNG trùng — Web2Notify chỉ bridge sang notificationManager→Popup→console; Web2QR=engine sinh QR, QrModal=fetch VietQR API (khác nhiệm vụ); ảnh đều orthogonal. Giữ nguyên. Ghi chú 2026-07-01: dup-name 'toast' (21 file) đa số là thin wrapper notificationManager.show (chi-tieu/cham-cong/returns…) — OK; vài trang leaf (clearance/unit-scan) TỰ dựng DOM toast + CSS riêng, không dùng Web2Notify → có thể chuẩn hoá nhưng low priority (leaf page nhẹ, không load shared).",
             "commit": "d68cf952",
             "sites": [
                 "web2/shared/popup.js",
@@ -118,7 +135,7 @@
             "filesAffected": 4,
             "concept": "46 bản local helper auth header rải khắp Web 2.0.",
             "canonical": "Web2Auth.authHeaders(extra) — web2/shared/web2-auth.js",
-            "resolution": "ĐÃ ~95% gộp (44/46 file DELEGATE Web2Auth.authHeaders). 4 bản còn lại (web2-api/html-skill/ai-describe/tryon) đọc token qua Web2Auth.getStored + CÓ fallback web2_users_session mà authHeaders() KHÔNG có → giữ riêng (tolerance chủ ý, không phải dup thuần). Finishable nếu thêm fallback web2_users_session vào canonical, nhưng split hiện tại có lý do.",
+            "resolution": "ĐÃ ~95% gộp (44/46 file DELEGATE Web2Auth.authHeaders). 4 bản còn lại (web2-api/html-skill/ai-describe/tryon) đọc token qua Web2Auth.getStored + CÓ fallback web2_users_session mà authHeaders() KHÔNG có → giữ riêng (tolerance chủ ý, không phải dup thuần). Finishable nếu thêm fallback web2_users_session vào canonical, nhưng split hiện tại có lý do. Re-verify 2026-07-01: dup-name authHeaders(4)/_w2AuthHeaders(6) khớp với các api-module — đa số đã gọi Web2Auth, phần còn lại là fallback chủ ý.",
             "commit": "",
             "sites": [
                 "web2/shared/web2-api.js",
@@ -136,7 +153,7 @@
             "filesAffected": 79,
             "concept": "81 bản local escape — 33 delegate, 48 RAW inline. Vài bản 4-char thiếu (') → hở XSS nhẹ (clearance.js, unit-scan.js, goods-weight.js).",
             "canonical": "Web2Escape.escapeHtml(v) — web2/shared/web2-escape.js (5-char)",
-            "resolution": "Codemod 85f9fe06 gộp 76 bản RAW → Web2Escape (delegate-with-fallback). Re-verify 2026-06-30 phát hiện 3 file leaf (clearance/unit-scan/goods-weight) bị BỎ SÓT — esc local vẫn 4-char thiếu (') → đã FIX nốt lên 5-char (thêm &#39;), giữ esc local (leaf page nhẹ, không load shared, tránh load-order). Nay 0 bản 4-char.",
+            "resolution": "Codemod 85f9fe06 gộp 76 bản RAW → Web2Escape (delegate-with-fallback). Fix 3 file leaf (clearance/unit-scan/goods-weight) esc local 4→5-char (thêm &#39;). Re-verify 2026-07-01: đọc code thật 3 file leaf → esc dùng /[&<>\"']/g với '&#39;' đầy đủ (5-char), 0 bản 4-char còn sót. Vẫn resolved.",
             "commit": "85f9fe06",
             "sites": [
                 "web2/clearance/js/clearance.js",
@@ -155,7 +172,7 @@
             "filesAffected": 11,
             "concept": "28 bản format tiền — 12 delegate, 16 RAW. Không nhất quán hậu tố (₫ vs đ) + làm tròn.",
             "canonical": "Web2Format.vnd(n) — web2/shared/web2-format.js",
-            "resolution": "Codemod 85f9fe06 thêm delegate-with-fallback Web2Format.vnd vào 11 file. Re-verify 2026-06-30: web2-format.js không nằm trong <script> tĩnh NHƯNG web2-sidebar.js TỰ INJECT (if !Web2Format) trên 50 trang có sidebar → ₫ kích hoạt runtime ở 13/14 trang consumer. Chỉ unit-scan (KHÔNG có sidebar) còn render 'đ' → đã thêm <script web2-format.js> tường minh. Nay ₫ 1-nguồn mọi trang (sidebar auto-inject + unit-scan/reconcile load tĩnh).",
+            "resolution": "Codemod 85f9fe06 thêm delegate-with-fallback Web2Format.vnd vào 11 file. web2-sidebar.js TỰ INJECT web2-format.js (if !Web2Format) trên 50 trang có sidebar → ₫ kích hoạt runtime; unit-scan/reconcile (không sidebar) load <script web2-format.js> tĩnh. Re-verify 2026-07-01: 3 file leaf (clearance/unit-scan/goods-weight) fmtVnd = Web2Format.vnd(n) với fallback 'đ' — delegate đúng. ₫ 1-nguồn mọi trang.",
             "commit": "85f9fe06",
             "sites": [
                 "web2/clearance/js/clearance.js",
@@ -175,7 +192,7 @@
             "filesAffected": 44,
             "concept": "44 bản format ngày/giờ — chỉ 10 delegate, 34 RAW. Lo ngại NHIỀU bản thiếu timeZone 'Asia/Ho_Chi_Minh' → hiển thị theo TZ máy (vi phạm rule timezone).",
             "canonical": "Web2Format.date/.time/.dateTime — web2/shared/web2-format.js (đã set Asia/Ho_Chi_Minh)",
-            "resolution": "Re-verify 2026-06-30 (đọc code thật): 5 bản fmtTime spot-check (product-detail/zalo-utils/unit-scan/audit-log/goods-weight) ĐỀU có timeZone 'Asia/Ho_Chi_Minh' → KHÔNG có bug TZ, đúng GMT+7. Là local copy nhưng KHÔNG vi phạm rule → chấp nhận, không cần gộp. Hạ severity high→medium (rủi ro TZ đã xác minh không tồn tại).",
+            "resolution": "Re-verify 2026-06-30 (đọc code thật): 5 bản fmtTime spot-check (product-detail/zalo-utils/unit-scan/audit-log/goods-weight) ĐỀU có timeZone 'Asia/Ho_Chi_Minh' → KHÔNG có bug TZ, đúng GMT+7. Là local copy nhưng KHÔNG vi phạm rule → chấp nhận, không cần gộp. Hạ severity high→medium (rủi ro TZ đã xác minh không tồn tại). Codemap 2026-07-01: fmtTime vẫn 15 file, fmtDate 6 file — số lượng ổn định, không phát sinh bản RAW thiếu TZ mới.",
             "commit": "",
             "sites": [
                 "web2/products/js/web2-product-detail.js",
@@ -194,7 +211,7 @@
             "filesAffected": 14,
             "concept": "13 bản normPhone — 0% delegate, ALL RAW inline + DIVERGE (vài bản thiếu guard fb_id ≥15 số). Vì là chuẩn hoá MATCHING (không chỉ display) → đổi cần thận trọng.",
             "canonical": "Web2PhoneUtils.norm/isValid/isMobile — web2/shared/web2-phone-utils.js",
-            "resolution": "Gộp 14 helper (Web2CustomerStore.normPhone + 13 local) → Web2PhoneUtils.norm (delegate-with-fallback). Nâng cấp: thêm 0084→0 + isMobile (regex đầu số VN thực) + load vào 9 trang (trước đó 0 trang load → delegate inert). Verified browser: norm/isMobile đúng.",
+            "resolution": "Gộp 14 helper (Web2CustomerStore.normPhone + 13 local) → Web2PhoneUtils.norm (delegate-with-fallback). Nâng cấp: thêm 0084→0 + isMobile (regex đầu số VN thực) + load vào 9 trang. Re-verify 2026-07-01: customer-wallet-state/wallet-balance/live-kho-enricher đều còn ref Web2PhoneUtils (delegate). Vẫn resolved. Lưu ý dup-name 'norm'(9)/'normalize'(6) trong codemap là các normalize KHÁC domain (status/address/supplier) — không phải phone, không gộp.",
             "commit": "eb65634",
             "sites": [
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
@@ -246,6 +263,73 @@
             ]
         },
         {
+            "id": "biz-web2-pagination",
+            "category": "business",
+            "title": "Phân trang ellipsis Web 2.0 (renderPagination/goPage)",
+            "severity": "medium",
+            "status": "pending",
+            "filesAffected": 10,
+            "concept": "Thuật toán pager 'window quanh trang hiện tại + dấu …' (start=cur-2, end=start+4, nút ‹/›) COPY-PASTE ở ~10 render-module Web 2.0. page-builder.js + web2-products-render.js gần như byte-identical; customers/balance-history/customer-wallet biến thể nhẹ (window ±2) nhưng cùng logic. Chưa có shared module → sửa style/logic pager phải sửa 10 nơi. Đây là Web 2.0 (KHÁC group biz-pagination cũ = Web 1.0 purchase-orders/delivery-report).",
+            "canonical": "Đề xuất web2/shared/web2-pagination.js (renderPager(state, {onGo, mode}) → HTML + wiring) HOẶC promote hàm renderPagination trong page-builder.js làm export dùng chung.",
+            "resolution": "Signal mới 2026-07-01 từ codemap (renderPagination 10 file, goPage 6 file — tất cả Web2/native). Group cũ biz-pagination (#16) ghi 'chưa có trang Web 2.0 nào cần → YAGNI' nay KHÔNG còn đúng: 10 trang Web2 đã fork. Nên gộp: extract 1 nguồn pager (data-page + delegate click), migrate render-module. Actionable, finishable. Chưa thực thi.",
+            "commit": "",
+            "sites": [
+                "web2/shared/page-builder.js (renderPagination — ứng viên canonical)",
+                "web2/products/js/web2-products-render.js",
+                "web2/customers/js/customers-render.js",
+                "web2/balance-history/js/web2-bh-render.js",
+                "web2/customer-wallet/js/web2-customer-wallet-render.js",
+                "web2/supplier-debt/js/supplier-debt-render.js",
+                "web2/fastsaleorder-delivery/dlv-app.js",
+                "web2/fastsaleorder-invoice/pbh-render.js",
+                "web2/fastsaleorder-refund/rf-app.js",
+                "native-orders/js/native-orders-render.js"
+            ]
+        },
+        {
+            "id": "util-worker-base",
+            "category": "util",
+            "title": "Resolve base-URL worker (workerBase / workerUrl)",
+            "severity": "medium",
+            "status": "pending",
+            "filesAffected": 16,
+            "concept": "~16 file (workerBase 10 + workerUrl 6) tự viết lại CÙNG chuỗi fallback: API_CONFIG.WORKER_URL || WEB2_CONFIG.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'. Literal chatomni-proxy lặp ở 79 file. Rule CLAUDE.md: base-URL = 1 NGUỒN (WEB2_CONFIG đầu web2-auth.js), literal 'CHỈ là fallback' — nhưng không có GETTER shared nên mỗi file chép chuỗi + hardcode literal.",
+            "canonical": "Đề xuất Web2Config.workerUrl() (getter shared trong web2-auth.js đọc API_CONFIG/WEB2_CONFIG) — đổi URL chỉ 1 chỗ, gỡ literal khỏi 79 file.",
+            "resolution": "Signal mới 2026-07-01: đọc 4 bản workerBase (campaign/fb-client/gemini-client/video-stock) → CHUỖI fallback giống hệt, chỉ khác thứ tự API_CONFIG vs WEB2_CONFIG. Đề xuất thêm getter Web2Config.workerUrl() rồi delegate. Actionable, finishable nhưng cần cẩn thận load-order (getter phải sẵn trước consumer — web2-auth load sớm nhất nên OK). Chưa thực thi.",
+            "commit": "",
+            "sites": [
+                "web2/shared/web2-auth.js (WEB2_CONFIG — nơi thêm getter)",
+                "web2/shared/web2-campaign.js",
+                "web2/shared/web2-fb-client.js",
+                "web2/shared/web2-gemini-client.js",
+                "web2/shared/web2-ai-assistant.js",
+                "web2/shared/web2-customer-store.js",
+                "web2/video-maker/js/video-stock.js",
+                "web2/multi-tool/js/multi-tool.js"
+            ]
+        },
+        {
+            "id": "util-fetch-json",
+            "category": "util",
+            "title": "Wrapper fetch JSON + auth + throw (_fetchJson / jsonFetch)",
+            "severity": "low",
+            "status": "pending",
+            "filesAffected": 13,
+            "concept": "~13 file (_fetchJson 7 + jsonFetch 6) tự viết wrapper fetch: set Accept json + auth headers + try json + if(!res.ok) throw Error(data.error||HTTP status). web2-api.js / web2-variants-api.js / web2-products-api.js BYTE-IDENTICAL (chỉ khác tên helper auth _authHeaders vs _w2Auth). Chồng 1 phần với group util-auth (#7) nhưng đây là CẢ wrapper (auth+parse+throw), đơn vị lặp lớn hơn helper auth đơn.",
+            "canonical": "Đề xuất Web2Api.fetchJson(url, opts) — web2/shared/web2-api.js (đã có _fetchJson gần-canonical, chỉ cần export + api-module khác delegate).",
+            "resolution": "Signal mới 2026-07-01: đọc 4 bản _fetchJson (native-orders-api/web2-api/variants-api/products-api) → 3 bản shared byte-identical. web2-api.js đã có bản chuẩn; promote thành Web2Api.fetchJson public rồi api-module delegate (giữ fallback). Actionable. ⚠ vài bản (products-api) thêm err.status/message → cần giữ superset khi gộp. Chưa thực thi.",
+            "commit": "",
+            "sites": [
+                "web2/shared/web2-api.js (_fetchJson — ứng viên canonical)",
+                "web2/shared/web2-products-api.js",
+                "web2/variants/js/web2-variants-api.js",
+                "web2/product-types/js/web2-product-types-api.js",
+                "web2/shared/web2-chat-utils.js",
+                "native-orders/js/native-orders-api.js",
+                "live-chat/js/live/live-native-orders-api.js"
+            ]
+        },
+        {
             "id": "biz-customer-lookup",
             "category": "business",
             "title": "Customer lookup / enrich (xuyên layer)",
@@ -282,13 +366,13 @@
         {
             "id": "biz-pagination",
             "category": "business",
-            "title": "Phân trang (generatePageNumbers/getPageRange)",
+            "title": "Phân trang Web 1.0 (generatePageNumbers/getPageRange)",
             "severity": "low",
             "status": "pending",
             "filesAffected": 4,
-            "concept": "Logic phân trang ellipsis copy-paste vài trang (đa số Web 1.0: purchase-orders, delivery-report).",
-            "canonical": "Đề xuất web2/shared/web2-pagination.js (nếu Web 2.0 cần)",
-            "resolution": "Đa số ở Web 1.0 (thuật toán khác nhau: centered vs fixed-offset) → KHÔNG đụng (rule cấm share Web1↔Web2). Chưa có trang Web 2.0 nào cần → YAGNI, không finishable tới canonical Web2 cho đến khi có nhu cầu thật.",
+            "concept": "Logic phân trang ellipsis copy-paste vài trang Web 1.0 (purchase-orders, delivery-report). Thuật toán khác nhau (centered vs fixed-offset).",
+            "canonical": "N/A — Web 1.0 riêng, KHÔNG share với Web2 (rule cấm Web1↔Web2). Web2 tách thành group biz-web2-pagination.",
+            "resolution": "Đa số ở Web 1.0 → KHÔNG đụng (rule cấm share Web1↔Web2). 2026-07-01: tách rõ — nhu cầu pager Web 2.0 nay là group RIÊNG biz-web2-pagination (10 trang Web2 đã fork). Group này chỉ còn theo dõi Web 1.0, KHÔNG finishable tới canonical chung.",
             "commit": "",
             "sites": [
                 "purchase-orders/js/history-tab.js (Web1)",
