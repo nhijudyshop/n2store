@@ -183,6 +183,8 @@
         RC.bindAuditUi();
         await loadList();
         RC.setupSse();
+        // Dò nguồn camera bằng chứng (KBVision sidecar → fallback webcam). Fire-and-forget.
+        if (window.Web2EvidenceCamera) window.Web2EvidenceCamera.init().catch(() => {});
         focusScanner();
         if (window.lucide) window.lucide.createIcons();
     }

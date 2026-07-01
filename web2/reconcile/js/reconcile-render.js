@@ -137,11 +137,20 @@
 
             <div class="rc-detail-actions">
                 <span class="rc-detail-summary ${isComplete ? 'is-complete' : ''}">
-                    Đã pick <strong>${p.totals.picked}/${p.totals.quantity}</strong>
-                    ${isComplete ? ' · Đủ hàng' : ''}
+                    Đã đối soát <strong>${p.totals.picked}/${p.totals.quantity}</strong>
+                    ${
+                        isComplete
+                            ? ' · Đủ hàng'
+                            : STATE.sessionActive
+                              ? ' · <span class="rc-session-warn">phiên tạm — đủ mới lưu</span>'
+                              : ''
+                    }
                 </span>
                 ${renderActionButtons(fState, isComplete, isLocked)}
             </div>
+
+            <!-- Ảnh bằng chứng tích-tay (chỉ PBH đã đóng gói) — admin soi lại. -->
+            <div class="rc-snapshots" id="rcSnapshots" hidden></div>
 
             <div class="rc-history-wrap">
                 <div class="rc-history-bar">
@@ -205,7 +214,7 @@
             if (el) el.addEventListener('click', fn);
         };
         b('rcBtnReset', RC.resetPick);
-        b('rcBtnPack', RC.packOrder);
+        b('rcBtnFinalize', RC.finalize);
         b('rcBtnCancelPack', RC.cancelPack);
         b('rcBtnShip', RC.shipOrder);
         b('rcBtnDeliver', RC.deliverOrder);
@@ -288,15 +297,26 @@
 
     function renderActionButtons(fState, isComplete, isLocked) {
         const buttons = [];
-        if (!isLocked && (fState === 'picking' || fState === 'picked' || fState === 'pending')) {
+        // 2026-07-01 session model: phiên đối soát (client-side). Đủ 100% → TỰ chốt
+        // (finalize). Nút chỉ có: Xoá phiên + (đang lưu / thử lưu lại / chốt thủ công).
+        if (STATE.sessionActive && !isLocked) {
             buttons.push(
-                `<button class="btn btn-secondary btn-sm" id="rcBtnReset"><i data-lucide="rotate-ccw"></i> Reset pick</button>`
+                `<button class="btn btn-secondary btn-sm" id="rcBtnReset"><i data-lucide="rotate-ccw"></i> Xoá phiên</button>`
             );
-            buttons.push(
-                `<button class="btn btn-primary" id="rcBtnPack" ${isComplete ? '' : 'disabled'}>
-                    <i data-lucide="package"></i> Đóng gói
-                </button>`
-            );
+            if (STATE.finalizing) {
+                buttons.push(
+                    `<button class="btn btn-primary" disabled><i data-lucide="loader"></i> Đang lưu + chụp…</button>`
+                );
+            } else if (STATE.finalizeError) {
+                buttons.push(
+                    `<button class="btn btn-warn" id="rcBtnFinalize"><i data-lucide="upload-cloud"></i> Thử lưu lại</button>`
+                );
+            } else if (isComplete) {
+                buttons.push(
+                    `<button class="btn btn-primary" id="rcBtnFinalize"><i data-lucide="package-check"></i> Chốt + đóng gói</button>`
+                );
+            }
+            return buttons.join('');
         }
         if (fState === 'packed') {
             buttons.push(

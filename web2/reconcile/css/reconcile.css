@@ -1195,3 +1195,75 @@
         text-align: center;
     }
 }
+
+/* ====================================================== */
+/* 2026-07-01: session model — hint phiên tạm + ảnh bằng chứng tích-tay */
+/* ====================================================== */
+.rc-session-warn {
+    color: #b45309;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* Ảnh đối soát tay (PBH đã đóng gói) — admin soi lại */
+.rc-snapshots {
+    margin: 6px 4px 0;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+.rc-snapshots[hidden] {
+    display: none;
+}
+.rc-snap-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 10px;
+}
+.rc-snap-title i {
+    width: 16px;
+    height: 16px;
+    color: #0d9488;
+}
+.rc-snap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+.rc-snap-item {
+    margin: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+.rc-snap-imgwrap {
+    aspect-ratio: 4 / 3;
+    background: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.rc-snap-imgwrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.rc-snap-item figcaption {
+    padding: 6px 8px;
+    font-size: 0.72rem;
+    color: #475569;
+    line-height: 1.35;
+}
+.rc-snap-item figcaption span {
+    color: #64748b;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 0.68rem;
+}

@@ -130,6 +130,78 @@
         }
     }
 
+    // ---------- snapshots (ảnh bằng chứng tích-tay) ----------
+    const _snapTsFmt = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+    function fmtSnapTs(ts) {
+        try {
+            return _snapTsFmt.format(new Date(Number(ts)));
+        } catch {
+            return '';
+        }
+    }
+    // Ảnh cần x-web2-token (router gate) → fetch blob → objectURL (<img> không set header được).
+    async function fetchSnapshotBlobUrl(id) {
+        try {
+            const r = await fetch(`${RC.API}/snapshot/${id}/image`, {
+                headers: { ...((window.Web2Auth && window.Web2Auth.authHeaders()) || {}) },
+            });
+            if (!r.ok) return null;
+            return URL.createObjectURL(await r.blob());
+        } catch {
+            return null;
+        }
+    }
+    async function loadSnapshots(number) {
+        const box = document.getElementById('rcSnapshots');
+        if (!box) return;
+        try {
+            const res = await api('GET', `/${encodeURIComponent(number)}/snapshots`);
+            const snaps = res.snapshots || [];
+            if (!snaps.length) {
+                box.hidden = true;
+                box.innerHTML = '';
+                return;
+            }
+            box.hidden = false;
+            box.innerHTML =
+                `<div class="rc-snap-title"><i data-lucide="camera"></i> Ảnh đối soát tay (${snaps.length})</div>` +
+                '<div class="rc-snap-grid">' +
+                snaps
+                    .map(
+                        (s) => `<figure class="rc-snap-item" data-id="${s.id}">
+                        <div class="rc-snap-imgwrap"><img alt="ảnh đối soát tay" loading="lazy" /></div>
+                        <figcaption>${RC.escapeHtml(s.productCode || '(chung)')}<br>
+                            <span>${fmtSnapTs(s.capturedAt)}${s.userName ? ' · ' + RC.escapeHtml(s.userName) : ''}</span>
+                        </figcaption>
+                    </figure>`
+                    )
+                    .join('') +
+                '</div>';
+            if (window.lucide) window.lucide.createIcons();
+            // Nạp ảnh (auth) → objectURL → src + click mở lightbox.
+            for (const s of snaps) {
+                const img = box.querySelector(`.rc-snap-item[data-id="${s.id}"] img`);
+                if (!img) continue;
+                fetchSnapshotBlobUrl(s.id).then((url) => {
+                    if (!url) return;
+                    img.src = url;
+                    img.style.cursor = 'zoom-in';
+                    img.addEventListener('click', () => window.Web2ImageLightbox?.open?.(url));
+                });
+            }
+        } catch {
+            box.hidden = true;
+        }
+    }
+
     // ---------- SSE ----------
     // Debounce burst events (scan = nhiều event liên tiếp) để tránh race:
     // gom lại, gọi loadList 1 lần; detail của PBH đang chọn cũng debounce.
@@ -199,6 +271,7 @@
 
     RC.loadList = loadList;
     RC.loadCounts = loadCounts;
+    RC.loadSnapshots = loadSnapshots;
     RC.historyNote = historyNote;
     RC.loadHistory = loadHistory;
     RC.setupSse = setupSse;

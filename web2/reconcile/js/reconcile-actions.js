@@ -19,33 +19,114 @@
     const escapeHtml = RC.escapeHtml;
     const focusScanner = RC.focusScanner;
 
+    // Chuẩn hoá mã SP phía client (khớp normCode server: trim + upper).
+    function normC(s) {
+        return String(s == null ? '' : s)
+            .trim()
+            .toUpperCase();
+    }
+    const LOCKED_STATES = ['packed', 'shipped', 'delivered', 'returned'];
+
     // ---------- select PBH ----------
+    // 2026-07-01 session model: mở PBH CHƯA đóng gói = phiên đối soát MỚI (pick trong RAM
+    // từ 0, KHÔNG đọc partial server vì server không giữ partial). PBH đã đóng gói/giao =
+    // read-only + tải ảnh bằng chứng cho admin xem.
     async function selectPbh(number) {
         STATE.selectedNumber = number;
         STATE.historyHtml = null; // reset để không nháy lịch sử PBH cũ
         STATE.historyOpen = false; // mở PBH mới → ẩn lịch sử, ưu tiên danh sách SP để quét
+        STATE.evidence = []; // phiên mới → xoá ảnh tích-tay buffered của phiên cũ
+        STATE.finalizeError = false;
         RC.renderList();
         const target = document.getElementById('rcScannerTarget');
-        target.textContent = `PBH: ${number}`;
-        target.classList.add('is-active');
+        if (target) {
+            target.textContent = `PBH: ${number}`;
+            target.classList.add('is-active');
+        }
         try {
             const res = await api('GET', `/${encodeURIComponent(number)}`);
-            // Chống race: user bấm PBH khác trong lúc fetch → bỏ kết quả cũ, không đè
-            // STATE.currentPbh bằng PBH không còn được chọn (tránh hiện sai chi tiết).
+            // Chống race: user bấm PBH khác trong lúc fetch → bỏ kết quả cũ.
             if (STATE.selectedNumber !== number) return false;
-            STATE.currentPbh = res.pbh;
-            RC.renderDetail();
-            // Cuộn panel chi tiết lên đầu → thấy toàn bộ danh sách SP cần quét.
+            const pbh = res.pbh;
+            const fState = pbh.fulfillmentState || 'pending';
+            const locked = pbh.state === 'cancel' || LOCKED_STATES.includes(fState);
+            if (locked) {
+                STATE.sessionActive = false;
+                STATE.currentPbh = pbh;
+                RC.renderDetail();
+                RC.loadSnapshots(number); // ảnh bằng chứng tích-tay → admin soi lại
+            } else {
+                // Phiên MỚI: pick client-side từ 0.
+                STATE.sessionActive = true;
+                (pbh.lines || []).forEach((l) => {
+                    l.picked_qty = 0;
+                });
+                RC.recomputeTotals(pbh);
+                STATE.currentPbh = pbh;
+                RC.renderDetail();
+                // Warm camera trong user gesture (click/scan) — im lặng nếu chưa cấp quyền.
+                if (window.Web2EvidenceCamera) window.Web2EvidenceCamera.warm().catch(() => {});
+            }
             const panel = document.getElementById('rcDetailPanel');
             if (panel) panel.scrollTop = 0;
             focusScanner();
-            // Lịch sử lazy: chỉ tải khi user mở (ẩn mặc định).
             return true;
         } catch (e) {
-            // Trả false (không throw) để caller như onScannerSubmit biết bill-scan THẤT BẠI,
-            // tránh báo "Mở PBH" nhầm khi GET lỗi. Vẫn notify như cũ cho click danh sách.
             notify('Lỗi tải PBH: ' + e.message, 'error');
             return false;
+        }
+    }
+
+    // ---------- finalize: CHỐT phiên khi đủ 100% (lưu picks + ảnh + đóng gói) ----------
+    async function finalize() {
+        const pbh = STATE.currentPbh;
+        if (!pbh || STATE.finalizing) return;
+        STATE.finalizing = true;
+        STATE.finalizeError = false;
+        RC.renderDetail(); // hiện trạng thái "đang lưu…"
+        try {
+            const pickedLines = (pbh.lines || []).map((l) => ({
+                productCode: l.productCode,
+                pickedQty: Number(l.picked_qty) || 0,
+            }));
+            // Ảnh tích-tay → base64 (chỉ cái có blob; thiếu ảnh vẫn chốt được).
+            const evidence = [];
+            for (const e of STATE.evidence) {
+                if (!e.blob || !window.Web2EvidenceCamera) continue;
+                let imageBase64 = null;
+                try {
+                    imageBase64 = await window.Web2EvidenceCamera.blobToBase64(e.blob);
+                } catch {
+                    /* bỏ ảnh lỗi */
+                }
+                if (imageBase64)
+                    evidence.push({
+                        productCode: e.productCode,
+                        capturedAt: e.capturedAt,
+                        source: e.source,
+                        imageBase64,
+                    });
+            }
+            const body = { pickedLines, evidence };
+            if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
+            const res = await api('POST', `/${encodeURIComponent(pbh.number)}/finalize`, body);
+            STATE.currentPbh = res.pbh;
+            STATE.sessionActive = false;
+            STATE.evidence = [];
+            RC.renderDetail();
+            feedback(
+                `✓✓ ĐÃ CHỐT ${pbh.number} — đóng gói + lưu ${(res.snapshotIds || []).length} ảnh. Quét bill kế →`,
+                false,
+                true
+            );
+            RC.loadList();
+            if (RC.loadCounts) RC.loadCounts();
+        } catch (e) {
+            STATE.finalizeError = true;
+            notify('Lưu đối soát thất bại: ' + e.message + ' — bấm "Thử lưu lại"', 'error');
+            RC.renderDetail();
+        } finally {
+            STATE.finalizing = false;
         }
     }
 
@@ -54,111 +135,117 @@
     // Lưu NGAY mỗi lần tích (không cần quét đủ cả đơn). Dùng cho SP barcode không quét được.
     // User 06/06: BẮT BUỘC confirm + ghi lịch sử "đối chiếu camera" — vì tích tay KHÔNG
     // quét barcode → cần xác nhận + lưu vết để soi lại camera khi đối chứng.
-    const _manualPickInFlight = new Set();
+    // TÍCH TAY (client-side) — không quét barcode → CHỤP ẢNH camera lưu bằng chứng.
+    // Ảnh giữ TRONG RAM (STATE.evidence); chỉ POST lên server lúc finalize (đủ 100%).
+    const _manualPickInFlight = new Set(); // chống double-tick trong lúc chờ chụp ảnh
     async function toggleManualPick(productCode, checked, need) {
-        const number = STATE.currentPbh?.number;
-        if (!number) return;
-
-        // Khóa per-line khi đang xử lý: double-click không stack 2 confirm + 2 POST
-        // (last-write-wins server làm UI flip-flop). Bỏ qua change event khi còn in-flight.
-        const lockKey = `${number}::${productCode}`;
-        if (_manualPickInFlight.has(lockKey)) {
-            RC.renderDetail(); // checkbox vừa toggle visually → vẽ lại theo state server
-            return;
-        }
+        const pbh = STATE.currentPbh;
+        if (!STATE.sessionActive || !pbh) return;
+        const line = (pbh.lines || []).find((l) => normC(l.productCode) === normC(productCode));
+        if (!line) return;
         if (!window.Popup) {
             notify('Đang tải thành phần xác nhận, thử lại sau giây lát', 'error');
             RC.renderDetail();
             return;
         }
-        _manualPickInFlight.add(lockKey);
-
-        // Confirm trước khi áp dụng. Hủy → revert checkbox về trạng thái server.
-        const ok = checked
-            ? await Popup.confirm(
-                  `✋ TÍCH TAY (không quét barcode) cho "${productCode}"?\n\n` +
-                      `→ Đánh dấu đã pick đủ ${need} mà không quét mã.\n` +
-                      `→ Thao tác được LƯU LỊCH SỬ (kèm người + ngày giờ) để ĐỐI CHIẾU CAMERA khi cần.\n\n` +
-                      `Xác nhận?`
-              )
-            : await Popup.confirm(`Bỏ tích tay "${productCode}" (đưa về 0)?`);
-        if (!ok) {
-            _manualPickInFlight.delete(lockKey);
-            RC.renderDetail(); // checkbox đã toggle visually → vẽ lại theo state server
+        const lockKey = normC(productCode);
+        if (_manualPickInFlight.has(lockKey)) {
+            RC.renderDetail();
             return;
         }
-
-        const pickedQty = checked ? need : 0;
-        const body = { productCode, pickedQty };
-        if (checked) body.note = MANUAL_CAMERA_NOTE; // server log payload.note (sau khi deploy)
-        if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
-        try {
-            const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, body);
-            STATE.currentPbh = res.pbh;
-            RC.renderDetail();
-            RC.loadHistory(number);
-            const t = res.pbh?.totals || {};
-            if (checked) {
-                notify(`✋ Đã tích tay ${productCode} — lưu lịch sử để đối chiếu camera`, 'info');
-            }
-            if (t.isComplete) {
-                feedback(`✓✓ ĐỦ HÀNG ${number} — bấm "Đóng gói" để hoàn tất`, false, true);
-                RC.loadList();
-            } else {
-                feedback(checked ? `✓ Tích tay ${productCode}` : `↩ Bỏ tích ${productCode}`);
-            }
-        } catch (err) {
-            notify(err.message, 'error');
-            RC.renderDetail(); // revert về trạng thái server
-        } finally {
-            _manualPickInFlight.delete(lockKey);
-        }
-    }
-
-    // #16: bớt 1 đơn vị đã pick (quét dư/nhầm) — KHÔNG Reset cả đơn. Dùng endpoint
-    // manual-pick sẵn có (set picked_qty = got-1). Không confirm (sửa nhẹ 1 đơn vị);
-    // khóa per-line như toggleManualPick để double-click không stack 2 POST.
-    async function decrementPick(productCode, got) {
-        const number = STATE.currentPbh?.number;
-        if (!number || !(got > 0)) return;
-        const lockKey = `${number}::${productCode}`;
-        if (_manualPickInFlight.has(lockKey)) return;
         _manualPickInFlight.add(lockKey);
-        const body = { productCode, pickedQty: got - 1 };
-        if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
         try {
-            const res = await api('POST', `/${encodeURIComponent(number)}/manual-pick`, body);
-            STATE.currentPbh = res.pbh;
-            RC.renderDetail();
-            RC.loadHistory(number);
-            feedback(
-                `−1 ${productCode} (${res.pbh?.totals?.picked ?? ''}/${res.pbh?.totals?.quantity ?? ''})`
-            );
-            RC.loadList();
-        } catch (err) {
-            notify(err.message, 'error');
-            RC.renderDetail();
+            if (checked) {
+                const ok = await Popup.confirm(
+                    `✋ TÍCH TAY (không quét barcode) cho "${productCode}"?\n\n` +
+                        `→ Đánh dấu đã pick đủ ${need} mà không quét mã.\n` +
+                        `→ Hệ thống sẽ CHỤP ẢNH camera lưu bằng chứng (admin soi lại).\n\n` +
+                        `Xác nhận?`
+                );
+                if (!ok) {
+                    RC.renderDetail();
+                    return;
+                }
+                // Chụp ảnh bằng chứng ngay lúc tích tay.
+                let cap = null;
+                try {
+                    if (window.Web2EvidenceCamera) cap = await window.Web2EvidenceCamera.capture();
+                } catch (e) {
+                    notify(
+                        'Không chụp được ảnh camera (' +
+                            e.message +
+                            ') — vẫn tích tay nhưng THIẾU ảnh',
+                        'warning'
+                    );
+                }
+                line.picked_qty = need;
+                // Gỡ evidence cũ cùng mã (nếu tick lại) rồi push mới.
+                STATE.evidence = STATE.evidence.filter((e) => normC(e.productCode) !== lockKey);
+                STATE.evidence.push({
+                    productCode: line.productCode,
+                    capturedAt: cap?.capturedAt || Date.now(),
+                    source: cap?.source || null,
+                    blob: cap?.blob || null,
+                });
+                RC.recomputeTotals(pbh);
+                RC.renderDetail();
+                feedback(
+                    cap
+                        ? `✋📷 Tích tay ${productCode} — đã chụp ảnh`
+                        : `✋ Tích tay ${productCode} (thiếu ảnh)`
+                );
+                if (pbh.totals.isComplete) finalize();
+            } else {
+                const ok = await Popup.confirm(`Bỏ tích tay "${productCode}" (đưa về 0)?`);
+                if (!ok) {
+                    RC.renderDetail();
+                    return;
+                }
+                line.picked_qty = 0;
+                STATE.evidence = STATE.evidence.filter((e) => normC(e.productCode) !== lockKey);
+                RC.recomputeTotals(pbh);
+                RC.renderDetail();
+            }
         } finally {
             _manualPickInFlight.delete(lockKey);
         }
     }
 
-    async function resetPick() {
-        if (!STATE.currentPbh) return;
-        if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
-        if (!(await Popup.danger('Reset toàn bộ pick về 0?', { okText: 'Reset' }))) return;
-        try {
-            const res = await api(
-                'POST',
-                `/${encodeURIComponent(STATE.currentPbh.number)}/reset-pick`
+    // #16: bớt 1 đơn vị đã pick (quét dư/nhầm) — client-side, KHÔNG Reset cả đơn.
+    function decrementPick(productCode) {
+        const pbh = STATE.currentPbh;
+        if (!STATE.sessionActive || !pbh) return;
+        const line = (pbh.lines || []).find((l) => normC(l.productCode) === normC(productCode));
+        if (!line) return;
+        const got = Number(line.picked_qty) || 0;
+        if (got <= 0) return;
+        line.picked_qty = got - 1;
+        // Tụt dưới đủ → gỡ ảnh tích-tay cùng mã (không còn "đủ bằng tay").
+        if (line.picked_qty < (Number(line.quantity) || 0)) {
+            STATE.evidence = STATE.evidence.filter(
+                (e) => normC(e.productCode) !== normC(productCode)
             );
-            STATE.currentPbh = res.pbh;
-            RC.renderDetail();
-            RC.loadHistory(STATE.currentPbh?.number);
-            notify('Đã reset pick', 'info');
-        } catch (e) {
-            notify(e.message, 'error');
         }
+        RC.recomputeTotals(pbh);
+        RC.renderDetail();
+        feedback(`−1 ${productCode} (${pbh.totals.picked}/${pbh.totals.quantity})`);
+    }
+
+    // Xoá phiên đối soát hiện tại (client-side) — về 0 + bỏ ảnh chưa lưu.
+    async function resetPick() {
+        const pbh = STATE.currentPbh;
+        if (!STATE.sessionActive || !pbh) return;
+        if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
+        if (!(await Popup.danger('Xoá hết đối soát của phiên này (về 0)?', { okText: 'Xoá' })))
+            return;
+        (pbh.lines || []).forEach((l) => {
+            l.picked_qty = 0;
+        });
+        STATE.evidence = [];
+        STATE.finalizeError = false;
+        RC.recomputeTotals(pbh);
+        RC.renderDetail();
+        notify('Đã xoá phiên đối soát', 'info');
     }
 
     async function packOrder() {
@@ -277,61 +364,52 @@
     }
 
     // ---------- scanner ----------
-    // Quét barcode bill → switch PBH đó. Vẫn nhận HD-... cũ cho data legacy (PBH_NUMBER_RE).
-    // Chống race quét đôi: gun nhanh / giữ phím → 2 POST /scan trước khi cái đầu resolve.
-    // Server atomic (FOR UPDATE, cap maxQty) nên DB an toàn, nhưng client áp response
-    // sai thứ tự sẽ render đè + báo "đủ hàng" nhầm. Dùng seq token: chỉ áp response mới nhất.
-    let _scanSeq = 0;
+    // Quét barcode bill → switch PBH (mở phiên mới). Còn lại = mã SP → +1 (client-side).
+    // Không đụng server tới khi finalize (đủ 100%). Client-side đồng bộ nên không cần seq guard.
     async function onScannerSubmit(value) {
         value = (value || '').trim();
         if (!value) return;
 
-        // Quét barcode bill → switch PBH. selectPbh không throw mà trả boolean → chỉ báo
-        // "Mở PBH" khi load thành công (tránh báo nhầm khi GET lỗi → selectPbh đã notify).
+        // Quét barcode bill → switch PBH. selectPbh trả boolean → chỉ báo "Mở PBH" khi OK.
         if (PBH_NUMBER_RE.test(value)) {
             const ok = await selectPbh(value);
             if (ok) feedback(`📦 Mở PBH ${value}`);
             return;
         }
 
-        // Mọi giá trị khác = product code → +1 picked_qty
-        if (!STATE.selectedNumber) {
+        const pbh = STATE.currentPbh;
+        if (!STATE.sessionActive || !pbh) {
             feedback('Quét barcode trên bill trước, hoặc chọn 1 PBH', true);
             return;
         }
-        const seq = ++_scanSeq;
-        const targetNumber = STATE.selectedNumber;
-        try {
-            const scanBody = { productCode: value };
-            if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(scanBody);
-            const res = await api('POST', `/${encodeURIComponent(targetNumber)}/scan`, scanBody);
-            // Bỏ kết quả cũ (response về sau lần quét mới hơn) hoặc đã switch PBH khác →
-            // không đè STATE.currentPbh bằng dữ liệu lỗi thời.
-            if (seq !== _scanSeq || STATE.selectedNumber !== targetNumber) return;
-            STATE.currentPbh = res.pbh;
-            RC.renderDetail();
-            RC.loadHistory(targetNumber);
-            const t = res.pbh?.totals || {};
-            if (t.isComplete) {
-                // Đủ hết SP → server tự set 'packed' (đã đối soát + đóng gói luôn,
-                // không cần bấm nút Đóng gói).
-                feedback(
-                    `✓✓ ĐỦ HÀNG — ĐÃ ĐỐI SOÁT XONG ${targetNumber} (tự đóng gói). Quét bill kế tiếp →`,
-                    false,
-                    true
-                );
-                RC.loadList();
-            } else {
-                feedback(`✓ ${value} (${t.picked}/${t.quantity})`);
-            }
-        } catch (e) {
-            feedback('✗ ' + e.message, true);
+        // Quét mã SP → +1 picked_qty (trong RAM).
+        const line = (pbh.lines || []).find((l) => normC(l.productCode) === normC(value));
+        if (!line) {
+            feedback(`✗ Mã "${value}" không có trong PBH này`, true);
+            return;
+        }
+        const need = Number(line.quantity) || 0;
+        const got = Number(line.picked_qty) || 0;
+        if (got >= need) {
+            feedback(`SP ${line.productCode} đã đủ (${got}/${need})`, true);
+            return;
+        }
+        line.picked_qty = got + 1;
+        RC.recomputeTotals(pbh);
+        RC.renderDetail();
+        if (pbh.totals.isComplete) {
+            // Đủ 100% → tự CHỐT (lưu picks + ảnh + đóng gói). #4: "đủ thì mới trigger lưu".
+            finalize();
+        } else {
+            feedback(`✓ ${line.productCode} (${pbh.totals.picked}/${pbh.totals.quantity})`);
         }
     }
 
     // ---------- audit modal (lịch sử toàn bộ — đối chiếu camera) ----------
     // 2026-06-06: user cần filter chi tiết (chủ yếu tích tay theo thời gian) để soi camera.
-    const AUDIT = { action: 'manual-pick', from: null, to: null, search: '' };
+    // Mặc định 'Tất cả' — session model gộp log per-tick vào 1 log 'finalize' (kèm số ảnh),
+    // không còn per-tick 'manual-pick'. Ảnh xem trực tiếp khi mở PBH đã đóng gói.
+    const AUDIT = { action: '', from: null, to: null, search: '' };
     let _auditSearchTimer = null;
     let _bodyLockY = 0;
     let _auditPrevFocus = null; // #34: element giữ focus trước khi mở modal → trả lại khi đóng
@@ -464,13 +542,18 @@
                 const label = RC_HISTORY_LABELS[l.action] || l.action;
                 const isManual =
                     l.action === 'manual-pick' && (p.pickedQty == null || p.pickedQty > 0);
-                const cam = isManual ? '<span class="rc-audit-cam">📹 camera</span>' : '';
+                const nPhotos = l.action === 'finalize' ? Number(p.manualPhotos) || 0 : 0;
+                const cam = isManual
+                    ? '<span class="rc-audit-cam">📹 camera</span>'
+                    : nPhotos > 0
+                      ? `<span class="rc-audit-cam">📷 ${nPhotos} ảnh</span>`
+                      : '';
                 const trans =
                     l.stateBefore && l.stateAfter && l.stateBefore !== l.stateAfter
                         ? `${STATE_LABELS[l.stateBefore] || l.stateBefore} → ${STATE_LABELS[l.stateAfter] || l.stateAfter}`
                         : '';
                 return `
-                <tr class="rc-audit-rowitem cv-auto ${isManual ? 'is-manual' : ''}">
+                <tr class="rc-audit-rowitem cv-auto ${isManual || nPhotos > 0 ? 'is-manual' : ''}">
                     <td class="rc-audit-ts">${fmtTsFull(l.createdAt)}</td>
                     <td class="rc-audit-pbh"><button type="button" class="rc-audit-open" data-number="${escapeHtml(l.pbhNumber)}">${escapeHtml(l.pbhNumber)}</button></td>
                     <td class="rc-audit-act">${escapeHtml(label)} ${cam}</td>
@@ -576,6 +659,7 @@
     }
 
     RC.selectPbh = selectPbh;
+    RC.finalize = finalize;
     RC.toggleManualPick = toggleManualPick;
     RC.decrementPick = decrementPick;
     RC.resetPick = resetPick;

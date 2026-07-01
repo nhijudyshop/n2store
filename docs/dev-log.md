@@ -2,6 +2,17 @@
 
 ## 2026-07-01
 
+### [web2 reconcile] Camera bằng chứng đối soát tay + session model (đủ mới lưu)
+
+**Files:** `render.com/routes/reconcile.js` (bảng + finalize + snapshots) · `web2/shared/web2-evidence-camera.js` (mới) · `web2/reconcile/{index.html,css/reconcile.css,js/reconcile-state,reconcile-api,reconcile-render,reconcile-actions,reconcile-app}.js`.
+
+User: máy đối soát cố định + có camera (KBVision) → tích tay (không quét) phải **chụp ảnh + lưu giờ** cho admin soi. **Đủ 100% mới lưu**; chưa đủ mà refresh/thoát/quét bill khác = làm lại từ đầu.
+
+- **Session model (client-side)**: quét/tick/−1/xoá phiên = **chỉ trong RAM** (KHÔNG gọi server — bỏ per-item `/scan /manual-pick /reset-pick`). Đủ 100% → **auto-`POST /:number/finalize`** (verify đủ + `fulfillment_state='packed'` + lưu ảnh, atomic 1 tx). Refresh/thoát/quét bill khác = mất phiên (đúng yêu cầu). Verified browser (harness stub): scan A→B auto-finalize `pickedLines` đúng, `state=packed`, KHÔNG chạm endpoint cũ; tick tay → `evidence` có blob → finalize gửi base64; reset xoá sạch.
+- **Camera**: `Web2EvidenceCamera` (shared) tự dò **KBVision sidecar** (registry `engine=camera`) → fallback **webcam** `getUserMedia` (warm `<video>` ẩn, chụp tức thì, downscale 1280/JPEG 0.72). `capture()`→blob; thiếu camera vẫn tích tay được (báo thiếu ảnh).
+- **Lưu ảnh**: bảng `pbh_fulfillment_snapshots` (BYTEA web2Db, mirror livestream-snapshots, KHÔNG Bunny) + `GET /:number/snapshots` + `GET /snapshot/:id/image` (cache-immutable; frontend fetch kèm `x-web2-token`→blob→objectURL). PBH đã đóng gói mở ra = read-only + lưới thumbnail ảnh (click→lightbox). Audit modal: log `finalize` hiện số ảnh 📷.
+- **Còn lại (Phase 2)**: sidecar `camera-bridge/` (Node digest-fetch `snapshot.cgi` + cloudflared tunnel + heartbeat registry) — mirror Print Bridge (`printer-settings` .bat/tunnel). Cần cam IP/user/pass + bật CGI Service. Status: ✅ webcam path live; ⏳ sidecar KBVision.
+
 ### [thu về] "Khách chịu (₫)" — hoàn ví 1 phần (khách chịu lỗ), giữ PBH settle full
 
 **Files:** `render.com/routes/web2-returns.js` · `web2/returns/{index.html, js/returns-core.js, js/returns-scenario.js, js/returns-form.js, js/returns-app.js}`.

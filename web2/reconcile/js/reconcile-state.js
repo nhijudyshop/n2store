@@ -39,8 +39,26 @@
         currentPbh: null,
         historyHtml: null,
         historyOpen: false, // lịch sử ẩn mặc định, mở khi user bấm
+        // 2026-07-01 session model: picks + ảnh tích-tay gom TRONG RAM tới khi đủ.
+        sessionActive: false, // true = PBH đang mở là phiên đối soát (pending), pick client-side
+        evidence: [], // [{productCode, capturedAt, source, blob}] ảnh tích-tay chưa lưu
+        finalizing: false, // đang POST /finalize (đủ hàng → lưu + đóng gói)
+        finalizeError: false, // finalize lỗi → hiện nút "Thử lưu lại"
     };
     RC.STATE = STATE;
+
+    // Tính lại totals từ lines (dùng cho pick client-side — server không giữ partial).
+    function recomputeTotals(pbh) {
+        if (!pbh || !Array.isArray(pbh.lines)) return;
+        let q = 0;
+        let p = 0;
+        for (const l of pbh.lines) {
+            q += Number(l.quantity) || 0;
+            p += Number(l.picked_qty) || 0;
+        }
+        pbh.totals = { quantity: q, picked: p, isComplete: p >= q && q > 0 };
+    }
+    RC.recomputeTotals = recomputeTotals;
 
     // PBH number pattern (2026-06-04 đổi HD→NJ, hợp nhất 1 mã/đơn): NJ-YYYYMMDD-NNNN
     // hoặc NJ-YYYYMMDD-NNNN-N (tách đơn). Quét barcode bill → switch PBH đó.
@@ -63,6 +81,7 @@
         'manual-pick': '✋ Tích tay',
         'reset-pick': '↺ Reset pick',
         pack: '📦 Đóng gói',
+        finalize: '✅ Chốt đối soát',
         ship: '🚚 Giao shipper',
         deliver: '✅ Đã giao',
         'return-failed': '↩ Trả về kho',

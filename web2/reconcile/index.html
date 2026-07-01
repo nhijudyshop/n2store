@@ -16,7 +16,7 @@
 
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
-        <link rel="stylesheet" href="css/reconcile.css?v=20260630rec2" />
+        <link rel="stylesheet" href="css/reconcile.css?v=20260701sess" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
@@ -231,11 +231,12 @@
                 </header>
                 <div class="rc-audit-filters">
                     <div class="rc-audit-chips" id="rcAuditChips">
-                        <button class="rc-achip is-active" type="button" data-action="manual-pick">
-                            ✋ Tích tay
+                        <button class="rc-achip is-active" type="button" data-action="">
+                            Tất cả
                         </button>
-                        <button class="rc-achip" type="button" data-action="">Tất cả</button>
-                        <button class="rc-achip" type="button" data-action="scan">🔫 Quét</button>
+                        <button class="rc-achip" type="button" data-action="finalize">
+                            ✅ Chốt (có ảnh)
+                        </button>
                         <button class="rc-achip" type="button" data-action="pack">
                             📦 Đóng gói
                         </button>
@@ -245,6 +246,9 @@
                         </button>
                         <button class="rc-achip" type="button" data-action="return-failed">
                             ↩ Trả về
+                        </button>
+                        <button class="rc-achip" type="button" data-action="manual-pick">
+                            ✋ Tích tay (cũ)
                         </button>
                     </div>
                     <div class="rc-audit-row">
@@ -283,7 +287,7 @@
                 <footer class="rc-audit-foot">
                     <span id="rcAuditCount">—</span>
                     <span class="rc-audit-hint"
-                        >📹 Dòng tích tay = đối chiếu camera theo thời gian</span
+                        >📷 Dòng "Chốt" có ảnh — mở PBH đã đóng gói để xem ảnh đối soát tay</span
                     >
                 </footer>
             </div>
@@ -302,6 +306,8 @@
         <script src="../shared/web2-escape.js?v=20260612"></script>
         <script src="../shared/web2-format.js?v=20260618"></script>
         <script src="../shared/web2-image-lightbox.js?v=20260624b"></script>
+        <!-- Camera bằng chứng (KBVision sidecar → fallback webcam) cho đối soát tay. -->
+        <script src="../shared/web2-evidence-camera.js?v=20260701a"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar) {
@@ -309,10 +315,10 @@
                 }
             });
         </script>
-        <script src="js/reconcile-state.js?v=20260630rec"></script>
-        <script src="js/reconcile-api.js?v=20260630rec"></script>
-        <script src="js/reconcile-render.js?v=20260630rec"></script>
-        <script src="js/reconcile-actions.js?v=20260630rec"></script>
-        <script src="js/reconcile-app.js?v=20260630rec"></script>
+        <script src="js/reconcile-state.js?v=20260701sess"></script>
+        <script src="js/reconcile-api.js?v=20260701sess"></script>
+        <script src="js/reconcile-render.js?v=20260701sess"></script>
+        <script src="js/reconcile-actions.js?v=20260701sess"></script>
+        <script src="js/reconcile-app.js?v=20260701sess"></script>
     </body>
 </html>
