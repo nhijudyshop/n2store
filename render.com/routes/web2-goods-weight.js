@@ -21,9 +21,23 @@ const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-au
 // Ảnh dataUrl base64 (~nén). 12mb dư an toàn.
 const jsonBody = express.json({ limit: '12mb' });
 
-// Đơn giá tiền ship: tổng = kg*RATE_KG + kiện*RATE_BALE. Cố định (chốt với shop).
-const RATE_KG = 25000; // đ / kg
+// Đơn giá tiền ship. Đồng bộ với web2/goods-weight/js/goods-weight.js (shipForWeight).
+// Cân nặng tính theo BẢNG BẬC mỗi lần cân (parcel); kiện cộng tuyến tính:
+//   ≤2kg 100k · 2–4kg 150k · 4–6kg 190k · 6–8kg 220k · 8–10kg 250k · >10kg 25.000đ/kg
+const RATE_KG = 25000; // đ / kg — CHỈ áp cho phần >10kg
 const RATE_BALE = 10000; // đ / kiện
+
+// Tiền ship theo cân nặng 1 LẦN CÂN (parcel). Bậc phẳng ≤10kg; >10kg tính 25.000đ/kg.
+function shipForWeight(kg) {
+    const w = Number(kg) || 0;
+    if (w <= 0) return 0;
+    if (w <= 2) return 100000;
+    if (w <= 4) return 150000;
+    if (w <= 6) return 190000;
+    if (w < 8) return 220000; // 6kg1–7kg9
+    if (w <= 10) return 250000; // 8–10kg
+    return Math.round(w * RATE_KG); // >10kg: 25.000đ/kg
+}
 
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
@@ -150,7 +164,9 @@ router.get('/report', requireWeb2AuthSoft, async (req, res) => {
         const rows = r.rows.map((x) => {
             const kg = Number(x.kg) || 0;
             const bales = Number(x.bales) || 0;
-            const shipKg = kg * RATE_KG;
+            const items = Array.isArray(x.items) ? x.items : []; // chi tiết lần cân + ảnh (drawer/thumbnail)
+            // Bậc phẳng ≠ tuyến tính → tính THEO TỪNG LẦN CÂN (parcel), KHÔNG theo tổng kg ngày.
+            const shipKg = items.reduce((s, it) => s + shipForWeight(it.weightKg), 0);
             const shipBale = bales * RATE_BALE;
             return {
                 day: x.day,
@@ -160,7 +176,7 @@ router.get('/report', requireWeb2AuthSoft, async (req, res) => {
                 shipKg,
                 shipBale,
                 ship: shipKg + shipBale,
-                items: Array.isArray(x.items) ? x.items : [], // chi tiết lần cân + ảnh (drawer/thumbnail)
+                items,
             };
         });
         const totals = rows.reduce(

@@ -69,10 +69,21 @@
     });
     const fmtTime = (ms) => (ms ? FMT.format(new Date(Number(ms))) : '');
 
-    // Đơn giá tiền ship (đồng bộ với render.com/routes/web2-goods-weight.js).
-    // Server /report là nguồn-chân-lý cho báo cáo; hằng số này chỉ để hiện ship/lần cân.
-    const RATE_KG = 25000; // đ / kg
+    // Đơn giá tiền ship (đồng bộ với render.com/routes/web2-goods-weight.js: shipForWeight).
+    // Server /report là nguồn-chân-lý cho báo cáo; hàm này chỉ để hiện ship/lần cân.
+    // Cân nặng tính BẬC mỗi lần cân: ≤2kg 100k · 2–4kg 150k · 4–6kg 190k · 6–8kg 220k · 8–10kg 250k · >10kg 25.000đ/kg
+    const RATE_KG = 25000; // đ / kg — CHỈ áp cho phần >10kg
     const RATE_BALE = 10000; // đ / kiện
+    function shipForWeight(kg) {
+        const w = Number(kg) || 0;
+        if (w <= 0) return 0;
+        if (w <= 2) return 100000;
+        if (w <= 4) return 150000;
+        if (w <= 6) return 190000;
+        if (w < 8) return 220000; // 6kg1–7kg9
+        if (w <= 10) return 250000; // 8–10kg
+        return Math.round(w * RATE_KG); // >10kg: 25.000đ/kg
+    }
     const VND = new Intl.NumberFormat('vi-VN');
     const money = (n) => VND.format(Math.round(Number(n) || 0)) + 'đ';
     const fmtInt = (n) => VND.format(Math.round(Number(n) || 0));
@@ -218,8 +229,7 @@
         $('#gwList').innerHTML = items
             .map((it) => {
                 const img = it.hasImage ? `${GW}/img/${esc(it.id)}` : '';
-                const ship =
-                    (Number(it.weightKg) || 0) * RATE_KG + (Number(it.baleCount) || 0) * RATE_BALE;
+                const ship = shipForWeight(it.weightKg) + (Number(it.baleCount) || 0) * RATE_BALE;
                 return `<div class="gw-card">
                     ${
                         img
@@ -396,9 +406,10 @@
         if (!REPORT) return;
         const admin = isAdmin();
         const rates = REPORT.rates || { kg: RATE_KG, bale: RATE_BALE };
-        $('#rpRate').innerHTML = `Đơn giá ship: <b>${money(rates.kg)}</b>/kg · <b>${money(
-            rates.bale
-        )}</b>/kiện`;
+        $('#rpRate').innerHTML =
+            `Ship theo cân/lần: <b>≤2kg</b> 100k · <b>2–4kg</b> 150k · <b>4–6kg</b> 190k · ` +
+            `<b>6–8kg</b> 220k · <b>8–10kg</b> 250k · <b>>10kg</b> ${money(rates.kg)}/kg` +
+            ` · Kiện <b>${money(rates.bale)}</b>/kiện`;
         fillUserOptions(REPORT.users);
 
         const rows = REPORT.rows || [];
@@ -435,7 +446,7 @@
             .map((x) => {
                 const kg = Number(x.weightKg) || 0;
                 const bales = Number(x.baleCount) || 0;
-                const shipKg = kg * rates.kg;
+                const shipKg = shipForWeight(kg);
                 const shipBale = bales * rates.bale;
                 const dt = fmtDateTime(x.createdAt);
                 const idx = withImg.findIndex((w) => w.id === x.id);

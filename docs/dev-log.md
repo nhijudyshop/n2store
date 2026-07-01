@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### [web2-goods-weight] Tiền ship cân nặng chuyển từ tuyến tính → BẢNG BẬC (mỗi lần cân)
+
+**Files:** `render.com/routes/web2-goods-weight.js` (server /report), `web2/goods-weight/js/goods-weight.js` (list + report UI).
+
+Thay đơn giá ship cân nặng cũ `kg × 25.000` (tuyến tính) bằng bảng bậc theo shop chốt, tính **THEO TỪNG LẦN CÂN (parcel)**:
+
+- ≤2kg = 100k · 2kg1–4kg = 150k · 4kg1–6kg = 190k · 6kg1–7kg9 = 220k · 8–10kg = 250k · **>10kg = 25.000đ/kg**.
+- Hàm dùng chung 1 công thức `shipForWeight(kg)` — nhân bản ở server + client (theo pattern "đồng bộ" sẵn có của file, KHÔNG tạo shared cross-runtime cho 10 dòng).
+- **Điểm quan trọng**: bậc phẳng ≠ tuyến tính → server đổi từ `tier(tổng kg ngày)` sang `Σ tier(kg mỗi item)`. VD 3 gói 1kg = 3×100k, KHÔNG phải tier(3kg). Kiện giữ nguyên `× 10.000` (cộng tuyến tính). Bậc lấp gap liên tục + monotonic; >10kg liền mạch với 250k tại đúng 10kg.
+- Dòng "Đơn giá ship" trong báo cáo đổi thành liệt kê bậc.
+
+Status: ✅ (node assert: mọi bậc/biên + monotonic + per-parcel PASS)
+
 ### [web2-campaign-manager] Trang MỚI quản lý chiến dịch (CRUD + tạo+gán bài FB 1 luồng) — gồm #1
 
 **Files:** `web2/campaign-manager/index.html` + `css/campaign-manager.css` + `js/campaign-manager.js` (MỚI), `web2/shared/web2-sidebar.js` (+menu "Quản lý chiến dịch" adminOnly group Cấu hình).
