@@ -2,6 +2,14 @@
 
 ## 2026-07-01
 
+### [docs/KB] Thêm LUẬT VÀNG "luôn cập nhật data web2/system" vào KB-SYSTEM-SERVICES.md
+
+**Files:** `docs/web2/KB-SYSTEM-SERVICES.md` (§0 mới + fix §1 tab 5→7).
+
+User: "ghi vào file kb là luôn cập nhật web2/system". Thêm §0 "LUẬT VÀNG": trang `web2/system` là nguồn-sự-thật SỐNG, ưu tiên giữ live + data chính xác hơn doc tĩnh. Bảng "đổi gì → cập nhật data nào": đổi trang/module/route → chạy 2 generator; đổi plan/chi phí → sửa tay `SERVICES_INVENTORY`; bên thứ 3 → `web2-third-parties.json`; topic SSE → `web2-sse-registry.json`; dedup → `web2-dedup-audit.json`. Ghi rõ tab auto-fresh (services/sse-stats/pages/ai) vs curated (thirdparty/dedup/sse-registry). Nguyên tắc: registry đừng claim issue đã fix là open. Fix luôn §1 (5→7 tab: bổ sung `dedup` + `ai` đã có trong VALID_TABS) + bump date 2026-07-01.
+
+Status: ✅
+
 ### [web2-system] Regenerate data manifest (modules/codemap/derived docs) phản ánh session này
 
 **Files:** `web2/system/data/web2-modules.json`, `docs/web2/web2-codemap.json`, `docs/web2/WEB2-CODEMAP.md`, `docs/web2/WEB2-PAGE-MODULES.md`, `docs/web2/WEB2-THIRD-PARTIES.md` (auto-gen).

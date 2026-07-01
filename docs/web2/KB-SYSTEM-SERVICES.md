@@ -4,7 +4,29 @@
 
 Tài liệu này là Knowledge-Base tổng hợp về trang **`web2/system/`** (Cấu hình & Hệ thống) của Web 2.0 N2Store — đặc biệt tab **"Dịch vụ & Hệ thống"** (Services), cùng toàn bộ hạ tầng backend, realtime SSE, bên thứ 3 và shared modules liên quan. Dùng cho **người đọc qua NotebookLM** (hỏi-đáp về kiến trúc/chi phí/dịch vụ) và cho **Claude đọc trước khi code** phần `web2/system` hoặc bất kỳ thay đổi hạ tầng/dịch vụ Web 2.0. Mọi con số/tên service/chi phí lấy nguyên từ báo cáo nội bộ, không suy diễn.
 
-**Cập nhật: 2026-06-27**
+**Cập nhật: 2026-07-01**
+
+---
+
+## 0. ⚠ LUẬT VÀNG — LUÔN CẬP NHẬT DATA TRANG `web2/system`
+
+> `web2/system/index.html` (Cấu hình & Hệ thống) là **nguồn-sự-thật SỐNG** về hạ tầng/module/bên-thứ-3/SSE của Web 2.0. **Ưu tiên giữ trang LIVE + nguồn data của nó chính xác** hơn là viết doc tĩnh phân kỳ. KB `.md` này chỉ là **bản derived** (cho NotebookLM đọc + Claude đọc trước khi code) — KHÔNG được để nó, hoặc data trang, đi lệch code thật.
+
+**Khi làm gì thì phải cập nhật:**
+
+| Đổi cái gì trong code Web 2.0                                       | Cập nhật data nào của `web2/system`                                                                                                                                                                                                     |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thêm/xoá **trang**, tách **module**, thêm/đổi **route/service/hàm** | Chạy `node scripts/gen-web2-codemap.js` → `node scripts/gen-web2-system-data.js` → refresh `web2-modules.json`, `web2-codemap.json`, `WEB2-CODEMAP.md`, `WEB2-PAGE-MODULES.md`, `WEB2-THIRD-PARTIES.md` (tab **Module**, **Các trang**) |
+| Đổi **plan/chi phí/dịch vụ/DB** (Render, thêm bên thứ 3)            | Sửa TAY `SERVICES_INVENTORY` trong `render.com/routes/services-overview.js` (tab **Dịch vụ** đọc live từ đây)                                                                                                                           |
+| Thêm/sửa **bên thứ 3** (API/lib/model/OSS)                          | Sửa TAY `web2/system/data/web2-third-parties.json` (curated) rồi chạy `gen-web2-system-data.js` (sinh lại `WEB2-THIRD-PARTIES.md`)                                                                                                      |
+| Thêm/đổi **topic SSE** `web2:*` (publisher/subscriber)              | Sửa TAY `web2/system/data/web2-sse-registry.json` (curated — sổ tay SSE, tab **Realtime**)                                                                                                                                              |
+| Phát hiện/gộp **trùng chức năng** (dedup)                           | Sửa TAY `web2/system/data/web2-dedup-audit.json` (curated, tab **dedup**)                                                                                                                                                               |
+
+**Tab nào TỰ TƯƠI (không cần làm gì):** `services` (live `/api/services-overview`, refresh 60s), `sse` stats (live), `pages` (đọc DOM sidebar), `ai` (runtime `Web2AiPageRegistry`).
+
+**Tab nào CURATED (không có generator → cập nhật tay khi audit):** `thirdparty`, `dedup`, `sse` registry. Đừng bịa data — chỉ cập nhật khi đã verify code thật.
+
+**Nguyên tắc:** đừng để `servicesAuditFindings` (hay bất kỳ registry nào) claim một issue **đã fix** là **open**. Sửa xong code → cập nhật registry cho khớp (đánh dấu `status: resolved` + `resolvedDate`).
 
 ---
 
@@ -13,15 +35,17 @@ Tài liệu này là Knowledge-Base tổng hợp về trang **`web2/system/`** (
 - **URL:** `/web2/system/index.html` (prod: `https://nhijudy.store/web2/system/index.html`). Hỗ trợ deep-link tab qua query `?tab=<id>` (vd `?tab=services`, `?tab=thirdparty`).
 - **Quyền truy cập:** nằm trong group menu **chỉ admin** ("Cấu hình & Hệ thống", MEMORY `reference_web2_admin_group`). Trang KHÔNG có gate kiểm tra role riêng — chỉ load `web2-auth.js` + mount sidebar; việc ẩn/hiện menu admin do **sidebar** quyết định.
 - **Gốc gác:** gộp từ 2 trang cũ `services-dashboard` + `admin-sse-monitor`; deep-link cũ vẫn redirect qua `?tab=`.
-- **5 tab** (trái → phải, state quản lý ở `system-app.js` `VALID_TABS`):
+- **7 tab** (state quản lý ở `system-app.js` `VALID_TABS = ['services','sse','pages','modules','thirdparty','dedup','ai']`):
 
-| #   | id           | Tên                               | Icon          | Nguồn data                                      |
-| --- | ------------ | --------------------------------- | ------------- | ----------------------------------------------- |
-| 1   | `services`   | Dịch vụ & Hệ thống (**mặc định**) | `server`      | Live API `/api/services-overview` (refresh 60s) |
-| 2   | `sse`        | Realtime (SSE)                    | `radio`       | Poll API SSE stats `/api/realtime/web2/sse`     |
-| 3   | `pages`      | Các trang Web 2.0                 | `layout-grid` | Đọc DOM sidebar (không gọi API)                 |
-| 4   | `modules`    | Module                            | `boxes`       | `web2/system/data/web2-modules.json`            |
-| 5   | `thirdparty` | Bên thứ 3                         | `plug`        | `web2/system/data/web2-third-parties.json`      |
+| #   | id           | Tên                               | Nguồn data                                               | Tươi?        |
+| --- | ------------ | --------------------------------- | -------------------------------------------------------- | ------------ |
+| 1   | `services`   | Dịch vụ & Hệ thống (**mặc định**) | Live API `/api/services-overview` (refresh 60s)          | auto         |
+| 2   | `sse`        | Realtime (SSE)                    | Live SSE stats + curated `web2-sse-registry.json`        | auto+curated |
+| 3   | `pages`      | Các trang Web 2.0                 | Đọc DOM sidebar (không gọi API)                          | auto         |
+| 4   | `modules`    | Module                            | `web2-modules.json` (**generated**)                      | gen          |
+| 5   | `thirdparty` | Bên thứ 3                         | `web2-third-parties.json` (**curated** + findings)       | curated      |
+| 6   | `dedup`      | Dedup (trùng chức năng)           | `web2-dedup-audit.json` (**curated** từ audit)           | curated      |
+| 7   | `ai`         | Gợi ý AI                          | Runtime `Web2AiPageRegistry` (per-page, không data file) | auto         |
 
 - Tab **Services là panel mặc định** (đầu tiên). Mỗi tab **lazy-init một lần**: active `services` lần đầu → `window.SystemServices.start()`.
 - Các file JSON tĩnh trong `web2/system/data/` (modules + third-parties + `_module-categories.json`) sinh bởi `scripts/gen-web2-system-data.js` (chạy SAU `gen-web2-codemap.js`).
