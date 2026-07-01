@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5591041` — feat(web2-reconcile): wire Web2CampaignPicker — lọc PBH theo chiến dịch cha (span 2 page)
-**Last updated**: 2026-07-01 18:41:04 +07
-**Latest session**: [`RESUME:20260701-184104-5591041`](../20260701-184104-5591041.md)
-**Summary**: feat(web2-reconcile): wire Web2CampaignPicker — lọc PBH theo chiến dịch cha (span 2 page)
+**Latest commit**: `1549b9f` — auto: session update
+**Last updated**: 2026-07-01 19:04:32 +07
+**Latest session**: [`RESUME:20260701-190432-1549b9f`](../20260701-190432-1549b9f.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -62,7 +61,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-07-01 18:41
+- [`render.com/`](./render.com.md) — updated 2026-07-01 19:04
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
@@ -84,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 18:41
+- [`web2/`](./web2.md) — updated 2026-07-01 19:04
