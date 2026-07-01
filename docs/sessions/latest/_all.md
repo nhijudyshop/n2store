@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dbcaf6a` — fix(web2-campaign): M2 — trim newCust SQL trên board khớp cart-detail popup
-**Last updated**: 2026-07-01 16:09:01 +07
-**Latest session**: [`RESUME:20260701-160901-dbcaf6a`](../20260701-160901-dbcaf6a.md)
-**Summary**: Overhaul chiến dịch: shipped H1/H2/M1/M2/M8/M9/L2/F1/M7 + #1 admin-lock + native-orders 1-picker + foundation; còn Web2CampaignManager/#3/#2 wire 9 trang/H4/M10
+**Latest commit**: `2060341` — docs(web2-campaign): thiết kế #2 cross-page cart merge (hybrid global-id + SĐT)
+**Last updated**: 2026-07-01 16:26:36 +07
+**Latest session**: [`RESUME:20260701-162636-2060341`](../20260701-162636-2060341.md)
+**Summary**: Overhaul chiến dịch cont: #2 cross-page thiết kế hybrid (doc) + điều tra định danh; #3 deep-audit đang chạy; còn #1 page-UI + #2 impl + Web2CampaignManager + wire trang + H4
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 4 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -31,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 12:59
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 16:09
+- [`docs/`](./docs.md) — updated 2026-07-01 16:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
