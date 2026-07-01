@@ -221,6 +221,17 @@
         return '../' + projectRel;
     }
 
+    // Trang này có mở được không: catalog admin-flag + phân quyền thật (Web2Perm).
+    // Mirror sidebar renderItem: ẩn admin-only-URL với non-admin + ẩn trang bị thu
+    // hồi 'view'. Web2Perm sync (đọc permissions trong localStorage), admin luôn true.
+    function canOpen(h, itemAdmin) {
+        var admin = isAdmin();
+        if (itemAdmin && !admin) return false;
+        if (!window.Web2Perm) return true; // chưa load → default-open (giữ hành vi cũ)
+        if (window.Web2Perm.isAdminOnlyUrl(h) && !admin) return false;
+        return window.Web2Perm.canViewUrl(h);
+    }
+
     function visibleGroups() {
         var admin = isAdmin();
         return CATALOG.filter(function (grp) {
@@ -232,7 +243,7 @@
                     icon: grp.icon,
                     g: grp.g,
                     items: grp.items.filter(function (it) {
-                        return admin || !it.admin;
+                        return canOpen(it.h, it.admin);
                     }),
                 };
             })

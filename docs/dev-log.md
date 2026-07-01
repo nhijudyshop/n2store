@@ -2,6 +2,14 @@
 
 ## 2026-07-01
 
+### [overview] Nút CTA "Vào hệ thống" → trang user THẬT SỰ có quyền (Web2Perm)
+
+**Files:** `web2/overview/index.html` (load `web2-perm.js`, bump `overview.js?v=20260701perm`), `web2/overview/overview.js` (`canOpen()` + `visibleGroups` lọc theo quyền).
+
+Nút CTA `#ovEnterBtn` (label + href = `firstAccessiblePage()` = item đầu của nhóm hiển thị đầu) trước chỉ lọc theo cờ `admin` của catalog → non-admin bị thu hồi 'view' trang "Bán hàng (HĐ)" vẫn được đẩy tới đó → dính overlay "Không có quyền". Fix gốc: `visibleGroups()` giờ lọc qua `Web2Perm.canViewUrl()` + ẩn `isAdminOnlyUrl` với non-admin (mirror sidebar `renderItem`). Vì CTA + grid module đều dẫn xuất từ `visibleGroups`, cả hai cùng chỉ trỏ trang user có quyền. `Web2Perm` sync (đọc permissions trong localStorage), admin luôn thấy đủ → không đổi hành vi admin.
+
+Status: ✅
+
 ### [overview] Thêm nút "Đăng xuất" trên trang giới thiệu Web 2.0
 
 **Files:** `web2/overview/index.html` (nav `.ov-nav-account` thêm `#ovLogoutBtn`, bump `overview.js?v=20260701logout`), `web2/overview/overview.js` (`wireLogout()` + gọi trong `boot`).

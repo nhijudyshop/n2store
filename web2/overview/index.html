@@ -22,6 +22,8 @@
 
         <!-- Auth guard + base-URL config (must run before page logic) -->
         <script src="../shared/web2-auth.js?v=20260627ovr"></script>
+        <!-- Phân quyền (view/admin-only) — CTA + module grid chỉ trỏ trang user có quyền -->
+        <script src="../shared/web2-perm.js?v=20260627adm"></script>
         <!-- User profile + DiceBear avatar (avatarUrlFor + account modal) — same source as sidebar footer -->
         <script src="../shared/web2-user-profile.js?v=20260624d"></script>
     </head>
@@ -223,6 +225,6 @@
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
         <!-- Light motion: pure CSS entrance + CSS marquee + IntersectionObserver reveal.
              No GSAP / ScrollTrigger / SplitText / Lenis (removed 2026-06-28 — heavy/jank). -->
-        <script defer src="./overview.js?v=20260701logout"></script>
+        <script defer src="./overview.js?v=20260701perm"></script>
     </body>
 </html>
