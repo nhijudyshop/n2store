@@ -44,9 +44,34 @@
         }
     }
 
+    // Probe camera-bridge chạy CÙNG MÁY (loopback = secure context, không mixed-content).
+    // Đây là đường nhanh nhất cho PC đóng gói (chạy bridge tại chỗ). Cross-machine → registry.
+    const LOCAL_PORTS = [8141];
+    async function _probeLocal() {
+        for (const port of LOCAL_PORTS) {
+            const u = `http://127.0.0.1:${port}`;
+            try {
+                const h = await fetch(u + '/health', { signal: AbortSignal.timeout(1500) });
+                if (!h.ok) continue;
+                const j = await h.json().catch(() => ({}));
+                if (j.engine === 'camera' || j.ok) return u;
+            } catch {
+                /* cổng không có bridge */
+            }
+        }
+        return null;
+    }
+
     // ---- KBVision sidecar detect ----
     async function _findSidecar() {
         if (_sidecar.url && Date.now() - _sidecar.ts < SIDECAR_TTL) return _sidecar.url;
+        // 1) Cùng máy (loopback) — nhanh + không cần tunnel.
+        const local = await _probeLocal();
+        if (local) {
+            _sidecar = { url: local, ts: Date.now() };
+            return local;
+        }
+        // 2) Máy khác (tunnel) — dò registry.
         try {
             const res = await fetch(REGISTRY_LIST, { signal: AbortSignal.timeout(5000) });
             if (!res.ok) return null;
