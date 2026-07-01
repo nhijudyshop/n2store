@@ -152,6 +152,7 @@
         reasonShip: 'tinh_sai_ship',
         disposition: 'nhap_ban',
         refundMethod: 'vi',
+        customerBear: 0,
         shipFee: 0,
         feeBearer: null,
         replacements: [], // [{productCode,productName,price,qty}] SP đổi lấy (đổi hàng)

@@ -230,6 +230,22 @@
                                         <div class="rt-hint rt-refund-hint" id="refundHint"></div>
                                     </div>
 
+                                    <!-- Khách chịu 1 phần (lỗi do khách) — trừ khỏi hoàn ví -->
+                                    <div class="rt-field" id="customerBearBlock" hidden>
+                                        <label>Khách chịu (₫)</label>
+                                        <input
+                                            type="text"
+                                            id="customerBearInput"
+                                            class="rt-input"
+                                            inputmode="numeric"
+                                            placeholder="0 (mặc định hoàn đủ)"
+                                        />
+                                        <div class="rt-hint rt-refund-hint">
+                                            Số tiền khách chịu lỗ — KHÔNG hoàn phần này (shop giữ
+                                            lại).
+                                        </div>
+                                    </div>
+
                                     <!-- Phí ship hoàn + bên chịu -->
                                     <div id="shipFeeBlock" hidden>
                                         <div class="rt-shipfee-row">
@@ -403,13 +419,13 @@
         <script src="../shared/web2-number-input.js?v=20260701scn"></script>
         <script src="../shared/web2-barcode-scanner.js?v=20260701scn"></script>
         <script src="js/returns-api.js?v=20260701scn"></script>
-        <script src="js/returns-core.js?v=20260701scn"></script>
+        <script src="js/returns-core.js?v=20260701cb"></script>
         <script src="js/returns-customer.js?v=20260701scn"></script>
         <script src="js/returns-order-items.js?v=20260701scn"></script>
         <script src="js/returns-cod.js?v=20260618w1"></script>
-        <script src="js/returns-scenario.js?v=20260701scn"></script>
-        <script src="js/returns-form.js?v=20260701scn"></script>
+        <script src="js/returns-scenario.js?v=20260701cb"></script>
+        <script src="js/returns-form.js?v=20260701cb"></script>
         <script src="js/returns-tabs.js?v=20260701scn"></script>
-        <script src="js/returns-app.js?v=20260701scn"></script>
+        <script src="js/returns-app.js?v=20260701cb"></script>
     </body>
 </html>

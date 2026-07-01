@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [thu về] "Khách chịu (₫)" — hoàn ví 1 phần (khách chịu lỗ), giữ PBH settle full
+
+**Files:** `render.com/routes/web2-returns.js` · `web2/returns/{index.html, js/returns-core.js, js/returns-scenario.js, js/returns-form.js, js/returns-app.js}`.
+
+User: hàng lỗi mặc định CÓ hoàn ví, nhưng có ca **khách chịu lỗ 1 phần** → thêm trường "Khách chịu (₫)".
+
+- **Backend**: cột `customer_bear NUMERIC` (test local DB idempotent OK). Hoàn ví THẬT `depositAmt = max(0, walletCredit − customerBear)`; PBH `wallet_deducted` VẪN settle FULL qua decs (món đã trả đủ) → shop giữ lại phần khách chịu. `wallet_credited` lưu depositAmt → DELETE rút đúng số đã cộng. CHỈ thu_ve_1_phan (khong_nhan_hang giữ hardened).
+- **Frontend**: field "Khách chịu (₫)" (Web2NumberInput) hiện khi `showRefundMethod` (hàng lỗi/nhận thiếu); summary "Hoàn khách: X (giá G − khách chịu B)".
+- Math verify: KH trả 250k, chịu 50k → hoàn 200k, PBH settle 250k→0, shop giữ 50k; DELETE rút 200k + restore PBH 250k → về pre-return. ✓
+
+Status: ✅ deployed-ready.
+
 ### [thu về] Re-audit (9-agent workflow) → fix 6 lỗi thật (mark-consumed atomic, on-order scope, orphan/exchange queue, regex, auth)
 
 **Files:** `render.com/routes/web2-returns.js` · `render.com/routes/fast-sale-orders.js` · `web2/shared/web2-bill-service.js` · `web2/shared/web2-return-bill.js`.

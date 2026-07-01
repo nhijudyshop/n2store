@@ -75,6 +75,7 @@
         $('dispoSelect').addEventListener('change', (e) => Scn.onDispoChange(e.target.value));
         $('refundSelect').addEventListener('change', (e) => Scn.onRefundChange(e.target.value));
         $('shipFeeInput').addEventListener('input', () => Scn.onShipFeeInput());
+        $('customerBearInput').addEventListener('input', () => Scn.onCustomerBearInput());
         // Đổi hàng — SP đổi lấy.
         $('replSearch').addEventListener('input', Scn.onReplSearch);
         $('replList').addEventListener('click', (e) => {
@@ -197,6 +198,7 @@
         // Format số tiền khi nhập phí ship.
         try {
             window.Web2NumberInput?.mount?.($('shipFeeInput'));
+            window.Web2NumberInput?.mount?.($('customerBearInput'));
         } catch {}
         setupSse();
         const params = new URLSearchParams(location.search);

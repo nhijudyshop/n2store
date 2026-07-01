@@ -161,6 +161,7 @@ function mapRow(r) {
         isExchange: r.is_exchange === true,
         replacementItems: r.replacement_items || [],
         exchangeDiff: Number(r.exchange_diff || 0),
+        customerBear: Number(r.customer_bear || 0),
         status: r.status,
         note: r.note || null,
         history: r.history || [],
@@ -293,7 +294,8 @@ async function ensureTables(pool) {
             ADD COLUMN IF NOT EXISTS refund_method       VARCHAR(20) DEFAULT 'vi',
             ADD COLUMN IF NOT EXISTS is_exchange         BOOLEAN NOT NULL DEFAULT FALSE,
             ADD COLUMN IF NOT EXISTS replacement_items   JSONB NOT NULL DEFAULT '[]'::jsonb,
-            ADD COLUMN IF NOT EXISTS exchange_diff       NUMERIC(14,2) NOT NULL DEFAULT 0;
+            ADD COLUMN IF NOT EXISTS exchange_diff       NUMERIC(14,2) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS customer_bear       NUMERIC(14,2) NOT NULL DEFAULT 0;
     `);
     // 3H2 (2026-06-12): backstop chống 2 phiếu "không nhận hàng" active cùng 1
     // đơn nguồn (double-submit/2 user = cộng ví + cộng kho ×2). Pre-check trong
@@ -763,6 +765,10 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const refundMethod =
         subType === 'thu_ve_1_phan' && REFUND_METHODS.has(b.refundMethod) ? b.refundMethod : 'vi';
     const creditToWallet = refundMethod === 'vi' || refundMethod === 'cong_no';
+    // [2026-07-01] "Khách chịu" (₫): số tiền KHÔNG hoàn (khách chịu lỗ 1 phần, vd hàng
+    // lỗi do khách). CHỈ thu_ve_1_phan. Hoàn ví THẬT = walletCredit − customerBear (clamp 0);
+    // phần customerBear shop giữ lại. wallet_deducted của PBH VẪN settle FULL (món đã trả).
+    const customerBear = subType === 'thu_ve_1_phan' ? Math.max(0, Number(b.customerBear) || 0) : 0;
     const isExchange = b.isExchange === true && subType === 'thu_ve_1_phan';
     const replacementItems =
         isExchange && Array.isArray(b.replacementItems)
@@ -1306,12 +1312,15 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     // creditToWallet=false (tien_mat/ck): SKIP cộng số dư ví (trả tiền tay)
                     // NHƯNG PBH nguồn ĐÃ được settle (decs ở trên) → không double-refund khi
                     // huỷ PBH. wallet_credited lưu 0 (không có gì để đảo ở ví khi huỷ phiếu).
+                    // customerBear: hoàn ví THẬT = walletCredit − khách chịu (clamp 0); PBH vẫn
+                    // settle FULL (decs ở trên dùng walletCredit gốc — món đã trả về đủ).
+                    const depositAmt = Math.max(0, walletCredit - customerBear);
                     let walletTxId = null;
-                    if (walletCredit > 0 && creditToWallet) {
+                    if (depositAmt > 0 && creditToWallet) {
                         const dep = await web2WalletService.processDeposit(
                             client,
                             phone,
-                            walletCredit,
+                            depositAmt,
                             // FIX audit R2 (#8): sourceId = mã phiếu trả → reference_type
                             // 'balance_history' + reference_id=code → idempotent (MED-6 in-tx
                             // dedup), không còn dựa hoàn toàn vào row lock. Defense thêm cạnh
@@ -1332,9 +1341,9 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                            wallet_tx_id, stock_status, bill_status, status, note, history, created_at, updated_at,
                            created_by, created_by_name, pbh_wallet_snapshot, stock_applied,
                            disposition, return_shipping_fee, fee_bearer, refund_method, is_exchange,
-                           replacement_items, exchange_diff)
+                           replacement_items, exchange_diff, customer_bear)
                          VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21,$22::jsonb,$23,
-                                 $24,$25,$26,$27,$28,$29::jsonb,$30)
+                                 $24,$25,$26,$27,$28,$29::jsonb,$30,$31)
                          RETURNING *`,
                         [
                             code,
@@ -1349,9 +1358,10 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             sourceOrderType,
                             JSON.stringify(items),
                             totalAmount,
-                            // Ví CỘNG THẬT (số dư) chỉ khi hoàn qua ví/công nợ. tien_mat/ck → 0
-                            // (PBH đã settle qua decs; huỷ phiếu chỉ đảo PBH, không đảo ví).
-                            creditToWallet ? walletCredit : 0,
+                            // Ví CỘNG THẬT (số dư) = walletCredit − customerBear, chỉ khi hoàn
+                            // qua ví/công nợ. tien_mat/ck → 0 (PBH đã settle qua decs; huỷ phiếu
+                            // chỉ đảo PBH, không đảo ví). Đây cũng là số DELETE sẽ rút lại.
+                            creditToWallet ? depositAmt : 0,
                             walletTxId,
                             stockStatus,
                             billStatus,
@@ -1373,6 +1383,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             isExchange,
                             JSON.stringify(replacementItems),
                             exchangeDiff,
+                            customerBear,
                         ]
                     );
                     // 3H2: đánh dấu PBH nguồn đã quyết toán qua phiếu thu về.
@@ -1386,7 +1397,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     }
                     return ins.rows[0];
                 });
-                walletCreditedFinal = walletCredit > 0 && creditToWallet;
+                walletCreditedFinal = depositAmt > 0 && creditToWallet;
                 break;
             } catch (e) {
                 if (e && e.httpStatus) {

@@ -44,6 +44,8 @@
         STATE.subType = s.subType;
         STATE.disposition = s.defaultDisposition || 'nhap_ban';
         STATE.refundMethod = 'vi';
+        STATE.customerBear = 0;
+        if ($('customerBearInput')) $('customerBearInput').value = '';
         STATE.feeBearer = s.defaultFeeBearer || null;
         STATE.replacements = [];
         // Đổi kịch bản khi CHƯA cần đơn gốc → bỏ đơn + dòng SP. Khi VẪN cần đơn gốc
@@ -100,6 +102,7 @@
         show('replBlock', !!s.needsReplacement);
         show('dispoBlock', !!s.showDisposition);
         show('refundBlock', !!s.showRefundMethod);
+        show('customerBearBlock', !!s.showRefundMethod);
         show('shipFeeBlock', !!s.showShipFee);
         // Chip xác nhận ý định.
         const chip = $('scnSummaryChip');
@@ -138,6 +141,13 @@
     function onShipFeeInput() {
         const el = $('shipFeeInput');
         STATE.shipFee = window.Web2NumberInput
+            ? window.Web2NumberInput.getValue(el) || 0
+            : Number((el.value || '').replace(/\D/g, '')) || 0;
+        window.ReturnsForm.renderSummary();
+    }
+    function onCustomerBearInput() {
+        const el = $('customerBearInput');
+        STATE.customerBear = window.Web2NumberInput
             ? window.Web2NumberInput.getValue(el) || 0
             : Number((el.value || '').replace(/\D/g, '')) || 0;
         window.ReturnsForm.renderSummary();
@@ -360,6 +370,7 @@
         const extra = {
             disposition: STATE.disposition,
             refundMethod: s.showRefundMethod ? STATE.refundMethod : 'vi',
+            customerBear: s.showRefundMethod ? STATE.customerBear || 0 : 0,
             returnShippingFee: s.showShipFee ? STATE.shipFee || 0 : 0,
             feeBearer: s.showShipFee ? STATE.feeBearer || null : null,
         };
@@ -384,6 +395,7 @@
         onRefundChange,
         renderRefundHint,
         onShipFeeInput,
+        onCustomerBearInput,
         onFeeBearerChange,
         onReplSearch,
         setReplQty,

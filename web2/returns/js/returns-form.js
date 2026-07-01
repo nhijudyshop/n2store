@@ -94,13 +94,20 @@
                       ? `shop hoàn <b class="rt-green">${fmt(-diff)}</b>`
                       : 'ngang giá');
         } else if (STATE.subType === 'thu_ve_1_phan') {
-            const credit = selLines().reduce((a, l) => a + l.price * l.qty, 0);
+            const gross = selLines().reduce((a, l) => a + l.price * l.qty, 0);
+            const bear = Math.min(STATE.customerBear || 0, gross);
+            const credit = Math.max(0, gross - bear);
             const cash = STATE.refundMethod === 'tien_mat' || STATE.refundMethod === 'ck';
             el.innerHTML =
                 `Hoàn khách: <b>${fmt(credit)}</b>` +
+                (bear > 0
+                    ? ` <span class="rt-muted">(giá ${fmt(gross)} − khách chịu ${fmt(bear)})</span>`
+                    : '') +
                 (cash
-                    ? ' <span class="rt-muted">(trả tiền tay, không cộng ví)</span>'
-                    : ' <span class="rt-muted">(giá bán × SL)</span>');
+                    ? ' <span class="rt-muted">· trả tiền tay, không cộng ví</span>'
+                    : bear > 0
+                      ? ''
+                      : ' <span class="rt-muted">(giá bán × SL)</span>');
         } else {
             const so = STATE.sourceOrder;
             if (!so) el.innerHTML = 'Chọn 1 đơn của khách để hoàn.';
@@ -232,10 +239,12 @@
         STATE.replacements = [];
         STATE.codReduction = 0;
         STATE.shipFee = 0;
+        STATE.customerBear = 0;
         if ($('noteInput')) $('noteInput').value = '';
         if ($('reasonNote')) $('reasonNote').value = '';
         if ($('codReduction')) $('codReduction').value = '';
         if ($('shipFeeInput')) $('shipFeeInput').value = '';
+        if ($('customerBearInput')) $('customerBearInput').value = '';
         $('orderItems').hidden = true;
         $('orderSummary').hidden = true;
         $('codCalc').hidden = true;
