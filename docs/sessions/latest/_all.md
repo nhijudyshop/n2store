@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b6faf50` — feat(cham-cong): chuột phải ô lưới chấm 'đúng giờ' ca chuẩn cho ngày nghỉ/chấm thiếu
-**Last updated**: 2026-07-01 16:51:51 +07
-**Latest session**: [`RESUME:20260701-165151-b6faf50`](../20260701-165151-b6faf50.md)
-**Summary**: feat(cham-cong): chuột phải ô lưới chấm 'đúng giờ' ca chuẩn cho ngày nghỉ/chấm thiếu
+**Latest commit**: `01d89d7` — auto: session update
+**Last updated**: 2026-07-01 17:17:26 +07
+**Latest session**: [`RESUME:20260701-171726-01d89d7`](../20260701-171726-01d89d7.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-07-01 16:35
+- [`render.com/`](./render.com.md) — updated 2026-07-01 17:17
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
