@@ -33,6 +33,14 @@ Bảng lương (tab Bảng lương) làm giống mẫu inline-editable:
 
 Status: ✅ (chờ BE deploy cho Tăng ca override)
 
+### [cham-cong] Lịch sử chỉnh sửa lương (icon 🕘 sau tên)
+
+**Files:** `render.com/routes/web2-attendance.js` (PUT /payroll ghi audit diff), `web2/cham-cong/js/cham-cong-payroll.js` (icon + `Web2AuditLog.openRecord`), `index.html` (load `web2-audit-log.js`).
+
+Tái dùng hệ audit chung: PUT /payroll diff old→new field (Phụ cấp/Thưởng/Giảm trừ/Đã trả/Ghi chú/override) → `recordAuditEvent(entity='attendance-payroll', entityId='<uid>_<month>', changes)`. FE thêm icon 🕘 sau tên → `Web2AuditLog.openRecord({entityId})` mở timeline (viewer `/api/web2/audit-log/list` đã live). ⚠ Ghi audit cần Render deploy; log chỉ có từ sau deploy (không hồi tố).
+
+Status: ✅ (chờ BE deploy)
+
 ### [web2-campaign] #2 cross-page cart merge + H4/MP1/CAMP-1 — gom 1 fix theo parent_campaign_id
 
 **Files:** `render.com/routes/native-orders.js` (cột + helper + from-comment merge/INSERT + /merge + migration 082 + fb_psids populate), `render.com/routes/v2/cart.js` (\_findDraft + \_batchCounts customer-aware cross-page).

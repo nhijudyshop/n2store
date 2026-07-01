@@ -21,6 +21,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireWeb2Admin } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
 const now = () => Date.now();
@@ -776,6 +777,9 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
         const monthKey = m[2];
         if (await isMonthLocked(db, monthKey)) return fail(res, 409, LOCK_MSG(monthKey));
         const b = req.body || {};
+        const oldRow =
+            (await db.query('SELECT * FROM web2_attendance_payroll WHERE id = $1', [id])).rows[0] ||
+            null;
         const r = await db.query(
             `INSERT INTO web2_attendance_payroll
                 (id, emp_id, month_key, thuong_items, giam_tru_items, da_tra_items, allowances,
@@ -812,6 +816,46 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
                 now(),
             ]
         );
+        // Lịch sử chỉnh sửa lương (best-effort) — ghi field đổi (cũ → mới) vào audit chung.
+        try {
+            const snap = (row) => {
+                const sum = (j) =>
+                    (Array.isArray(j) ? j : []).reduce(
+                        (s, i) => s + (Number(i && i.amount) || 0),
+                        0
+                    );
+                row = row || {};
+                return {
+                    'Phụ cấp': sum(row.allowances),
+                    Thưởng: sum(row.thuong_items),
+                    'Giảm trừ (thủ công)': sum(row.giam_tru_items),
+                    'Đã trả': sum(row.da_tra_items),
+                    'Ghi chú': row.ghi_chu || '',
+                    'Override công': row.salary_days_override ?? '',
+                    'Override giờ OT': row.ot_hours_override ?? '',
+                    'Tiền tăng ca (override)': row.lam_them_override ?? '',
+                    'Override phạt muộn': row.giam_tru_late_override ?? '',
+                };
+            };
+            const before = snap(oldRow);
+            const after = snap(r.rows[0]);
+            const changes = {};
+            for (const k of Object.keys(after))
+                if (String(before[k]) !== String(after[k]))
+                    changes[k] = { from: before[k], to: after[k] };
+            if (Object.keys(changes).length)
+                recordAuditEvent(db, {
+                    entity: 'attendance-payroll',
+                    entityId: id,
+                    action: 'update',
+                    userId: req.web2User?.id ?? null,
+                    userName: editorOf(req),
+                    sourcePage: 'cham-cong',
+                    changes,
+                });
+        } catch (e) {
+            console.warn('[WEB2-ATTENDANCE] payroll audit:', e.message);
+        }
         _notify('payroll', { id, monthKey });
         return ok(res, { item: r.rows[0] });
     } catch (e) {

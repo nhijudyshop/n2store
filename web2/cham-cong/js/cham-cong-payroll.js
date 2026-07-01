@@ -171,6 +171,7 @@
                   <span class="cc-pl-nm">${cc.esc(en.name)}</span>${nameExtra}
                   <button class="cc-pl-ico cc-pl-cal" data-uid="${cc.esc(en.uid)}" title="Chi tiết chấm công"><i data-lucide="calendar-days"></i></button>
                   <button class="cc-pl-ico cc-pl-print" data-uid="${cc.esc(en.uid)}" title="In phiếu lương"><i data-lucide="printer"></i></button>
+                  <button class="cc-pl-ico cc-pl-hist" data-uid="${cc.esc(en.uid)}" title="Lịch sử chỉnh sửa lương"><i data-lucide="history"></i></button>
                 </td>
                 <td class="num">${m.workedDays}</td>
                 <td class="num">${fmt(m.luongChinh)}</td>
@@ -231,6 +232,18 @@
         });
         el.querySelectorAll('.cc-pl-print').forEach((b) => {
             b.addEventListener('click', () => printPayslip(b.dataset.uid));
+        });
+        el.querySelectorAll('.cc-pl-hist').forEach((b) => {
+            b.addEventListener('click', () => {
+                if (!global.Web2AuditLog)
+                    return cc.toast('Chưa tải được lịch sử chỉnh sửa.', 'error');
+                const R = resolveRow(b.dataset.uid);
+                global.Web2AuditLog.openRecord({
+                    entity: 'attendance-payroll',
+                    entityId: `${b.dataset.uid}_${cc.state.monthKey}`,
+                    title: `Lịch sử chỉnh sửa lương · ${R ? R.name : ''} · ${cc.state.monthKey}`,
+                });
+            });
         });
         el.querySelectorAll('.cc-pl-ot').forEach((inp) => {
             inp.addEventListener('change', () => saveInlineOt(inp));
