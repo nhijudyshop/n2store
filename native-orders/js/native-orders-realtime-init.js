@@ -223,62 +223,10 @@
         // (đã gỡ cặp listener filterStatus/filterLimit trùng — trước gắn 2 lần làm
         //  applyFilters chạy đôi mỗi lần đổi dropdown. Giữ bản ở trên, audit 2026-06-20)
 
-        // Campaign filter wiring
-        NO.STATE.selectedCampaignIds = NO.loadCampaignSelection();
-        NO.renderCampaignLabel();
-        NO.loadAvailableCampaigns();
-        NO.loadParentCampaigns();
-        // (BỎ loadPagePosts — gom bài chuyển hẳn về live-chat)
-
-        NO.$('#filterCampaignBtn')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            NO.toggleCampaignDropdown();
-        });
-        document.addEventListener('click', (e) => {
-            const dd = NO.$('#filterCampaignDropdown');
-            const btn = NO.$('#filterCampaignBtn');
-            if (!dd || !btn) return;
-            if (dd.style.display === 'none') return;
-            if (btn.contains(e.target) || dd.contains(e.target)) return;
-            NO.toggleCampaignDropdown(false);
-        });
-        // Chiến dịch cha: CHỌN (radio) để LỌC đơn. Tạo/gán đã chuyển hẳn về live-chat.
-        NO.$('#parentCampaignList')?.addEventListener('change', (e) => {
-            const r = e.target.closest('.np-parent-radio');
-            if (!r) return;
-            NO.selectParentCampaign(r.value || null);
-        });
-        NO.$('#campaignList')?.addEventListener('change', (e) => {
-            const cb = e.target.closest('.campaign-check');
-            if (!cb) return;
-            const id = cb.getAttribute('data-id');
-            const set = new Set(NO.STATE.selectedCampaignIds);
-            if (cb.checked) set.add(id);
-            else set.delete(id);
-            NO.STATE.selectedCampaignIds = Array.from(set);
-            if (NO.STATE.selectedCampaignIds.length) NO.clearParentSelection();
-            NO.saveCampaignSelection();
-            NO.renderCampaignLabel();
-            NO.STATE.page = 1;
-            NO.load();
-        });
-        NO.$('#campaignSelectAll')?.addEventListener('click', () => {
-            NO.STATE.selectedCampaignIds = NO.STATE.availableCampaigns.map((c) => c.id);
-            NO.clearParentSelection();
-            NO.saveCampaignSelection();
-            NO.renderCampaignDropdown();
-            NO.renderCampaignLabel();
-            NO.STATE.page = 1;
-            NO.load();
-        });
-        NO.$('#campaignSelectNone')?.addEventListener('click', () => {
-            NO.STATE.selectedCampaignIds = [];
-            NO.saveCampaignSelection();
-            NO.renderCampaignDropdown();
-            NO.renderCampaignLabel();
-            NO.STATE.page = 1;
-            NO.load();
-        });
+        // Campaign filter — GOM 1 NGUỒN: Web2CampaignPicker (thay 2 dropdown cha+con cũ).
+        // Chọn 1 chiến dịch cha → onChange set parentPostIds → lọc đơn theo fb_post_id.
+        // Tạo/gán chiến dịch là 1 nguồn = live-chat (native-orders chỉ CHỌN để lọc).
+        NO.mountCampaignPicker();
         // Check-all + per-row check + bulk bar
         NO.$('#checkAll')?.addEventListener('change', (e) => {
             document.querySelectorAll('#ordersTbody .row-check').forEach((c) => {

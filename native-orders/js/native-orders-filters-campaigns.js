@@ -201,14 +201,37 @@
         NO.STATE.status = 'all';
         NO.STATE.limit = 200;
         NO.STATE.selectedCampaignIds = [];
-        NO.saveCampaignSelection();
-        NO.renderCampaignDropdown();
-        NO.renderCampaignLabel();
         NO.STATE.page = 1;
-        NO.load();
+        // Chiến dịch: bỏ chọn qua picker (onChange sẽ reset parent state + load).
+        // M8 fix (audit 2026-07-01): trước đây clearFilters KHÔNG reset parent filter → kẹt.
+        if (NO._campaignPicker && NO._campaignPicker.setCampaign)
+            NO._campaignPicker.setCampaign(null);
+        else {
+            NO.STATE.parentCampaignId = null;
+            NO.STATE.parentPostIds = [];
+            NO.load();
+        }
     };
 
-    // ---------- Campaign filter ----------
+    // ---------- Campaign filter (Web2CampaignPicker — 1 NGUỒN) ----------
+    // Gom 2 dropdown cũ (cha radio + con checkbox) về 1 selector dùng chung mọi trang.
+    // Chọn 1 chiến dịch cha → postIds (bài đã gán) → lọc đơn theo fb_post_id.
+    NO.mountCampaignPicker = function mountCampaignPicker() {
+        const host = NO.$('#noCampaignPicker');
+        if (!host || !window.Web2CampaignPicker) return;
+        if (NO._campaignPicker) return; // mount 1 lần
+        NO._campaignPicker = window.Web2CampaignPicker.mount(host, {
+            storageKey: 'native-orders',
+            onChange: function (sel) {
+                NO.STATE.parentCampaignId = (sel && sel.campaignId) || null;
+                NO.STATE.parentPostIds = sel && Array.isArray(sel.postIds) ? sel.postIds : [];
+                NO.STATE.selectedCampaignIds = []; // path lọc-theo-bài-lẻ cũ đã bỏ
+                NO.STATE.page = 1;
+                NO.load();
+            },
+        });
+    };
+
     NO.CAMPAIGN_STORAGE_KEY = 'native_orders_selected_campaigns';
 
     NO.loadCampaignSelection = function loadCampaignSelection() {

@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### [native-orders] Gom 2 dropdown chiến dịch → 1 Web2CampaignPicker + fix M8/M9 empty-state
+
+**Files:** `native-orders/index.html` (bỏ toàn bộ `#filterCampaignDropdown` cha+con → `<div id="noCampaignPicker">`, load `web2-campaign-picker.js`, bump v), `native-orders/js/native-orders-realtime-init.js` (thay wiring 2 dropdown bằng `NO.mountCampaignPicker()`), `native-orders/js/native-orders-filters-campaigns.js` (+`mountCampaignPicker`; `clearFilters` reset parent qua picker — M8), `native-orders/js/native-orders-render.js` (hasFilter gồm parentCampaignId/parentPostIds — M9).
+
+Yêu cầu #1 user: gom mọi dropdown chiến dịch về 1 selector chung. native-orders trước có 2 dropdown rời (cha radio `#parentCampaignList` qua Web2Campaign + con checkbox `#campaignList` qua legacy `NativeOrdersApi.campaigns()` = nguồn thứ 3 drift). Giờ 1 `Web2CampaignPicker` → chọn chiến dịch cha → `postsForCampaign` → `parentPostIds` → lọc đơn theo `fb_post_id` (khớp H1 gate đã fix). Bỏ hẳn path lọc-theo-bài-lẻ + auto-pick House/Store.
+
+- **M8 (audit MEDIUM, ĐÃ SỬA):** "Xóa bộ lọc" giờ reset parent filter qua `picker.setCampaign(null)` (trước kẹt).
+- **M9 (audit MEDIUM, ĐÃ SỬA):** empty-state khi lọc parent 0 đơn hiện "Không có đơn khớp bộ lọc" + nút Xóa (trước hiện "Chưa có đơn" sai).
+
+Verified browser (localhost, session admin + ext): picker load OK, mở dropdown 7 option (6 chiến dịch thật), 0 console error, click "27/06 tam" → parentCampaignId=6 + parentPostIds=2 bài (resolve qua postsForCampaign) + selectedLegacy=0 + button update. Các hàm dropdown cũ (loadAvailableCampaigns/renderParentCampaigns/…) thành dead no-op (guard DOM null), không caller ngoài.
+
+Status: ✅ (chạy ngay GitHub Pages; part của overhaul chiến dịch #1)
+
 ### [web2-campaign] Foundation: shared Web2CampaignPicker (bộ lọc chiến dịch 1 nguồn) + postsForCampaign helper
 
 **Files:** `web2/shared/web2-campaign-picker.js` (MỚI — `Web2CampaignPicker.mount(el,{storageKey,onChange,...})` dropdown lọc chiến dịch self-contained, CSS inject, realtime refresh qua Web2Campaign.subscribe, persist per-page localStorage), `web2/shared/web2-campaign.js` (+`postsForCampaign(campaignId)` → [postId] từ web2_live_post_assign, fallback listPosts).

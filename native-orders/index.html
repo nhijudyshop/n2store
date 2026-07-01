@@ -207,97 +207,7 @@
 
                         <!-- Campaign filter chip (sync with web2-pancake selection) -->
                         <div class="filter-chip-group" id="campaignChipGroup">
-                            <label class="chip-label chip-label-primary">
-                                <i data-lucide="megaphone"></i> Chiến dịch:
-                            </label>
-                            <div class="chip-select-wrapper" style="position: relative">
-                                <button
-                                    id="filterCampaignBtn"
-                                    class="chip-select chip-select-primary"
-                                    type="button"
-                                    style="text-align: left; min-width: 160px; cursor: pointer"
-                                >
-                                    <span id="filterCampaignLabel">Tất cả</span>
-                                </button>
-                                <i data-lucide="chevron-down" class="chip-caret"></i>
-                                <!-- Dropdown panel (hidden by default) -->
-                                <div
-                                    id="filterCampaignDropdown"
-                                    style="
-                                        display: none;
-                                        position: absolute;
-                                        top: calc(100% + 4px);
-                                        left: 0;
-                                        z-index: 50;
-                                        min-width: 280px;
-                                        max-width: 360px;
-                                        max-height: 340px;
-                                        overflow-y: auto;
-                                        background: #fff;
-                                        border: 1px solid #e5e7eb;
-                                        border-radius: 8px;
-                                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-                                        padding: 6px;
-                                    "
-                                >
-                                    <!-- Chiến dịch cha (chung dữ liệu live-chat) -->
-                                    <div
-                                        id="parentCampaignSection"
-                                        style="
-                                            border-bottom: 1px solid #f3f4f6;
-                                            padding: 2px 6px 8px;
-                                            margin-bottom: 4px;
-                                        "
-                                    >
-                                        <div
-                                            style="
-                                                font-size: 11px;
-                                                font-weight: 700;
-                                                color: #2a96ff;
-                                                padding: 2px 0 5px;
-                                            "
-                                        >
-                                            📁 Chiến dịch cha (chung live-chat)
-                                        </div>
-                                        <div
-                                            id="parentCampaignList"
-                                            style="display: flex; flex-direction: column; gap: 2px"
-                                        ></div>
-                                        <!-- 2026-06-30: BỎ tạo chiến dịch + gom bài ở native-orders.
-                                             Tạo/gán chiến dịch là 1 nguồn = live-chat. Đây chỉ CHỌN
-                                             (radio) chiến dịch cha để LỌC đơn. -->
-                                    </div>
-                                    <!-- Toolbar -->
-                                    <div
-                                        style="
-                                            display: flex;
-                                            gap: 6px;
-                                            padding: 4px 6px;
-                                            border-bottom: 1px solid #f3f4f6;
-                                        "
-                                    >
-                                        <button
-                                            id="campaignSelectAll"
-                                            class="btn-ghost"
-                                            style="font-size: 11px; padding: 3px 8px"
-                                        >
-                                            Tất cả
-                                        </button>
-                                        <button
-                                            id="campaignSelectNone"
-                                            class="btn-ghost"
-                                            style="font-size: 11px; padding: 3px 8px"
-                                        >
-                                            Bỏ chọn
-                                        </button>
-                                    </div>
-                                    <div id="campaignList" style="padding: 4px 0">
-                                        <div style="padding: 8px; color: #9ca3af; font-size: 12px">
-                                            Đang tải…
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <div id="noCampaignPicker"></div>
                         </div>
 
                         <!-- Limit pill -->
@@ -548,7 +458,8 @@
         <script src="../web2/shared/web2-msg-template-send.js?v=20260628c"></script>
         <script src="../web2/shared/web2-msg-template.js?v=20260628c"></script>
         <script src="../web2/shared/web2-sse-bridge.js?v=20260628c"></script>
-        <script src="../web2/shared/web2-campaign.js?v=20260628c"></script>
+        <script src="../web2/shared/web2-campaign.js?v=20260701a"></script>
+        <script src="../web2/shared/web2-campaign-picker.js?v=20260701a"></script>
         <script src="../web2/shared/web2-wallet-balance.js?v=20260628c"></script>
         <script src="../web2/shared/web2-return-bill.js?v=20260628c"></script>
         <script src="../web2/shared/web2-ck-review.js?v=20260628c"></script>
@@ -572,16 +483,16 @@
         <script src="js/native-orders-state.js?v=20260629d"></script>
         <script src="js/native-orders-snapshots.js?v=20260628c"></script>
         <script src="js/native-orders-customer-panel.js?v=20260628c"></script>
-        <script src="js/native-orders-render.js?v=20260629l"></script>
+        <script src="js/native-orders-render.js?v=20260701a"></script>
         <script src="js/native-orders-delivery.js?v=20260628c"></script>
         <script src="js/native-orders-modal-edit.js?v=20260628c"></script>
         <script src="js/native-orders-product-picker.js?v=20260628c"></script>
         <script src="js/native-orders-pbh-bill.js?v=20260630b"></script>
         <script src="js/native-orders-inbox-add.js?v=20260628c"></script>
         <script src="js/native-orders-bulk-operations.js?v=20260629i"></script>
-        <script src="js/native-orders-filters-campaigns.js?v=20260630a"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260701a"></script>
         <script src="js/native-orders-control-drawer.js?v=20260629m"></script>
-        <script src="js/native-orders-realtime-init.js?v=20260630a"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260701a"></script>
         <script src="js/native-orders-customer360.js?v=20260628c"></script>
         <script src="js/native-orders-interactions.js?v=20260628c"></script>
         <script src="js/native-orders-inbox-resolve.js?v=20260628c"></script>

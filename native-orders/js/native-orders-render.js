@@ -646,7 +646,11 @@
                 NO.STATE.search ||
                 (NO.STATE.status && NO.STATE.status !== 'all') ||
                 NO.STATE.tagFilter ||
-                (NO.STATE.selectedCampaignIds && NO.STATE.selectedCampaignIds.length)
+                (NO.STATE.selectedCampaignIds && NO.STATE.selectedCampaignIds.length) ||
+                // M9 fix (audit 2026-07-01): kể cả lọc theo chiến dịch cha (picker) →
+                // 0 đơn phải hiện "Không có đơn khớp bộ lọc" + nút Xóa, không phải "Chưa có đơn".
+                NO.STATE.parentCampaignId ||
+                (NO.STATE.parentPostIds && NO.STATE.parentPostIds.length)
             );
             const clearBtn = hasFilter
                 ? `<button onclick="window._noClearFilters&&window._noClearFilters()" style="margin-top:12px;padding:7px 18px;background:#0068ff;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i data-lucide="x-circle" style="width:15px;height:15px;"></i>Xóa bộ lọc</button>`
