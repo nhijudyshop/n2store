@@ -237,6 +237,9 @@
     // ── Tab switching ────────────────────────────────────────────────────────
     function setTab(tab) {
         state.tab = tab;
+        try {
+            localStorage.setItem('cc_tab', tab);
+        } catch (e) {}
         state.empDirty = false; // chuyển tab = bỏ trạng thái sửa dở của tab Nhân viên
         document.querySelectorAll('.cc-tab').forEach((b) => {
             b.classList.toggle('active', b.dataset.tab === tab);
@@ -909,6 +912,17 @@
         document.querySelectorAll('.cc-tab').forEach((b) => {
             b.addEventListener('click', () => setTab(b.dataset.tab));
         });
+        // Nhớ tab đang xem qua refresh (localStorage) — refresh vẫn ở tab đó.
+        let savedTab = null;
+        try {
+            savedTab = localStorage.getItem('cc_tab');
+        } catch (e) {}
+        if (savedTab && ['timesheet', 'payroll', 'employees'].includes(savedTab)) {
+            state.tab = savedTab;
+            document
+                .querySelectorAll('.cc-tab')
+                .forEach((b) => b.classList.toggle('active', b.dataset.tab === savedTab));
+        }
         // A11y: Esc đóng modal đang mở. Mọi modal cham-cong (ngày / chi tiết / sửa lương)
         // mount vào #ccModalMount, đóng = clear innerHTML (giống nút ✕ / click backdrop).
         document.addEventListener('keydown', (e) => {
