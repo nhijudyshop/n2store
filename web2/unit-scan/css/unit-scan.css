@@ -410,24 +410,43 @@ body {
     overflow: hidden;
     margin-top: 12px;
     text-align: center;
-    background: linear-gradient(180deg, #f3f8ff, #e9f1ff);
-    border: 1.5px solid rgba(0, 104, 255, 0.18);
-    border-radius: 14px;
-    padding: 12px 10px;
+    border-radius: 16px;
+    padding: 16px 12px 14px;
 }
-/* Success pulse: mỗi lần quét, glow lan 1 nhịp trên hero (transform+opacity → compositor). */
+/* Neutral (không rõ kệ): tông xanh nhạt / xanh lá khi "đã đủ" */
+.stt-hero.neutral {
+    background: linear-gradient(180deg, #f3f8ff, #e9f1ff);
+    border: 1.5px solid rgba(0, 104, 255, 0.16);
+}
+.stt-hero.neutral.ok {
+    background: linear-gradient(180deg, #effaf2, #e3f6e9);
+    border-color: rgba(26, 162, 81, 0.25);
+}
+/* Has-ke: tô theo MÀU KỆ (put-to-light) — thanh trái đậm + tint nhẹ + viền màu kệ */
+.stt-hero.has-ke {
+    background: color-mix(in srgb, var(--ke) 9%, #fff);
+    border: 1.5px solid color-mix(in srgb, var(--ke) 30%, #fff);
+    border-left: 6px solid var(--ke);
+    box-shadow: 0 6px 22px color-mix(in srgb, var(--ke) 16%, transparent);
+}
+.stt-hero.has-ke.suggested {
+    border-style: dashed;
+    border-left-style: solid;
+}
+/* Success pulse: mỗi lần quét glow lan 1 nhịp, tô theo màu kệ (transform+opacity → compositor). */
 .stt-hero::after {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-    background: radial-gradient(circle at 50% 42%, rgba(0, 104, 255, 0.2), transparent 62%);
+    background: radial-gradient(
+        circle at 50% 42%,
+        color-mix(in srgb, var(--ke, #0068ff) 26%, transparent),
+        transparent 62%
+    );
     opacity: 0;
     animation: scanPulse 0.5s var(--ease-out-expo);
-}
-.stt-hero.done::after {
-    background: radial-gradient(circle at 50% 42%, rgba(26, 162, 81, 0.22), transparent 62%);
 }
 @keyframes scanPulse {
     0% {
@@ -442,31 +461,46 @@ body {
         transform: scale(1.05);
     }
 }
-.stt-hero.done {
-    background: linear-gradient(180deg, #effaf2, #e3f6e9);
-    border-color: rgba(26, 162, 81, 0.25);
-}
-.stt-hero .lbl {
-    font-size: 12.5px;
-    font-weight: 700;
-    color: var(--c-text-2);
+.hero-ke {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--ke, var(--c-text-2));
     letter-spacing: 0.02em;
     text-transform: uppercase;
 }
-.stt-hero .num {
-    font-size: 46px;
-    font-weight: 900;
-    line-height: 1.05;
-    color: var(--c-primary-d);
-    letter-spacing: -0.02em;
+.stt-hero.neutral .hero-ke {
+    color: var(--c-text-2);
 }
-.stt-hero.done .num {
+.stt-hero.neutral.ok .hero-ke {
     color: var(--c-green);
+}
+.hero-tag {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: none;
+    letter-spacing: 0;
+    background: var(--ke);
+    color: #fff;
+    padding: 1px 7px;
+    border-radius: 999px;
+    margin-left: 6px;
+}
+.stt-hero .num {
+    font-size: clamp(56px, 19vw, 84px);
+    font-weight: 900;
+    line-height: 1.02;
+    color: #0b1220;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
 }
 .stt-hero .sub {
     font-size: 13px;
     color: var(--c-text-2);
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
 /* ── Order list ─────────────────────────────────────── */
@@ -720,15 +754,12 @@ body {
     background: #f1f5f9;
     color: var(--c-text);
 }
-/* Hero vị trí (📍 Kệ·Hàng·Cột) trong card kết quả */
+/* Hero vị trí (📍 Kệ·Hàng·Cột) — tô theo màu kệ */
 .stt-hero .hero-pos {
-    margin-top: 3px;
-    color: var(--c-primary-d);
+    margin-top: 4px;
+    color: var(--ke, var(--c-primary-d));
     font-weight: 800;
-    font-size: 14px;
-}
-.stt-hero.done .hero-pos {
-    color: var(--c-green);
+    font-size: 15px;
 }
 /* Stats */
 .stats {
@@ -793,6 +824,7 @@ body {
 .ke-card {
     background: var(--c-surface);
     border: 1.5px solid var(--c-line);
+    border-left: 4px solid var(--ke, var(--c-primary)); /* dải màu-kệ định danh */
     border-radius: 13px;
     padding: 10px 11px;
     cursor: pointer;
@@ -814,20 +846,33 @@ body {
     align-items: center;
     gap: 9px;
 }
-.ke-card .c-badge {
+/* Ring donut = tiến độ chia của kệ, tô MÀU KỆ. Arc = --p (0..360deg). */
+.ke-card .c-ring {
     flex: 0 0 auto;
-    min-width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    background: var(--c-primary);
-    color: #fff;
-    font-weight: 900;
-    font-size: 20px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: conic-gradient(var(--ke, var(--c-primary)) var(--p, 0deg), var(--c-line) 0);
     display: grid;
     place-items: center;
+    position: relative;
+    transition: background 0.35s var(--ease-out-expo);
 }
-.ke-card.done .c-badge {
-    background: var(--c-green);
+.ke-card .c-ring::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: var(--c-surface);
+}
+.ke-card.done .c-ring::before {
+    background: var(--c-green-bg);
+}
+.ke-card .c-ring-num {
+    position: relative;
+    font-size: 17px;
+    font-weight: 900;
+    color: var(--ke, var(--c-primary));
 }
 .ke-card .c-info {
     flex: 1;
@@ -1354,8 +1399,9 @@ body {
     min-width: 0;
 }
 .bt-code {
-    font-size: 13px;
-    font-weight: 800;
+    font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+    font-size: 12.5px;
+    font-weight: 700;
     color: var(--c-text);
     letter-spacing: -0.01em;
 }
@@ -1369,12 +1415,18 @@ body {
 .bt-pos {
     flex: 0 0 auto;
     font-size: 11.5px;
-    font-weight: 700;
-    color: var(--c-primary-d);
-    background: #eef4ff;
+    font-weight: 800;
+    color: var(--c-text-2);
+    background: var(--c-bg);
     border-radius: 8px;
     padding: 3px 8px;
     white-space: nowrap;
+}
+/* Pill vị trí tô theo MÀU KỆ (đồng bộ hero + ring + sơ đồ) */
+.bt-pos.ke {
+    color: var(--ke);
+    background: color-mix(in srgb, var(--ke) 12%, #fff);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ke) 28%, #fff);
 }
 .bt-x {
     width: 30px;

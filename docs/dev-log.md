@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [web2 unit-scan] Rebuild UI — "Premium Light" + màu-theo-kệ (put-to-light)
+
+**Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
+
+User: "cải thiện giao diện, có thể xóa đi làm lại" + "tìm google hình ảnh / github". Research 2 luồng (GitHub: `MinhNghia2010/Put-to-light`, `Rockship-Team/pick-to-light` — 2 repo put-to-light VN; web: 4 hướng thiết kế). User chọn **Light cao cấp (giữ Zalo-blue)**.
+
+- **Màu-theo-kệ (put-to-light)**: 9 kệ = 9 màu định danh (`KE_COLORS`/`keColor(ke)` trong JS). Màu = "bỏ vào kệ nào" → mắt nhận màu trước khi đọc số. Dùng CHUNG (1 nguồn màu) ở: hero (thanh trái + tint + "BỎ VÀO KỆ N" + 📍 vị trí), ring-donut badge trên 9 ke-card (`conic-gradient` arc = sorted/needed), dải trái ke-card, pill vị trí trong "Danh sách đã quét".
+- **Hero premium**: số STT khổng lồ `clamp(56px,19vw,84px)/900` near-black `#0b1220` (thay 46px xanh), viền/tint theo `--ke` (color-mix), suggested = viền nét đứt + tag "gợi ý".
+- **Scanner overlay** (steal từ repo): 4 góc bo + laser chạy (`scanLaser`) + **chớp cả khung xanh/đỏ khi quét** (`scanFlash` — packer không nhìn toast góc). `pointer-events:none`, không đụng `#scanHost` (giữ warning .w2bc).
+- **Mã mono** (bt-code), token nền mát hơn (`--c-bg #f2f5fa`, `--c-line #e3e8f0`). Giữ toàn bộ feature + ID (JS-bound) + reduced-motion-safe.
+- **Verify:** browser-test account web2 thật — 0 console error; per-shelf color (K1 amber/K2 red/K3 violet) đồng bộ hero+ring+card+pill; scan-flash/laser/overlay OK.
+
+Status: ✅ rebuild deployed-ready.
+
 ### [web2 unit-scan] Quét batch → in tem cả lượt → "Đã in" (nhóm thời gian) + đại tu UI
 
 **Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
