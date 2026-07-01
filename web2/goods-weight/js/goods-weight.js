@@ -264,6 +264,7 @@
 
     // ---- BÁO CÁO theo ngày (PC) ----
     let REPORT = null;
+    let _filterDrawer = null; // thanh lọc .rp-bar nằm trong drawer chung (mở bằng nút mép "BỘ LỌC")
 
     function todayHCM() {
         // 'YYYY-MM-DD' hôm nay theo GMT+7 (độc lập TZ máy).
@@ -339,6 +340,7 @@
                 active.scrollIntoView({ inline: 'center', block: 'nearest' });
             } catch (_) {}
         loadReport();
+        if (_filterDrawer?.isOpen()) _filterDrawer.close(); // chọn tháng = xong → đóng drawer lọc
     }
 
     async function loadReport() {
@@ -576,6 +578,7 @@
         $('#rpFrom').value = from;
         $('#rpTo').value = to;
         loadReport();
+        if (_filterDrawer?.isOpen()) _filterDrawer.close(); // preset = xong → đóng drawer lọc
     }
 
     function showTab(which) {
@@ -585,6 +588,11 @@
         $('#tabLog').classList.toggle('is-active', log);
         $('#tabReport').classList.toggle('is-active', !log);
         document.body.classList.toggle('rp-mode', !log);
+        if (_filterDrawer) {
+            _filterDrawer.showToggle(!log); // nút "BỘ LỌC" chỉ hiện ở tab Báo cáo
+            if (log) _filterDrawer.close();
+        }
+        if (log && _dayDrawer?.isOpen()) _dayDrawer.close();
         if (!log && !REPORT) selectMonth(currentMonth()); // mặc định: tháng hiện tại
     }
 
@@ -609,6 +617,24 @@
         $('#rpPresets')
             .querySelectorAll('[data-range]')
             .forEach((b) => b.addEventListener('click', () => setPreset(b.dataset.range)));
+        ensureFilterDrawer(); // chuyển thanh lọc .rp-bar vào drawer (module chung, mở bằng nút mép)
+    }
+
+    // Thanh lọc báo cáo (.rp-bar) → drawer trượt phải, mở bằng nút mép "BỘ LỌC" (module chung).
+    function ensureFilterDrawer() {
+        if (_filterDrawer || !window.Web2Drawer) return _filterDrawer;
+        _filterDrawer = Web2Drawer.create({
+            id: 'gwFilters',
+            side: 'right',
+            width: 420,
+            backdrop: true,
+            title: 'Bộ lọc báo cáo',
+            toggle: { label: 'BỘ LỌC', icon: 'filter', title: 'Bộ lọc báo cáo' },
+        });
+        const bar = $('#panelReport .rp-bar');
+        if (bar) _filterDrawer.body.appendChild(bar); // giữ nguyên element → wiring theo ID còn nguyên
+        _filterDrawer.showToggle(false); // ẩn tới khi vào tab Báo cáo (showTab bật lại)
+        return _filterDrawer;
     }
 
     // ---- clock (GMT+7 live) ----

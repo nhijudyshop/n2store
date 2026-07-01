@@ -763,6 +763,13 @@ body:not(.rp-admin) .rp-act {
     border-radius: 6px;
     padding: 3px 7px;
 }
+/* thanh lọc .rp-bar chuyển vào Web2Drawer → bỏ chrome card (drawer body đã là nền trắng) */
+.w2dw-body .rp-bar {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+}
 /* lưới ảnh trong drawer (Web2Drawer body đã có padding sẵn) */
 .rp-photos {
     display: grid;
