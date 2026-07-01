@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### [web2 unit-scan] Nút gạt "Quét nhanh" — ẩn thẻ chi tiết khi quét liên tục
+
+**Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
+
+User: "ok làm đi" (thêm nút gạt Quét nhanh). Toggle trong drawer (đầu danh sách, dạng switch) — bật thì mỗi lần quét chỉ render **thẻ tối thiểu** (hero "Bỏ vào kệ N" + tên/mã gọn), ẩn hết chi tiết (ảnh/chip/metrics/đơn/lịch sử/sibling) → quét liên tục nhẹ + đỡ nhiễu.
+
+- `fastScan` + `FAST_KEY` localStorage (nhớ qua reload). `setFast(on)` toggle class switch + đổi scan-hint ("⚡ Quét nhanh…") + re-render kết quả hiện tại theo chế độ.
+- `renderResult`: nếu `fastScan` → `<div class="card fast">` hero + `.fast-name` rồi return sớm (bỏ qua build chip/metrics/orders/history + wire handler). addToBatch/flash/beep vẫn chạy (ở resolve) → STT-filter + phản hồi không đổi.
+- Switch CSS (`.fast-toggle`/`.ft-switch`), thẻ compact (`.card.fast`/`.fast-name`).
+- Verify (session isolated): OFF→full (có chip); ON→compact (hero, không chip, "Váy Hoa Nhí · KHOVAY-005"), hint đổi, persist "1"; reload giữ ON; OFF→hint thường + persist "0"; 0 console error.
+
+Status: ✅ deployed-ready.
+
 ### [web2 unit-scan] Quét nhanh liên tiếp + danh sách in chỉ nhận tem CÓ STT
 
 **Files:** `web2/unit-scan/js/unit-scan.js`.

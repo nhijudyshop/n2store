@@ -244,6 +244,14 @@
             ? `<img class="prod-img" src="${esc(p.imageUrl)}" alt="" />`
             : `<div class="prod-img" style="display:grid;place-items:center"><i data-lucide="package"></i></div>`;
         const suggested = orders.find((o) => o.remaining > 0) || null;
+        // QUÉT NHANH: ẩn hẳn thẻ chi tiết → chỉ hero "Bỏ vào kệ N" + tên/mã gọn (render tối thiểu).
+        if (fastScan) {
+            $('#result').innerHTML =
+                `<div class="card fast">${heroHtml(u, suggested)}` +
+                `<div class="fast-name">${esc(p.name || u.productCode)} · <span class="fast-code">${esc(u.unitCode)}</span></div></div>`;
+            icons();
+            return;
+        }
         const chips = [
             p.supplier || u.supplier
                 ? `<span class="chip blue"><i data-lucide="truck"></i>NCC ${esc(u.supplier || p.supplier)}</span>`
@@ -864,6 +872,24 @@
     const BATCH_KEY = 'web2_unitscan_batch_v1'; // danh sách đang quét (chưa in)
     const PRINTED_KEY = 'web2_unitscan_printed_v1'; // các đợt đã in
     const PRINTED_MAX = 60; // ponytail: giữ 60 đợt in gần nhất; cũ hơn rụng (đủ "in lại theo nhóm thời gian")
+    // Quét nhanh: ẩn thẻ chi tiết mỗi lần quét (render tối thiểu) → quét liên tục nhẹ + đỡ nhiễu.
+    const FAST_KEY = 'web2_unitscan_fast';
+    let fastScan = false;
+    function setFast(on) {
+        fastScan = !!on;
+        try {
+            localStorage.setItem(FAST_KEY, fastScan ? '1' : '0');
+        } catch (_) {}
+        $('#fastToggle')?.classList.toggle('on', fastScan);
+        $('#fastToggle')?.setAttribute('aria-pressed', String(fastScan));
+        const hint = $('.scan-hint');
+        if (hint)
+            hint.textContent = fastScan
+                ? '⚡ Quét nhanh — đưa mã QR vào khung'
+                : 'Đưa mã QR vào khung';
+        if (current?.unit) renderResult(current); // vẽ lại kết quả hiện tại theo chế độ mới
+    }
+
     let batch = []; // {id,unitCode,productCode,name,price,orderStt,status,scannedAt}
     let printed = []; // {id,printedAt,userName,count,units:[...]}
     let _animateNew = false; // bật khi vừa addToBatch → renderBatch cho tem mới nhất hiệu ứng rơi vào
@@ -1342,6 +1368,12 @@
         ['#batchMapBtn', '#manifestBtn', '#batchPrintBtn'].forEach((sel) =>
             $(sel)?.addEventListener('click', closeDrawer)
         );
+        // Quét nhanh: nạp trạng thái đã lưu + gạt bật/tắt (KHÔNG đóng drawer để thấy switch đổi)
+        try {
+            fastScan = localStorage.getItem(FAST_KEY) === '1';
+        } catch (_) {}
+        setFast(fastScan);
+        $('#fastToggle')?.addEventListener('click', () => setFast(!fastScan));
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !$('#drawerBack').hidden) closeDrawer();
         });

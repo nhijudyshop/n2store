@@ -36,7 +36,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701g" />
+        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701h" />
     </head>
     <body>
         <header class="hd">
@@ -77,6 +77,17 @@
                     </button>
                 </div>
                 <div class="drawer-body">
+                    <button
+                        class="drawer-item fast-toggle"
+                        id="fastToggle"
+                        type="button"
+                        role="switch"
+                        aria-pressed="false"
+                    >
+                        <i data-lucide="zap"></i>
+                        <span class="ft-label">Quét nhanh <small>ẩn thẻ chi tiết</small></span>
+                        <span class="ft-switch" aria-hidden="true"></span>
+                    </button>
                     <button class="drawer-item" id="batchMapBtn" type="button">
                         <i data-lucide="layout-grid"></i> Sơ đồ kệ
                     </button>
@@ -187,6 +198,6 @@
         <!-- Format tiền ₫ 1-nguồn (trang KHÔNG có sidebar nên không auto-inject) -->
         <script src="../shared/web2-format.js?v=20260618"></script>
         <!-- app (1 view) -->
-        <script src="./js/unit-scan.js?v=20260701g"></script>
+        <script src="./js/unit-scan.js?v=20260701h"></script>
     </body>
 </html>
