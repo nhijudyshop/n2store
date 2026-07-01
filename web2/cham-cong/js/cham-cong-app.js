@@ -585,13 +585,13 @@
                   )
                   .join('') +
               `<div class="cc-add-punch">
-                  <input type="time" id="ccPunchTime" value="08:00">
+                  <input type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" class="cc-time24" id="ccPunchTime" value="08:00">
                   <select id="ccPunchType"><option value="0">Vào</option><option value="1">Ra</option></select>
                   <button class="cc-btn cc-btn-ghost" id="ccPunchAdd">+ Thêm lượt</button>
                 </div>`
             : `<div class="cc-empty-sm">Chưa có lượt chấm công ngày này.</div>
                <div class="cc-add-punch">
-                  <input type="time" id="ccPunchTime" value="08:00">
+                  <input type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" class="cc-time24" id="ccPunchTime" value="08:00">
                   <select id="ccPunchType"><option value="0">Vào</option><option value="1">Ra</option></select>
                   <button class="cc-btn cc-btn-ghost" id="ccPunchAdd">+ Thêm lượt</button>
                </div>`;
@@ -629,10 +629,10 @@
                   </div>
                   <div class="cc-io-grid" id="ccIoGrid">
                     <label class="cc-io-line"><input type="checkbox" id="ccInChk" ${checkIn ? 'checked' : ''}> Vào
-                      <input type="time" id="ccInTime" value="${inHM || '08:00'}"></label>
+                      <input type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" class="cc-time24" id="ccInTime" value="${inHM || '08:00'}"></label>
                     <div class="cc-io-calc">Làm thêm <b>${otH}</b> giờ <b>${otM}</b> phút</div>
                     <label class="cc-io-line"><input type="checkbox" id="ccOutChk" ${checkOut ? 'checked' : ''}> Ra
-                      <input type="time" id="ccOutTime" value="${outHM || '20:00'}"></label>
+                      <input type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" class="cc-time24" id="ccOutTime" value="${outHM || '20:00'}"></label>
                     <div class="cc-io-calc">Về sớm <b>${earlyH}</b> giờ <b>${earlyM}</b> phút</div>
                   </div>
                   <label class="cc-day-note-lbl">📝 Ghi chú ngày này
@@ -855,6 +855,27 @@
         }
     }
 
+    // Chuẩn hoá text người dùng nhập → "HH:MM" 24h (clamp 0–23 : 0–59).
+    // Có dấu ":" → tách H:M theo dấu; không có → theo độ dài số ("8"→08:00, "0830"→08:30).
+    function normalizeHM24(s) {
+        const raw = String(s || '').trim();
+        if (!raw) return '';
+        let hpart, mpart;
+        if (raw.includes(':')) {
+            const parts = raw.split(':');
+            hpart = parts[0].replace(/\D/g, '');
+            mpart = parts[1].replace(/\D/g, '');
+        } else {
+            const d = raw.replace(/\D/g, '').slice(0, 4);
+            if (!d) return '';
+            hpart = d.length <= 2 ? d : d.slice(0, d.length - 2);
+            mpart = d.length <= 2 ? '0' : d.slice(-2);
+        }
+        const hh = Math.min(23, parseInt(hpart || '0', 10) || 0);
+        const mm = Math.min(59, parseInt(mpart || '0', 10) || 0);
+        return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    }
+
     // ── Month nav ────────────────────────────────────────────────────────────
     function shiftMonth(delta) {
         const [y, m] = state.monthKey.split('-').map(Number);
@@ -894,6 +915,13 @@
             if (e.key !== 'Escape') return;
             const mount = document.getElementById('ccModalMount');
             if (mount && mount.querySelector('.cc-modal-backdrop')) mount.innerHTML = '';
+        });
+        // Input giờ 24h (.cc-time24): thay <input type=time> vì nó hiển thị theo đồng hồ
+        // máy (máy set 12h → hiện SA/CH). Chuẩn hoá về HH:MM 24h khi rời ô. Bind 1 lần.
+        document.addEventListener('focusout', (e) => {
+            const el = e.target;
+            if (el && el.classList && el.classList.contains('cc-time24'))
+                el.value = normalizeHM24(el.value);
         });
         const monthInp = document.getElementById('ccMonth');
         if (monthInp) {

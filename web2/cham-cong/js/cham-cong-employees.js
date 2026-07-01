@@ -91,8 +91,8 @@
                     <option value="daily" ${isMonthly ? '' : 'selected'}>Ngày</option>
                     <option value="monthly" ${isMonthly ? 'selected' : ''}>Tháng</option>
                 </select></td>
-                <td><input class="cc-emp-ws" type="time" value="${du.work_start || '08:00'}"></td>
-                <td><input class="cc-emp-we" type="time" value="${du.work_end || '20:00'}"></td>
+                <td><input class="cc-emp-ws cc-time24" type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" value="${du.work_start || '08:00'}"></td>
+                <td><input class="cc-emp-we cc-time24" type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" value="${du.work_end || '20:00'}"></td>
                 <td><input class="cc-emp-late num" type="number" value="${Number(du.late_penalty_per_min) || 0}"></td>
                 <td><input class="cc-emp-grace num" type="number" min="0" value="${grace}"></td>
                 <td><input class="cc-emp-ot num" type="number" step="0.5" value="${Number(du.ot_multiplier) || 1}"></td>

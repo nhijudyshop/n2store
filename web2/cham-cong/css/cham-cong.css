@@ -494,8 +494,9 @@
     width: 92px;
     text-align: right;
 }
-.cc-emp input[type='time'] {
+.cc-emp input.cc-time24 {
     width: 92px;
+    text-align: center;
 }
 .cc-emp-pin {
     font-weight: 700;
@@ -965,7 +966,9 @@
     font-size: 13px;
     color: var(--web2-text-2);
 }
-.cc-io-line input[type='time'] {
+.cc-io-line input.cc-time24 {
+    width: 74px;
+    text-align: center;
     border: 1px solid var(--web2-border-btn);
     border-radius: 7px;
     padding: 6px 9px;

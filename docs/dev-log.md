@@ -9,6 +9,7 @@
 1. **24h:** 4 `Intl.DateTimeFormat('vi-VN', …)` có render giờ nhưng thiếu `hour12: false` → Chrome CLDR `vi-VN` có thể chèn SA/CH (12h). Thêm `hour12: false` khớp 3 chỗ đã có. Giờ 7/7 renderer đều 24h.
 2. **Auto radio:** modal chấm công 1 ngày — tick checkbox `ccInChk`/`ccOutChk` (Vào/Ra) → radio `ccLeave` theo: có tick → `work` (Đi làm), bỏ cả 2 → `absent` (Nghỉ không phép). _Có phép_ vẫn chọn tay.
 3. **Chuột phải chấm nhanh:** right-click 1 ô lưới (`.cc-cell`) → `quickFillWork` chấm "đúng giờ" ca chuẩn (Vào=workStart, Ra=workEnd) cho ngày nghỉ / chấm thiếu. Chỉ THÊM lượt còn thiếu (không xoá/ghi đè giờ thật); bỏ qua tháng chốt / ngày lễ / ngày đã đủ; nghỉ có phép → gỡ override rồi chấm. Tooltip ô thêm gợi ý.
+4. **Input giờ 24h thật:** 5 `<input type="time">` (ccInTime/ccOutTime/ccPunchTime + work_start/end ở tab Nhân viên) hiển thị theo **đồng hồ máy** → máy set 12h thì hiện SA/CH, KHÔNG ép 24h được (Chrome dùng OS locale, `lang`/CSS vô hiệu). Thay bằng `<input type="text" class="cc-time24" inputmode="numeric">` + `normalizeHM24` chuẩn hoá HH:MM 24h khi `focusout` (delegation bind 1 lần). Value vẫn "HH:MM" → save/validate không đổi. CSS `input[type=time]` → `input.cc-time24`.
 
 Status: ✅
 
