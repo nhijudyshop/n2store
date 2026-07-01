@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `33bc3d7` — refactor(live-chat): gộp 1 nguồn chiến dịch — live-chat CHỈ XEM, tạo/quản lý ở campaign-manager
-**Last updated**: 2026-07-01 19:59:53 +07
-**Latest session**: [`RESUME:20260701-195953-33bc3d7`](../20260701-195953-33bc3d7.md)
-**Summary**: refactor(live-chat): gộp 1 nguồn chiến dịch — live-chat CHỈ XEM, tạo/quản lý ở campaign-manager
+**Latest commit**: `a528ab1` — auto: session update
+**Last updated**: 2026-07-01 20:17:20 +07
+**Latest session**: [`RESUME:20260701-201720-a528ab1`](../20260701-201720-a528ab1.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -63,7 +60,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-07-01 19:30
+- [`render.com/`](./render.com.md) — updated 2026-07-01 20:17
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
