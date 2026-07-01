@@ -2,6 +2,17 @@
 
 ## 2026-07-01
 
+### [web2-bill-service] Khung "THU LẠI TỪ KHÁCH" chuyển xuống DƯỚI "TỔNG TIỀN"
+
+**Files:** `web2/shared/web2-bill-service.js` (`generateRows`).
+
+Theo yêu cầu user: khung "⟲ THU LẠI TỪ KHÁCH" (hàng shipper thu lại — đổi/trả đơn trước) trước đây render ngay sau dòng sản phẩm, chen giữa phần bán và phần tổng. Đã dời xuống **dưới block "TỔNG TIỀN"** (sau cả prepaid/COD), trước phần GHI CHÚ.
+
+- Thứ tự mới: items → Tổng SL/Tạm tính/Phí ship/**TỔNG TIỀN**/COD → **KHUNG THU LẠI** → ghi chú → footer.
+- Chỉ đổi vị trí `rows.push(...)`, không đổi logic; nguồn render duy nhất (native-orders-pbh-bill.js chỉ đẩy dòng `isReturn` rồi gọi `Web2Bill`).
+
+Status: ✅ (JS no-cache, không cần bump version).
+
 ### [fast-sale-orders.js] Huỷ PBH → revert phiếu thu về consumed về 'queued' (fix mất dấu thu về)
 
 **Files:** `render.com/routes/fast-sale-orders.js` (`_cancelPbhInTx`).

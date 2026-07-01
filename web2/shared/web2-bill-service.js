@@ -381,24 +381,6 @@ html, body { margin: 0; padding: 0; background: #fff; }
         });
         rows.push(items.join(''));
 
-        // ── KHUNG THU VỀ — shipper THU LẠI món này từ khách (đổi/trả đơn trước) ──
-        if (returnItems.length) {
-            const retQty = returnItems.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-            const retRows = returnItems
-                .map(
-                    (r) =>
-                        `<div class="b-return-it"><span>${_esc(r.code ? r.code + ' · ' : '')}${_esc(r.name)}</span><span class="b-return-qty">×${r.qty}</span></div>`
-                )
-                .join('');
-            rows.push(
-                `<div class="b-return-box">` +
-                    `<div class="b-return-hd">⟲ THU LẠI TỪ KHÁCH (${retQty} món)</div>` +
-                    `<div class="b-return-sub">Shipper thu lại các món dưới đây (hàng đổi/trả đơn trước)</div>` +
-                    retRows +
-                    `</div>`
-            );
-        }
-
         // ── TỔNG TIỀN ──
         rows.push('<div class="b-div-solid"></div>');
         const tot = [];
@@ -418,6 +400,25 @@ html, body { margin: 0; padding: 0; background: #fff; }
                 `<div class="b-cod b-cod-due">` +
                     `<div class="b-cod-label">Còn thu (COD)</div>` +
                     `<div class="b-cod-amount sm">${m(d.cod)}<span class="b-dvt">đ</span></div>` +
+                    `</div>`
+            );
+        }
+
+        // ── KHUNG THU VỀ — shipper THU LẠI món này từ khách (đổi/trả đơn trước) ──
+        // Đặt DƯỚI "TỔNG TIỀN" để không chen giữa dòng bán và phần tổng (user 2026-07-01).
+        if (returnItems.length) {
+            const retQty = returnItems.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+            const retRows = returnItems
+                .map(
+                    (r) =>
+                        `<div class="b-return-it"><span>${_esc(r.code ? r.code + ' · ' : '')}${_esc(r.name)}</span><span class="b-return-qty">×${r.qty}</span></div>`
+                )
+                .join('');
+            rows.push(
+                `<div class="b-return-box">` +
+                    `<div class="b-return-hd">⟲ THU LẠI TỪ KHÁCH (${retQty} món)</div>` +
+                    `<div class="b-return-sub">Shipper thu lại các món dưới đây (hàng đổi/trả đơn trước)</div>` +
+                    retRows +
                     `</div>`
             );
         }
