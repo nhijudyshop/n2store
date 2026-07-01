@@ -888,91 +888,13 @@ router.post('/unassign', requireWeb2Admin, async (req, res) => {
     }
 });
 
-// ─── Poller pages config (trang tự lấy comment khi livestream) ─────────
-async function ensurePollerTable(pool) {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS web2_live_poller_pages (
-            page_id    VARCHAR(50) PRIMARY KEY,
-            page_name  VARCHAR(255),
-            page_url   TEXT,
-            enabled    BOOLEAN DEFAULT true,
-            added_at   BIGINT
-        );
-    `);
-}
-
-// GET /poller-pages — list trang đang cấu hình. Soft-auth (audit LOW 2026-06-20):
-// page_id/page_url livestream là cấu hình vận hành — gate đồng nhất với mutation.
-router.get('/poller-pages', requireWeb2AuthSoft, async (req, res) => {
-    const pool = getDb(req);
-    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
-    try {
-        await ensurePollerTable(pool);
-        const r = await pool.query(
-            'SELECT page_id, page_name, page_url, enabled, added_at FROM web2_live_poller_pages ORDER BY added_at ASC'
-        );
-        res.json({ success: true, data: r.rows });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// POST /poller-pages { pageId, pageName, pageUrl } — thêm/cập nhật trang.
-router.post('/poller-pages', requireWeb2AuthSoft, async (req, res) => {
-    const pool = getDb(req);
-    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
-    const pageId = String(req.body?.pageId || '').trim();
-    if (!pageId) return res.status(400).json({ success: false, error: 'pageId required' });
-    try {
-        await ensurePollerTable(pool);
-        await pool.query(
-            `INSERT INTO web2_live_poller_pages (page_id, page_name, page_url, enabled, added_at)
-             VALUES ($1,$2,$3,true,$4)
-             ON CONFLICT (page_id) DO UPDATE SET
-                page_name = COALESCE(EXCLUDED.page_name, web2_live_poller_pages.page_name),
-                page_url = COALESCE(EXCLUDED.page_url, web2_live_poller_pages.page_url),
-                enabled = true`,
-            [pageId, req.body?.pageName || null, req.body?.pageUrl || null, Date.now()]
-        );
-        _notify('poller-pages', null); // tab/máy khác sync trạng thái cấu hình
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// PATCH /poller-pages/:pageId { enabled } — bật/tắt.
-router.patch('/poller-pages/:pageId', requireWeb2AuthSoft, async (req, res) => {
-    const pool = getDb(req);
-    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
-    try {
-        await ensurePollerTable(pool);
-        await pool.query('UPDATE web2_live_poller_pages SET enabled = $1 WHERE page_id = $2', [
-            !!req.body?.enabled,
-            String(req.params.pageId),
-        ]);
-        _notify('poller-pages', null);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-// DELETE /poller-pages/:pageId
-router.delete('/poller-pages/:pageId', requireWeb2AuthSoft, async (req, res) => {
-    const pool = getDb(req);
-    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
-    try {
-        await ensurePollerTable(pool);
-        await pool.query('DELETE FROM web2_live_poller_pages WHERE page_id = $1', [
-            String(req.params.pageId),
-        ]);
-        _notify('poller-pages', null);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
+// ─── Poller pages config: GỠ 2026-07-01 ───────────────────────────────
+// Trang cấu hình "Cài đặt lấy comment Live" + CRUD /poller-pages đã gỡ (user:
+// "bỏ poller comment — lấy từ pancake post rồi"). Background poll đã tắt sẵn
+// (2026-06-11); comment realtime vào web2_live_comments qua WS relay → /ingest
+// (KHÔNG đọc web2_live_poller_pages). Bảng web2_live_poller_pages vẫn được
+// web2-livestream-poller.js tự tạo/seed lúc boot (cho reconcileFullText +
+// listLivePostsForAssign on-demand) — không cần CRUD qua route nữa.
 
 // =====================================================================
 // "Lưu Live" — thay thế /api/live-saved (relay) đã chết 404 (audit 3H8).
