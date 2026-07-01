@@ -708,15 +708,13 @@
                 toast(e.message, 'error');
             }
         };
-        // Tick Vào/Ra → tự chọn "Đi làm" (radio theo checkbox): có chấm vào/ra nghĩa là đã đi làm.
-        // Chỉ đẩy 1 chiều sang 'work' — bỏ tick cả 2 KHÔNG tự đổi sang nghỉ (không phân biệt được có phép / không phép).
+        // Radio theo checkbox Vào/Ra: có chấm vào/ra → "Đi làm"; bỏ tick cả 2 → mặc định "Nghỉ không phép".
         const syncLeaveFromIO = () => {
             const inChk = document.getElementById('ccInChk')?.checked;
             const outChk = document.getElementById('ccOutChk')?.checked;
-            if (inChk || outChk) {
-                const workRadio = mount.querySelector('input[name="ccLeave"][value="work"]');
-                if (workRadio) workRadio.checked = true;
-            }
+            const val = inChk || outChk ? 'work' : 'absent';
+            const radio = mount.querySelector(`input[name="ccLeave"][value="${val}"]`);
+            if (radio) radio.checked = true;
         };
         document.getElementById('ccInChk')?.addEventListener('change', syncLeaveFromIO);
         document.getElementById('ccOutChk')?.addEventListener('change', syncLeaveFromIO);
