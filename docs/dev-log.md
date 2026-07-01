@@ -2,6 +2,22 @@
 
 ## 2026-07-01
 
+### [web2 returns + web2-returns.js] Đại tu Thu về: scenario-first + đổi hàng/hàng lỗi/không-đơn-gốc + P3 hardening
+
+**Files:** `web2/returns/index.html` · `web2/returns/css/returns.css` · `web2/returns/js/{returns-core,returns-scenario(NEW),returns-form,returns-order-items,returns-customer,returns-tabs,returns-api,returns-app}.js` · `render.com/routes/web2-returns.js` · `render.com/routes/web2-products.js` · `web2/shared/web2-return-bill.js`.
+
+Sau audit đổi-trả (workflow 11 agent): trang Thu về cũ chỉ phủ ~40% kịch bản, UX rối bộ ba radio method×issue×subType. User: "làm tất cả".
+
+**Frontend — scenario-first**: thay bộ ba radio bằng lưới **6 KỊCH BẢN** (Boom cả đơn / Nhận thiếu / **Đổi hàng-đổi size** / **Hàng lỗi-giao sai-hư** / **Thu về không đơn gốc** / Sửa COD). Mỗi kịch bản (config `returns-core.SCENARIOS`) tự set method/issue/subType + bật khối phụ. Mới: đổi hàng (picker SP đổi lấy + net-difference khách-bù/shop-hoàn), disposition hàng lỗi (giữ riêng/huỷ → KHÔNG +kho bán), thu về không đơn gốc (search SP thủ công, chỉ +kho), hình thức hoàn (ví/công nợ/tiền mặt/CK), phí ship hoàn + bên chịu, **barcode scan-to-add**, chip xác nhận ý định. Tab Danh sách: filter chips + lọc ngày. Tab Chờ duyệt: **Từ chối** (decline) + xác nhận trước Duyệt. Đơn nguồn: badge "Đã có phiếu".
+
+**Backend `web2-returns.js`**: cột mới `disposition/return_shipping_fee/fee_bearer/refund_method/is_exchange/replacement_items/exchange_diff` (ALTER idempotent, test local DB pass). Đổi hàng = `thu_ve_1_phan` + `is_exchange` (KHÔNG fork money-path). Disposition giu_rieng/huy → reuse gate `stock_applied=FALSE` (skip +kho, ví vẫn cộng). refund tien_mat/ck → skip cộng SỐ DƯ ví nhưng VẪN settle `wallet_deducted` PBH (chống double-refund khi cancel PBH). **P3 fixes**: (1) over-refund edge — `_restoreCapped` cap wallet_deducted ≤ amount_total lúc huỷ KNH; (2) `billStatus=queued` chỉ khi khach_gui, shipper_gui queue lúc DUYỆT; (3) approve batch VALUES; (4) decline reuse DELETE + cờ; (5) `_recomputeParentsForCodes` (export từ web2-products) refresh tồn CHA sau mutation; (6) list filter method/issue/from/to.
+
+**Cross-page**: `web2-return-bill.js` nhắc SP đổi-lấy khi tạo PBH. Wallet pill SSE đã sẵn (Web2WalletBalance sub `web2:wallet:*`).
+
+Verify browser-test: 6 kịch bản render + toggle khối đúng, reason theo kịch bản, orphan +kho-không-ví, rebuild dòng SP khi đổi kịch bản (fix bug wipe lines), hàng lỗi preview "giữ riêng — KHÔNG +kho", 0 console error. Schema migration idempotent + round-trip pass.
+
+Status: ✅ deployed-ready.
+
 ### [web2 unit-scan] Nút hành động → drawer (trượt phải)
 
 **Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.

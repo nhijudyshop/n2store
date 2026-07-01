@@ -78,6 +78,13 @@
                 body: JSON.stringify(_user()),
             });
         },
+        // Từ chối phiếu chờ duyệt = DELETE (đảo kho/ví y hệt huỷ) + cờ decline + lý do.
+        decline(code, reason) {
+            return _json(`${BASE}/${encodeURIComponent(code)}`, {
+                method: 'DELETE',
+                body: JSON.stringify({ ..._user(), declined: true, reason: reason || null }),
+            });
+        },
         // --- Lookup helpers (reuse Web 2.0 endpoints) ---
         searchCustomers(q) {
             return _json(

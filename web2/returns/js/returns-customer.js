@@ -102,7 +102,17 @@
         if (!STATE.customer) return;
         $('orderList').innerHTML = '<div class="rt-muted">Đang tải đơn của khách…</div>';
         try {
-            const d = await api.customerOrders(STATE.customer.phone);
+            // Fetch đơn + phiếu thu về active của KH song song → đánh dấu đơn đã có phiếu
+            // (audit #LOW: tránh tạo trùng, chỉ biết sau khi bấm & nhận lỗi 400).
+            const [d, rets] = await Promise.all([
+                api.customerOrders(STATE.customer.phone),
+                api
+                    .list({ search: STATE.customer.phone, status: 'active', limit: 200 })
+                    .catch(() => ({ returns: [] })),
+            ]);
+            const returnedCodes = new Set(
+                (rets.returns || []).filter((r) => r.sourceOrderCode).map((r) => r.sourceOrderCode)
+            );
             const orders = (d.orders || []).filter(
                 (o) => o.source !== 'refund' && o.state !== 'cancelled' && o.state !== 'cancel'
             );
@@ -114,10 +124,13 @@
                 .map((o) => {
                     const sel = STATE.sourceOrder?.code === o.number ? ' is-picked' : '';
                     const srcBadge = o.source === 'pbh' ? 'PBH' : 'Đơn Web';
+                    const retBadge = returnedCodes.has(o.number)
+                        ? '<span class="rt-tag rt-tag-ret">Đã có phiếu</span>'
+                        : '';
                     return `<label class="rt-order${sel}" data-code="${esc(o.number)}" data-type="${o.source}" data-total="${o.totalAmount}">
                         <input type="radio" name="srcOrder" ${sel ? 'checked' : ''}/>
                         <span class="rt-order-main">
-                            <b>${esc(o.number)}</b> <span class="rt-tag">${srcBadge}</span>
+                            <b>${esc(o.number)}</b> <span class="rt-tag">${srcBadge}</span> ${retBadge}
                             <span class="rt-muted">${esc((o.date || '').slice(0, 10))} · ${o.itemCount} SP</span>
                         </span>
                         <span class="rt-order-amt">${C.fmt(o.totalAmount)}</span>

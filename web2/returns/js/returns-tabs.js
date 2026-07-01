@@ -22,14 +22,40 @@
         if (tab === 'pending') loadPending();
     }
 
-    // ---------------- List ----------------
+    // ---------------- List + filters ----------------
+    function _listParams() {
+        const p = {};
+        const search = $('listSearch') ? $('listSearch').value.trim() : '';
+        if (search) p.search = search;
+        const f = STATE.listFilter;
+        if (f.chip === 'pending') p.stockStatus = 'pending';
+        else if (f.chip === 'cancelled') p.status = 'cancelled';
+        else if (f.chip === 'khach_gui') p.method = 'khach_gui';
+        else if (f.chip === 'shipper_gui') p.method = 'shipper_gui';
+        else if (f.chip === 'shipper') p.issue = 'van_de_shipper';
+        if (f.from) p.from = new Date(f.from + 'T00:00:00').getTime();
+        if (f.to) p.to = new Date(f.to + 'T23:59:59').getTime();
+        return p;
+    }
+    function setFilterChip(chip) {
+        STATE.listFilter.chip = chip;
+        document
+            .querySelectorAll('#filterChips .rt-chip-f')
+            .forEach((b) => b.classList.toggle('is-active', b.dataset.f === chip));
+        loadList();
+    }
+    function setFilterDates() {
+        STATE.listFilter.from = $('filterFrom') ? $('filterFrom').value || '' : '';
+        STATE.listFilter.to = $('filterTo') ? $('filterTo').value || '' : '';
+        loadList();
+    }
+
     async function loadList() {
         const body = $('returnsBody');
         body.innerHTML =
             '<tr><td colspan="8" class="rt-muted" style="text-align:center;padding:16px;">Đang tải…</td></tr>';
         try {
-            const search = $('listSearch').value.trim();
-            const d = await api.list(search ? { search } : {});
+            const d = await api.list(_listParams());
             STATE.list = d.returns || [];
             renderList();
         } catch (err) {
@@ -40,7 +66,15 @@
     function _typeLabel(r) {
         if (r.issue === 'van_de_shipper')
             return `Sửa COD${r.reason ? ' · ' + (REASON_LABEL[r.reason] || r.reason) : ''}`;
-        if (r.subType === 'thu_ve_1_phan') return 'Thu về 1 phần';
+        if (r.isExchange) return 'Đổi hàng';
+        const dispo =
+            r.disposition === 'giu_rieng'
+                ? ' · <span class="rt-red">lỗi/giữ riêng</span>'
+                : r.disposition === 'huy'
+                  ? ' · <span class="rt-red">huỷ</span>'
+                  : '';
+        if (r.subType === 'thu_ve_1_phan')
+            return (r.sourceOrderCode ? 'Thu về 1 phần' : 'Không đơn gốc') + dispo;
         return `Không nhận hàng${r.reason ? ' · ' + (REASON_LABEL[r.reason] || r.reason) : ''}`;
     }
 
@@ -160,7 +194,10 @@
                     <div class="rt-pending-items">${items}</div>
                     <div class="rt-pending-foot">
                         <span class="rt-muted">Ví đã cộng: ${fmt(r.walletCredited)}</span>
-                        <button class="rt-btn-approve" data-approve="${esc(r.code)}"><i data-lucide="check"></i> Duyệt → cộng kho thật</button>
+                        <div class="rt-pending-acts">
+                            <button class="rt-btn-decline" data-decline="${esc(r.code)}"><i data-lucide="x"></i> Từ chối</button>
+                            <button class="rt-btn-approve" data-approve="${esc(r.code)}"><i data-lucide="check"></i> Duyệt → cộng kho thật</button>
+                        </div>
                     </div>
                 </div>`;
             })
@@ -169,6 +206,14 @@
     }
 
     async function approve(code) {
+        const r = STATE.pending.find((x) => x.code === code);
+        const nSP = r ? (r.items || []).reduce((s, it) => s + (Number(it.quantity) || 0), 0) : 0;
+        // Xác nhận trước khi cộng kho thật (khó đảo — phải huỷ phiếu). Audit #LOW.
+        const ok = await Popup.confirm(
+            `Duyệt phiếu ${code}? Cộng ${nSP} SP vào kho BÁN ĐƯỢC (chỉ đảo được bằng cách huỷ phiếu).`,
+            { okText: 'Duyệt' }
+        );
+        if (!ok) return;
         const btn = document.querySelector(`[data-approve="${CSS.escape(code)}"]`);
         if (btn) {
             btn.disabled = true;
@@ -187,6 +232,22 @@
         }
     }
 
+    // Từ chối hàng shipper gửi về (lỗi/không đúng) — KHÔNG nhập kho, hoàn lại ví đã cộng.
+    async function decline(code) {
+        const reason = await Popup.prompt(
+            `Từ chối phiếu ${code}? Hàng KHÔNG nhập kho, hoàn lại ví/return_qty đã cộng.`,
+            { placeholder: 'Lý do (vd: hàng lỗi / không đúng)', okText: 'Từ chối', danger: true }
+        );
+        if (reason === false || reason == null) return;
+        try {
+            await api.decline(code, reason || 'Từ chối nhận');
+            toast(`Đã từ chối ${code}`, 'success');
+            loadPending();
+        } catch (err) {
+            toast('Lỗi từ chối: ' + err.message, 'error');
+        }
+    }
+
     window.ReturnsTabs = {
         switchTab,
         loadList,
@@ -195,5 +256,8 @@
         loadPending,
         renderPending,
         approve,
+        decline,
+        setFilterChip,
+        setFilterDates,
     };
 })();

@@ -48,26 +48,62 @@
             if (opt) Customer.pickCustomer(opt.dataset.phone, opt.dataset.name, opt.dataset.cid);
         });
 
+        const Scn = window.ReturnsScenario;
+        // Kịch bản (scenario-first) — thay bộ ba radio method×issue×subType.
+        $('scenarioGrid').addEventListener('click', (e) => {
+            const b = e.target.closest('.rt-scn[data-scn]');
+            if (b) Scn.selectScenario(b.dataset.scn);
+        });
+        // Cách hàng về (chỉ hiện với kịch bản allowMethodToggle).
         document
             .querySelectorAll('input[name="method"]')
             .forEach((r) =>
                 r.addEventListener('change', (e) => Form.onMethodChange(e.target.value))
             );
+        // Bên chịu phí ship.
         document
-            .querySelectorAll('input[name="issue"]')
+            .querySelectorAll('input[name="feeBearer"]')
             .forEach((r) =>
-                r.addEventListener('change', (e) => Form.onIssueChange(e.target.value))
-            );
-        document
-            .querySelectorAll('input[name="subType"]')
-            .forEach((r) =>
-                r.addEventListener('change', (e) => Form.onSubTypeChange(e.target.value))
+                r.addEventListener('change', (e) => Scn.onFeeBearerChange(e.target.value))
             );
         $('reasonSelect').addEventListener('change', (e) => Form.onReasonChange(e.target.value));
         $('reasonSelectShip').addEventListener('change', (e) =>
             Form.onReasonShipChange(e.target.value)
         );
         $('codReduction').addEventListener('input', (e) => Cod.onCodInput(e.target.value));
+        // Disposition / hình thức hoàn / phí ship.
+        $('dispoSelect').addEventListener('change', (e) => Scn.onDispoChange(e.target.value));
+        $('refundSelect').addEventListener('change', (e) => Scn.onRefundChange(e.target.value));
+        $('shipFeeInput').addEventListener('input', () => Scn.onShipFeeInput());
+        // Đổi hàng — SP đổi lấy.
+        $('replSearch').addEventListener('input', Scn.onReplSearch);
+        $('replList').addEventListener('click', (e) => {
+            const x = e.target.closest('[data-replx]');
+            if (x) Scn.removeRepl(Number(x.dataset.replx));
+        });
+        $('replList').addEventListener('input', (e) => {
+            const q = e.target.closest('[data-replqty]');
+            if (q) Scn.setReplQty(Number(q.dataset.replqty), q.value);
+        });
+        $('replScanBtn').addEventListener('click', () => Scn.scan('repl'));
+        // Thu về không đơn gốc — SP thủ công.
+        $('orphanSearch').addEventListener('input', Scn.onOrphanSearch);
+        $('manualItems').addEventListener('click', (e) => {
+            const x = e.target.closest('[data-manx]');
+            if (x) Scn.removeManual(Number(x.dataset.manx));
+        });
+        $('manualItems').addEventListener('input', (e) => {
+            const q = e.target.closest('[data-manqty]');
+            if (q) Scn.setManualQty(Number(q.dataset.manqty), q.value);
+        });
+        $('orphanScanBtn').addEventListener('click', () => Scn.scan('orphan'));
+        // Đóng dropdown SP khi click ngoài.
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#replSearch') && !e.target.closest('#replResults'))
+                $('replResults').hidden = true;
+            if (!e.target.closest('#orphanSearch') && !e.target.closest('#orphanResults'))
+                $('orphanResults').hidden = true;
+        });
 
         $('orderList').addEventListener('click', (e) => {
             const o = e.target.closest('.rt-order');
@@ -94,6 +130,13 @@
             clearTimeout(STATE._custTimer);
             STATE._custTimer = setTimeout(Tabs.loadList, 350);
         });
+        // Filter chips + date range (tab Danh sách).
+        $('filterChips').addEventListener('click', (e) => {
+            const b = e.target.closest('.rt-chip-f[data-f]');
+            if (b) Tabs.setFilterChip(b.dataset.f);
+        });
+        $('filterFrom').addEventListener('change', Tabs.setFilterDates);
+        $('filterTo').addEventListener('change', Tabs.setFilterDates);
         $('returnsBody').addEventListener('click', (e) => {
             const hist = e.target.closest('[data-hist]');
             if (hist) {
@@ -105,7 +148,12 @@
         });
         $('pendingList').addEventListener('click', (e) => {
             const ap = e.target.closest('[data-approve]');
-            if (ap) Tabs.approve(ap.dataset.approve);
+            if (ap) {
+                Tabs.approve(ap.dataset.approve);
+                return;
+            }
+            const dc = e.target.closest('[data-decline]');
+            if (dc) Tabs.decline(dc.dataset.decline);
         });
 
         document.addEventListener('click', (e) => {
@@ -143,10 +191,13 @@
         // Task 1: autofocus customer search on create tab load so user can type immediately.
         const custEl = $('custSearch');
         if (custEl) setTimeout(() => custEl.focus(), 80);
-        Form.onMethodChange('shipper_gui');
-        Form.onIssueChange('van_de_khach');
-        Form.onSubTypeChange('thu_ve_1_phan');
-        Form.buildReasonSelect();
+        // Kịch bản mặc định = Boom cả đơn (case phổ biến nhất của shop live).
+        window.ReturnsScenario.renderGrid();
+        window.ReturnsScenario.selectScenario('boom_ca_don');
+        // Format số tiền khi nhập phí ship.
+        try {
+            window.Web2NumberInput?.mount?.($('shipFeeInput'));
+        } catch {}
         setupSse();
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
@@ -162,13 +213,9 @@
             (async () => {
                 try {
                     Tabs.switchTab('create');
-                    Form.onIssueChange('van_de_khach');
-                    Form.onSubTypeChange('khong_nhan_hang');
-                    const st = document.querySelector(
-                        `input[name="subType"][value="khong_nhan_hang"]`
-                    );
-                    if (st) st.checked = true;
                     await Customer.pickCustomer(pfPhone, params.get('prefillName') || '', null);
+                    // Kịch bản "Boom / không nhận cả đơn" (khong_nhan_hang) — đúng vòng đời PBH.
+                    window.ReturnsScenario.selectScenario('boom_ca_don');
                     await Customer.loadCustomerOrders();
                     if (pfOrder) {
                         const el = document.querySelector(

@@ -55,7 +55,7 @@
                 <!-- ============ PANEL: CREATE ============ -->
                 <section class="rt-panel" id="panel-create">
                     <div class="rt-grid">
-                        <!-- Left: customer + (sau khi chọn KH) cách hàng về / vấn đề / loại -->
+                        <!-- Left: customer + kịch bản (scenario-first) -->
                         <div class="rt-card">
                             <div class="rt-card-title"><i data-lucide="user"></i> Khách hàng</div>
                             <div class="rt-cust-box">
@@ -73,77 +73,38 @@
                             <!-- Ẩn cho tới khi chọn KH -->
                             <div id="formSections" hidden>
                                 <div class="rt-card-title" style="margin-top: 18px">
-                                    <i data-lucide="truck"></i> Cách hàng về
+                                    <i data-lucide="list-checks"></i> Kịch bản
                                 </div>
-                                <div class="rt-radio-row">
-                                    <label class="rt-radio">
-                                        <input type="radio" name="method" value="khach_gui" />
-                                        <span><b>Khách gửi</b><small>+ kho thật ngay</small></span>
-                                    </label>
-                                    <label class="rt-radio">
-                                        <input
-                                            type="radio"
-                                            name="method"
-                                            value="shipper_gui"
-                                            checked
-                                        />
-                                        <span
-                                            ><b>Shipper gửi</b
-                                            ><small>+ kho thu về · chờ duyệt</small></span
-                                        >
-                                    </label>
-                                </div>
-                                <div class="rt-hint" id="stockHint"></div>
+                                <div class="rt-scn-grid" id="scenarioGrid"></div>
 
-                                <div class="rt-card-title" style="margin-top: 18px">
-                                    <i data-lucide="alert-triangle"></i> Vấn đề
-                                </div>
-                                <div class="rt-radio-row">
-                                    <label class="rt-radio">
-                                        <input
-                                            type="radio"
-                                            name="issue"
-                                            value="van_de_khach"
-                                            checked
-                                        />
-                                        <span><b>Vấn đề khách</b><small>boom, đổi ý…</small></span>
-                                    </label>
-                                    <label class="rt-radio">
-                                        <input type="radio" name="issue" value="van_de_shipper" />
-                                        <span><b>Vấn đề shipper</b><small>sửa COD…</small></span>
-                                    </label>
-                                </div>
-
-                                <div id="subTypeBlock">
-                                    <div class="rt-card-title" style="margin-top: 18px">
-                                        <i data-lucide="git-branch"></i> Loại thu về
+                                <!-- Cách hàng về (chỉ hiện với kịch bản cho phép đổi) -->
+                                <div id="methodToggleRow" hidden>
+                                    <div class="rt-card-title" style="margin-top: 16px">
+                                        <i data-lucide="truck"></i> Cách hàng về
                                     </div>
                                     <div class="rt-radio-row">
                                         <label class="rt-radio">
-                                            <input
-                                                type="radio"
-                                                name="subType"
-                                                value="khong_nhan_hang"
-                                            />
+                                            <input type="radio" name="method" value="shipper_gui" />
                                             <span
-                                                ><b id="lblCaDon">Khách không nhận hàng</b
-                                                ><small>hoàn cả đơn cũ</small></span
+                                                ><b>Shipper / Bưu điện</b
+                                                ><small
+                                                    >khách gửi bưu điện · kho thu về, chờ
+                                                    duyệt</small
+                                                ></span
                                             >
                                         </label>
                                         <label class="rt-radio">
-                                            <input
-                                                type="radio"
-                                                name="subType"
-                                                value="thu_ve_1_phan"
-                                                checked
-                                            />
+                                            <input type="radio" name="method" value="khach_gui" />
                                             <span
-                                                ><b>Thu về 1 phần</b
-                                                ><small>chọn SP trong đơn → bill 0đ</small></span
+                                                ><b>Khách tới shop</b
+                                                ><small
+                                                    >trả trực tiếp · + kho thật ngay</small
+                                                ></span
                                             >
                                         </label>
                                     </div>
                                 </div>
+                                <div class="rt-hint" id="stockHint"></div>
                             </div>
                         </div>
 
@@ -154,20 +115,95 @@
                             </div>
 
                             <div id="rightBody" hidden>
-                                <div class="rt-card-title">
-                                    <i data-lucide="package-x"></i>
-                                    <span id="orderPickTitle">Chọn đơn</span>
-                                </div>
-                                <div class="rt-order-list" id="orderList">
-                                    <div class="rt-muted">Đang tải đơn…</div>
-                                </div>
+                                <!-- Chip xác nhận ý định (kịch bản đang chọn) -->
+                                <div id="scnSummaryChip" class="rt-scn-chip"></div>
 
-                                <!-- Tóm tắt đơn được chọn (COD/ship/tổng) -->
-                                <div id="orderSummary" class="rt-order-summary" hidden></div>
+                                <!-- Chọn đơn nguồn (ẩn khi kịch bản không cần đơn gốc) -->
+                                <div id="orderPickBlock">
+                                    <div class="rt-card-title">
+                                        <i data-lucide="package-x"></i>
+                                        <span id="orderPickTitle">Chọn đơn</span>
+                                    </div>
+                                    <div class="rt-order-list" id="orderList">
+                                        <div class="rt-muted">Đang tải đơn…</div>
+                                    </div>
+                                    <!-- Tóm tắt đơn được chọn (COD/ship/tổng) -->
+                                    <div id="orderSummary" class="rt-order-summary" hidden></div>
+                                </div>
 
                                 <!-- ===== KHÁCH flow ===== -->
                                 <div id="panelKhach">
                                     <div id="orderItems" class="rt-order-items" hidden></div>
+
+                                    <!-- Thu về không đơn gốc: chọn SP thủ công -->
+                                    <div id="orphanBlock" hidden>
+                                        <div class="rt-card-title" style="margin-top: 12px">
+                                            <i data-lucide="scan-barcode"></i> Chọn SP thu về
+                                        </div>
+                                        <div class="rt-cust-box rt-scan-box">
+                                            <input
+                                                type="text"
+                                                id="orphanSearch"
+                                                class="rt-input"
+                                                placeholder="Tìm SP theo mã / tên…"
+                                                autocomplete="off"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="rt-scan-btn"
+                                                id="orphanScanBtn"
+                                                title="Quét mã SP bằng camera"
+                                            >
+                                                <i data-lucide="scan-line"></i>
+                                            </button>
+                                            <div
+                                                class="rt-dropdown"
+                                                id="orphanResults"
+                                                hidden
+                                            ></div>
+                                        </div>
+                                        <div id="manualItems" class="rt-manual-items"></div>
+                                    </div>
+
+                                    <!-- Đổi hàng: SP đổi lấy -->
+                                    <div id="replBlock" hidden>
+                                        <div class="rt-card-title" style="margin-top: 12px">
+                                            <i data-lucide="repeat"></i> SP đổi lấy
+                                        </div>
+                                        <div class="rt-cust-box rt-scan-box">
+                                            <input
+                                                type="text"
+                                                id="replSearch"
+                                                class="rt-input"
+                                                placeholder="Tìm SP khách đổi lấy…"
+                                                autocomplete="off"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="rt-scan-btn"
+                                                id="replScanBtn"
+                                                title="Quét mã SP bằng camera"
+                                            >
+                                                <i data-lucide="scan-line"></i>
+                                            </button>
+                                            <div class="rt-dropdown" id="replResults" hidden></div>
+                                        </div>
+                                        <div id="replList" class="rt-manual-items"></div>
+                                        <div id="replDiff" class="rt-repl-diff" hidden></div>
+                                    </div>
+
+                                    <!-- Xử lý hàng thu về (disposition) -->
+                                    <div class="rt-field" id="dispoBlock" hidden>
+                                        <label>Xử lý hàng thu về</label>
+                                        <select id="dispoSelect" class="rt-input">
+                                            <option value="nhap_ban">Nhập lại bán được</option>
+                                            <option value="giu_rieng">
+                                                Hàng lỗi — giữ riêng (không +kho)
+                                            </option>
+                                            <option value="huy">Huỷ / bỏ (không +kho)</option>
+                                        </select>
+                                    </div>
+
                                     <div class="rt-field" style="margin-top: 14px">
                                         <label>Lý do</label>
                                         <select id="reasonSelect" class="rt-input"></select>
@@ -180,6 +216,55 @@
                                             class="rt-input"
                                             placeholder="vd: không liên lạc được"
                                         />
+                                    </div>
+
+                                    <!-- Hình thức hoàn -->
+                                    <div class="rt-field" id="refundBlock" hidden>
+                                        <label>Hình thức hoàn</label>
+                                        <select id="refundSelect" class="rt-input">
+                                            <option value="vi">Cộng ví khách</option>
+                                            <option value="cong_no">Trừ công nợ khách</option>
+                                            <option value="tien_mat">Tiền mặt (ghi nhận)</option>
+                                            <option value="ck">Chuyển khoản (ghi nhận)</option>
+                                        </select>
+                                        <div class="rt-hint rt-refund-hint" id="refundHint"></div>
+                                    </div>
+
+                                    <!-- Phí ship hoàn + bên chịu -->
+                                    <div id="shipFeeBlock" hidden>
+                                        <div class="rt-shipfee-row">
+                                            <div class="rt-field">
+                                                <label>Phí ship hoàn (₫)</label>
+                                                <input
+                                                    type="text"
+                                                    id="shipFeeInput"
+                                                    class="rt-input"
+                                                    inputmode="numeric"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                            <div class="rt-field">
+                                                <label>Bên chịu</label>
+                                                <div class="rt-radio-row rt-radio-sm">
+                                                    <label class="rt-radio">
+                                                        <input
+                                                            type="radio"
+                                                            name="feeBearer"
+                                                            value="shop"
+                                                        />
+                                                        <span><b>Shop</b></span>
+                                                    </label>
+                                                    <label class="rt-radio">
+                                                        <input
+                                                            type="radio"
+                                                            name="feeBearer"
+                                                            value="khach"
+                                                        />
+                                                        <span><b>Khách</b></span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -246,6 +331,35 @@
                             class="rt-input"
                             placeholder="Tìm mã phiếu / tên / SĐT…"
                         />
+                        <div class="rt-list-dates">
+                            <input
+                                type="date"
+                                id="filterFrom"
+                                class="rt-input rt-date"
+                                title="Từ ngày"
+                            />
+                            <span class="rt-muted">→</span>
+                            <input
+                                type="date"
+                                id="filterTo"
+                                class="rt-input rt-date"
+                                title="Đến ngày"
+                            />
+                        </div>
+                    </div>
+                    <div class="rt-filter-chips" id="filterChips">
+                        <button type="button" class="rt-chip-f is-active" data-f="all">
+                            Tất cả
+                        </button>
+                        <button type="button" class="rt-chip-f" data-f="pending">Chờ duyệt</button>
+                        <button type="button" class="rt-chip-f" data-f="khach_gui">
+                            Khách gửi
+                        </button>
+                        <button type="button" class="rt-chip-f" data-f="shipper_gui">
+                            Shipper gửi
+                        </button>
+                        <button type="button" class="rt-chip-f" data-f="shipper">Sửa COD</button>
+                        <button type="button" class="rt-chip-f" data-f="cancelled">Đã huỷ</button>
                     </div>
                     <table class="data-table rt-table rt-table-list">
                         <thead>
@@ -286,13 +400,16 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-phone-utils.js?v=20260630a"></script>
         <script src="../shared/web2-wallet-balance.js?v=20260620leak"></script>
-        <script src="js/returns-api.js?v=20260615auth"></script>
-        <script src="js/returns-core.js?v=20260618w1"></script>
-        <script src="js/returns-customer.js?v=20260618w1"></script>
-        <script src="js/returns-order-items.js?v=20260618w1"></script>
+        <script src="../shared/web2-number-input.js?v=20260701scn"></script>
+        <script src="../shared/web2-barcode-scanner.js?v=20260701scn"></script>
+        <script src="js/returns-api.js?v=20260701scn"></script>
+        <script src="js/returns-core.js?v=20260701scn"></script>
+        <script src="js/returns-customer.js?v=20260701scn"></script>
+        <script src="js/returns-order-items.js?v=20260701scn"></script>
         <script src="js/returns-cod.js?v=20260618w1"></script>
-        <script src="js/returns-form.js?v=20260618w1"></script>
-        <script src="js/returns-tabs.js?v=20260623r4"></script>
-        <script src="js/returns-app.js?v=20260622hist"></script>
+        <script src="js/returns-scenario.js?v=20260701scn"></script>
+        <script src="js/returns-form.js?v=20260701scn"></script>
+        <script src="js/returns-tabs.js?v=20260701scn"></script>
+        <script src="js/returns-app.js?v=20260701scn"></script>
     </body>
 </html>

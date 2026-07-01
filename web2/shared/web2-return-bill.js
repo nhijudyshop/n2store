@@ -35,7 +35,7 @@
         }
     }
 
-    // Trả null nếu không có / user từ chối. Ngược lại {returnLines, returnCodes}.
+    // Trả null nếu không có / user từ chối. Ngược lại {returnLines, returnCodes, replacementItems}.
     async function collect(phone) {
         const { returns, items } = await fetchQueued(phone);
         if (!items.length) return null;
@@ -46,14 +46,26 @@
         }));
         const codes = [...new Set(returns.map((r) => r.code))];
         const summary = items.map((it) => `• ${it.productCode} ×${it.quantity}`).join('\n');
-        const msg = `Khách có ${items.length} SP THU VỀ đang chờ:\n\n${summary}\n\nThêm vào bill với giá 0đ?`;
+        // Đổi hàng: gom SP khách ĐỔI LẤY để nhắc staff thêm vào bill (giá thường).
+        // Chỉ hiển thị nhắc — SP trả lên 0đ tự động; SP đổi lấy staff tự chọn giá.
+        const replacementItems = [];
+        for (const r of returns) {
+            if (r.isExchange && Array.isArray(r.replacementItems)) {
+                for (const rp of r.replacementItems) replacementItems.push(rp);
+            }
+        }
+        const replNote = replacementItems.length
+            ? `\n\n🔁 Khách ĐỔI LẤY (thêm vào bill giá thường):\n` +
+              replacementItems.map((rp) => `• ${rp.productCode} ×${rp.quantity || 1}`).join('\n')
+            : '';
+        const msg = `Khách có ${items.length} SP THU VỀ đang chờ:\n\n${summary}${replNote}\n\nThêm SP thu về vào bill với giá 0đ?`;
         const ok = await window.Popup.confirm(msg, {
             title: 'Sản phẩm thu về',
             okText: 'Thêm 0đ vào bill',
             cancelText: 'Bỏ qua',
         });
         if (!ok) return null;
-        return { returnLines: lines, returnCodes: codes };
+        return { returnLines: lines, returnCodes: codes, replacementItems };
     }
 
     window.NativeReturnBill = { fetchQueued, collect };
