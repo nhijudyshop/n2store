@@ -15,12 +15,15 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const USERS_API = `${WORKER}/api/web2-users`;
     const CAMPAIGNS_API = `${WORKER}/api/web2/kpi`;
-    const NATIVE_CAMPAIGNS_API = `${WORKER}/api/native-orders/campaigns`;
+    // KPI-2PAGE-1: phân công theo CHIẾN DỊCH CHA (span 2 page) — nguồn = chiến dịch cha
+    // (web2_live_parent_campaigns) thay vì campaign per-page. key = parent campaign_id.
+    const PARENT_CAMPAIGNS_API = `${WORKER}/api/web2-live-comments/campaigns`;
 
     const STATE = {
         users: [], // [{id, username, displayName, role, isActive}]
-        campaigns: [], // [{name, count, lastOrderAt}]
-        currentCampaign: null, // selected campaign name
+        campaigns: [], // [{id, name, count}] — chiến dịch CHA
+        currentCampaign: null, // selected PARENT campaign_id (string)
+        currentCampaignLabel: null, // tên chiến dịch cha (cho label/history)
         ranges: [], // [{userId, userName, fromSTT, toSTT}]
         totalOrders: 0,
         history: [],
@@ -94,10 +97,17 @@
 
     async function loadCampaigns() {
         try {
-            const r = await fetch(NATIVE_CAMPAIGNS_API);
+            // Chiến dịch CHA: { data: [{id, name, note, post_count, comment_count}] }
+            const r = await fetch(PARENT_CAMPAIGNS_API, {
+                headers: { 'x-web2-token': authToken() },
+            });
             const d = await r.json();
-            // Response shape: { success, campaigns: [{id, name, count, lastOrderAt}] }
-            STATE.campaigns = d.campaigns || [];
+            STATE.campaigns = (d.data || d.campaigns || []).map((c) => ({
+                id: c.id,
+                name: c.name || c.label || String(c.id),
+                count: Number(c.comment_count) || 0,
+                postCount: Number(c.post_count) || 0,
+            }));
         } catch (e) {
             console.warn('[kpi-assign] load campaigns fail:', e.message);
             STATE.campaigns = [];
@@ -141,9 +151,9 @@
         }
     }
 
-    async function loadTotalOrders(campaignName) {
-        // Get campaign count from cached list
-        const c = STATE.campaigns.find((x) => (x.name || x.label) === campaignName);
+    async function loadTotalOrders(campaignId) {
+        // Số liệu tham khảo từ list chiến dịch cha (comment_count) — hiển thị coverage.
+        const c = STATE.campaigns.find((x) => String(x.id) === String(campaignId));
         STATE.totalOrders = c ? Number(c.count) || 0 : 0;
     }
 
@@ -152,12 +162,12 @@
     // ─────────────────────────────────────────────────────────
     function renderCampaignDropdown() {
         const sel = $('#caCampaignSelect');
-        const opts = ['<option value="">— Chọn chiến dịch —</option>'];
+        const opts = ['<option value="">— Chọn chiến dịch cha —</option>'];
         for (const c of STATE.campaigns) {
-            const name = c.name || c.label || c.id;
-            if (!name) continue;
+            if (c.id == null) continue;
+            const label = c.name || String(c.id);
             opts.push(
-                `<option value="${escapeHtml(name)}">${escapeHtml(name)} (${c.count || 0} đơn)</option>`
+                `<option value="${escapeHtml(String(c.id))}">${escapeHtml(label)} (${c.postCount || 0} bài)</option>`
             );
         }
         sel.innerHTML = opts.join('');
@@ -320,15 +330,17 @@
     // ─────────────────────────────────────────────────────────
     // Actions
     // ─────────────────────────────────────────────────────────
-    async function onCampaignChange(name) {
-        STATE.currentCampaign = name;
-        if (!name) {
+    async function onCampaignChange(id) {
+        STATE.currentCampaign = id; // = parent campaign_id (string)
+        const c = STATE.campaigns.find((x) => String(x.id) === String(id));
+        STATE.currentCampaignLabel = c ? c.name : id;
+        if (!id) {
             $('#caSection').hidden = true;
             return;
         }
         $('#caSection').hidden = false;
-        await Promise.all([loadRanges(name), loadHistory(name)]);
-        loadTotalOrders(name);
+        await Promise.all([loadRanges(id), loadHistory(id)]);
+        loadTotalOrders(id);
         renderRangesTable();
         renderStats();
         renderHistory();
@@ -369,7 +381,7 @@
                         employeeRanges: valid,
                         userId: editor.userId,
                         userName: editor.userName,
-                        campaignLabel: STATE.currentCampaign,
+                        campaignLabel: STATE.currentCampaignLabel || STATE.currentCampaign,
                     }),
                 }
             );

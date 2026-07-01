@@ -52,6 +52,15 @@ async function ensureSchema(pool) {
             employee_ranges JSONB NOT NULL DEFAULT '[]'::jsonb,
             updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        -- KPI-2PAGE-1 (2026-07-01): re-key phân công theo CHIẾN DỊCH CHA
+        -- (native_orders.parent_campaign_id) thay campaign_name per-page → NV được
+        -- credit đúng CẢ 2 page trong 1 chiến dịch cha (khớp campaign_stt parent-scoped).
+        -- campaign_name giữ lại (nullable) cho legacy; row mới key theo parent_campaign_id.
+        ALTER TABLE web2_kpi_assignments ADD COLUMN IF NOT EXISTS parent_campaign_id BIGINT;
+        ALTER TABLE web2_kpi_assignments ADD COLUMN IF NOT EXISTS campaign_label VARCHAR(255);
+        ALTER TABLE web2_kpi_assignments ALTER COLUMN campaign_name DROP NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_web2_kpi_assign_parent
+            ON web2_kpi_assignments(parent_campaign_id) WHERE parent_campaign_id IS NOT NULL;
         CREATE TABLE IF NOT EXISTS web2_kpi_assignments_history (
             id             BIGSERIAL PRIMARY KEY,
             campaign_key   VARCHAR(255) NOT NULL,
@@ -169,12 +178,21 @@ function _idempotencyKey({
 // Sanitize campaign name — 1 nguồn ở web2-kpi-core (giống Web 1.0 tab1-employee.js:83).
 const sanitizeCampaignName = kpiCore.sanitizeCampaignName;
 
+// KPI-2PAGE-1: path param :campaignName giờ mang PARENT campaign_id (số) — UI mới gửi
+// id chiến dịch cha. Số nguyên → key theo parent_campaign_id; chuỗi khác → legacy
+// theo campaign_name (link/bookmark cũ còn chạy).
+function _parseAssignKey(raw) {
+    const s = String(raw == null ? '' : raw).trim();
+    if (/^\d+$/.test(s)) return { parentId: Number(s), name: null };
+    return { parentId: null, name: sanitizeCampaignName(s) };
+}
+
 // Beneficiary = NV được assigned khoảng STT chứa đơn này.
 // Query web2_kpi_assignments (web2Db, OWN — KHÔNG dùng campaign_employee_ranges của Web 1.0).
 // Range item shape: { userId, userName, fromSTT, toSTT } (legacy có thể dùng from/to/start/end).
 async function resolveBeneficiary(
     pool,
-    { campaign_name, campaign_stt, actor_user_id, actor_name }
+    { parent_campaign_id, campaign_name, campaign_stt, actor_user_id, actor_name }
 ) {
     // actor_user_id phải là số (cột beneficiary_user_id INTEGER + GROUP BY). actor lạ
     // (null/'bot') → null + source 'fallback_actor_invalid' để attribution hỏng LỘ ra,
@@ -185,17 +203,30 @@ async function resolveBeneficiary(
         beneficiary_name: actor_name,
         beneficiary_source: actorOk ? 'fallback_actor' : 'fallback_actor_invalid',
     };
-    if (campaign_stt == null || !campaign_name) return fallback;
+    if (campaign_stt == null) return fallback;
 
-    const sanitized = sanitizeCampaignName(campaign_name);
     try {
-        const r = await pool.query(
-            `SELECT employee_ranges FROM web2_kpi_assignments
-             WHERE campaign_name = $1 LIMIT 1`,
-            [sanitized]
-        );
-        if (!r.rows.length) return fallback;
-        const ranges = Array.isArray(r.rows[0].employee_ranges) ? r.rows[0].employee_ranges : [];
+        // KPI-2PAGE-1: ưu tiên key theo CHIẾN DỊCH CHA (span 2 page). Fallback theo
+        // campaign_name (row phân công legacy chưa có parent_campaign_id).
+        let ranges = null;
+        if (parent_campaign_id != null) {
+            const r = await pool.query(
+                `SELECT employee_ranges FROM web2_kpi_assignments
+                 WHERE parent_campaign_id = $1 LIMIT 1`,
+                [parent_campaign_id]
+            );
+            if (r.rows.length) ranges = r.rows[0].employee_ranges;
+        }
+        if (ranges == null && campaign_name) {
+            const r = await pool.query(
+                `SELECT employee_ranges FROM web2_kpi_assignments
+                 WHERE campaign_name = $1 LIMIT 1`,
+                [sanitizeCampaignName(campaign_name)]
+            );
+            if (r.rows.length) ranges = r.rows[0].employee_ranges;
+        }
+        if (ranges == null) return fallback;
+        ranges = Array.isArray(ranges) ? ranges : [];
         // Matching dùng core (1 nguồn). uid lạ (non-finite) → fallback actor (giữ hành vi cũ).
         const b = kpiCore.resolveBeneficiaryBySTT(campaign_stt, ranges);
         if (b) {
@@ -352,12 +383,12 @@ async function _resolveUserFromToken(pool, token) {
     }
 }
 
-// Load all assignments cho user X → mảng { campaign_name, fromSTT, toSTT }.
+// Load all assignments cho user X → mảng { parent_campaign_id, campaign_name, fromSTT, toSTT }.
 // Query web2_kpi_assignments, parse JSONB, filter ranges có userId match.
 async function _loadUserAssignments(pool, userId) {
     try {
         const r = await pool.query(
-            `SELECT campaign_name, employee_ranges FROM web2_kpi_assignments`
+            `SELECT parent_campaign_id, campaign_name, employee_ranges FROM web2_kpi_assignments`
         );
         const result = [];
         for (const row of r.rows) {
@@ -369,6 +400,7 @@ async function _loadUserAssignments(pool, userId) {
                 const to = Number(rg.toSTT ?? rg.to ?? rg.end ?? 0);
                 if (from > 0 && to >= from) {
                     result.push({
+                        parent_campaign_id: row.parent_campaign_id ?? null,
                         campaign_name: row.campaign_name,
                         fromSTT: from,
                         toSTT: to,
@@ -453,36 +485,38 @@ async function applyKpiScope(req, res, next) {
 // Generated SQL pattern (assuming kpiScope = [{campaign_name:'A', fromSTT:1, toSTT:100}, ...]):
 //   ((live_campaign_name = $1 AND campaign_stt BETWEEN $2 AND $3)
 //    OR (live_campaign_name = $4 AND campaign_stt BETWEEN $5 AND $6))
-function buildScopeWhere(kpiScope, paramOffset = 1) {
+// KPI-2PAGE-1: mỗi scope entry ưu tiên key theo parent_campaign_id (chiến dịch CHA,
+// span 2 page) → NV THẤY đơn cả 2 page; fallback live_campaign_name (assignment legacy
+// chưa có parent). CẢ 2 consumer (native-orders + fast-sale-orders subquery) đều apply
+// clause này TRÊN native_orders (có đủ parent_campaign_id + live_campaign_name).
+function _buildScope(kpiScope, p, paramOffset) {
     if (kpiScope === DENY_ALL) return { clause: 'FALSE', params: [] };
     if (!kpiScope || !kpiScope.length) return { clause: '', params: [] };
     const conds = [];
     const params = [];
     let i = paramOffset;
     for (const s of kpiScope) {
-        conds.push(`(live_campaign_name = $${i} AND campaign_stt BETWEEN $${i + 1} AND $${i + 2})`);
-        params.push(s.campaign_name, s.fromSTT, s.toSTT);
+        if (s.parent_campaign_id != null) {
+            conds.push(
+                `(${p}parent_campaign_id = $${i} AND ${p}campaign_stt BETWEEN $${i + 1} AND $${i + 2})`
+            );
+            params.push(s.parent_campaign_id, s.fromSTT, s.toSTT);
+        } else {
+            conds.push(
+                `(${p}live_campaign_name = $${i} AND ${p}campaign_stt BETWEEN $${i + 1} AND $${i + 2})`
+            );
+            params.push(s.campaign_name, s.fromSTT, s.toSTT);
+        }
         i += 3;
     }
     return { clause: '(' + conds.join(' OR ') + ')', params };
 }
-
+function buildScopeWhere(kpiScope, paramOffset = 1) {
+    return _buildScope(kpiScope, '', paramOffset);
+}
 // Same pattern but for table prefix scenarios (vd JOIN aliased "n.")
 function buildScopeWhereWithAlias(kpiScope, alias, paramOffset = 1) {
-    if (kpiScope === DENY_ALL) return { clause: 'FALSE', params: [] };
-    if (!kpiScope || !kpiScope.length) return { clause: '', params: [] };
-    const conds = [];
-    const params = [];
-    let i = paramOffset;
-    const p = alias ? alias + '.' : '';
-    for (const s of kpiScope) {
-        conds.push(
-            `(${p}live_campaign_name = $${i} AND ${p}campaign_stt BETWEEN $${i + 1} AND $${i + 2})`
-        );
-        params.push(s.campaign_name, s.fromSTT, s.toSTT);
-        i += 3;
-    }
-    return { clause: '(' + conds.join(' OR ') + ')', params };
+    return _buildScope(kpiScope, alias ? alias + '.' : '', paramOffset);
 }
 
 // Invalidate scope cache when assignments change (called by campaigns.js PUT).
@@ -565,19 +599,26 @@ router.get('/events', requireWeb2AuthSoft, applyKpiScope, async (req, res) => {
 router.get('/assignments', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const name = sanitizeCampaignName(req.query.campaign_name);
-        if (!name) {
+        const { parentId, name } = _parseAssignKey(req.query.campaign_name);
+        if (parentId == null && !name) {
             return res.json({ success: true, assignments: [] });
         }
-        const r = await pool.query(
-            `SELECT employee_ranges, updated_at FROM web2_kpi_assignments
-             WHERE campaign_name = $1 LIMIT 1`,
-            [name]
-        );
+        const r =
+            parentId != null
+                ? await pool.query(
+                      `SELECT employee_ranges, updated_at FROM web2_kpi_assignments
+                       WHERE parent_campaign_id = $1 LIMIT 1`,
+                      [parentId]
+                  )
+                : await pool.query(
+                      `SELECT employee_ranges, updated_at FROM web2_kpi_assignments
+                       WHERE campaign_name = $1 LIMIT 1`,
+                      [name]
+                  );
         const ranges = r.rows.length ? r.rows[0].employee_ranges || [] : [];
         res.json({
             success: true,
-            campaign_name: name,
+            campaign_name: parentId != null ? String(parentId) : name,
             assignments: ranges,
             updated_at: r.rows[0]?.updated_at || null,
         });
@@ -597,7 +638,8 @@ router.get('/assignments', requireWeb2AuthSoft, async (req, res) => {
 router.get('/employee-ranges/:campaignName/history', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const name = sanitizeCampaignName(req.params.campaignName);
+        const { parentId, name } = _parseAssignKey(req.params.campaignName);
+        const keyStr = parentId != null ? String(parentId) : name;
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
         const r = await pool.query(
             `SELECT id, campaign_key, campaign_label, action, user_id, user_name,
@@ -607,7 +649,7 @@ router.get('/employee-ranges/:campaignName/history', requireWeb2AuthSoft, async 
              WHERE campaign_key = $1
              ORDER BY created_at DESC
              LIMIT $2`,
-            [name, limit]
+            [keyStr, limit]
         );
         res.json({
             success: true,
@@ -632,11 +674,17 @@ router.get('/employee-ranges/:campaignName/history', requireWeb2AuthSoft, async 
 router.get('/employee-ranges/:campaignName', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const name = sanitizeCampaignName(req.params.campaignName);
-        const r = await pool.query(
-            `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1`,
-            [name]
-        );
+        const { parentId, name } = _parseAssignKey(req.params.campaignName);
+        const r =
+            parentId != null
+                ? await pool.query(
+                      `SELECT employee_ranges FROM web2_kpi_assignments WHERE parent_campaign_id = $1`,
+                      [parentId]
+                  )
+                : await pool.query(
+                      `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1`,
+                      [name]
+                  );
         res.json({
             success: true,
             employeeRanges: r.rows.length ? r.rows[0].employee_ranges || [] : [],
@@ -650,10 +698,14 @@ router.get('/employee-ranges/:campaignName', requireWeb2AuthSoft, async (req, re
 router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const name = sanitizeCampaignName(req.params.campaignName);
-        if (!name) return res.status(400).json({ success: false, error: 'campaignName required' });
+        const { parentId, name } = _parseAssignKey(req.params.campaignName);
+        if (parentId == null && !name)
+            return res.status(400).json({ success: false, error: 'campaignName required' });
         const { employeeRanges, userId, userName, campaignLabel } = req.body || {};
         const ranges = Array.isArray(employeeRanges) ? employeeRanges : [];
+        // key hiển thị (history/audit) + nhãn chiến dịch
+        const keyStr = parentId != null ? String(parentId) : name;
+        const label = campaignLabel || name || keyStr;
 
         // Validate từng range + phát hiện overlap (giống Web 1.0 campaigns.js).
         for (const r of ranges) {
@@ -698,21 +750,41 @@ router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) 
 
         let prevRanges = [];
         try {
-            const prev = await pool.query(
-                `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1`,
-                [name]
-            );
+            const prev =
+                parentId != null
+                    ? await pool.query(
+                          `SELECT employee_ranges FROM web2_kpi_assignments WHERE parent_campaign_id = $1`,
+                          [parentId]
+                      )
+                    : await pool.query(
+                          `SELECT employee_ranges FROM web2_kpi_assignments WHERE campaign_name = $1`,
+                          [name]
+                      );
             if (prev.rows.length) prevRanges = prev.rows[0].employee_ranges || [];
         } catch {}
 
-        await pool.query(
-            `INSERT INTO web2_kpi_assignments (campaign_name, employee_ranges)
-             VALUES ($1, $2)
-             ON CONFLICT (campaign_name) DO UPDATE SET
-                 employee_ranges = EXCLUDED.employee_ranges,
-                 updated_at = NOW()`,
-            [name, JSON.stringify(ranges)]
-        );
+        if (parentId != null) {
+            // KPI-2PAGE-1: upsert theo CHIẾN DỊCH CHA (partial unique idx parent_campaign_id).
+            await pool.query(
+                `INSERT INTO web2_kpi_assignments (parent_campaign_id, campaign_label, employee_ranges)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (parent_campaign_id) WHERE parent_campaign_id IS NOT NULL DO UPDATE SET
+                     employee_ranges = EXCLUDED.employee_ranges,
+                     campaign_label = COALESCE(EXCLUDED.campaign_label, web2_kpi_assignments.campaign_label),
+                     updated_at = NOW()`,
+                [parentId, label, JSON.stringify(ranges)]
+            );
+        } else {
+            // Legacy: theo campaign_name (link cũ).
+            await pool.query(
+                `INSERT INTO web2_kpi_assignments (campaign_name, employee_ranges)
+                 VALUES ($1, $2)
+                 ON CONFLICT (campaign_name) DO UPDATE SET
+                     employee_ranges = EXCLUDED.employee_ranges,
+                     updated_at = NOW()`,
+                [name, JSON.stringify(ranges)]
+            );
+        }
 
         const beforeJSON = JSON.stringify(prevRanges || []);
         const afterJSON = JSON.stringify(ranges);
@@ -722,26 +794,18 @@ router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) 
                 `INSERT INTO web2_kpi_assignments_history
                     (campaign_key, campaign_label, action, user_id, user_name, ranges_before, ranges_after)
                  VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                [
-                    name,
-                    campaignLabel || null,
-                    action,
-                    userId || null,
-                    userName || null,
-                    beforeJSON,
-                    afterJSON,
-                ]
+                [keyStr, label, action, userId || null, userName || null, beforeJSON, afterJSON]
             ).catch((e) =>
                 console.warn('[web2-kpi] assignments history insert failed:', e?.message)
             );
             recordAuditEvent(pool, {
                 entity: 'kpi-assignment',
-                entityId: name,
+                entityId: keyStr,
                 action,
                 userId: req.web2User?.id ?? (userId || null),
                 userName: req.web2User?.display_name || userName || null,
                 sourcePage: 'kpi/assignments',
-                changes: { campaign: campaignLabel || name, rangesCount: ranges.length },
+                changes: { campaign: label, rangesCount: ranges.length },
             });
         }
 

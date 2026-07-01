@@ -2291,11 +2291,15 @@ async function _emitPatchKpiEvents(pool, orderBefore, orderAfter, before, after,
         orderBefore.live_campaign_id ||
         kpiModule.SYNTHETIC_NO_CAMPAIGN;
     const campaignStt = orderAfter.campaign_stt ?? orderBefore.campaign_stt ?? null;
+    // KPI-2PAGE-1: attribution theo CHIẾN DỊCH CHA (span 2 page).
+    const parentCampaignId =
+        orderAfter.parent_campaign_id ?? orderBefore.parent_campaign_id ?? null;
     const customerId = orderAfter.fb_user_id || orderBefore.fb_user_id || '';
 
     const actorId = Number(editor.userId);
     if (!Number.isFinite(actorId)) return; // skip — không có actor để attribute
     const beneficiary = await kpiModule.resolveBeneficiary(pool, {
+        parent_campaign_id: parentCampaignId,
         campaign_name: campaignName,
         campaign_stt: campaignStt,
         actor_user_id: actorId,

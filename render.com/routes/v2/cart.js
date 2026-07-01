@@ -63,7 +63,7 @@ async function _emitCartKpi(pool, draft, body, evType, qtyDelta, product) {
             ? draft
             : (
                   await pool.query(
-                      'SELECT live_campaign_name, live_campaign_id, campaign_stt FROM native_orders WHERE code = $1',
+                      'SELECT live_campaign_name, live_campaign_id, campaign_stt, parent_campaign_id FROM native_orders WHERE code = $1',
                       [draft.code]
                   )
               ).rows[0] || {};
@@ -71,10 +71,13 @@ async function _emitCartKpi(pool, draft, body, evType, qtyDelta, product) {
         const campaignId =
             fullRow.live_campaign_id || draft.live_campaign_id || kpiModule.SYNTHETIC_NO_CAMPAIGN;
         const campaignStt = fullRow.campaign_stt ?? draft.campaign_stt ?? null;
+        // KPI-2PAGE-1: attribution theo CHIẾN DỊCH CHA (span 2 page).
+        const parentCampaignId = fullRow.parent_campaign_id ?? draft.parent_campaign_id ?? null;
         const user = body.user || {};
         const actorId = Number(user.id);
         if (!Number.isFinite(actorId)) return; // skip nếu actor không có numeric id
         const beneficiary = await kpiModule.resolveBeneficiary(pool, {
+            parent_campaign_id: parentCampaignId,
             campaign_name: campaignName,
             campaign_stt: campaignStt,
             actor_user_id: actorId,
