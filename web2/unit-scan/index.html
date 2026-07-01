@@ -36,47 +36,62 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701e" />
+        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701f" />
     </head>
     <body>
         <header class="hd">
-            <div class="hd-row">
-                <span class="hd-title">Quét tem</span>
-                <a
-                    class="hd-btn"
-                    id="tagBtn"
-                    href="../shelf-labels/index.html"
-                    target="_blank"
-                    rel="noopener"
-                    title="In nhãn ô kệ (dán STT lên ô)"
-                >
-                    <i data-lucide="tag"></i>
-                </a>
-                <button
-                    class="hd-btn"
-                    id="putwallBtn"
-                    aria-label="Đèn LED kệ"
-                    title="Đèn LED chỉ ô kệ (put-to-light)"
-                >
-                    <i data-lucide="lightbulb"></i>
-                </button>
-                <button class="hd-btn" id="torchBtn" aria-label="Đèn flash" title="Đèn flash">
-                    <i data-lucide="zap"></i>
-                </button>
-            </div>
-            <!-- Thanh nút hành động — nằm TRONG header dính → luôn ở đầu, khỏi kéo xuống mới bấm -->
-            <div class="actionbar" id="actionBar">
-                <button class="ab-btn" id="batchMapBtn" type="button">
-                    <i data-lucide="layout-grid"></i> Sơ đồ kệ
-                </button>
-                <button class="ab-btn" id="manifestBtn" type="button">
-                    <i data-lucide="list-checks"></i> Đưa xe ra
-                </button>
-                <button class="ab-btn primary disabled" id="batchPrintBtn" type="button">
-                    <i data-lucide="printer"></i> In DS (<span id="batchCount">0</span>)
-                </button>
-            </div>
+            <span class="hd-title">Quét tem</span>
+            <a
+                class="hd-btn"
+                id="tagBtn"
+                href="../shelf-labels/index.html"
+                target="_blank"
+                rel="noopener"
+                title="In nhãn ô kệ (dán STT lên ô)"
+            >
+                <i data-lucide="tag"></i>
+            </a>
+            <button
+                class="hd-btn"
+                id="putwallBtn"
+                aria-label="Đèn LED kệ"
+                title="Đèn LED chỉ ô kệ (put-to-light)"
+            >
+                <i data-lucide="lightbulb"></i>
+            </button>
+            <button class="hd-btn" id="torchBtn" aria-label="Đèn flash" title="Đèn flash">
+                <i data-lucide="zap"></i>
+            </button>
+            <button class="hd-btn" id="drawerBtn" aria-label="Menu hành động" title="Hành động">
+                <i data-lucide="menu"></i>
+            </button>
         </header>
+
+        <!-- Drawer hành động (trượt từ phải) — nút menu ở header luôn hiện, khỏi kéo xuống -->
+        <div class="drawer-back" id="drawerBack" hidden>
+            <div class="drawer" role="dialog" aria-modal="true" aria-label="Hành động">
+                <div class="drawer-hd">
+                    <h3>Hành động</h3>
+                    <button class="hd-btn dark" id="drawerClose" aria-label="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="drawer-body">
+                    <button class="drawer-item" id="batchMapBtn" type="button">
+                        <i data-lucide="layout-grid"></i> Sơ đồ kệ
+                    </button>
+                    <button class="drawer-item" id="manifestBtn" type="button">
+                        <i data-lucide="list-checks"></i> Đưa xe ra kệ
+                    </button>
+                    <button class="drawer-item primary disabled" id="batchPrintBtn" type="button">
+                        <i data-lucide="printer"></i> In danh sách đã quét (<span id="batchCount"
+                            >0</span
+                        >
+                        tem)
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <main class="wrap">
             <div class="scanner">
@@ -172,6 +187,6 @@
         <!-- Format tiền ₫ 1-nguồn (trang KHÔNG có sidebar nên không auto-inject) -->
         <script src="../shared/web2-format.js?v=20260618"></script>
         <!-- app (1 view) -->
-        <script src="./js/unit-scan.js?v=20260701e"></script>
+        <script src="./js/unit-scan.js?v=20260701f"></script>
     </body>
 </html>

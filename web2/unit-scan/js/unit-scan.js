@@ -826,6 +826,14 @@
         $('#sheetBack').hidden = true;
     }
 
+    // Drawer hành động (trượt phải) — chứa Sơ đồ kệ / Đưa xe ra / In danh sách.
+    function openDrawer() {
+        $('#drawerBack').hidden = false;
+    }
+    function closeDrawer() {
+        $('#drawerBack').hidden = true;
+    }
+
     // =================================================================
     // DANH SÁCH ĐÃ QUÉT (batch in tem QR) + ĐÃ IN (nhóm thời gian)
     // Quét tất cả tem 1 lượt → danh sách → sơ đồ kệ → IN tem QR cả batch
@@ -1297,6 +1305,18 @@
         $('#batchPrintBtn')?.addEventListener('click', printBatch);
         $('#batchClearBtn')?.addEventListener('click', clearBatch);
         $('#batchMapBtn')?.addEventListener('click', openBatchMap);
+        // Drawer: mở/đóng + bấm 1 nút trong drawer thì đóng drawer (sau khi handler chạy)
+        $('#drawerBtn')?.addEventListener('click', openDrawer);
+        $('#drawerClose')?.addEventListener('click', closeDrawer);
+        $('#drawerBack')?.addEventListener('click', (e) => {
+            if (e.target === $('#drawerBack')) closeDrawer();
+        });
+        ['#batchMapBtn', '#manifestBtn', '#batchPrintBtn'].forEach((sel) =>
+            $(sel)?.addEventListener('click', closeDrawer)
+        );
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !$('#drawerBack').hidden) closeDrawer();
+        });
         wireManual();
         initSse();
         loadStore(); // danh sách đã quét + đã in (localStorage per-máy)

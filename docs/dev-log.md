@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [web2 unit-scan] Nút hành động → drawer (trượt phải)
+
+**Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
+
+User: "thêm drawer cho các nút vào". Chuyển 3 nút (Sơ đồ kệ / Đưa xe ra / In danh sách) từ thanh header hàng-2 vào **drawer trượt từ phải**, mở bằng nút menu (☰) trong header → header gọn 1 hàng lại, buttons vẫn 1-chạm (nút menu luôn hiện, khỏi kéo xuống).
+
+- Header 1 hàng + `#drawerBtn` (menu). `#drawerBack`/`.drawer` (scrim + panel phải, `drawerIn` translateX). Nút giữ ID (`batchMapBtn`/`manifestBtn`/`batchPrintBtn`+`batchCount`) → wiring cũ chạy; "In danh sách (N)" primary xanh, disable khi rỗng.
+- Bấm 1 nút trong drawer → handler (mở sheet/print) + `closeDrawer` (2 listener xếp chồng) → drawer đóng, sheet mở. Đóng: nút X / scrim / ESC.
+- Verify: browser-test — drawer mở phải, 3 item, print disable↔enable + count đúng, tap "Sơ đồ kệ" → drawer đóng + sheet mở; 0 console error.
+
+Status: ✅ deployed-ready.
+
 ### [web2 unit-scan] Đưa nút hành động lên header dính (khỏi kéo xuống)
 
 **Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
