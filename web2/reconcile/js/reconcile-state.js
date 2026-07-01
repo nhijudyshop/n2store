@@ -35,6 +35,7 @@
         items: [],
         filterState: 'pending', // 2026-07-01: bỏ tab "Đang xử lý"/active → mặc định "Chờ pick"
         search: '',
+        campaignId: null, // lọc theo CHIẾN DỊCH CHA (Web2CampaignPicker) — null = tất cả
         selectedNumber: null,
         currentPbh: null,
         historyHtml: null,

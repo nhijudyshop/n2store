@@ -335,6 +335,16 @@ router.get('/list', async (req, res) => {
             );
         }
 
+        // Lọc theo CHIẾN DỊCH CHA (Web2CampaignPicker → campaignId = parent id). PBH không
+        // có fb_post_id → lọc qua source_code → native_orders.parent_campaign_id (cross-page,
+        // span 2 page). ⚠ Merged PBH (source_code='A+B') sẽ miss — chấp nhận (giống KPI scope).
+        if (req.query.campaignId) {
+            params.push(Number(req.query.campaignId));
+            conds.push(
+                `source_code IN (SELECT code FROM native_orders WHERE parent_campaign_id = $${params.length})`
+            );
+        }
+
         const where = 'WHERE ' + conds.join(' AND ');
         const r = await pool.query(
             `SELECT number, display_stt, merged_display_stt,

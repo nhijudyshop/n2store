@@ -27,6 +27,7 @@
         try {
             const q = new URLSearchParams({ state: STATE.filterState });
             if (STATE.search) q.set('search', STATE.search);
+            if (STATE.campaignId) q.set('campaignId', STATE.campaignId);
             const res = await api('GET', `/list?${q.toString()}`);
             STATE.items = res.items || [];
             RC.renderList();

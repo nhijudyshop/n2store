@@ -174,6 +174,20 @@
         );
     }
 
+    // Bộ lọc theo CHIẾN DỊCH CHA (span 2 page) — dùng chung Web2CampaignPicker. Chọn
+    // chiến dịch → lọc PBH thuộc chiến dịch đó (qua source_code → native_orders.parent_campaign_id).
+    function mountCampaignPicker() {
+        const host = document.getElementById('rcCampaignPicker');
+        if (!host || !window.Web2CampaignPicker) return;
+        window.Web2CampaignPicker.mount(host, {
+            storageKey: 'reconcile',
+            onChange(sel) {
+                STATE.campaignId = (sel && sel.campaignId) || null;
+                loadList();
+            },
+        });
+    }
+
     async function init() {
         // Bổ sung nhãn VN cho các action đối soát vào timeline dùng chung.
         if (window.Web2HistoryTimeline?.ACTION_LABEL) {
@@ -181,6 +195,7 @@
         }
         bindUi();
         RC.bindAuditUi();
+        mountCampaignPicker();
         await loadList();
         RC.setupSse();
         // Dò nguồn camera bằng chứng (KBVision sidecar → fallback webcam). Fire-and-forget.

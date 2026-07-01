@@ -2,6 +2,22 @@
 
 ## 2026-07-01
 
+### [web2-reconcile] Wire Web2CampaignPicker: lọc PBH theo CHIẾN DỊCH CHA (span 2 page)
+
+**Files:** `render.com/routes/reconcile.js` (GET /list +campaignId filter), `web2/reconcile/index.html` + `js/reconcile-app.js` + `reconcile-api.js` + `reconcile-state.js`, `docs/web2/WIRE-PICKER-PLAN.md` (MỚI — plan 2 trang còn lại).
+
+Mục cuối overhaul chiến dịch (wire picker). Gắn `Web2CampaignPicker` dùng chung vào Đối soát → lọc PBH theo chiến dịch CHA.
+
+- **Nuance:** PBH (`fast_sale_orders`) KHÔNG có `fb_post_id` (chỉ `source_code`+`live_campaign_id`=camp.Id per-post, KHÁC fb_post_id). Picker `onChange` cho `campaignId` (parent id) → BE lọc `source_code IN (SELECT code FROM native_orders WHERE parent_campaign_id = $)` (cross-page đúng, 1 param). ⚠ Merged PBH `source_code='A+B'` miss (giống KPI scope).
+- Frontend: mount `#rcCampaignPicker` trong toolbar; `mountCampaignPicker()` onChange → `STATE.campaignId` → `loadList`; api thêm `campaignId` query.
+- **Verify (browser localhost admin):** picker mount + deps load, 0 console error, `/api/reconcile/list?state=pending&campaignId=6`.
+
+**Còn 2 trang** (plan `docs/web2/WIRE-PICKER-PLAN.md`, cùng pattern): Bán hàng HĐ (fast-sale-orders — ⚠ tìm frontend trước) + Phiếu giao (delivery-report). → overhaul chiến dịch coi như 5/5 sau khi wire nốt.
+
+⚠ Deploy Render (reconcile.js). Chạy ngay Pages (frontend).
+
+Status: ✅ (Đối soát xong; 2 trang còn lại có plan)
+
 ### [web2-kpi] KPI-2PAGE-1: re-key attribution + scope theo parent_campaign_id (NV credit đúng 2 page)
 
 **Files:** `render.com/routes/v2/kpi.js` (schema + resolveBeneficiary + buildScopeWhere + loadScope + endpoints), `render.com/routes/v2/cart.js` + `render.com/routes/native-orders.js` + `render.com/routes/fast-sale-orders.js` (3 emit site pass parent + /campaigns scope), `web2/kpi/js/kpi-assignments.js` + `assignments.html` (UI chọn chiến dịch cha).
