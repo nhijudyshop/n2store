@@ -965,6 +965,10 @@
         const title = $('#batchTitle');
         const actions = $('#batchActions');
         if (title) title.textContent = `Danh sách đã quét (${batch.length})`;
+        // Nút "In DS (N)" ở actionbar dính đầu trang: cập nhật số + disable khi rỗng.
+        const cnt = $('#batchCount');
+        if (cnt) cnt.textContent = batch.length;
+        $('#batchPrintBtn')?.classList.toggle('disabled', !batch.length);
         if (!host) return;
         if (!batch.length) {
             host.innerHTML =
@@ -994,10 +998,7 @@
                 </div>`;
             })
             .join('');
-        if (actions) {
-            actions.hidden = false;
-            $('#batchCount').textContent = batch.length;
-        }
+        if (actions) actions.hidden = false;
         if (_animateNew) {
             host.querySelector('.bt-row')?.classList.add('just-added'); // newest = đầu danh sách
             _animateNew = false;

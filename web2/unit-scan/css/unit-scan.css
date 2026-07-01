@@ -103,6 +103,55 @@ body {
     height: 20px;
 }
 
+/* ── Thanh nút hành động dính đầu trang (dưới header) ── */
+.actionbar {
+    position: sticky;
+    top: calc(var(--hd-h) + var(--sat));
+    z-index: 25;
+    display: flex;
+    gap: 7px;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--c-bg) 90%, #fff);
+    border-bottom: 1px solid var(--c-line);
+}
+.ab-btn {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    border: 1.5px solid var(--c-line);
+    border-radius: 11px;
+    background: var(--c-surface);
+    color: var(--c-primary-d);
+    font-weight: 700;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    white-space: nowrap;
+    transition: transform var(--dur-fast) ease;
+}
+.ab-btn:active {
+    transform: scale(0.97);
+}
+.ab-btn i {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+.ab-btn.primary {
+    background: var(--c-primary);
+    color: #fff;
+    border-color: var(--c-primary);
+    box-shadow: var(--c-shadow-cta);
+}
+.ab-btn.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    box-shadow: none;
+}
+
 /* ── Scroll body ────────────────────────────────────── */
 .wrap {
     max-width: 560px;
