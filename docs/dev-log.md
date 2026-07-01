@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### [web2 unit-scan] Quét nhanh liên tiếp + danh sách in chỉ nhận tem CÓ STT
+
+**Files:** `web2/unit-scan/js/unit-scan.js`.
+
+User: "cho quét nhanh hơn, quét liên tiếp thêm vào; phần in chỉ nhận mã đã có STT (trùng bỏ qua)".
+
+- **Quét liên tiếp KHÔNG rớt scan**: `queueResolve` — serialize resolve qua promise chain (`_resolveChain`); mọi caller (onScan/SSE/reprint/deep-link) vào chuỗi tuần tự thay vì guard `resolving` (vốn drop scan). Verify: 5 scan dồn → 5/5 xử lý.
+- **Nhanh hơn**: bỏ 2 API call thừa MỖI lần quét — `loadSiblings`(/by-product) + `loadEvents`(/:id/events) giờ **tải LƯỜI khi mở collapsible** (cờ `sibLoaded`/`histLoaded`, reset mỗi render). Verify: quét → byProduct=0/events=0; mở toggle → =1. Không chớp spinner khi quét liên tiếp (giữ kết quả cũ tới khi có mới).
+- **In chỉ nhận tem CÓ STT**: `addToBatch` bỏ qua `orderStt==null` (kho) + trùng id → trả boolean; beep/flash xanh=đã thêm / đỏ=bỏ qua. Verify: 3 STT + 1 kho + 1 trùng → batch=3 (đủ STT), kho + trùng bị loại.
+- 0 console error. (Verify trên session isolated profile do session chính bị parallel-session chiếm.)
+
+Status: ✅ deployed-ready.
+
 ### [native-orders bill + web2-returns.js] Bill PBH in KHUNG "THU LẠI TỪ KHÁCH" cho shipper
 
 **Files:** `web2/shared/web2-bill-service.js` · `web2/shared/web2-return-bill.js` · `native-orders/js/native-orders-pbh-bill.js` · `render.com/routes/web2-returns.js`.

@@ -109,9 +109,16 @@
     // QUÉT 1 MÓN — resolve + render chi tiết + đánh dấu vào tiến độ kệ
     // =================================================================
     let current = null;
-    let resolving = false;
     let sibOpen = false;
     let histOpen = false;
+    let sibLoaded = false; // defer tải "tất cả tem SP" tới khi mở (quét nhanh: không gọi API thừa)
+    let histLoaded = false; // defer tải lịch sử tới khi mở
+    // Serialize resolve → quét LIÊN TIẾP không rớt scan (chạy tuần tự theo đúng thứ tự quét).
+    let _resolveChain = Promise.resolve();
+    function queueResolve(target, opts) {
+        _resolveChain = _resolveChain.then(() => resolve(target, opts).catch(() => {}));
+        return _resolveChain;
+    }
     const STATUS_LABEL = {
         IN_STOCK: ['Còn hàng', 'blue'],
         ASSIGNED: ['Đã gán đơn', 'green'],
@@ -139,31 +146,32 @@
     ];
     const keColor = (ke) => (ke >= 1 && ke <= 9 ? KE_COLORS[ke - 1] : '#5b6b7d');
 
-    async function onScan(target) {
+    function onScan(target) {
         if (!target) return;
         vibe(30);
-        await resolve(target, { fromScan: true });
+        queueResolve(target, { fromScan: true }); // vào hàng đợi tuần tự → quét liên tiếp không rớt
     }
 
     async function resolve(target, opts = {}) {
-        if (resolving) return;
-        resolving = true;
         const result = $('#result');
-        result.innerHTML =
-            '<div class="card"><div class="muted"><i data-lucide="loader-2" class="spin"></i> Đang tra cứu…</div></div>';
-        result.hidden = false;
-        icons();
+        // Quét liên tiếp: KHÔNG chớp spinner mỗi lần (giữ kết quả cũ tới khi có kết quả mới → đỡ giật).
+        if (!opts.fromScan || result.hidden) {
+            result.innerHTML =
+                '<div class="card"><div class="muted"><i data-lucide="loader-2" class="spin"></i> Đang tra cứu…</div></div>';
+            result.hidden = false;
+            icons();
+        }
         try {
             const data = await PU().resolve(target);
             current = data;
             renderResult(data);
-            loadEvents(data.unit.id);
-            if (opts.fromScan) addToBatch(data); // gom vào "danh sách đã quét" (chỉ khi quét thật)
-            // Gộp: mỗi lần quét cũng cập nhật tiến độ chia hàng
-            const r = markSorted(data.unit);
-            beep(r.full ? 'done' : r.dup ? 'warn' : 'ok');
-            vibe(r.full ? [40, 50, 60] : 40);
-            flashScan(r.dup ? 'warn' : 'ok');
+            const r = markSorted(data.unit); // cập nhật tiến độ 9 kệ
+            if (opts.fromScan) {
+                const added = addToBatch(data); // chỉ thêm tem CÓ STT + chưa trùng → true nếu thêm
+                beep(r.full ? 'done' : added ? 'ok' : 'warn');
+                vibe(r.full ? [40, 50, 60] : 40);
+                flashScan(added ? 'ok' : 'warn'); // xanh = đã thêm in / đỏ = bỏ qua (không STT / trùng)
+            }
             // Put-to-light: sáng đúng ô kệ của tem vừa quét (nếu đã bật + cấu hình ESP32).
             if (
                 window.Web2PutWall?.isOn() &&
@@ -178,10 +186,10 @@
                 '<br><span style="font-size:12px">' +
                 esc(target.id ? 'u=' + target.id : target.code) +
                 '</span></div></div>';
-            beep('warn');
-            flashScan('warn');
-        } finally {
-            resolving = false;
+            if (opts.fromScan) {
+                beep('warn');
+                flashScan('warn');
+            }
         }
     }
 
@@ -221,6 +229,11 @@
     }
 
     function renderResult(data) {
+        // Scan mới → thu gọn collapsibles + reset cờ tải-lười (mở mới tải, quét nhanh không gọi API thừa).
+        sibOpen = false;
+        histOpen = false;
+        sibLoaded = false;
+        histLoaded = false;
         const u = data.unit;
         const p = data.product || {};
         const orders = data.orders || [];
@@ -306,6 +319,10 @@
             wrap.toggleAttribute('hidden', !histOpen);
             histBtn.classList.toggle('open', histOpen);
             histBtn.setAttribute('aria-expanded', String(histOpen));
+            if (histOpen && !histLoaded && current?.unit) {
+                histLoaded = true;
+                loadEvents(current.unit.id); // tải lười khi mở lịch sử
+            }
         });
         const sibBtn = $('#sibToggle');
         sibBtn?.addEventListener('click', () => {
@@ -315,8 +332,11 @@
             wrap.toggleAttribute('hidden', !sibOpen);
             sibBtn.classList.toggle('open', sibOpen);
             sibBtn.setAttribute('aria-expanded', String(sibOpen));
+            if (sibOpen && !sibLoaded && current?.unit) {
+                sibLoaded = true;
+                loadSiblings(current.unit.productCode, current.unit.id); // tải lười khi mở
+            }
         });
-        loadSiblings(u.productCode, u.id);
     }
 
     function reprintUnit(u, p) {
@@ -337,7 +357,7 @@
         PU()
             .reprint([u.id])
             .then(() => {
-                if (current?.unit?.id === u.id) resolve({ id: u.id });
+                if (current?.unit?.id === u.id) queueResolve({ id: u.id }, {});
             });
     }
 
@@ -873,12 +893,19 @@
         } catch (_) {}
     };
 
+    // Thêm tem vào "danh sách in". Chỉ nhận tem ĐÃ CÓ STT (đã gán đơn/kệ) + chưa trùng.
+    // Trả true nếu thêm được, false nếu bỏ qua (không STT / trùng) → dùng cho beep/flash phản hồi.
     function addToBatch(data) {
         const u = data && data.unit;
-        if (!u || u.id == null) return;
+        if (!u || u.id == null) return false;
+        // In chỉ nhận tem đã có STT — tem chưa gán (kho) bỏ qua, KHÔNG thêm vào in.
+        if (u.orderStt == null) {
+            toast('Chưa có STT — không thêm vào danh sách in');
+            return false;
+        }
         if (batch.some((x) => x.id === u.id)) {
             toast('Tem này đã có trong danh sách');
-            return;
+            return false;
         }
         const p = data.product || {};
         batch.push({
@@ -887,13 +914,14 @@
             productCode: u.productCode,
             name: p.name || u.productCode,
             price: Number(p.price) || 0,
-            orderStt: u.orderStt != null ? u.orderStt : null,
+            orderStt: u.orderStt,
             status: u.status,
             scannedAt: Date.now(),
         });
         saveBatch();
         _animateNew = true;
         renderBatch();
+        return true;
     }
     function removeFromBatch(id) {
         const n = Number(id);
@@ -1273,7 +1301,7 @@
                     clearTimeout(deb);
                     deb = setTimeout(() => {
                         if (sortLoaded) sortLoad();
-                        if (current?.unit) resolve({ id: current.unit.id });
+                        if (current?.unit) queueResolve({ id: current.unit.id }, {});
                     }, 650);
                 });
             }
@@ -1329,10 +1357,10 @@
         const code = qs.get('code');
         if (u) {
             $('.scanner')?.classList.add('compact');
-            resolve({ id: u }, { fromScan: true });
+            queueResolve({ id: u }, { fromScan: true });
         } else if (code) {
             $('.scanner')?.classList.add('compact');
-            resolve({ code }, { fromScan: true });
+            queueResolve({ code }, { fromScan: true });
         }
         initScanner();
     }
