@@ -94,6 +94,8 @@
         if (!global.Web2Escape) inject('web2-escape.js', '20260612');
         if (!global.Web2Format) inject('web2-format.js', '20260618');
         if (!global.Web2ApiFetch) inject('web2-api-fetch.js', '20260618');
+        // Phân trang 1 nguồn (thuật toán window + …) — thay ~10 bản copy-paste.
+        if (!global.Web2Pagination) inject('web2-pagination.js', '20260701');
         if (!global.Web2Notify) inject('web2-notify.js', '20260618');
         if (!global.Web2PhoneUtils) inject('web2-phone-utils.js', '20260618');
         if (!global.Web2TextUtils) inject('web2-text-utils.js', '20260618');
