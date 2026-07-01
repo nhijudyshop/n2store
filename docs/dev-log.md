@@ -2,6 +2,16 @@
 
 ## 2026-07-01
 
+### [web2-shared] `Web2PinchZoom` + goods-weight preview pinch-to-zoom
+
+**Files:** `web2/shared/web2-pinch-zoom.js` (MỚI — `window.Web2PinchZoom`), `web2/goods-weight/js/goods-weight.js` (mount trên `#gwPreviewImg`, reset khi đổi/xoá ảnh), `web2/goods-weight/index.html` (+load pinch-zoom, bump js v=20260701h).
+
+Theo yêu cầu user: ảnh preview (chụp/upload) lúc xem cho **chụm 2 ngón (pinch) để zoom** trên điện thoại. Build module chung `Web2PinchZoom.mount(img,{maxScale})` → pinch 2 ngón scale (1..max, neo điểm giữa 2 ngón) + kéo 1 ngón pan khi đã zoom + nhả tay chưa zoom tự về giữa; `touch-action:none` + transform compositor-friendly. Dùng chung mọi ảnh cần zoom tại chỗ (lightbox/product có thể adopt sau).
+
+- Verify browser: pinch 40→140px = scale 3.5× (neo focal đúng), pan 1 ngón đổi translate (clamp mép), "Đổi ảnh" reset về `scale(1) translate(0,0)`.
+
+Status: ✅
+
 ### [ai-hub/gemini] ẢNH ưu tiên PAID trước, hết lượt mới FREE; TEXT vẫn free (+ worker nới timeout AI gen)
 
 **Files:** `web2/shared/web2-gemini-client.js` (đảo `generate`/`tryon` → paid-first + free backup; `paidImage` retry 1 lần khi 503 transient, gắn `_quota` cho 429/403), `web2/ai-hub/index.html` (bump v=20260701a), `cloudflare-worker/modules/handlers/proxy-handler.js` (`handleCustomer360Proxy`: `/api/web2-ai/*` timeout 15s→90s).

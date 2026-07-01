@@ -113,6 +113,7 @@
 
     // ---- ảnh: nén canvas ≤1280px, jpeg 0.8 (giảm payload từ ~4MB cam → ~300KB) ----
     let pendingDataUrl = null;
+    let previewZoom = null; // Web2PinchZoom trên ảnh preview (pinch 2 ngón để zoom)
     function compress(file) {
         return new Promise((resolve, reject) => {
             const img = new Image();
@@ -148,6 +149,7 @@
             $('#gwPreviewImg').src = pendingDataUrl;
             $('#gwPreview').hidden = false;
             $('#gwPhotoBtns').hidden = true;
+            previewZoom?.reset(); // ảnh mới → về zoom 1
         } catch (err) {
             toast('Lỗi ảnh: ' + err.message, 'err');
         }
@@ -157,6 +159,7 @@
         $('#gwPreviewImg').src = '';
         $('#gwPreview').hidden = true;
         $('#gwPhotoBtns').hidden = false;
+        previewZoom?.reset();
     }
 
     // ---- save ----
@@ -647,6 +650,8 @@
         $('#gwUploadBtn').addEventListener('click', () => $('#gwUpload').click());
         $('#gwUpload').addEventListener('change', onPhoto);
         $('#gwPreviewX').addEventListener('click', clearPhoto);
+        if (window.Web2PinchZoom)
+            previewZoom = Web2PinchZoom.mount($('#gwPreviewImg'), { maxScale: 5 });
         $('#gwSave').addEventListener('click', save);
         $('#gwRefresh').addEventListener('click', load);
         setupReport();
