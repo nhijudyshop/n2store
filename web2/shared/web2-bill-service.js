@@ -180,6 +180,12 @@ html, body { margin: 0; padding: 0; background: #fff; }
 .b-it-nums .c-total { font-weight: 700; }
 .b-it-note { font-size: 10.5px; padding-left: 13px; margin-top: 1px; }
 .b-it-variant { font-size: 11px; font-style: italic; padding-left: 13px; margin-top: 1px; }
+/* ── THU VỀ (shipper thu lại từ khách) — nổi bật để shipper KHÔNG bỏ sót ── */
+.b-return-box { border: 2px solid #000; border-radius: 6px; padding: 6px 8px; margin-top: 8px; }
+.b-return-hd { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; text-align: center; border-bottom: 1.5px dashed #000; padding-bottom: 3px; margin-bottom: 4px; }
+.b-return-sub { font-size: 10px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+.b-return-it { display: flex; justify-content: space-between; gap: 6px; font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+.b-return-qty { flex-shrink: 0; }
 /* ── Tổng tiền ── */
 .b-tot { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-top: 2px; }
 .b-tot-final { font-size: 17px; font-weight: 800; }
@@ -338,19 +344,31 @@ html, body { margin: 0; padding: 0; background: #fff; }
                 `<span class="c-total">T.TIỀN</span>` +
                 `</div>`
         );
+        // Tách dòng BÁN (giao cho khách) vs dòng THU VỀ (shipper thu LẠI từ khách —
+        // đổi/trả từ đơn trước, giá 0đ note 'Thu về'). Thu về KHÔNG tính vào SL giao +
+        // được in ở KHUNG RIÊNG nổi bật để shipper không nhầm là quà tặng phải giao.
+        const isReturnLine = (it) => {
+            const note = String(it.note || it.Note || '');
+            return /thu\s*về/i.test(note) || it.isReturn === true;
+        };
         let totalQty = 0;
         const items = [];
-        d.lines.forEach((it, idx) => {
+        const returnItems = [];
+        d.lines.forEach((it) => {
             const qty = Number(it.quantity || it.Quantity || 0);
+            const name = it.productName || it.ProductName || '';
+            if (isReturnLine(it)) {
+                returnItems.push({ name, qty, code: it.productCode || it.ProductCode || '' });
+                return;
+            }
             const price = Number(it.priceUnit || it.PriceUnit || 0);
             const total = qty * price;
-            const name = it.productName || it.ProductName || '';
             const note = it.note || it.Note || '';
             const variant = it.variant || it.Variant || '';
             totalQty += qty;
             items.push(
                 `<div class="b-it">` +
-                    `<div class="b-it-name">${idx + 1}. ${_esc(name)}</div>` +
+                    `<div class="b-it-name">${items.length + 1}. ${_esc(name)}</div>` +
                     (variant ? `<div class="b-it-variant">${_esc(variant)}</div>` : '') +
                     `<div class="b-it-nums">` +
                     `<span class="c-qty">${qty}</span>` +
@@ -362,6 +380,24 @@ html, body { margin: 0; padding: 0; background: #fff; }
             );
         });
         rows.push(items.join(''));
+
+        // ── KHUNG THU VỀ — shipper THU LẠI món này từ khách (đổi/trả đơn trước) ──
+        if (returnItems.length) {
+            const retQty = returnItems.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+            const retRows = returnItems
+                .map(
+                    (r) =>
+                        `<div class="b-return-it"><span>${_esc(r.code ? r.code + ' · ' : '')}${_esc(r.name)}</span><span class="b-return-qty">×${r.qty}</span></div>`
+                )
+                .join('');
+            rows.push(
+                `<div class="b-return-box">` +
+                    `<div class="b-return-hd">⟲ THU LẠI TỪ KHÁCH (${retQty} món)</div>` +
+                    `<div class="b-return-sub">Shipper thu lại các món dưới đây (hàng đổi/trả đơn trước)</div>` +
+                    retRows +
+                    `</div>`
+            );
+        }
 
         // ── TỔNG TIỀN ──
         rows.push('<div class="b-div-solid"></div>');

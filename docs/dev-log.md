@@ -2,6 +2,21 @@
 
 ## 2026-07-01
 
+### [native-orders bill + web2-returns.js] Bill PBH in KHUNG "THU LẠI TỪ KHÁCH" cho shipper
+
+**Files:** `web2/shared/web2-bill-service.js` · `web2/shared/web2-return-bill.js` · `native-orders/js/native-orders-pbh-bill.js` · `render.com/routes/web2-returns.js`.
+
+User: bill PBH phải ghi rõ phần THU VỀ để shipper đọc bill dán trên gói → biết món nào thu lại từ khách (đổi/trả đơn trước). Bug: bill in từ `o.products` (native order) → KHÔNG có dòng thu về (server chỉ append vào `fast_sale_orders.order_lines`); và dòng thu về (nếu có) chỉ là note nhỏ `↳ Thu về 0đ` dễ nhầm quà tặng.
+
+- **Backend**: endpoint `GET /api/web2-returns/on-order/:code` — trả SP thu về của 1 đơn (theo `consumed_pbh_code` = số PBH + fallback queued-by-phone). Gộp theo mã.
+- **`_buildPbhShape`**: nhận `returnItems` (fetch qua `NativeReturnBill.onOrder(code)` ở 2 caller in bill) → append dòng `note:'Thu về 0đ', isReturn:true`. Tổng SL/tiền GIAO loại trừ dòng thu về.
+- **`web2-bill-service`**: tách dòng bán vs thu về; thu về in ở KHUNG viền đậm **"⟲ THU LẠI TỪ KHÁCH (N món) — Shipper thu lại các món dưới đây"** (không nằm trong danh sách giao).
+- **`web2-return-bill.collect`**: nhắc thêm SP khách ĐỔI LẤY khi tạo PBH.
+
+Verify browser-test: mock PBH có dòng thu về → box render đúng (header/sub/item), dòng bán tách riêng, 0 error.
+
+Status: ✅ deployed-ready.
+
 ### [web2 returns + web2-returns.js] Đại tu Thu về: scenario-first + đổi hàng/hàng lỗi/không-đơn-gốc + P3 hardening
 
 **Files:** `web2/returns/index.html` · `web2/returns/css/returns.css` · `web2/returns/js/{returns-core,returns-scenario(NEW),returns-form,returns-order-items,returns-customer,returns-tabs,returns-api,returns-app}.js` · `render.com/routes/web2-returns.js` · `render.com/routes/web2-products.js` · `web2/shared/web2-return-bill.js`.

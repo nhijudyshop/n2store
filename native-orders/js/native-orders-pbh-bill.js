@@ -347,7 +347,11 @@
     // Dựng PBH-shape cho Web2Bill từ native order.
     //   increment=true  → bill ghi "lần in này = đã in + 1" (khi IN thật).
     //   increment=false → ghi số lần đã in hiện tại (khi chỉ XEM, không +1).
-    NO._buildPbhShape = function _buildPbhShape(o, deliveryOpts, { increment = true } = {}) {
+    NO._buildPbhShape = function _buildPbhShape(
+        o,
+        deliveryOpts,
+        { increment = true, returnItems = null } = {}
+    ) {
         const lines = (o.products || []).map((p) => ({
             productName: p.name || p.productName || '',
             // Biến thể: ưu tiên đã lưu trên line; fallback lookup theo mã SP (đơn cũ).
@@ -360,8 +364,29 @@
             uomName: p.uomName || 'Cái',
             note: p.note || '',
         }));
-        const totalQty = lines.reduce((s, l) => s + l.quantity, 0);
-        const totalAmount = lines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
+        // SP THU VỀ (đổi/trả đơn trước) — IN vào bill 0đ note 'Thu về' để bill-service
+        // render KHUNG "THU LẠI TỪ KHÁCH" nổi bật → shipper biết thu lại. Lấy từ
+        // /api/web2-returns/on-order (đã fetch ở caller, truyền qua returnItems).
+        if (Array.isArray(returnItems) && returnItems.length) {
+            for (const ri of returnItems) {
+                const q = Number(ri.quantity) || 0;
+                if (!ri.productCode || q <= 0) continue;
+                lines.push({
+                    productCode: ri.productCode,
+                    productName: ri.productName || ri.productCode,
+                    variant: '',
+                    quantity: q,
+                    priceUnit: 0,
+                    uomName: 'Cái',
+                    note: 'Thu về 0đ',
+                    isReturn: true,
+                });
+            }
+        }
+        // Tổng SL/tiền GIAO = chỉ dòng bán (thu về là hàng thu LẠI, không tính giao).
+        const sellLines = lines.filter((l) => !l.isReturn);
+        const totalQty = sellLines.reduce((s, l) => s + l.quantity, 0);
+        const totalAmount = sellLines.reduce((s, l) => s + l.quantity * l.priceUnit, 0);
         const ship = NO._billShipPriceOf(o, deliveryOpts);
         const finalTotal = totalAmount + ship;
         const printed = Number(o.printCount) || 0;
@@ -450,7 +475,15 @@
         const printConfirmedBills = async () => {
             if (!others.length) return;
             await NO.ensureVariantMap(); // map mã→biến thể để bill hiện biến thể (đơn cũ)
-            const pbhs = others.map((o) => NO._buildPbhShape(o, deliveryOpts, { increment: true }));
+            // Thu về đã lên bill của từng đơn → in KHUNG "THU LẠI TỪ KHÁCH" cho shipper.
+            const pbhs = await Promise.all(
+                others.map(async (o) => {
+                    const returnItems = window.NativeReturnBill?.onOrder
+                        ? await window.NativeReturnBill.onOrder(o.code).catch(() => [])
+                        : [];
+                    return NO._buildPbhShape(o, deliveryOpts, { increment: true, returnItems });
+                })
+            );
             if (pbhs.length === 1) window.Web2Bill.openPrint(pbhs[0]);
             else window.Web2Bill.openCombinedPrint(pbhs);
             NO._markPrintedCodes(others.map((o) => o.code));
@@ -511,11 +544,17 @@
         }
         await NO.ensureVariantMap();
         const deliveryOpts = await NO._getDeliveryOpts();
-        const pbh = NO._buildPbhShape(o, deliveryOpts, { increment: false });
+        const returnItems = window.NativeReturnBill?.onOrder
+            ? await window.NativeReturnBill.onOrder(o.code).catch(() => [])
+            : [];
+        const pbh = NO._buildPbhShape(o, deliveryOpts, { increment: false, returnItems });
         window.Web2Bill.openPreview(pbh, {
             // Bấm "In bill" trong preview → in thật + ghi print_count.
             onPrint: (p) => {
-                const printPbh = NO._buildPbhShape(o, deliveryOpts, { increment: true });
+                const printPbh = NO._buildPbhShape(o, deliveryOpts, {
+                    increment: true,
+                    returnItems,
+                });
                 window.Web2Bill.openPrint(printPbh);
                 NO._markPrintedCodes([o.code]);
             },

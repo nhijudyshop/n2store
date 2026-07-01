@@ -19,6 +19,23 @@
         return s;
     }
 
+    // SP THU VỀ đã lên bill của 1 đơn (để IN vào bill PBH cho shipper thu lại).
+    // code = native order code hoặc số PBH. Trả [{productCode,productName,quantity}].
+    async function onOrder(code) {
+        if (!code) return [];
+        try {
+            const r = await fetch(
+                `${WORKER_URL}/api/web2-returns/on-order/${encodeURIComponent(code)}`,
+                { cache: 'no-cache' }
+            );
+            const d = await r.json();
+            if (!r.ok || d.success === false) return [];
+            return d.items || [];
+        } catch {
+            return [];
+        }
+    }
+
     async function fetchQueued(phone) {
         const ph = _normPhone(phone);
         if (!ph) return { returns: [], items: [] };
@@ -68,5 +85,5 @@
         return { returnLines: lines, returnCodes: codes, replacementItems };
     }
 
-    window.NativeReturnBill = { fetchQueued, collect };
+    window.NativeReturnBill = { fetchQueued, collect, onOrder };
 })();

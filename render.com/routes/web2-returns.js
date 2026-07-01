@@ -623,6 +623,66 @@ router.get('/queued-by-phone/:phone', async (req, res) => {
 });
 
 // =====================================================
+// GET /api/web2-returns/on-order/:code
+// SP THU VỀ đã lên bill của 1 đơn (native code hoặc PBH number) — để IN vào
+// bill PBH cho SHIPPER thu lại. Nguồn: web2_returns.consumed_pbh_code = số PBH
+// của đơn (đã 'consumed' khi tạo PBH) + fallback queued-by-phone nếu in trước
+// khi consume. Trả items [{productCode, productName, quantity}] gộp theo mã.
+// =====================================================
+router.get('/on-order/:code', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const code = String(req.params.code || '').trim();
+        if (!code) return res.json({ success: true, items: [] });
+        // PBH number(s) của đơn (native → nhiều PBH; hoặc code CHÍNH LÀ số PBH).
+        let numbers = [code];
+        let phone = null;
+        try {
+            const pbhs = await pool.query(
+                `SELECT number, partner_phone FROM fast_sale_orders
+                 WHERE (source_type='native_order' AND source_code=$1) OR number=$1`,
+                [code]
+            );
+            for (const row of pbhs.rows) {
+                if (row.number) numbers.push(row.number);
+                if (!phone && row.partner_phone) phone = normPhone(row.partner_phone);
+            }
+        } catch {}
+        numbers = [...new Set(numbers)];
+        const r = await pool.query(
+            `SELECT code, items, phone FROM web2_returns
+             WHERE sub_type='thu_ve_1_phan' AND status='active'
+               AND ( consumed_pbh_code = ANY($1::text[])
+                     OR (bill_status='queued' AND phone = $2) )
+             ORDER BY created_at ASC`,
+            [numbers, phone || (numbers.length ? numbers[0] : null)]
+        );
+        // Gộp theo productCode để bill gọn.
+        const byCode = new Map();
+        for (const row of r.rows) {
+            for (const it of row.items || []) {
+                if (!it.productCode) continue;
+                const q = Number(it.quantity) || 0;
+                if (q <= 0) continue;
+                const prev = byCode.get(it.productCode);
+                if (prev) prev.quantity += q;
+                else
+                    byCode.set(it.productCode, {
+                        productCode: it.productCode,
+                        productName: it.productName || '',
+                        quantity: q,
+                    });
+            }
+        }
+        res.json({ success: true, items: [...byCode.values()] });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
 // GET /api/web2-returns/source-order/:type/:code
 // Trả danh sách SP + wallet_deducted của 1 đơn cũ (để picker "Khách không
 // nhận hàng" xem được SP sẽ hoàn). type = native | pbh.
