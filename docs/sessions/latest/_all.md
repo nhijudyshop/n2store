@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5601798` — docs(dev-log): ghi fix web2-returns depositAmt scope bug
-**Last updated**: 2026-07-01 12:50:07 +07
-**Latest session**: [`RESUME:20260701-125007-5601798`](../20260701-125007-5601798.md)
-**Summary**: docs(dev-log): ghi fix web2-returns depositAmt scope bug
+**Latest commit**: `60faea5` — auto: session update
+**Last updated**: 2026-07-01 12:59:21 +07
+**Latest session**: [`RESUME:20260701-125921-60faea5`](../20260701-125921-60faea5.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
 - [`bg-remover/`](./bg-remover.md) — updated 2026-06-24 16:53
 - [`camera-bridge/`](./camera-bridge.md) — updated 2026-07-01 10:51
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 00:24
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 12:59
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
 - [`docs/`](./docs.md) — updated 2026-07-01 12:50
