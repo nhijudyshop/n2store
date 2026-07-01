@@ -3,25 +3,33 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260701-075426-f94660d`
-**Session file**: [`./20260701-075426-f94660d.md`](../20260701-075426-f94660d.md)
-**Commit**: `f94660d` — auto: session update
-**Last updated**: 2026-07-01 07:54:26 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260701-082904-c02606b`
+**Session file**: [`./20260701-082904-c02606b.md`](../20260701-082904-c02606b.md)
+**Commit**: `c02606b` — feat(native-orders bill): in KHUNG 'THU LẠI TỪ KHÁCH' cho shipper trên bill PBH
+**Last updated**: 2026-07-01 08:29:04 +07
+**Summary**: feat(native-orders bill): in KHUNG 'THU LẠI TỪ KHÁCH' cho shipper trên bill PBH
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/unit-scan/css/unit-scan.css`
-- `web2/unit-scan/index.html`
-- `web2/unit-scan/js/unit-scan.js`
+- `web2/returns/css/returns.css`
+- `web2/returns/index.html`
+- `web2/returns/js/returns-api.js`
+- `web2/returns/js/returns-app.js`
+- `web2/returns/js/returns-core.js`
+- `web2/returns/js/returns-customer.js`
+- `web2/returns/js/returns-form.js`
+- `web2/returns/js/returns-scenario.js`
+- `web2/returns/js/returns-tabs.js`
+- `web2/shared/web2-bill-service.js`
+- `web2/shared/web2-return-bill.js`
 
 ## Last 5 commits touching `web2/`
 
+- `c02606bcc` feat(native-orders bill): in KHUNG 'THU LẠI TỪ KHÁCH' cho shipper trên bill PBH _(2026-07-01)_
+- `abb0c4f20` feat(web2 returns): scenario-first + đổi hàng/hàng lỗi/không-đơn-gốc/ship-fee/decline + fix 'cách hàng về' semantics _(2026-07-01)_
 - `97f7c8f34` feat(web2 unit-scan): nút hành động → drawer trượt phải (nút menu ☰) _(2026-07-01)_
 - `9f2c26937` feat(web2 unit-scan): đưa nút hành động lên header dính (khỏi kéo xuống) _(2026-07-01)_
 - `c6e3f4a9a` auto: session update _(2026-07-01)_
-- `9fdf2daba` feat(web2 unit-scan): rebuild UI 'Premium Light' + màu-theo-kệ (put-to-light) _(2026-07-01)_
-- `393176580` auto: session update _(2026-07-01)_
 
 ---
 
@@ -29,4 +37,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260701-075426-f94660d` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260701-082904-c02606b` cho Claude walk chain theo CLAUDE.md protocol.
