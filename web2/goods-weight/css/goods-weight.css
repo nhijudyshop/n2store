@@ -507,6 +507,14 @@ body {
 .rp-reset:active {
     background: var(--c-bg);
 }
+/* Strip chọn tháng — LUÔN hiện trên bảng (ngoài drawer BỘ LỌC) */
+.rp-months-bar {
+    background: var(--c-surface);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
 /* 12 tháng gần nhất — bộ lọc ưu tiên (mặc định tháng hiện tại) */
 .rp-months {
     display: flex;
@@ -824,6 +832,97 @@ body:not(.rp-admin) .rp-act {
 .rp-photo-note {
     color: var(--c-text-2) !important;
     word-break: break-word;
+}
+/* nút sửa/xoá trên mỗi ảnh trong drawer (admin) */
+.rp-photo {
+    position: relative;
+}
+.rp-photo-act {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 5px;
+}
+.rp-photo-act button {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(16, 24, 40, 0.62);
+    color: #fff;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+.rp-photo-act button:hover {
+    background: rgba(16, 24, 40, 0.85);
+}
+.rp-pa-del:hover {
+    background: var(--c-red) !important;
+}
+.rp-photo-act i {
+    width: 15px;
+    height: 15px;
+}
+/* form sửa inline trong figcaption */
+.rp-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 2px;
+}
+.rp-edit-row {
+    display: flex;
+    gap: 8px;
+}
+.rp-edit label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--c-text-2);
+}
+.rp-edit input {
+    width: 100%;
+    min-width: 0;
+    border: 1.5px solid var(--c-line);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--c-surface);
+    color: var(--c-text);
+}
+.rp-edit input:focus {
+    outline: none;
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.14);
+}
+.rp-edit-btns {
+    display: flex;
+    gap: 7px;
+}
+.rp-e-save,
+.rp-e-cancel {
+    flex: 1;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+}
+.rp-e-save {
+    background: var(--c-primary);
+    color: #fff;
+}
+.rp-e-cancel {
+    background: var(--c-bg);
+    color: var(--c-text-2);
 }
 
 /* mobile: summary xuống 2 cột, ô tổng tiền chiếm hết hàng */

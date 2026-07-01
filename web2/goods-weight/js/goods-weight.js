@@ -339,12 +339,10 @@
             try {
                 active.scrollIntoView({ inline: 'center', block: 'nearest' });
             } catch (_) {}
-        loadReport();
-        if (_filterDrawer?.isOpen()) _filterDrawer.close(); // chọn tháng = xong → đóng drawer lọc
+        loadReport(); // chip tháng nằm TRÊN bảng (ngoài drawer) → không cần đụng drawer
     }
 
-    async function loadReport() {
-        if (_dayDrawer && _dayDrawer.isOpen()) _dayDrawer.close(); // data đổi → đóng drawer cũ
+    function reportQs() {
         const qs = new URLSearchParams();
         const from = $('#rpFrom').value,
             to = $('#rpTo').value,
@@ -352,9 +350,14 @@
         if (from) qs.set('from', from);
         if (to) qs.set('to', to);
         if (user) qs.set('username', user);
+        return qs.toString();
+    }
+
+    async function loadReport() {
+        if (_dayDrawer && _dayDrawer.isOpen()) _dayDrawer.close(); // data đổi → đóng drawer cũ
         $('#rpBody').innerHTML = '<tr><td colspan="8" class="rp-muted">Đang tải…</td></tr>';
         try {
-            REPORT = await api('/report?' + qs.toString());
+            REPORT = await api('/report?' + reportQs());
             renderReport();
         } catch (e) {
             $('#rpBody').innerHTML = `<tr><td colspan="8" class="rp-muted">Lỗi: ${esc(
@@ -489,11 +492,10 @@
     function openDayDrawer(day) {
         const row = (REPORT && REPORT.rows ? REPORT.rows : []).find((r) => r.day === day);
         if (!row) return;
-        const items = row.items || [];
         const dw = ensureDrawer();
         if (!dw) {
             // Fallback: chưa nạp Web2Drawer → mở thẳng lightbox toàn bộ ảnh ngày đó.
-            const urls = items
+            const urls = (row.items || [])
                 .filter((x) => x.hasImage)
                 .map((x) => `${GW}/img/${encodeURIComponent(x.id)}`);
             if (urls.length && window.Web2ImageLightbox?.open) Web2ImageLightbox.open(urls, 0);
@@ -501,18 +503,29 @@
         }
         if (dw.isOpen() && _drawerDay === day) return dw.close(); // bấm lại đúng ngày → đóng (toggle)
         _drawerDay = day;
+        setDrawerForDay(day);
+        dw.open();
+    }
+    // Đổ tiêu đề + nội dung drawer cho 1 ngày từ REPORT (tái dùng sau khi sửa/xoá bản ghi).
+    function setDrawerForDay(day) {
+        if (!_dayDrawer) return;
+        const row = (REPORT && REPORT.rows ? REPORT.rows : []).find((r) => r.day === day);
+        if (!row || !(row.items || []).length) {
+            _dayDrawer.close(); // ngày hết bản ghi → đóng
+            return;
+        }
         const dl = dayLabel(day);
-        dw.setTitle(
+        _dayDrawer.setTitle(
             `Ảnh cân ${esc(dl.date)}<small>${esc(dl.wd)} · ${fmtInt(row.count)} lần cân · ${fmtKg(
                 row.kg
             )} kg · ${money(row.ship)}</small>`
         );
-        dw.setBody(dayPhotosHtml(items));
-        wireDrawerPhotos(dw.body, items);
-        dw.open();
+        _dayDrawer.setBody(dayPhotosHtml(row.items));
+        wireDrawerPhotos(_dayDrawer.body, row.items);
     }
     function dayPhotosHtml(items) {
         if (!items.length) return '<div class="rp-muted">Không có bản ghi.</div>';
+        const admin = isAdmin();
         const withImg = items.filter((x) => x.hasImage);
         return `<div class="rp-photos">${items
             .map((x) => {
@@ -520,8 +533,14 @@
                 const media = x.hasImage
                     ? `<img src="${GW}/img/${esc(x.id)}" loading="lazy" data-idx="${idx}" alt="Ảnh cân" />`
                     : `<div class="rp-photo-empty"><i data-lucide="image-off"></i></div>`;
-                return `<figure class="rp-photo">
-                    ${media}
+                const act = admin
+                    ? `<div class="rp-photo-act">
+                        <button class="rp-pa-edit" data-edit="${esc(x.id)}" title="Sửa kg/kiện/ghi chú"><i data-lucide="pencil"></i></button>
+                        <button class="rp-pa-del" data-delrec="${esc(x.id)}" title="Xoá bản ghi"><i data-lucide="trash-2"></i></button>
+                    </div>`
+                    : '';
+                return `<figure class="rp-photo" data-id="${esc(x.id)}" data-kg="${esc(x.weightKg)}" data-bales="${esc(x.baleCount)}" data-note="${esc(x.note || '')}">
+                    ${media}${act}
                     <figcaption>
                         <b>${esc(x.weightKg)} kg</b> · ${esc(x.baleCount)} kiện
                         <span>${esc(x.username || '—')} · ${esc(fmtTime(x.createdAt))}</span>
@@ -545,6 +564,86 @@
                 }
             })
         );
+        // admin: sửa / xoá từng bản ghi cân
+        root.querySelectorAll('[data-edit]').forEach((b) =>
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                startEditPhoto(b.closest('.rp-photo'));
+            })
+        );
+        root.querySelectorAll('[data-delrec]').forEach((b) =>
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                delRecord(b.dataset.delrec);
+            })
+        );
+    }
+
+    // Sửa inline 1 bản ghi trong drawer (kg / kiện / ghi chú). Ảnh giữ nguyên.
+    function startEditPhoto(fig) {
+        if (!fig) return;
+        const cap = fig.querySelector('figcaption');
+        if (!cap || cap.querySelector('.rp-edit')) return; // đang sửa rồi
+        const id = fig.dataset.id;
+        cap.innerHTML = `<div class="rp-edit">
+            <div class="rp-edit-row">
+                <label>Kg<input type="number" inputmode="decimal" step="0.1" min="0" class="rp-e-kg" value="${esc(fig.dataset.kg)}" /></label>
+                <label>Kiện<input type="number" inputmode="numeric" step="1" min="0" class="rp-e-bales" value="${esc(fig.dataset.bales)}" /></label>
+            </div>
+            <input type="text" class="rp-e-note" placeholder="Ghi chú" value="${esc(fig.dataset.note)}" />
+            <div class="rp-edit-btns">
+                <button class="rp-e-save" type="button">Lưu</button>
+                <button class="rp-e-cancel" type="button">Huỷ</button>
+            </div>
+        </div>`;
+        cap.querySelector('.rp-e-save').addEventListener('click', () => saveEditPhoto(id, cap));
+        cap.querySelector('.rp-e-cancel').addEventListener('click', () =>
+            setDrawerForDay(_drawerDay)
+        );
+        cap.querySelector('.rp-e-kg').focus();
+    }
+    async function saveEditPhoto(id, cap) {
+        const kg = Number(cap.querySelector('.rp-e-kg').value);
+        const bales = Math.round(Number(cap.querySelector('.rp-e-bales').value)) || 0;
+        const note = cap.querySelector('.rp-e-note').value.trim();
+        if (!Number.isFinite(kg) || kg <= 0) return toast('Số kg không hợp lệ', 'err');
+        if (bales < 0) return toast('Số kiện không hợp lệ', 'err');
+        try {
+            await api('/' + encodeURIComponent(id), {
+                method: 'PATCH',
+                body: JSON.stringify({ weightKg: kg, baleCount: bales, note }),
+            });
+            toast('✓ Đã sửa', 'ok');
+            await afterRecordMutation();
+            load(); // đồng bộ tab Cân hàng
+        } catch (e) {
+            toast('Lỗi: ' + e.message, 'err');
+        }
+    }
+    async function delRecord(id) {
+        if (!isAdmin()) return toast('Chỉ admin được xoá', 'err');
+        const ok = window.Popup?.confirm
+            ? await window.Popup.confirm('Xoá bản ghi cân này?')
+            : confirm('Xoá bản ghi cân này?');
+        if (!ok) return;
+        try {
+            await api('/' + encodeURIComponent(id), { method: 'DELETE' });
+            toast('✓ Đã xoá', 'ok');
+            await afterRecordMutation();
+            load();
+        } catch (e) {
+            toast('Lỗi: ' + e.message, 'err');
+        }
+    }
+    // Sau khi sửa/xoá 1 bản ghi: tải lại số liệu báo cáo + làm mới drawer TẠI CHỖ (không đóng).
+    async function afterRecordMutation() {
+        try {
+            REPORT = await api('/report?' + reportQs());
+            renderReport(); // vẽ lại bảng + thumbnail (KHÔNG đóng drawer)
+        } catch (e) {
+            toast('Lỗi tải lại: ' + e.message, 'err');
+        }
+        if (_drawerDay && _dayDrawer?.isOpen()) setDrawerForDay(_drawerDay);
     }
 
     async function deleteDay(ymd, count) {

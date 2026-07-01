@@ -269,6 +269,32 @@ router.delete('/day/:ymd', requireWeb2Admin, async (req, res) => {
     }
 });
 
+// PATCH /:id — sửa 1 bản ghi cân (ADMIN): kg / kiện / ghi chú. Ảnh + người + giờ giữ nguyên.
+router.patch('/:id', jsonBody, requireWeb2Admin, async (req, res) => {
+    try {
+        const pool = getPool(req);
+        await ensureTables(pool);
+        const b = req.body || {};
+        const weightKg = Number(b.weightKg);
+        const baleCount = Math.round(Number(b.baleCount)) || 0;
+        const note = String(b.note || '').slice(0, 2000);
+        if (!Number.isFinite(weightKg) || weightKg <= 0)
+            return res.status(400).json({ success: false, error: 'Số kg không hợp lệ' });
+        if (!Number.isInteger(baleCount) || baleCount < 0)
+            return res.status(400).json({ success: false, error: 'Số kiện không hợp lệ' });
+        const r = await pool.query(
+            `UPDATE web2_goods_weight SET weight_kg=$1, bale_count=$2, note=$3 WHERE id=$4 RETURNING id`,
+            [weightKg, baleCount, note, req.params.id]
+        );
+        if (!r.rowCount) return res.status(404).json({ success: false, error: 'Không tìm thấy' });
+        _notify('update', { id: req.params.id });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[WEB2-GOODS-WEIGHT] patch:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // DELETE /:id — xoá 1 bản ghi (ADMIN — tránh NV xoá nhầm bằng chứng cân).
 router.delete('/:id', requireWeb2Admin, async (req, res) => {
     try {

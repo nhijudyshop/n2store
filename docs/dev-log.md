@@ -2,6 +2,17 @@
 
 ## 2026-07-01
 
+### [goods-weight] Chip tháng lên trên bảng + sửa/xoá bản ghi cân trong drawer
+
+**Files:** `web2/goods-weight/index.html` (tách `#rpMonths` khỏi `.rp-bar`, bump v=20260701d), `web2/goods-weight/css/goods-weight.css` (`.rp-months-bar` + edit form/action btn), `web2/goods-weight/js/goods-weight.js` (`setDrawerForDay`/`startEditPhoto`/`saveEditPhoto`/`delRecord`/`afterRecordMutation`/`reportQs`), `render.com/routes/web2-goods-weight.js` (`PATCH /:id`).
+
+Theo yêu cầu user: (1) chip 12 tháng **KHÔNG nằm trong drawer** → dời lên strip trắng TRÊN bảng (luôn hiện); drawer "BỘ LỌC" giờ chỉ còn từ/đến ngày + NV + preset + đơn giá. (2) **Sửa dữ liệu bản ghi** ngay trong drawer ảnh của 1 ngày.
+
+- Drawer ảnh (admin): mỗi ảnh có nút ✏️ sửa (kg/kiện/ghi chú inline) + 🗑️ xoá bản ghi. Save → `PATCH /:id` (mới, admin-only) / xoá → `DELETE /:id` (sẵn có) → `afterRecordMutation()` refetch `/report` + `renderReport()` + `setDrawerForDay()` làm mới drawer **tại chỗ không đóng** (ngày hết bản ghi → tự đóng). Sync tab Cân hàng (`load()`), SSE `_notify('update')`.
+- `PATCH /:id`: `UPDATE weight_kg/bale_count/note`, validate kg>0 + kiện≥0, ảnh/người/giờ giữ nguyên.
+
+Status: ✅ (verify browser sau khi web2-api deploy `PATCH /:id`)
+
 ### [overview] Nút CTA "Vào hệ thống" → trang user THẬT SỰ có quyền (Web2Perm)
 
 **Files:** `web2/overview/index.html` (load `web2-perm.js`, bump `overview.js?v=20260701perm`), `web2/overview/overview.js` (`canOpen()` + `visibleGroups` lọc theo quyền).
