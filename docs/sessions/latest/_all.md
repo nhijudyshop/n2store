@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `774f484` — auto: session update
-**Last updated**: 2026-07-01 11:29:43 +07
-**Latest session**: [`RESUME:20260701-112943-774f484`](../20260701-112943-774f484.md)
-**Summary**: auto: session update
+**Latest commit**: `7111612` — chore(session): RESUME:20260701-112943-774f484
+**Last updated**: 2026-07-01 11:29:47 +07
+**Latest session**: [`RESUME:20260701-112947-7111612`](../20260701-112947-7111612.md)
+**Summary**: web2-perm: block overlay redirect về trang có quyền (firstPermittedUrl)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 7 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
