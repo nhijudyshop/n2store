@@ -2,6 +2,16 @@
 
 ## 2026-07-01
 
+### [web2-campaign] Thiết kế #2 cross-page cart merge (hybrid global-id + SĐT) + điều tra định danh
+
+**Files:** `docs/web2/CAMPAIGN-CROSSPAGE-DESIGN.md` (MỚI — thiết kế đầy đủ + feasibility).
+
+Yêu cầu #2 user: 2 page (Store+House) chung 1 chiến dịch → khách M comment cả 2 page → 1 giỏ. Điều tra (agent): cart `_findDraft` + from-comment merge key theo `fb_user_id` (PSID **page-scoped**) → M ở 2 page = 2 PSID = 2 giỏ (broken). Chất keo cross-page có sẵn: `customer_id` (theo SĐT, NULL khi chưa có), `fb_global_id_cache` (page,psid)→global_user_id (populate bởi extension khi đã nhắn tin, orders chưa dùng). Chốt hướng **HYBRID 3 tầng**: global_user_id → customer_id → (fb_user_id+page). ⚠ mỗi tầng guard non-null (key ẩu NULL → gộp nhầm khách ẩn danh). Giới hạn: khách comment mới tinh chưa nhắn/chưa SĐT ở 2 page chưa gộp được (không có tín hiệu cross-page).
+
+CHƯA implement (đụng luồng tạo đơn live — làm với context tươi). Điểm sửa + test plan trong doc. F1 đã ship là bước đệm.
+
+Status: 📐 thiết kế xong, chờ implement
+
 ### [cart/live-control] Audit #4/#5 drag→giỏ: F1 kéo SP thả sai chiến dịch + M7 SSE clobber board
 
 **Files:** `render.com/routes/v2/cart.js` (F1: `_findDraft` thêm param campaignId; path `/add` scope theo `fbContext.liveCampaignId`), `web2/live-control/js/live-control.js` (M7: `_boardOpBegin/_boardOpEnd` guard, `loadBoard` hoãn khi op đang bay, backstop 5s; bump v).
