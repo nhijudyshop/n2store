@@ -2,6 +2,17 @@
 
 ## 2026-07-01
 
+### [web2-returns] Fix ReferenceError `depositAmt is not defined` — mọi thu_ve_1_phan hoàn ví bị 500
+
+**Files:** `render.com/routes/web2-returns.js` (`POST /` create-return, nhánh thu_ve_1_phan).
+
+Regression: `walletCreditedFinal = depositAmt > 0 && creditToWallet` chạy SAU callback transaction (nơi `const depositAmt` block-scoped) → `depositAmt is not defined` → **mọi phiếu "Thu về 1 phần" hoàn ví trả 500**. Phát hiện khi seed data test qua API.
+
+- Set `walletCreditedFinal` NGAY sau `const depositAmt` (trong callback, đúng scope); xoá dòng gán ngoài callback.
+- khong_nhan_hang / cod không đụng nhánh này → không ảnh hưởng. Verify: thu_ve_1_phan 500 → 200 sau deploy.
+
+Status: ✅ deployed (web2-api redeploy).
+
 ### [goods-weight] Thêm nút "Tải ảnh lên" (gallery/file) cạnh "Chụp ảnh"
 
 **Files:** `web2/goods-weight/index.html` (2 input + `.gw-photo-actions`), `web2/goods-weight/js/goods-weight.js` (wire `gwUploadBtn`/`gwUpload`, toggle `#gwPhotoBtns`), `web2/goods-weight/css/goods-weight.css` (2 nút cạnh nhau), bump v=20260701g.
