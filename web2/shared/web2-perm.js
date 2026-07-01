@@ -108,6 +108,46 @@
         return canView(slugFromUrl(url));
     }
 
+    // Resolve NAV `our` (dạng `../web2/X/index.html`, giả định caller depth 1) theo
+    // độ sâu trang hiện tại — mirror web2-sidebar.resolveOur.
+    function _resolveOur(rawHref) {
+        if (!rawHref || rawHref === '#') return rawHref;
+        var projectRel = rawHref.replace(/^(\.\.\/)+/, '');
+        var pn = (global.location && global.location.pathname) || '';
+        if (/\/web2\/[^/]+\/[^/]*$/.test(pn)) return '../../' + projectRel;
+        return '../' + projectRel;
+    }
+
+    // Trang ĐẦU TIÊN user có quyền mở (bỏ Tổng quan) — dùng để redirect khi bị chặn,
+    // thay vì luôn quăng về Tổng quan. Nguồn = Web2Sidebar.NAV (catalog trang canonical;
+    // có mặt trên mọi trang vận hành vì sidebar auto-load web2-perm). Trả URL đã resolve
+    // theo độ sâu, hoặc null nếu không có (caller fallback về Tổng quan).
+    function firstPermittedUrl() {
+        try {
+            var nav = global.Web2Sidebar && global.Web2Sidebar.NAV;
+            if (!Array.isArray(nav)) return null;
+            var admin = isAdmin();
+            for (var i = 0; i < nav.length; i++) {
+                var g = nav[i];
+                if (g.adminOnly && !admin) continue;
+                var items = g.single ? [g] : g.children || [];
+                for (var j = 0; j < items.length; j++) {
+                    var it = items[j];
+                    if (!it.our) continue; // placeholder "soon"
+                    var slug = slugFromUrl(it.our);
+                    if (!slug || slug === 'tongquan') continue; // bỏ Tổng quan
+                    if (it.adminOnly && !admin) continue;
+                    if (isAdminOnlySlug(slug) && !admin) continue; // backstop
+                    if (!canView(slug)) continue; // trang bị thu hồi 'view'
+                    return _resolveOur(it.our);
+                }
+            }
+            return null;
+        } catch (_) {
+            return null;
+        }
+    }
+
     global.Web2Perm = {
         isAdmin,
         slugFromUrl,
@@ -116,6 +156,7 @@
         canViewUrl,
         isAdminOnlySlug,
         isAdminOnlyUrl,
+        firstPermittedUrl,
         _user,
     };
 
@@ -130,6 +171,10 @@
         const overviewUrl = /\/web2\/[^/]+\/[^/]*$/.test(pn)
             ? '../overview/index.html'
             : '../web2/overview/index.html';
+        // Ưu tiên đưa user về TRANG HỌ CÓ QUYỀN (không phải luôn về Tổng quan).
+        const permittedUrl = firstPermittedUrl();
+        const dest = permittedUrl || overviewUrl;
+        const destLabel = permittedUrl ? 'Đến trang bạn có quyền →' : '← Về Tổng quan';
         const ov = document.createElement('div');
         ov.id = 'web2PermBlock';
         ov.style.cssText =
@@ -141,8 +186,10 @@
             '<h2 style="margin:0;font-size:20px;">Bạn không có quyền xem trang này</h2>' +
             '<p style="margin:0;color:#cbd5e1;font-size:14px;max-width:420px;">Liên hệ quản trị viên để được cấp quyền truy cập.</p>' +
             '<a href="' +
-            overviewUrl +
-            '" style="margin-top:6px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">← Về Tổng quan</a>';
+            dest +
+            '" style="margin-top:6px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;">' +
+            destLabel +
+            '</a>';
         (document.body || document.documentElement).appendChild(ov);
     }
     function _runGuard() {

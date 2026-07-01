@@ -13,6 +13,14 @@ Theo yêu cầu user: (1) chip 12 tháng **KHÔNG nằm trong drawer** → dời
 
 Status: ✅ (verify browser sau khi web2-api deploy `PATCH /:id`)
 
+### [web2-perm] Chặn trang → redirect về TRANG CÓ QUYỀN thay vì luôn về Tổng quan
+
+**Files:** `web2/shared/web2-perm.js` (`firstPermittedUrl()` + `_block` dùng nó), `web2/shared/web2-sidebar.js` + `web2/overview/index.html` + `web2/live-control/index.html` (bump `web2-perm.js?v=20260701perm`).
+
+Overlay "Không có quyền" trước LUÔN trỏ nút về Tổng quan → user phải qua 1 chặng trung gian. Fix: `firstPermittedUrl()` duyệt `Web2Sidebar.NAV` (catalog trang canonical, có trên mọi trang vận hành), bỏ Tổng quan + trang adminOnly (non-admin) + trang bị thu hồi 'view', trả trang vận hành ĐẦU TIÊN user có quyền (resolve depth-aware). `_block` giờ dùng dest = `firstPermittedUrl() || overviewUrl`, nhãn nút đổi theo ("Đến trang bạn có quyền →" / "← Về Tổng quan" khi không còn trang nào). Verified 6 unit-check (scratchpad `test-perm.js`): non-admin skip overview→KPI, revoke KPI+TB→Bán hàng(HĐ), admin→KPI, no-NAV→null.
+
+Status: ✅
+
 ### [overview] Nút CTA "Vào hệ thống" → trang user THẬT SỰ có quyền (Web2Perm)
 
 **Files:** `web2/overview/index.html` (load `web2-perm.js`, bump `overview.js?v=20260701perm`), `web2/overview/overview.js` (`canOpen()` + `visibleGroups` lọc theo quyền).
