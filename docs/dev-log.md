@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [web2-shared] Dedup pagination → Web2Pagination (gộp 3 file canonical; 6 file divergent giữ riêng)
+
+**Files:** MỚI `web2/shared/web2-pagination.js` + `web2-sidebar.js` (autoload); migrate `web2/shared/page-builder.js`, `web2/products/js/web2-products-render.js`, `native-orders/js/native-orders-render.js`; `web2/system/data/web2-dedup-audit.json` (group → partial).
+
+Ứng viên dedup #1 (pagination). `Web2Pagination`: `.window(cur,total)` thuật toán · `.html({classes,onClick,infoText})` render config-driven · `.render(el,{onGo})` render+wire. Autoload mọi trang qua sidebar.
+
+- **Migrate 3 file canonical-family:** page-builder (data-go+onGo), web2-products-render (inline onclick, info "SP"), native-orders-render (inline onclick, info "đơn"). **Verify 81 case rendered-DOM IDENTICAL** (harness diff old-algo vs Web2Pagination.html; chỉ khác trailing-space trong class → browser normalize; **zero visual/behavior change**).
+- **6 file KHÔNG migrate (workflow 10 agent verify code thật — audit cũ OVER-CLAIM "10 copy-paste"):** customers (window đối xứng ±2 + info element riêng), customer-wallet (4 nút nav + 2 element rời, không ellipsis), supplier-debt (chỉ prev/next), pbh-render + rf-app (window hẹp cur±2 không ellipsis), bh-render (cấu trúc khác). Ép migrate = đổi markup/hành vi trang PBH live → KHÔNG làm. dlv-app đã revert.
+- Group dedup → `partial`; ghi rõ 3 done + 6 divergent + lý do.
+
+Status: ✅ (3/10 consolidated; 6 divergent-by-design; front-end chạy ngay Pages)
+
 ### [web2-system/sse] Re-audit SSE registry — 8 → 44 topic (trace code thật, sổ tay SSE tab Realtime)
 
 **Files:** `web2/system/data/web2-sse-registry.json` (tab Realtime SSE).

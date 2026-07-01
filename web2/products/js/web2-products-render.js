@@ -458,35 +458,14 @@
 
     function renderPagination() {
         const totalPages = Math.max(1, Math.ceil(STATE.total / STATE.limit));
-        const cur = STATE.page;
-        const html = [];
-        html.push(
-            `<button class="page-btn" ${cur === 1 ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur - 1})">‹</button>`
-        );
-        const start = Math.max(1, cur - 2);
-        const end = Math.min(totalPages, start + 4);
-        if (start > 1) {
-            html.push(`<button class="page-btn" onclick="Web2ProductsApp.goPage(1)">1</button>`);
-            if (start > 2) html.push(`<span class="page-info">…</span>`);
-        }
-        for (let p = start; p <= end; p++) {
-            html.push(
-                `<button class="page-btn ${p === cur ? 'active' : ''}" onclick="Web2ProductsApp.goPage(${p})">${p}</button>`
-            );
-        }
-        if (end < totalPages) {
-            if (end < totalPages - 1) html.push(`<span class="page-info">…</span>`);
-            html.push(
-                `<button class="page-btn" onclick="Web2ProductsApp.goPage(${totalPages})">${totalPages}</button>`
-            );
-        }
-        html.push(
-            `<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur + 1})">›</button>`
-        );
-        html.push(
-            `<span class="page-info">${STATE.total.toLocaleString('vi-VN')} SP — trang ${cur}/${totalPages}</span>`
-        );
-        pag().innerHTML = html.join('');
+        // Thuật toán window/… + info dùng shared Web2Pagination (autoload qua sidebar).
+        pag().innerHTML = window.Web2Pagination.html({
+            current: STATE.page,
+            totalPages,
+            total: STATE.total,
+            onClick: (p) => `onclick="Web2ProductsApp.goPage(${p})"`,
+            infoText: (c, t, r) => `${r.toLocaleString('vi-VN')} SP — trang ${c}/${t}`,
+        });
     }
 
     function renderCounters() {

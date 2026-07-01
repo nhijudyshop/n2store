@@ -314,38 +314,15 @@
 
         function renderPagination() {
             const totalPages = Math.max(1, Math.ceil(STATE.total / STATE.limit));
-            const cur = STATE.page;
             const pag = root.querySelector('#w2pPagination');
-            const html = [];
-            html.push(
-                `<button class="page-btn" ${cur === 1 ? 'disabled' : ''} data-go="${cur - 1}">‹</button>`
-            );
-            const start = Math.max(1, cur - 2);
-            const end = Math.min(totalPages, start + 4);
-            if (start > 1) {
-                html.push(`<button class="page-btn" data-go="1">1</button>`);
-                if (start > 2) html.push(`<span class="page-info">…</span>`);
-            }
-            for (let p = start; p <= end; p++) {
-                html.push(
-                    `<button class="page-btn ${p === cur ? 'active' : ''}" data-go="${p}">${p}</button>`
-                );
-            }
-            if (end < totalPages) {
-                if (end < totalPages - 1) html.push(`<span class="page-info">…</span>`);
-                html.push(
-                    `<button class="page-btn" data-go="${totalPages}">${totalPages}</button>`
-                );
-            }
-            html.push(
-                `<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} data-go="${cur + 1}">›</button>`
-            );
-            html.push(
-                `<span class="page-info">${STATE.total.toLocaleString('vi-VN')} bản ghi — trang ${cur}/${totalPages}</span>`
-            );
-            pag.innerHTML = html.join('');
-            pag.querySelectorAll('button[data-go]').forEach((b) => {
-                b.addEventListener('click', () => goPage(parseInt(b.dataset.go, 10)));
+            if (!pag) return;
+            // Shared pager 1 nguồn (web2-pagination.js, autoload qua sidebar) —
+            // classes/click/info mặc định khớp byte-identical output cũ.
+            Web2Pagination.render(pag, {
+                current: STATE.page,
+                totalPages,
+                total: STATE.total,
+                onGo: goPage,
             });
         }
 
