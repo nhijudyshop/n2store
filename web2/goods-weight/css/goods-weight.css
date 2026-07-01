@@ -125,6 +125,30 @@ body {
     width: 34px;
     height: 34px;
 }
+/* 2 nút: Chụp ảnh (camera) + Tải ảnh lên (gallery/file) cạnh nhau */
+.gw-photo-actions {
+    display: flex;
+    gap: 10px;
+}
+.gw-photo-actions .gw-photo-btn {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    height: 116px;
+    font-size: 14px;
+}
+.gw-photo-actions .gw-photo-btn i {
+    width: 28px;
+    height: 28px;
+}
+.gw-upload-btn {
+    border-color: #cdd7e5;
+    background: #f7f9fc;
+    color: var(--c-text-2);
+}
+.gw-upload-btn:active {
+    background: #eceff4;
+}
 .gw-preview {
     position: relative;
     border-radius: var(--c-radius);

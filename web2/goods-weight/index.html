@@ -36,7 +36,7 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/goods-weight.css?v=20260701f" />
+        <link rel="stylesheet" href="./css/goods-weight.css?v=20260701g" />
     </head>
     <body>
         <header class="hd">
@@ -66,15 +66,22 @@
         <main class="wrap" id="panelLog">
             <!-- FORM ghi nhận -->
             <section class="gw-form" aria-label="Ghi nhận cân nặng">
-                <!-- Ảnh cân (chụp mặt cân) -->
+                <!-- Ảnh cân: chụp trực tiếp (camera) HOẶC tải ảnh có sẵn (gallery/file) -->
                 <input type="file" id="gwPhoto" accept="image/*" capture="environment" hidden />
-                <button type="button" class="gw-photo-btn" id="gwPhotoBtn">
-                    <i data-lucide="camera"></i>
-                    <span>Chụp ảnh mặt cân</span>
-                </button>
+                <input type="file" id="gwUpload" accept="image/*" hidden />
+                <div class="gw-photo-actions" id="gwPhotoBtns">
+                    <button type="button" class="gw-photo-btn" id="gwPhotoBtn">
+                        <i data-lucide="camera"></i>
+                        <span>Chụp ảnh mặt cân</span>
+                    </button>
+                    <button type="button" class="gw-photo-btn gw-upload-btn" id="gwUploadBtn">
+                        <i data-lucide="upload"></i>
+                        <span>Tải ảnh lên</span>
+                    </button>
+                </div>
                 <div class="gw-preview" id="gwPreview" hidden>
                     <img id="gwPreviewImg" alt="Ảnh cân" />
-                    <button type="button" class="gw-preview-x" id="gwPreviewX" title="Chụp lại">
+                    <button type="button" class="gw-preview-x" id="gwPreviewX" title="Đổi ảnh">
                         <i data-lucide="rotate-ccw"></i>
                     </button>
                 </div>
@@ -202,6 +209,6 @@
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
         <script src="../shared/web2-image-lightbox.js?v=20260629a"></script>
         <script src="../shared/web2-drawer.js?v=20260701a"></script>
-        <script src="./js/goods-weight.js?v=20260701f"></script>
+        <script src="./js/goods-weight.js?v=20260701g"></script>
     </body>
 </html>

@@ -2,6 +2,14 @@
 
 ## 2026-07-01
 
+### [goods-weight] Thêm nút "Tải ảnh lên" (gallery/file) cạnh "Chụp ảnh"
+
+**Files:** `web2/goods-weight/index.html` (2 input + `.gw-photo-actions`), `web2/goods-weight/js/goods-weight.js` (wire `gwUploadBtn`/`gwUpload`, toggle `#gwPhotoBtns`), `web2/goods-weight/css/goods-weight.css` (2 nút cạnh nhau), bump v=20260701g.
+
+Form Cân hàng trước chỉ `capture="environment"` (ép camera) → thêm input thứ 2 KHÔNG `capture` + nút "Tải ảnh lên" (icon upload) để chọn ảnh có sẵn từ gallery/máy. Cả 2 nút → chung `onPhoto` (nén + preview). Chọn ảnh → ẩn cả cụm nút; "Đổi ảnh" (x) → hiện lại.
+
+Status: ✅
+
 ### [goods-weight] Báo cáo: MỖI LẦN CÂN 1 dòng (bỏ gộp ngày) + full datetime giây
 
 **Files:** `web2/goods-weight/js/goods-weight.js` (rewrite `renderReport` per-capture, `startEditRow`/`saveEditRow`/`delRecord`, `fmtDateTime`, FMT +giây, bỏ day-drawer + `dayLabel`/`deleteDay`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (thead + bump css/js v=20260701f).

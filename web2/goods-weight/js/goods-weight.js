@@ -147,7 +147,7 @@
             pendingDataUrl = await compress(file);
             $('#gwPreviewImg').src = pendingDataUrl;
             $('#gwPreview').hidden = false;
-            $('#gwPhotoBtn').hidden = true;
+            $('#gwPhotoBtns').hidden = true;
         } catch (err) {
             toast('Lỗi ảnh: ' + err.message, 'err');
         }
@@ -156,7 +156,7 @@
         pendingDataUrl = null;
         $('#gwPreviewImg').src = '';
         $('#gwPreview').hidden = true;
-        $('#gwPhotoBtn').hidden = false;
+        $('#gwPhotoBtns').hidden = false;
     }
 
     // ---- save ----
@@ -644,6 +644,8 @@
         document.body.classList.toggle('rp-admin', isAdmin()); // cột Xoá chỉ admin thấy
         $('#gwPhotoBtn').addEventListener('click', () => $('#gwPhoto').click());
         $('#gwPhoto').addEventListener('change', onPhoto);
+        $('#gwUploadBtn').addEventListener('click', () => $('#gwUpload').click());
+        $('#gwUpload').addEventListener('change', onPhoto);
         $('#gwPreviewX').addEventListener('click', clearPhoto);
         $('#gwSave').addEventListener('click', save);
         $('#gwRefresh').addEventListener('click', load);
