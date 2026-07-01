@@ -2,6 +2,14 @@
 
 ## 2026-07-01
 
+### [overview] Thêm nút "Đăng xuất" trên trang giới thiệu Web 2.0
+
+**Files:** `web2/overview/index.html` (nav `.ov-nav-account` thêm `#ovLogoutBtn`, bump `overview.js?v=20260701logout`), `web2/overview/overview.js` (`wireLogout()` + gọi trong `boot`).
+
+Trang landing (login → đây) trước chỉ có chip tài khoản + nút "Vào hệ thống", không có đăng xuất. Thêm nút ghost "Đăng xuất" (icon `log-out`) cạnh nút Vào hệ thống → click gọi `Web2Auth.logout()` (invalidate session server + clear + redirect login), cùng nguồn với logout ở sidebar footer. Không viết lại logic auth.
+
+Status: ✅
+
 ### [goods-weight] Thanh lọc báo cáo → drawer (Web2Drawer edge-toggle "BỘ LỌC")
 
 **Files:** `web2/goods-weight/js/goods-weight.js` (`ensureFilterDrawer`/`showTab`/`selectMonth`/`setPreset`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (bump v=20260701c).

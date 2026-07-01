@@ -288,6 +288,19 @@
             });
     }
 
+    // ----- logout button → invalidate server session + clear + redirect login -----
+    function wireLogout() {
+        var btn = document.getElementById('ovLogoutBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            if (window.Web2Auth && window.Web2Auth.logout) {
+                window.Web2Auth.logout();
+            } else {
+                location.href = '../auth/login.html';
+            }
+        });
+    }
+
     // ----- single CTA → first page the user is allowed to open -----
     // "Trang đầu tiên user có quyền" = item ĐẦU TIÊN của nhóm hiển thị ĐẦU TIÊN
     // (visibleGroups đã lọc theo role/admin). Admin & NV hiện cùng nhóm đầu (Bán Hàng)
@@ -594,6 +607,7 @@
     function boot() {
         renderAccount();
         renderEnterButton();
+        wireLogout();
         renderStats();
         renderModules();
         if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
