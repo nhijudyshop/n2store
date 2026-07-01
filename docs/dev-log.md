@@ -2,6 +2,27 @@
 
 ## 2026-07-01
 
+### [web2-campaign] #2 cross-page cart merge + H4/MP1/CAMP-1 — gom 1 fix theo parent_campaign_id
+
+**Files:** `render.com/routes/native-orders.js` (cột + helper + from-comment merge/INSERT + /merge + migration 082 + fb_psids populate), `render.com/routes/v2/cart.js` (\_findDraft + \_batchCounts customer-aware cross-page).
+
+Gom nhóm shared-root (dev-log audit): 2 page (Store+House) chung 1 **chiến dịch CHA** → khách comment cả 2 page → **1 giỏ**. Cốt lõi: KEY THỐNG NHẤT theo `parent_campaign_id` (resolve từ `web2_live_post_assign` theo `fb_post_id`), thay `live_campaign_id` per-post (page-scoped).
+
+- **#2 (cross-page merge):** from-comment merge (tier-1 + late-in-lock) đổi key → identity `(customer_id OR fb_user_id)` + gate `(parent_campaign_id OR live_campaign_id)`. Khách có SĐT → `customer_id` cross-page → gộp 1 draft. Cột mới `native_orders.parent_campaign_id BIGINT` + index; self-heal COALESCE khi merge.
+- **H4/MP1/CAMP-1 (campaign_stt):** `campaign_stt` numbering + advisory lock + `/merge` đều key theo group THỐNG NHẤT `COALESCE(parent_campaign_id, name-group strip STORE/HOUSE, live_campaign_id, 'NO_CAMPAIGN')` (helper 1 nguồn `campaignGroupKeyJs` + `SQL_CAMPAIGN_GROUP_ROW`) → hết STT collision 2 page. `/merge` RE-RESOLVE parent tại merge-time (review HIGH-1, tránh stale).
+- **Cart layer cross-page (review HIGH-2):** draft gộp lưu `fb_user_id` = PSID page tạo đầu → op từ page khác (PSID khác, page-scoped) không tìm ra giỏ. Fix: populate `web2_customers.fb_psids {page:psid}` lúc tạo đơn; `cart._findDraft` + `_batchCounts` resolve customer_id từ PSID (fb_id | fb_psids) → tìm/hiển thị đúng giỏ đã gộp cả 2 chiều.
+- **Migration 082:** CHỈ backfill `parent_campaign_id` (KHÔNG re-number campaign_stt cũ — review HIGH-3: tránh vỡ KPI ranges `web2_kpi_assignments` lúc boot). Đơn mới tự MAX+1 theo group cha.
+
+Kiến trúc: dùng `web2_customers.customer_id` (cùng web2Db) làm khớa cross-page, KHÔNG cột `global_user_id` mới + cross-DB `fb_global_id_cache` (design doc cũ). Giới hạn còn: KH comment mới CHƯA có SĐT ở 2 page → chưa gộp (rơi page-scoped) — nâng sau bằng global_id/`ids_for_pages` (Business Manager có sẵn qua fb-posts).
+
+**Test:** Postgres local — STT grouping cross-page 6/6 PASS (parent 5: STORE+HOUSE→1,2; parent 6 reset; name-group fallback; live_id fallback); param `::bigint` fix (bắt bug column bigint vs $18::text); cart cross-page `_findDraft(PSID_house)` tìm ra giỏ gộp + same-page giữ nguyên. Adversarial review 23 agents → 7 confirmed, đã sửa 5 (HIGH-1/2/3, MED-4, LOW-5), LOW-6 không phải bug.
+
+**Còn (chưa làm):** KPI-2PAGE-1 (`kpi.js` re-key theo parent_campaign_id) = commit kế; #1 UI 1-luồng tạo+gán (fetch post 2 page Pancake) + gate admin; Web2CampaignManager; wire picker 3 trang (Bán hàng HĐ/Đối soát/Phiếu giao).
+
+⚠ Deploy Render mới hiệu lực (native-orders + cart). Beta data-safe.
+
+Status: ✅ (chờ deploy Render; part overhaul chiến dịch #2 + H4)
+
 ### [cham-cong] Giờ 24h + modal ngày: tick Vào/Ra tự chọn "Đi làm"
 
 **Files:** `web2/cham-cong/js/cham-cong-app.js` (fmt sync + `fmtEditTs` + modal wiring), `web2/cham-cong/js/cham-cong-payroll.js` (`fmtLockTime` + footer phiếu lương in).

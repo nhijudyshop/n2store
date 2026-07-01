@@ -231,7 +231,32 @@ function _buildProduct(input, qty, user, fbCommentId) {
     };
 }
 
-// Tìm draft native_order theo customerId (= fb_user_id).
+// #2 cross-page (2026-07-01): 1 KH có PSID KHÁC NHAU mỗi page (PSID FB page-scoped).
+// Draft có thể gộp cross-page (from-comment merge theo customer_id) nhưng lưu
+// fb_user_id = PSID của page tạo ĐẦU. Cart op (remove/patch/GET/counts) đến từ page
+// KHÁC dùng PSID khác → phải resolve web2 customer_id để tìm được draft đã gộp.
+// Nguồn map PSID→customer: web2_customers.fb_id (mặc định) HOẶC fb_psids {page:psid}
+// (populate lúc tạo đơn ở native-orders.js). Best-effort → null nếu KH lạ.
+async function _resolveWeb2CustomerId(pool, psid) {
+    if (!psid) return null;
+    try {
+        const r = await pool.query(
+            `SELECT id FROM web2_customers
+             WHERE fb_id = $1
+                OR EXISTS (
+                    SELECT 1 FROM jsonb_each_text(COALESCE(fb_psids, '{}'::jsonb)) e
+                    WHERE e.value = $1
+                )
+             LIMIT 1`,
+            [psid]
+        );
+        return r.rows[0]?.id ?? null;
+    } catch (_) {
+        return null;
+    }
+}
+
+// Tìm draft native_order theo PSID (= fb_user_id) HOẶC web2 customer_id (cross-page).
 // Đây là source of truth cho TPOS panel cart.
 // F1 fix (audit #4 2026-07-01): path /add TRUYỀN liveCampaignId → chỉ khớp draft CÙNG
 // chiến dịch (IS NOT DISTINCT FROM = null-safe). Trước đây tìm theo fb_user_id thôi →
@@ -239,15 +264,18 @@ function _buildProduct(input, qty, user, fbCommentId) {
 // (sai campaign_stt + KPI + filter). Khi không khớp (draft A ≠ campaign B) → caller
 // rơi xuống _createDraftViaFromComment tạo draft B mới, khớp semantics /from-comment.
 // campaignId === undefined (remove/clear/commit/counts) → hành vi cũ: mọi draft của KH.
+// #2: thêm nhánh customer_id → cart page-B tìm được giỏ đã gộp từ page-A.
 async function _findDraft(pool, customerId, campaignId) {
     const scoped = campaignId !== undefined;
+    const cid = await _resolveWeb2CustomerId(pool, customerId);
     const r = await pool.query(
         `SELECT * FROM native_orders
-         WHERE fb_user_id = $1 AND status = 'draft'
-         ${scoped ? 'AND live_campaign_id IS NOT DISTINCT FROM $2' : ''}
+         WHERE status = 'draft'
+           AND (fb_user_id = $1 OR ($2::bigint IS NOT NULL AND customer_id = $2))
+         ${scoped ? 'AND live_campaign_id IS NOT DISTINCT FROM $3' : ''}
          ORDER BY created_at DESC
          LIMIT 1`,
-        scoped ? [customerId, campaignId || null] : [customerId]
+        scoped ? [customerId, cid, campaignId || null] : [customerId, cid]
     );
     return r.rows[0] || null;
 }
@@ -324,20 +352,58 @@ router.get('/:commentId', async (req, res) => {
 });
 
 // Shared cho GET + POST /batch/counts — trả qty của draft order theo customer.
+// #2 cross-page: badge của PSID page-B phải phản ánh giỏ đã gộp (lưu dưới PSID page-A
+// cùng customer). Map mỗi PSID → web2 customer_id (fb_id | fb_psids), rồi tìm draft
+// theo (fb_user_id OR customer_id) và gán count về ĐÚNG PSID được hỏi.
 async function _batchCounts(pool, ids) {
     if (!ids.length) return {};
+    // 1) PSID → customer_id
+    const psidToCid = {};
+    try {
+        const cm = await pool.query(
+            `SELECT id, fb_id, fb_psids FROM web2_customers
+             WHERE fb_id = ANY($1::text[])
+                OR EXISTS (
+                    SELECT 1 FROM jsonb_each_text(COALESCE(fb_psids, '{}'::jsonb)) e
+                    WHERE e.value = ANY($1::text[])
+                )`,
+            [ids]
+        );
+        const idSet = new Set(ids);
+        for (const row of cm.rows) {
+            if (row.fb_id && idSet.has(row.fb_id)) psidToCid[row.fb_id] = row.id;
+            for (const psid of Object.values(row.fb_psids || {})) {
+                if (idSet.has(psid)) psidToCid[psid] = row.id;
+            }
+        }
+    } catch (_) {
+        /* web2_customers thiếu / lỗi → chỉ khớp theo fb_user_id */
+    }
+    const cids = [...new Set(Object.values(psidToCid))];
+    // 2) draft theo (fb_user_id ∈ ids) OR (customer_id ∈ cids)
     const r = await pool.query(
-        `SELECT fb_user_id, products, total_quantity
+        `SELECT fb_user_id, customer_id, products, total_quantity
          FROM native_orders
-         WHERE fb_user_id = ANY($1::text[]) AND status = 'draft'`,
-        [ids]
+         WHERE status = 'draft'
+           AND (fb_user_id = ANY($1::text[])
+                OR ($2::bigint[] IS NOT NULL AND customer_id = ANY($2::bigint[])))`,
+        [ids, cids.length ? cids : null]
     );
-    const counts = {};
+    const byPsid = {};
+    const byCid = {};
     for (const row of r.rows) {
-        const fbUid = row.fb_user_id;
         const products = Array.isArray(row.products) ? row.products : [];
         const totalQty = Number(row.total_quantity) || products.reduce((s, p) => s + _qtyOf(p), 0);
-        counts[fbUid] = { items: products.length, qty: totalQty };
+        const val = { items: products.length, qty: totalQty };
+        if (row.fb_user_id) byPsid[row.fb_user_id] = val;
+        if (row.customer_id != null) byCid[row.customer_id] = val;
+    }
+    // 3) gán về PSID được hỏi (ưu tiên draft trực tiếp theo PSID, fallback customer)
+    const counts = {};
+    for (const psid of ids) {
+        const cid = psidToCid[psid];
+        const val = byPsid[psid] || (cid != null ? byCid[cid] : null);
+        if (val) counts[psid] = val;
     }
     return counts;
 }

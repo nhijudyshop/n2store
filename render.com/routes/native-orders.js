@@ -509,17 +509,19 @@ async function ensureTables(pool) {
                 END IF;
             END $$;
         `);
-        // Migration 082 (#2 + H4): backfill parent_campaign_id từ web2_live_post_assign
-        // rồi RE-NUMBER campaign_stt theo group key mới (parent → name-group → live_id).
-        // Beta data-safe (user chốt 2026-07-01): đơn cũ được đánh lại STT theo cha.
-        // Self-gated; guard bảng post_assign chưa tồn tại (fresh DB).
+        // Migration 082 (#2 + H4): CHỈ backfill parent_campaign_id từ web2_live_post_assign.
+        // KHÔNG re-number campaign_stt của đơn CŨ — vì web2_kpi_assignments (KPI) đang
+        // key theo (live_campaign_name + campaign_stt range); đổi STT cũ sẽ vỡ attribution
+        // NGAY lúc boot (review HIGH-3). Đơn MỚI tự numbering theo group cha (MAX+1 đã
+        // đếm cả đơn cũ đã backfill parent). Re-number sạch để dành commit KPI (cùng
+        // lúc re-key KPI theo parent_campaign_id). Self-gated; guard post_assign fresh DB.
         await pool.query(`
             DO $$
-            DECLARE r RECORD; current_group TEXT; counter INTEGER; has_assign BOOLEAN;
+            DECLARE has_assign BOOLEAN;
             BEGIN
                 IF NOT EXISTS (
                     SELECT 1 FROM native_orders_migrations
-                    WHERE name = '082_parent_campaign_and_stt_rekey'
+                    WHERE name = '082_backfill_parent_campaign'
                 ) THEN
                     SELECT EXISTS (
                         SELECT 1 FROM information_schema.tables
@@ -533,29 +535,15 @@ async function ensureTables(pool) {
                           AND o.parent_campaign_id IS NULL
                           AND pa.campaign_id IS NOT NULL;
                     END IF;
-                    current_group := NULL; counter := 0;
-                    FOR r IN
-                        SELECT id, COALESCE(
-                            NULLIF(parent_campaign_id::text, ''),
-                            NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
-                            live_campaign_id, 'NO_CAMPAIGN') AS grp
-                        FROM native_orders
-                        ORDER BY 2, created_at ASC
-                    LOOP
-                        IF current_group IS DISTINCT FROM r.grp THEN
-                            current_group := r.grp; counter := 1;
-                        ELSE
-                            counter := counter + 1;
-                        END IF;
-                        UPDATE native_orders SET campaign_stt = counter WHERE id = r.id;
-                    END LOOP;
-                    INSERT INTO native_orders_migrations(name) VALUES ('082_parent_campaign_and_stt_rekey');
+                    INSERT INTO native_orders_migrations(name) VALUES ('082_backfill_parent_campaign');
                 END IF;
             END $$;
         `);
 
         _ensuredPools.add(pool);
-        console.log('[NATIVE-ORDERS] Tables created/verified (migration 080: campaign_stt)');
+        console.log(
+            '[NATIVE-ORDERS] Tables created/verified (migration 082: parent_campaign_id backfill)'
+        );
     } catch (error) {
         console.error('[NATIVE-ORDERS] Table creation error:', error.message);
     }
@@ -1017,6 +1005,21 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
             }
         }
 
+        // #2 cross-page (2026-07-01): ghi PSID theo page vào web2_customers.fb_psids
+        // {page_id: psid}. PSID FB là page-scoped (1 người = PSID khác nhau mỗi page)
+        // → nhờ map này cart ops (GET/counts/remove/patch) đến từ page KHÁC resolve
+        // được cùng customer_id → thao tác đúng giỏ đã gộp. Fire-and-forget.
+        if (customerId && b.fbPageId && b.fbUserId) {
+            pool.query(
+                `UPDATE web2_customers
+                 SET fb_psids = COALESCE(fb_psids, '{}'::jsonb)
+                     || jsonb_build_object($2::text, $3::text)
+                 WHERE id = $1
+                   AND COALESCE(fb_psids->>$2::text, '') <> $3::text`,
+                [customerId, b.fbPageId, b.fbUserId]
+            ).catch(() => {});
+        }
+
         // ============================================================
         // MERGE LOGIC (Feature 2 + #2 cross-page): nếu khách đã có đơn
         // DRAFT trong CHIẾN DỊCH CHA hiện tại → append comment + message
@@ -1174,7 +1177,8 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                                  fb_page_name = COALESCE(fb_page_name, $8),
                                  fb_post_id = COALESCE(fb_post_id, $9),
                                  fb_comment_id = COALESCE(fb_comment_id, $10),
-                                 parent_campaign_id = COALESCE(parent_campaign_id, $11),
+                                 live_campaign_name = COALESCE(live_campaign_name, $11),
+                                 parent_campaign_id = COALESCE(parent_campaign_id, $12),
                                  updated_at = $3
                              WHERE id = $4 RETURNING *`,
                             [
@@ -1188,6 +1192,7 @@ router.post('/from-comment', requireWeb2AuthSoft, async (req, res) => {
                                 b.fbPageName || null,
                                 b.fbPostId || null,
                                 b.fbCommentId || null,
+                                b.liveCampaignName || null,
                                 parentCampaignId,
                             ]
                         );
@@ -2951,13 +2956,16 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
         // H14 + #2 (2026-07-01): advisory lock + subquery MAX+1 dùng group key
         // THỐNG NHẤT (parent_campaign_id → name-group → live_campaign_id) như
         // from-comment → merge KHÔNG còn cấp STT lệch scope 1 page (bug MP1/CAMP-1).
+        // HIGH-1 (review): RE-RESOLVE parent CHA từ bài (base.parent_campaign_id có thể
+        // stale nếu bài được gán cha SAU khi đơn nguồn tạo) → lock key + subquery khớp
+        // đúng source-of-truth như from-comment (tránh STT collision dưới concurrency).
+        const mergeParentId =
+            base.parent_campaign_id != null
+                ? base.parent_campaign_id
+                : await resolveParentCampaignId(client, base.fb_post_id);
         await lockCampaignSttKey(
             client,
-            campaignGroupKeyJs(
-                base.parent_campaign_id,
-                base.live_campaign_name,
-                base.live_campaign_id
-            )
+            campaignGroupKeyJs(mergeParentId, base.live_campaign_name, base.live_campaign_id)
         );
         // C7: mã NJ (giờ VN) MAX-based + retry 23505 qua SAVEPOINT — COUNT+1 cũ
         // sinh mã trùng vì /merge DELETE đơn nguồn làm COUNT < MAX.
@@ -3010,7 +3018,7 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
                     base.created_by,
                     base.created_by_name,
                     now,
-                    base.parent_campaign_id,
+                    mergeParentId,
                 ]
             )
         );
