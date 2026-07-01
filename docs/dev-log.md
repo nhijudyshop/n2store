@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [web2-campaign-manager] Trang MỚI quản lý chiến dịch (CRUD + tạo+gán bài FB 1 luồng) — gồm #1
+
+**Files:** `web2/campaign-manager/index.html` + `css/campaign-manager.css` + `js/campaign-manager.js` (MỚI), `web2/shared/web2-sidebar.js` (+menu "Quản lý chiến dịch" adminOnly group Cấu hình).
+
+Trang riêng `web2/campaign-manager/` quản lý chiến dịch CHA (span 2 page) tập trung. TÁI DÙNG shared 100%: `Web2Campaign`, `Web2Sidebar`, `Web2Auth`+`Web2Perm` (gate admin), `Web2Chat` (fetch bài Pancake), `Popup`, `notificationManager`.
+
+- **2 cột:** trái = list chiến dịch (tên/#bài/#comment); phải = chi tiết (bài đã gán + gỡ) / form tạo.
+- **Tạo+gán 1 luồng (#1):** nhập tên → tick nhiều bài FB (fetch TRỰC TIẾP 2 page Pancake `Web2Chat.getJwt`+`listPages`+`/api/pancake/pages/{id}/posts` lọc livestream; fallback `listPagePosts`) → Lưu = `create`+`assignPost` từng bài. Badge "↔ tên" nếu bài thuộc chiến dịch khác.
+- **Gán thêm/gỡ bài** + **Xóa** chiến dịch (admin, confirm). Gate admin: `Web2Perm` page-guard + `adminOnly` sidebar + ẩn nút. Realtime `Web2Campaign.subscribe` (SSE) debounce 500ms. Bỏ "Sửa tên" (backend chưa có PATCH — YAGNI). GMT+7.
+
+**Browser-test (localhost admin+ext):** ✅ landed web2 logged-in, sidebar+menu render, 6 chiến dịch load, detail 2 bài + xóa, form tạo + picker, **0 console error**. Picker 0 bài do test-browser chưa cấu hình token Pancake (jwt null) → fallback đúng.
+
+Status: ✅ (GitHub Pages; Web2CampaignManager + #1)
+
 ### [cham-cong] Bảng lương redesign: sửa inline + icon 📅🖨 + lịch chấm công + sort + nhớ tab
 
 **Files:** `web2/cham-cong/js/cham-cong-payroll.js`, `cham-cong-salary.js` (override tiền OT), `cham-cong-app.js` (nhớ tab), `css/cham-cong.css`, `render.com/routes/web2-attendance.js` (cột `lam_them_override`).

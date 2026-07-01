@@ -1,0 +1,463 @@
+/* #Note: WEB2.0 module — Quản lý chiến dịch livestream. Style riêng trang. */
+:root {
+    --cm-accent: #0068ff;
+    --cm-accent-dark: #0052cc;
+    --cm-surface: #ffffff;
+    --cm-bg: #f4f6fb;
+    --cm-border: #e4e8f0;
+    --cm-text: #1a2233;
+    --cm-muted: #6b7688;
+    --cm-live: #e11d48;
+    --cm-radius: 12px;
+    --cm-shadow-1: 0 1px 3px rgba(20, 30, 60, 0.08);
+    --cm-shadow-2: 0 8px 24px rgba(20, 30, 60, 0.12);
+    --cm-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cm-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px 60px;
+}
+
+/* ---- Header ---- */
+.cm-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.cm-head-titles h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: clamp(1.3rem, 1rem + 1.2vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--cm-text);
+}
+.cm-head-titles h1 i {
+    color: var(--cm-accent);
+    width: 1.1em;
+    height: 1.1em;
+}
+.cm-head-titles p {
+    margin: 6px 0 0;
+    color: var(--cm-muted);
+    font-size: 0.88rem;
+    max-width: 60ch;
+    line-height: 1.5;
+}
+.cm-head-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* ---- Buttons ---- */
+.cm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        transform var(--cm-ease) 0.18s,
+        background 0.15s,
+        box-shadow 0.15s;
+    font-family: inherit;
+}
+.cm-btn i {
+    width: 1em;
+    height: 1em;
+}
+.cm-btn-primary {
+    background: var(--cm-accent);
+    color: #fff;
+    box-shadow: var(--cm-shadow-1);
+}
+.cm-btn-primary:hover {
+    background: var(--cm-accent-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--cm-shadow-2);
+}
+.cm-btn-ghost {
+    background: var(--cm-surface);
+    border-color: var(--cm-border);
+    color: var(--cm-text);
+    padding: 9px 11px;
+}
+.cm-btn-ghost:hover {
+    border-color: var(--cm-accent);
+    color: var(--cm-accent);
+}
+.cm-btn-danger {
+    background: transparent;
+    border-color: transparent;
+    color: var(--cm-live);
+    padding: 7px 10px;
+}
+.cm-btn-danger:hover {
+    background: rgba(225, 29, 72, 0.08);
+}
+.cm-btn-sm {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+.cm-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* ---- Body: 2 cột ---- */
+.cm-body {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 18px;
+    align-items: start;
+}
+@media (max-width: 860px) {
+    .cm-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---- Cột danh sách ---- */
+.cm-list-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px 10px;
+    font-weight: 700;
+    color: var(--cm-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.cm-count-pill {
+    background: var(--cm-accent);
+    color: #fff;
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-size: 0.75rem;
+}
+.cm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cm-card {
+    background: var(--cm-surface);
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius);
+    padding: 13px 15px;
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.18s var(--cm-ease),
+        transform 0.18s var(--cm-ease);
+    position: relative;
+}
+.cm-card:hover {
+    border-color: var(--cm-accent);
+    box-shadow: var(--cm-shadow-1);
+    transform: translateY(-1px);
+}
+.cm-card.is-active {
+    border-color: var(--cm-accent);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.15);
+}
+.cm-card-name {
+    font-weight: 700;
+    color: var(--cm-text);
+    font-size: 0.98rem;
+    margin-bottom: 5px;
+    word-break: break-word;
+}
+.cm-card-meta {
+    display: flex;
+    gap: 12px;
+    color: var(--cm-muted);
+    font-size: 0.8rem;
+}
+.cm-card-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.cm-card-meta i {
+    width: 0.9em;
+    height: 0.9em;
+}
+
+/* ---- Cột chi tiết ---- */
+.cm-detail-col {
+    background: var(--cm-surface);
+    border: 1px solid var(--cm-border);
+    border-radius: 16px;
+    min-height: 420px;
+    box-shadow: var(--cm-shadow-1);
+    overflow: hidden;
+}
+.cm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 420px;
+    color: var(--cm-muted);
+    text-align: center;
+    padding: 24px;
+}
+.cm-empty i {
+    width: 48px;
+    height: 48px;
+    color: var(--cm-border);
+}
+.cm-detail-inner {
+    padding: 20px 22px;
+}
+.cm-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--cm-border);
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+}
+.cm-detail-head h2 {
+    margin: 0 0 4px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--cm-text);
+    word-break: break-word;
+}
+.cm-detail-head .cm-note {
+    color: var(--cm-muted);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+.cm-detail-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.cm-section-label {
+    font-weight: 700;
+    color: var(--cm-text);
+    font-size: 0.92rem;
+    margin: 4px 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* ---- Form tạo ---- */
+.cm-field {
+    margin-bottom: 14px;
+}
+.cm-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.84rem;
+    color: var(--cm-text);
+    margin-bottom: 5px;
+}
+.cm-input,
+.cm-textarea {
+    width: 100%;
+    border: 1px solid var(--cm-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    color: var(--cm-text);
+    background: var(--cm-bg);
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+    box-sizing: border-box;
+}
+.cm-input:focus,
+.cm-textarea:focus {
+    outline: none;
+    border-color: var(--cm-accent);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
+    background: #fff;
+}
+.cm-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* ---- Post picker ---- */
+.cm-posts-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.cm-posts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 46vh;
+    overflow: auto;
+    padding: 2px;
+    overscroll-behavior: contain;
+}
+.cm-post {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    border: 1px solid var(--cm-border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    background: var(--cm-surface);
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
+    content-visibility: auto;
+}
+.cm-post:hover {
+    border-color: var(--cm-accent);
+    background: #f7faff;
+}
+.cm-post.is-picked {
+    border-color: var(--cm-accent);
+    background: #eef5ff;
+}
+.cm-post-check {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--cm-accent);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.cm-post-body {
+    min-width: 0;
+    flex: 1;
+}
+.cm-post-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--cm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cm-post-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+    font-size: 0.76rem;
+    color: var(--cm-muted);
+    flex-wrap: wrap;
+}
+.cm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #eef1f6;
+    color: var(--cm-muted);
+}
+.cm-badge-page {
+    background: rgba(0, 104, 255, 0.1);
+    color: var(--cm-accent);
+}
+.cm-badge-live {
+    background: rgba(225, 29, 72, 0.12);
+    color: var(--cm-live);
+}
+.cm-badge-live::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cm-live);
+    animation: cm-pulse 1.4s infinite;
+}
+@keyframes cm-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.35;
+    }
+}
+.cm-badge-owned {
+    background: #fff4e5;
+    color: #b25e00;
+}
+
+/* ---- Assigned post rows ---- */
+.cm-assigned {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 18px;
+}
+.cm-assigned-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--cm-border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    background: var(--cm-bg);
+}
+.cm-assigned-row .cm-post-body {
+    flex: 1;
+}
+
+.cm-form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+    border-top: 1px solid var(--cm-border);
+    padding-top: 14px;
+}
+.cm-hint {
+    color: var(--cm-muted);
+    font-size: 0.82rem;
+    padding: 14px;
+    text-align: center;
+}
+.cm-hint.is-error {
+    color: var(--cm-live);
+}
+
+/* readonly (non-admin) */
+.cm-readonly-note {
+    background: #fff8e6;
+    border: 1px solid #ffe2a8;
+    color: #8a5a00;
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: 0.82rem;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

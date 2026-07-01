@@ -376,6 +376,13 @@
                     // chọn nhiều loại = bộ. Dùng ở Kho SP + Sổ Order.
                 },
                 {
+                    label: 'Quản lý chiến dịch',
+                    icon: 'megaphone',
+                    our: '../web2/campaign-manager/index.html',
+                    adminOnly: true,
+                    // Web 2.0-only — CRUD chiến dịch CHA (span 2 page) + gán bài FB 1 luồng.
+                },
+                {
                     label: 'Lấy comment Live (poller)',
                     icon: 'radio',
                     our: '../web2/livestream-poller/index.html',

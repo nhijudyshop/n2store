@@ -1,0 +1,84 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Quản lý chiến dịch livestream (CHA span 2 page) + gán bài FB 1 luồng. Admin-only. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản lý chiến dịch livestream — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260701" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260701" />
+        <link rel="stylesheet" href="css/campaign-manager.css?v=20260701" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+    </head>
+    <body>
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main>
+                <div class="cm-wrap">
+                    <header class="cm-head">
+                        <div class="cm-head-titles">
+                            <h1><i data-lucide="megaphone"></i> Quản lý chiến dịch livestream</h1>
+                            <p>
+                                Chiến dịch CHA gộp nhiều bài Facebook của cả 2 page (Store + House)
+                                → gộp giỏ / STT / KPI cross-page.
+                            </p>
+                        </div>
+                        <div class="cm-head-actions">
+                            <button class="cm-btn cm-btn-ghost" id="cmRefresh" title="Tải lại">
+                                <i data-lucide="refresh-cw"></i>
+                            </button>
+                            <button class="cm-btn cm-btn-primary" id="cmNewBtn">
+                                <i data-lucide="plus"></i> Tạo chiến dịch
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="cm-body">
+                        <!-- Cột trái: danh sách chiến dịch -->
+                        <section class="cm-list-col">
+                            <div class="cm-list-head">
+                                <span>Chiến dịch</span>
+                                <span class="cm-count-pill" id="cmListCount">0</span>
+                            </div>
+                            <div class="cm-list" id="cmList"></div>
+                        </section>
+
+                        <!-- Cột phải: chi tiết / tạo -->
+                        <section class="cm-detail-col" id="cmDetail">
+                            <div class="cm-empty" id="cmEmpty">
+                                <i data-lucide="megaphone"></i>
+                                <p>Chọn 1 chiến dịch bên trái, hoặc bấm “Tạo chiến dịch”.</p>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Shared -->
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+        <script src="../shared/web2-auth.js?v=20260701"></script>
+        <script src="../shared/web2-escape.js?v=20260701"></script>
+        <script src="../shared/web2-format.js?v=20260701"></script>
+        <script src="../shared/popup.js?v=20260701"></script>
+        <script src="../shared/web2-perm.js?v=20260701"></script>
+        <script src="../shared/web2-sidebar.js?v=20260701"></script>
+        <script src="../shared/web2-skeleton.js?v=20260701"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260701"></script>
+        <script src="../shared/web2-campaign.js?v=20260701"></script>
+
+        <!-- Web2Chat stack — fetch bài livestream TRỰC TIẾP từ 2 page Pancake -->
+        <script src="../shared/web2-chat-utils.js?v=20260701"></script>
+        <script src="../shared/web2-chat-tokens.js?v=20260701"></script>
+        <script src="../shared/web2-chat-settings.js?v=20260701"></script>
+        <script src="../shared/web2-chat-api.js?v=20260701"></script>
+        <script src="../shared/web2-chat-live.js?v=20260701"></script>
+        <script src="../shared/web2-chat-tags.js?v=20260701"></script>
+        <script src="../shared/web2-chat-client.js?v=20260701"></script>
+
+        <script src="js/campaign-manager.js?v=20260701"></script>
+    </body>
+</html>
