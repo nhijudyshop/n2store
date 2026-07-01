@@ -2,6 +2,21 @@
 
 ## 2026-07-01
 
+### [cart/live-control] Audit #4/#5 drag→giỏ: F1 kéo SP thả sai chiến dịch + M7 SSE clobber board
+
+**Files:** `render.com/routes/v2/cart.js` (F1: `_findDraft` thêm param campaignId; path `/add` scope theo `fbContext.liveCampaignId`), `web2/live-control/js/live-control.js` (M7: `_boardOpBegin/_boardOpEnd` guard, `loadBoard` hoãn khi op đang bay, backstop 5s; bump v).
+
+Audit đa-agent 2 luồng drag→giỏ (workflow 12 agents): live-chat kéo card SP (inventory-panel `x-web2-product`) → drop comment → giỏ (draft); live-control board drag/pin/GIỎ.
+
+- **F1 (HIGH, ĐÃ SỬA):** kéo SP thả vào KH đang có draft mở ở chiến dịch A, mà SP thuộc chiến dịch B → `_findDraft` (cart.js) tìm theo `fb_user_id` THÔI (bỏ campaign) → nối SP vào draft A → sai campaign_stt + KPI + filter. Fix: `/add` truyền `liveCampaignId`, `_findDraft` scope `live_campaign_id IS NOT DISTINCT FROM $2`; khác chiến dịch → rơi xuống `_createDraftViaFromComment` tạo draft B mới (khớp semantics /from-comment). Path remove/clear/commit/counts giữ hành vi cũ (không truyền campaignId).
+- **M7 (MEDIUM, ĐÃ SỬA):** SSE `loadBoard()` ghi đè `state.board` vô điều kiện → lúc live (native-orders SSE bắn liên tục) reload đè optimistic reorder/pin đang bay → card nhảy. Fix: cờ `_boardOpInFlight` (set trong apply, clear onSuccess/rollback) → loadBoard hoãn (re-arm scheduleBoard) khi đang op; backstop 5s chống kẹt.
+
+Còn (LOW, chưa sửa): cart badge items drift, rollback số GIỎ stale, multi-variant pin/remove non-atomic (F3), removeProduct no-undo. Xem `wuzkqyeno` audit.
+
+⚠ F1 = deploy Render. M7 chạy ngay GitHub Pages. Syntax OK cả 2.
+
+Status: ✅ (F1 chờ deploy Render)
+
 ### [web2-live-comments] #1 khóa CRUD/gán chiến dịch về ADMIN + M1 delete transactional cascade + L2
 
 **Files:** `render.com/routes/web2-live-comments.js` (POST/DELETE `/campaigns`, POST `/campaigns/:id/assign`, POST `/unassign` đổi `requireWeb2AuthSoft`→`requireWeb2Admin`; DELETE bọc transaction + cascade dọn `web2_campaign_products`+`web2_live_tv_control`+DELETE post_assign; POST create thêm giới hạn name ≤120).

@@ -233,13 +233,21 @@ function _buildProduct(input, qty, user, fbCommentId) {
 
 // Tìm draft native_order theo customerId (= fb_user_id).
 // Đây là source of truth cho TPOS panel cart.
-async function _findDraft(pool, customerId) {
+// F1 fix (audit #4 2026-07-01): path /add TRUYỀN liveCampaignId → chỉ khớp draft CÙNG
+// chiến dịch (IS NOT DISTINCT FROM = null-safe). Trước đây tìm theo fb_user_id thôi →
+// kéo SP của chiến dịch B vào KH đang có draft mở ở chiến dịch A bị NỐI NHẦM vào A
+// (sai campaign_stt + KPI + filter). Khi không khớp (draft A ≠ campaign B) → caller
+// rơi xuống _createDraftViaFromComment tạo draft B mới, khớp semantics /from-comment.
+// campaignId === undefined (remove/clear/commit/counts) → hành vi cũ: mọi draft của KH.
+async function _findDraft(pool, customerId, campaignId) {
+    const scoped = campaignId !== undefined;
     const r = await pool.query(
         `SELECT * FROM native_orders
          WHERE fb_user_id = $1 AND status = 'draft'
+         ${scoped ? 'AND live_campaign_id IS NOT DISTINCT FROM $2' : ''}
          ORDER BY created_at DESC
          LIMIT 1`,
-        [customerId]
+        scoped ? [customerId, campaignId || null] : [customerId]
     );
     return r.rows[0] || null;
 }
@@ -414,8 +422,9 @@ router.post('/:commentId/add', requireWeb2AuthSoft, async (req, res) => {
         const qtyAdd = Math.min(MAX_LINE_QTY, Math.max(1, Number(b.qty) || 1));
         const customerId = req.params.commentId;
 
-        // 1. Lấy hoặc tạo draft
-        let draft = await _findDraft(pool, customerId);
+        // 1. Lấy hoặc tạo draft — SCOPE theo chiến dịch của comment bị thả vào (F1):
+        // draft khác chiến dịch → coi như chưa có → tạo draft mới cho ĐÚNG chiến dịch.
+        let draft = await _findDraft(pool, customerId, b.fbContext?.liveCampaignId || null);
         if (!draft) {
             const order = await _createDraftViaFromComment(
                 req,

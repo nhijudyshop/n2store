@@ -115,6 +115,14 @@
     // ── Board (SP trong chiến dịch) ───────────────────
     async function loadBoard() {
         if (!state.campaignId) return;
+        // M7 fix (audit #5 2026-07-01): đang có thao tác board optimistic (reorder/pin/
+        // remove) CHƯA xong → KHÔNG ghi đè state.board. Lúc live, SSE web2:native-orders/
+        // products bắn liên tục → reload có thể đè optimistic đang bay làm card NHẢY.
+        // Hoãn tới khi op xong (onSuccess tự loadBoard reconcile).
+        if (state._boardOpInFlight) {
+            scheduleBoard();
+            return;
+        }
         // Skeleton chỉ ở lần tải đầu (board đang trống) — không nháy khi re-poll.
         if (!state.board.length) {
             if (window.Web2Skeleton) {
@@ -308,13 +316,18 @@
             window.Web2Optimistic.run({
                 snapshot: () => snap,
                 apply: () => {
+                    _boardOpBegin(); // M7: chặn loadBoard đè optimistic đang bay
                     state.board = nextBoard;
                     renderBoard();
                     renderTvCtl();
                 },
                 run: () => runBoardOp(op, g),
-                onSuccess: () => loadBoard(),
+                onSuccess: () => {
+                    _boardOpEnd();
+                    loadBoard();
+                },
                 rollback: (s) => {
+                    _boardOpEnd();
                     state.board = s;
                     renderBoard();
                     renderTvCtl();
@@ -324,9 +337,30 @@
             return;
         }
         // Legacy await path (Web2Optimistic chưa load).
+        _boardOpBegin();
         runBoardOp(op, g)
-            .then(loadBoard)
-            .catch((e) => toast('Lỗi: ' + (e && e.message), 'error'));
+            .then(() => {
+                _boardOpEnd();
+                return loadBoard();
+            })
+            .catch((e) => {
+                _boardOpEnd();
+                toast('Lỗi: ' + (e && e.message), 'error');
+            });
+    }
+
+    // M7 guard: đánh dấu đang có thao tác board optimistic + backstop 5s (nếu run()
+    // treo không gọi onSuccess/rollback → cờ vẫn tự nhả, board không kẹt stale).
+    function _boardOpBegin() {
+        state._boardOpInFlight = true;
+        clearTimeout(state._boardOpTimer);
+        state._boardOpTimer = setTimeout(function () {
+            state._boardOpInFlight = false;
+        }, 5000);
+    }
+    function _boardOpEnd() {
+        clearTimeout(state._boardOpTimer);
+        state._boardOpInFlight = false;
     }
 
     // 2026-06-30 (#2): BỎ savePending — NCC không còn gõ tay trên board. Sổ Order là
