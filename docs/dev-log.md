@@ -22,7 +22,7 @@ Bối cảnh (debug live): free Gemini web (cookie máy Bo) tạo ảnh **quá c
 - `paidImage`: loop 2 lần, retry khi 5xx/"unavailable/overload" (transient Gemini 503), KHÔNG retry 429/403/400.
 - Worker: chỉ nới `/api/web2-ai/*`; mutation khác giữ 15s. **CẦN deploy worker** (`cd cloudflare-worker && npm run deploy`) để img2img paid không 502.
 - Verify browser (admin): text→ảnh paid-first ra ảnh 1.5MB ~14s tag 🍌; img2img qua worker 15.3s OK (sát mép — deploy để chắc).
-- ✨ widget `web2-tryon.js` là fork riêng (staff=free auto, admin chọn paid) → **CHƯA đổi**, chờ user quyết.
+- ✨ widget `web2-tryon.js`: user duyệt đổi luôn → `'auto'` (mặc định + staff) giờ **paid-first → free backup**; giữ lựa chọn thủ công admin (`acc:` free account cụ thể, `paid` only). `callPaidNano` thêm retry 503. Nhãn selector + comment cập nhật. Bump v=20260701a. ⚠ Staff try-on giờ tốn Nano Banana (cap 50/ngày/user rồi mới free).
 
 Status: 🔄 frontend committed; worker code sửa xong **chưa deploy**.
 

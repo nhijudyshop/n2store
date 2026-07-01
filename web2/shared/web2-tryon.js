@@ -394,8 +394,8 @@
             }
             populateSrc();
         }
-        // ADMIN chọn nguồn: tự động (xoay tua free) · account cụ thể · Nano Banana TRẢ PHÍ.
-        // Nhân viên KHÔNG thấy selector → luôn dùng free auto (không lỡ tay tốn tiền).
+        // ADMIN chọn nguồn: tự động (PAID trước, hết lượt → free) · account free cụ thể · Nano Banana TRẢ PHÍ.
+        // Nhân viên KHÔNG thấy selector → luôn 'auto' = paid-first (nhanh/ổn), hết quota/ngày (50) mới free.
         async function populateSrc() {
             const wrap = $('.w2t-srv-src');
             const sel = $('.w2t-src');
@@ -405,7 +405,8 @@
                 return;
             }
             wrap.hidden = false;
-            let opts = '<option value="auto">🔄 Tự động — máy free (xoay tua)</option>';
+            let opts =
+                '<option value="auto">🍌 Tự động — Nano Banana trả phí trước, hết lượt → free máy Bo</option>';
             if (geminiUrl) {
                 try {
                     const r = await fetch(geminiUrl + '/health', {
@@ -627,27 +628,39 @@
             }
             throw lastErr;
         }
-        // Gọi Nano Banana TRẢ PHÍ (backend /api/web2-ai/image) — fallback khi không có máy free.
+        // Gọi Nano Banana TRẢ PHÍ (backend /api/web2-ai/image) — path CHÍNH cho ảnh (paid-first).
+        // Retry 1 lần khi Gemini 503/quá tải (transient); 429/403 → gắn _quota để caller fallback FREE.
         async function callPaidNano(promptText, images) {
-            const r = await fetch(API() + '/image', {
-                method: 'POST',
-                headers: authHeaders(true),
-                body: JSON.stringify({
-                    provider: 'gemini',
-                    model: 'gemini-2.5-flash-image',
-                    prompt: promptText,
-                    images,
-                }),
-                signal: AbortSignal.timeout(120000),
-            });
-            if (r.status === 401) {
-                if (global.Web2Auth?.requireAuth)
-                    setTimeout(() => global.Web2Auth.requireAuth(), 1200);
-                throw new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
+            let lastErr;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const r = await fetch(API() + '/image', {
+                    method: 'POST',
+                    headers: authHeaders(true),
+                    body: JSON.stringify({
+                        provider: 'gemini',
+                        model: 'gemini-2.5-flash-image',
+                        prompt: promptText,
+                        images,
+                    }),
+                    signal: AbortSignal.timeout(120000),
+                });
+                if (r.status === 401) {
+                    if (global.Web2Auth?.requireAuth)
+                        setTimeout(() => global.Web2Auth.requireAuth(), 1200);
+                    throw new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
+                }
+                const j = await r.json().catch(() => ({}));
+                if (j.ok) return j.url || j.dataUrl;
+                lastErr = Object.assign(new Error(j.error || 'Ghép đồ thất bại'), {
+                    _quota: r.status === 429 || r.status === 403, // hết lượt/thiếu quyền → fallback FREE
+                });
+                const transient =
+                    !lastErr._quota &&
+                    (r.status >= 500 || /unavailable|overload|try again/i.test(j.error || ''));
+                if (!transient || attempt >= 1) throw lastErr;
+                await new Promise((res) => setTimeout(res, 800));
             }
-            const j = await r.json();
-            if (!j.ok) throw new Error(j.error || 'Ghép đồ thất bại');
-            return j.url || j.dataUrl;
+            throw lastErr;
         }
 
         async function run() {
@@ -676,32 +689,37 @@
             const srcSel = (isAdmin() && $('.w2t-src')?.value) || 'auto';
             try {
                 let src;
+                const acc = srcSel.startsWith('acc:') ? srcSel.slice(4) : null;
                 if (srcSel === 'paid') {
                     // ADMIN chủ động chọn Nano Banana TRẢ PHÍ (không thử free).
                     src = await callPaidNano(promptText, images);
-                } else {
-                    // FLOW: FREE TRƯỚC (model Flash, xoay tua / account admin chọn) → FAIL thì
-                    // FALLBACK Nano Banana TRẢ PHÍ (luôn ra ảnh). srcSel 'auto' = xoay tua.
-                    const acc = srcSel.startsWith('acc:') ? srcSel.slice(4) : null;
-                    if (geminiUrl) {
-                        try {
-                            src = await callGeminiMachine(promptText, images, acc);
-                        } catch (e) {
-                            toast(
-                                'Free lỗi/hết lượt (' +
-                                    (e.message || e) +
-                                    ') → chuyển Nano Banana trả phí',
-                                'warning'
-                            );
-                            refreshSrv(); // dò lại (máy có thể tắt/đổi tunnel/hết lượt)
-                            src = await callPaidNano(promptText, images);
-                        }
-                    } else {
+                } else if (acc) {
+                    // ADMIN chọn account FREE cụ thể → dùng đúng account đó → lỗi mới paid.
+                    try {
+                        src = await callGeminiMachine(promptText, images, acc);
+                    } catch (e) {
                         toast(
-                            'Chưa có máy Gemini free online → dùng Nano Banana trả phí',
+                            'Free acc lỗi (' + (e.message || e) + ') → Nano Banana trả phí',
                             'warning'
                         );
+                        refreshSrv();
                         src = await callPaidNano(promptText, images);
+                    }
+                } else {
+                    // 'auto' (mặc định + nhân viên): PAID TRƯỚC (nhanh/ổn) → HẾT lượt/lỗi mới FREE máy Bo backup.
+                    // Free (Gemini web cookie qua tunnel) quá chậm nên KHÔNG để chạy trước nữa.
+                    try {
+                        src = await callPaidNano(promptText, images);
+                    } catch (ePaid) {
+                        if (!geminiUrl) throw ePaid; // không có máy free → báo lỗi paid luôn
+                        toast(
+                            'Paid hết lượt/lỗi (' +
+                                (ePaid.message || ePaid) +
+                                ') → thử máy Bo free',
+                            'warning'
+                        );
+                        refreshSrv();
+                        src = await callGeminiMachine(promptText, images, null);
                     }
                 }
                 prog.done();
