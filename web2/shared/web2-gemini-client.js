@@ -2,15 +2,16 @@
 // =====================================================================
 // Web2GeminiClient — NGUỒN DUY NHẤT gọi sidecar Gemini (máy Bo) qua cookie.
 //
-// Gom mọi giao tiếp với máy shop "Bo" (sidecar gemini-tryon) + fallback Nano Banana TRẢ PHÍ:
+// Gom mọi giao tiếp với máy shop "Bo" (sidecar gemini-tryon) + Nano Banana TRẢ PHÍ:
 //   • discover()  → URL máy Bo online (localhost:8131 → registry engine=gemini-tryon).
-//   • chat()      → /chat (trò chuyện multi-turn cookie).
-//   • generate()  → /generate (text→ảnh / img2img cookie) → fallback paid /api/web2-ai/image.
-//   • tryon()     → /tryon (ghép đồ / ghép mặt cookie) → fallback paid.
+//   • chat()      → /chat (trò chuyện multi-turn cookie) — TEXT dùng FREE máy Bo.
+//   • generate()  → ẢNH: PAID (/api/web2-ai/image, nhanh 8-11s) TRƯỚC → hết lượt/lỗi mới FREE máy Bo (/generate, chậm).
+//   • tryon()     → GHÉP: PAID trước → hết lượt/lỗi mới FREE máy Bo (/tryon).
 //   • health()    → trạng thái account.
 //
-// FAIL-FAST: tunnel cloudflared chết ~100s → timeout 105s, KHÔNG retry khi timeout (retry vô ích) →
-// fallback paid NGAY. Dùng chung bởi: tab "Trợ lý AI" gộp (web2-gemini-chat.js) + widget ✨ (web2-tryon.js).
+// THỨ TỰ (chốt 2026-07-01, user): ẢNH ưu tiên PAID vì free (Gemini web cookie qua tunnel) quá chậm
+// (text→ảnh >105s, img2img treo) → hết quota/ngày (429) hoặc thiếu quyền (403) mới rơi FREE làm backup.
+// TEXT/chat vẫn FREE máy Bo. Dùng chung bởi: tab "Trợ lý AI" (web2-gemini-chat.js) + widget ✨ (web2-tryon.js).
 // KHÔNG fork logic — sửa 1 nơi áp dụng mọi nơi.
 // =====================================================================
 (function (global) {
@@ -144,62 +145,84 @@
         throw lastErr;
     }
 
-    // Nano Banana TRẢ PHÍ (backend /api/web2-ai/image) — fallback hoặc khi không có máy.
+    // Nano Banana TRẢ PHÍ (backend /api/web2-ai/image) — path CHÍNH cho ảnh (nhanh 8-11s).
+    // Retry 1 lần khi Gemini 503/quá tải (transient) để KHÔNG rơi xuống free chậm vô cớ.
+    // 429 (hết lượt/ngày) / 403 (thiếu quyền) → gắn _quota để caller fallback FREE máy Bo.
     async function paidImage({ prompt, images }) {
-        const r = await fetch(aiApi() + '/image', {
-            method: 'POST',
-            headers: authHeaders(true),
-            body: JSON.stringify({
-                provider: 'gemini',
-                model: 'gemini-2.5-flash-image',
-                prompt,
-                images: images && images.length ? images : undefined,
-            }),
-            signal: AbortSignal.timeout(PAID_TIMEOUT_MS),
-        });
-        if (r.status === 401) {
-            if (global.Web2Auth?.requireAuth) setTimeout(() => global.Web2Auth.requireAuth(), 1200);
-            throw new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
+        let lastErr;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const r = await fetch(aiApi() + '/image', {
+                method: 'POST',
+                headers: authHeaders(true),
+                body: JSON.stringify({
+                    provider: 'gemini',
+                    model: 'gemini-2.5-flash-image',
+                    prompt,
+                    images: images && images.length ? images : undefined,
+                }),
+                signal: AbortSignal.timeout(PAID_TIMEOUT_MS),
+            });
+            if (r.status === 401) {
+                if (global.Web2Auth?.requireAuth)
+                    setTimeout(() => global.Web2Auth.requireAuth(), 1200);
+                throw new Error('Phiên Web 2.0 hết hạn — đăng nhập lại.');
+            }
+            const j = await r.json().catch(() => ({}));
+            if (j.ok) return j.url || j.dataUrl;
+            lastErr = Object.assign(new Error(j.error || 'Tạo ảnh thất bại'), {
+                _quota: r.status === 429 || r.status === 403, // hết lượt/thiếu quyền → fallback FREE
+            });
+            // Chỉ retry lỗi transient (5xx/quá tải). Hết lượt/quyền/400 → dừng ngay.
+            const transient =
+                !lastErr._quota &&
+                (r.status >= 500 || /unavailable|overload|try again/i.test(j.error || ''));
+            if (!transient || attempt >= 1) throw lastErr;
+            await new Promise((res) => setTimeout(res, 800));
         }
-        const j = await r.json();
-        if (!j.ok) throw new Error(j.error || 'Tạo ảnh thất bại');
-        return j.url || j.dataUrl;
+        throw lastErr;
     }
 
-    // Tạo ảnh: text→ảnh (image rỗng) hoặc img2img. FREE cookie trước → fallback paid. Trả {dataUrl, paid, account, freeError}.
+    // Tạo ảnh: text→ảnh (image rỗng) hoặc img2img. PAID trước (nhanh) → HẾT lượt/lỗi mới FREE máy Bo (chậm, backup).
+    // Trả {dataUrl, paid, account, paidError}.
     async function generate({ url, prompt, image, account }) {
-        if (url) {
-            try {
-                const j = await _freeCall(url, '/generate', {
-                    prompt,
-                    image: image || undefined,
-                    account: account || undefined,
-                });
-                return { dataUrl: j.dataUrl, account: j.account, paid: false };
-            } catch (e) {
-                const dataUrl = await paidImage({ prompt, images: image ? [image] : [] });
-                return { dataUrl, paid: true, freeError: e.message || String(e) };
-            }
+        try {
+            const dataUrl = await paidImage({ prompt, images: image ? [image] : [] });
+            return { dataUrl, paid: true };
+        } catch (paidErr) {
+            if (!url) throw paidErr; // không có máy Bo → không còn đường lui
+            const j = await _freeCall(url, '/generate', {
+                prompt,
+                image: image || undefined,
+                account: account || undefined,
+            });
+            return {
+                dataUrl: j.dataUrl,
+                account: j.account,
+                paid: false,
+                paidError: paidErr.message || String(paidErr),
+            };
         }
-        return { dataUrl: await paidImage({ prompt, images: image ? [image] : [] }), paid: true };
     }
 
-    // Ghép đồ / ghép mặt: nhiều ảnh. FREE cookie trước → fallback paid. Trả {dataUrl, paid, account, freeError}.
+    // Ghép đồ / ghép mặt: nhiều ảnh. PAID trước → HẾT lượt/lỗi mới FREE máy Bo. Trả {dataUrl, paid, account, paidError}.
     async function tryon({ url, prompt, images, account }) {
-        if (url) {
-            try {
-                const j = await _freeCall(url, '/tryon', {
-                    prompt,
-                    images,
-                    account: account || undefined,
-                });
-                return { dataUrl: j.dataUrl, account: j.account, paid: false };
-            } catch (e) {
-                const dataUrl = await paidImage({ prompt, images });
-                return { dataUrl, paid: true, freeError: e.message || String(e) };
-            }
+        try {
+            const dataUrl = await paidImage({ prompt, images });
+            return { dataUrl, paid: true };
+        } catch (paidErr) {
+            if (!url) throw paidErr;
+            const j = await _freeCall(url, '/tryon', {
+                prompt,
+                images,
+                account: account || undefined,
+            });
+            return {
+                dataUrl: j.dataUrl,
+                account: j.account,
+                paid: false,
+                paidError: paidErr.message || String(paidErr),
+            };
         }
-        return { dataUrl: await paidImage({ prompt, images }), paid: true };
     }
 
     global.Web2GeminiClient = {

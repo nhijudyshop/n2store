@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [ai-hub/gemini] ẢNH ưu tiên PAID trước, hết lượt mới FREE; TEXT vẫn free (+ worker nới timeout AI gen)
+
+**Files:** `web2/shared/web2-gemini-client.js` (đảo `generate`/`tryon` → paid-first + free backup; `paidImage` retry 1 lần khi 503 transient, gắn `_quota` cho 429/403), `web2/ai-hub/index.html` (bump v=20260701a), `cloudflare-worker/modules/handlers/proxy-handler.js` (`handleCustomer360Proxy`: `/api/web2-ai/*` timeout 15s→90s).
+
+Bối cảnh (debug live): free Gemini web (cookie máy Bo) tạo ảnh **quá chậm** — text→ảnh >105s (timeout), img2img treo >115s. Paid Nano Banana chạy 8–11s (text) / 13–25s (img2img) nhưng **worker cap 15s** (`handleCustomer360Proxy`) giết img2img sát mép → 502 `Customer 360 proxy failed`. Quyết định (user): **ẢNH = paid trước, hết quota/ngày (429) hoặc thiếu quyền (403) mới rơi FREE máy Bo; TEXT/chat = free.**
+
+- `generate`/`tryon`: gọi `paidImage()` TRƯỚC → catch (429/403/lỗi) → `_freeCall` máy Bo (nếu `url`). Field `freeError` → `paidError`.
+- `paidImage`: loop 2 lần, retry khi 5xx/"unavailable/overload" (transient Gemini 503), KHÔNG retry 429/403/400.
+- Worker: chỉ nới `/api/web2-ai/*`; mutation khác giữ 15s. **CẦN deploy worker** (`cd cloudflare-worker && npm run deploy`) để img2img paid không 502.
+- Verify browser (admin): text→ảnh paid-first ra ảnh 1.5MB ~14s tag 🍌; img2img qua worker 15.3s OK (sát mép — deploy để chắc).
+- ✨ widget `web2-tryon.js` là fork riêng (staff=free auto, admin chọn paid) → **CHƯA đổi**, chờ user quyết.
+
+Status: 🔄 frontend committed; worker code sửa xong **chưa deploy**.
+
 ### [web2-returns] Fix ReferenceError `depositAmt is not defined` — mọi thu_ve_1_phan hoàn ví bị 500
 
 **Files:** `render.com/routes/web2-returns.js` (`POST /` create-return, nhánh thu_ve_1_phan).
