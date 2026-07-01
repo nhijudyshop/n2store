@@ -692,16 +692,19 @@ router.get('/restock-needed', async (req, res) => {
                 GROUP BY 1
             )
             SELECT p.*, c.demand::int AS _demand,
-                   GREATEST(0, c.demand - p.stock)::int AS _needed
+                   GREATEST(0, c.demand - p.stock - COALESCE(p.return_qty, 0))::int AS _needed
             FROM committed c
             JOIN web2_products p ON p.code = c.code
-            WHERE c.demand > p.stock AND p.is_parent = false${supFilter}
-            ORDER BY (c.demand - p.stock) DESC, p.supplier, p.name`;
+            WHERE c.demand > (p.stock + COALESCE(p.return_qty, 0)) AND p.is_parent = false${supFilter}
+            ORDER BY (c.demand - p.stock - COALESCE(p.return_qty, 0)) DESC, p.supplier, p.name`;
         const r = await pool.query(sql, params);
         const items = r.rows.map((row) => {
             const m = mapRow(row);
             m.demand = Number(row._demand) || 0; // tổng SL trong giỏ nháp (GIỎ)
-            m.needed = Number(row._needed) || 0; // cần đặt thêm = max(0, GIỎ − TỒN)
+            // Cần đặt thêm = max(0, GIỎ − TỒN − THU VỀ chờ duyệt). Trừ return_qty vì hàng
+            // thu về (shipper_gui) sắp cộng kho khi duyệt → không đặt dư NCC (audit gap).
+            m.needed = Number(row._needed) || 0;
+            m.returnQty = Number(row.return_qty) || 0;
             return m;
         });
         res.json({ success: true, items });

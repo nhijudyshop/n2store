@@ -164,8 +164,11 @@
             '<span class="lc-vname">' +
             esc(v.variant && v.variant.trim() ? v.variant : '(mặc định)') +
             '</span>' +
-            '<span class="lc-vnum lc-vton" title="Tồn kho thật (Kho SP)">' +
+            '<span class="lc-vnum lc-vton" title="Tồn kho thật (Kho SP)' +
+            (m.returnQty > 0 ? ' — +' + m.returnQty + ' thu về chờ duyệt (sắp cộng kho)' : '') +
+            '">' +
             m.stock +
+            (m.returnQty > 0 ? '<sup class="lc-vret">+' + m.returnQty + '</sup>' : '') +
             '<small>TỒN</small></span>' +
             '<span class="lc-vnum lc-vban' +
             (m.gio > 0 ? ' lc-clickable' : '') +
@@ -358,8 +361,11 @@
             '<div class="lc-mini-body"><div class="lc-mini-name">' +
             esc(g.name) +
             '</div><div class="lc-mini-nums">' +
-            '<span>' +
+            '<span title="Tồn thật' +
+            (st.returnQty > 0 ? ' (+' + st.returnQty + ' thu về chờ duyệt)' : '') +
+            '">' +
             st.stock +
+            (st.returnQty > 0 ? '<sup class="lc-vret">+' + st.returnQty + '</sup>' : '') +
             '<i>TỒN</i></span><span>' +
             st.sold +
             '<i>GIỎ</i></span><span class="' +

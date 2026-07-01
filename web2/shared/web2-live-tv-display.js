@@ -28,6 +28,7 @@
             sold = 0,
             choHang = 0,
             con = 0,
+            returnQty = 0,
             newCust = 0,
             allCust = 0;
         var vs = (g && g.variants) || [];
@@ -35,9 +36,12 @@
             var v = vs[i];
             var st = Number(v.stock) || 0;
             var s = Number(v.sold) || 0;
+            var rq = Number(v.returnQty != null ? v.returnQty : v.return_qty) || 0;
             stock += st;
             sold += s;
-            choHang += Math.max(0, s - st);
+            returnQty += rq;
+            // CHỜ HÀNG trừ thu về chờ duyệt (sắp về kho) → không đặt dư NCC.
+            choHang += Math.max(0, s - st - rq);
             con += Math.max(0, st - s);
             newCust += Number(v.newCust) || 0;
             allCust += Number(v.allCust) || 0;
@@ -57,6 +61,7 @@
             sold: sold,
             choHang: choHang,
             con: con,
+            returnQty: returnQty,
             newCust: newCust,
             allCust: allCust,
             soldOut: soldOut,
@@ -124,7 +129,10 @@
         var stock = Number(v && v.stock) || 0; // TỒN thật
         var gio = Number(v && v.sold) || 0; // GIỎ nháp
         var moi = Number(v && v.newCust) || 0; // MỚI = SL món khách mới
-        var choHang = Math.max(0, gio - stock); // cần đặt thêm
+        // Hàng THU VỀ chờ duyệt (shipper_gui) — sắp cộng kho khi duyệt → giảm CHỜ HÀNG
+        // (không đặt dư NCC). Audit gap live-control↔returns.
+        var retQty = Number((v && (v.returnQty != null ? v.returnQty : v.return_qty)) || 0);
+        var choHang = Math.max(0, gio - stock - retQty); // cần đặt thêm (trừ thu về sắp về)
         var con = Math.max(0, stock - gio); // còn bán được từ tồn
         return {
             stock: stock,
@@ -132,6 +140,7 @@
             moi: moi,
             choHang: choHang,
             con: con,
+            returnQty: retQty, // thu về chờ duyệt (hiển thị phụ)
             pending: Number(v && v.pendingQty) || 0, // "đã đặt NCC" (Sổ Order) — hiển thị phụ
         };
     }

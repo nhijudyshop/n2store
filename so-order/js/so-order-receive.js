@@ -57,6 +57,9 @@
                         code: match.code,
                         stock: Number(match.stock) || 0,
                         pendingQty: Number(match.pendingQty) || 0,
+                        // Hàng THU VỀ chờ duyệt (shipper_gui) — sắp cộng vào kho, để NV
+                        // nhận hàng biết KHÔNG cần đặt dư NCC (audit gap so-order↔returns).
+                        returnQty: Number(match.return_qty ?? match.returnQty) || 0,
                         status: match.status,
                     });
                 }
@@ -85,11 +88,21 @@
         item.alreadyReceived = alreadyReceived;
         item.remainingPending = remainingPending;
         item.currentStock = ps.stock;
+        // Hàng thu về chờ duyệt (sắp về kho) → nhắc NV không đặt dư.
+        const retQty = Number(ps.returnQty) || 0;
+        const retBadge =
+            retQty > 0
+                ? `<span style="color:#7c3aed;">Thu về chờ duyệt: <strong>${retQty}</strong></span>`
+                : '';
         // Patch qty info display
-        if (alreadyReceived > 0) {
-            qtyInfoEl.innerHTML = `<span>Đã đặt: <strong>${qtyOrdered}</strong></span>
-                <span style="color:#16a34a;">Đã nhận: <strong>${alreadyReceived}</strong></span>
-                <span style="color:#f59e0b;">Còn chờ: <strong>${remainingPending}</strong></span>`;
+        if (alreadyReceived > 0 || retBadge) {
+            qtyInfoEl.innerHTML =
+                `<span>Đã đặt: <strong>${qtyOrdered}</strong></span>` +
+                (alreadyReceived > 0
+                    ? `<span style="color:#16a34a;">Đã nhận: <strong>${alreadyReceived}</strong></span>
+                <span style="color:#f59e0b;">Còn chờ: <strong>${remainingPending}</strong></span>`
+                    : '') +
+                retBadge;
             qtyInfoEl.style.cssText =
                 'font-size:11px;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;';
         }

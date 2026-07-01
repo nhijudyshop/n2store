@@ -373,6 +373,14 @@
 .lc-vton {
     color: #475569;
 }
+/* Thu về chờ duyệt (sắp cộng kho) — superscript tím cạnh số TỒN */
+.lc-vret {
+    color: #7c3aed;
+    font-size: 0.62em;
+    font-weight: 700;
+    vertical-align: super;
+    margin-left: 1px;
+}
 .lc-vcho {
     color: #16a34a;
 }

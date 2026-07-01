@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [so-order + live-control] Hiện `return_qty` (thu về chờ duyệt) → tránh đặt dư NCC
+
+**Files:** `so-order/js/so-order-receive.js` · `render.com/routes/web2-products.js` (restock-needed) · `web2/shared/web2-live-tv-display.js` · `web2/live-control/js/live-control.js` · `web2/live-control/css/live-control.css`.
+
+Audit gap: so-order + live-control ẩn `web2_products.return_qty` (hàng shipper_gui thu về chờ duyệt, sắp cộng kho) → NV thấy tồn thấp → đặt dư NCC.
+
+- **so-order receive panel**: `_lookupProductStateForRows` thêm `returnQty`; row hiện badge tím "Thu về chờ duyệt: N".
+- **restock-needed** (backend): `needed = max(0, GIỎ − TỒN − return_qty)` + `WHERE demand > stock + return_qty` → không đề xuất đặt phần thu về sắp về.
+- **live-control board**: `khConModel`/`cardState` thêm `returnQty` + `choHang = max(0, GIỎ − TỒN − return_qty)`; TỒN hiện superscript tím `+N`. Data `returnQty` đã có sẵn từ `web2-campaign-products` + `web2-products` mapRow.
+
+Status: ✅ deployed-ready.
+
 ### [web2 reconcile] Camera bằng chứng đối soát tay + session model (đủ mới lưu)
 
 **Files:** `render.com/routes/reconcile.js` (bảng + finalize + snapshots) · `web2/shared/web2-evidence-camera.js` (mới) · `web2/reconcile/{index.html,css/reconcile.css,js/reconcile-state,reconcile-api,reconcile-render,reconcile-actions,reconcile-app}.js`.
