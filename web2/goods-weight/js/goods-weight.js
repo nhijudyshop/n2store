@@ -354,11 +354,13 @@
     }
 
     async function loadReport() {
-        if (_dayDrawer && _dayDrawer.isOpen()) _dayDrawer.close(); // data đổi → đóng drawer cũ
         $('#rpBody').innerHTML = '<tr><td colspan="8" class="rp-muted">Đang tải…</td></tr>';
         try {
             REPORT = await api('/report?' + reportQs());
             renderReport();
+            // Drawer đang mở → refresh TẠI CHỖ theo data mới (SSE/đổi lọc), KHÔNG đóng thô bạo.
+            if (_drawerDay && _dayDrawer?.isOpen() && !setDrawerForDay(_drawerDay))
+                _dayDrawer.close(); // ngày không còn trong khoảng lọc → đóng
         } catch (e) {
             $('#rpBody').innerHTML = `<tr><td colspan="8" class="rp-muted">Lỗi: ${esc(
                 e.message
@@ -503,17 +505,14 @@
         }
         if (dw.isOpen() && _drawerDay === day) return dw.close(); // bấm lại đúng ngày → đóng (toggle)
         _drawerDay = day;
-        setDrawerForDay(day);
-        dw.open();
+        if (setDrawerForDay(day)) dw.open();
+        else _drawerDay = null;
     }
-    // Đổ tiêu đề + nội dung drawer cho 1 ngày từ REPORT (tái dùng sau khi sửa/xoá bản ghi).
+    // Đổ tiêu đề + nội dung drawer cho 1 ngày từ REPORT. Trả true nếu có bản ghi (không tự đóng).
     function setDrawerForDay(day) {
-        if (!_dayDrawer) return;
+        if (!_dayDrawer) return false;
         const row = (REPORT && REPORT.rows ? REPORT.rows : []).find((r) => r.day === day);
-        if (!row || !(row.items || []).length) {
-            _dayDrawer.close(); // ngày hết bản ghi → đóng
-            return;
-        }
+        if (!row || !(row.items || []).length) return false;
         const dl = dayLabel(day);
         _dayDrawer.setTitle(
             `Ảnh cân ${esc(dl.date)}<small>${esc(dl.wd)} · ${fmtInt(row.count)} lần cân · ${fmtKg(
@@ -522,6 +521,7 @@
         );
         _dayDrawer.setBody(dayPhotosHtml(row.items));
         wireDrawerPhotos(_dayDrawer.body, row.items);
+        return true;
     }
     function dayPhotosHtml(items) {
         if (!items.length) return '<div class="rp-muted">Không có bản ghi.</div>';
@@ -635,15 +635,22 @@
             toast('Lỗi: ' + e.message, 'err');
         }
     }
-    // Sau khi sửa/xoá 1 bản ghi: tải lại số liệu báo cáo + làm mới drawer TẠI CHỖ (không đóng).
+    // Sau khi sửa/xoá 1 bản ghi: tải lại số liệu báo cáo + làm mới drawer TẠI CHỖ (giữ mở).
     async function afterRecordMutation() {
+        const day = _drawerDay; // chốt trước khi bất kỳ thứ gì reset (SSE reload có thể chen vào)
         try {
             REPORT = await api('/report?' + reportQs());
-            renderReport(); // vẽ lại bảng + thumbnail (KHÔNG đóng drawer)
+            renderReport(); // vẽ lại bảng + thumbnail
         } catch (e) {
             toast('Lỗi tải lại: ' + e.message, 'err');
         }
-        if (_drawerDay && _dayDrawer?.isOpen()) setDrawerForDay(_drawerDay);
+        if (!day || !_dayDrawer) return;
+        if (setDrawerForDay(day)) {
+            _drawerDay = day;
+            if (!_dayDrawer.isOpen()) _dayDrawer.open(); // SSE có thể đã đóng → mở lại
+        } else {
+            _dayDrawer.close(); // ngày hết bản ghi (xoá bản ghi cuối) → đóng
+        }
     }
 
     async function deleteDay(ymd, count) {
