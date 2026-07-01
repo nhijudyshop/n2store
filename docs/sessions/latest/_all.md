@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9f9a91d` — feat(cham-cong): giờ 24h mọi renderer + modal ngày tick Vào/Ra tự chọn 'Đi làm'
-**Last updated**: 2026-07-01 16:35:42 +07
-**Latest session**: [`RESUME:20260701-163542-9f9a91d`](../20260701-163542-9f9a91d.md)
-**Summary**: feat(cham-cong): giờ 24h mọi renderer + modal ngày tick Vào/Ra tự chọn 'Đi làm'
+**Latest commit**: `e338c3c` — fix(cham-cong): bỏ tick Vào/Ra cả 2 → mặc định 'Nghỉ không phép'
+**Last updated**: 2026-07-01 16:38:58 +07
+**Latest session**: [`RESUME:20260701-163858-e338c3c`](../20260701-163858-e338c3c.md)
+**Summary**: fix(cham-cong): bỏ tick Vào/Ra cả 2 → mặc định 'Nghỉ không phép'
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -84,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 16:35
+- [`web2/`](./web2.md) — updated 2026-07-01 16:38
