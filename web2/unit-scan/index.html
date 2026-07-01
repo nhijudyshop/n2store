@@ -36,46 +36,47 @@
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701d" />
+        <link rel="stylesheet" href="./css/unit-scan.css?v=20260701e" />
     </head>
     <body>
         <header class="hd">
-            <span class="hd-title">Quét tem</span>
-            <a
-                class="hd-btn"
-                id="tagBtn"
-                href="../shelf-labels/index.html"
-                target="_blank"
-                rel="noopener"
-                title="In nhãn ô kệ (dán STT lên ô)"
-            >
-                <i data-lucide="tag"></i>
-            </a>
-            <button
-                class="hd-btn"
-                id="putwallBtn"
-                aria-label="Đèn LED kệ"
-                title="Đèn LED chỉ ô kệ (put-to-light)"
-            >
-                <i data-lucide="lightbulb"></i>
-            </button>
-            <button class="hd-btn" id="torchBtn" aria-label="Đèn flash" title="Đèn flash">
-                <i data-lucide="zap"></i>
-            </button>
+            <div class="hd-row">
+                <span class="hd-title">Quét tem</span>
+                <a
+                    class="hd-btn"
+                    id="tagBtn"
+                    href="../shelf-labels/index.html"
+                    target="_blank"
+                    rel="noopener"
+                    title="In nhãn ô kệ (dán STT lên ô)"
+                >
+                    <i data-lucide="tag"></i>
+                </a>
+                <button
+                    class="hd-btn"
+                    id="putwallBtn"
+                    aria-label="Đèn LED kệ"
+                    title="Đèn LED chỉ ô kệ (put-to-light)"
+                >
+                    <i data-lucide="lightbulb"></i>
+                </button>
+                <button class="hd-btn" id="torchBtn" aria-label="Đèn flash" title="Đèn flash">
+                    <i data-lucide="zap"></i>
+                </button>
+            </div>
+            <!-- Thanh nút hành động — nằm TRONG header dính → luôn ở đầu, khỏi kéo xuống mới bấm -->
+            <div class="actionbar" id="actionBar">
+                <button class="ab-btn" id="batchMapBtn" type="button">
+                    <i data-lucide="layout-grid"></i> Sơ đồ kệ
+                </button>
+                <button class="ab-btn" id="manifestBtn" type="button">
+                    <i data-lucide="list-checks"></i> Đưa xe ra
+                </button>
+                <button class="ab-btn primary disabled" id="batchPrintBtn" type="button">
+                    <i data-lucide="printer"></i> In DS (<span id="batchCount">0</span>)
+                </button>
+            </div>
         </header>
-
-        <!-- Thanh nút hành động DÍNH đầu trang (dưới header) — khỏi kéo xuống mới bấm được -->
-        <div class="actionbar" id="actionBar">
-            <button class="ab-btn" id="batchMapBtn" type="button">
-                <i data-lucide="layout-grid"></i> Sơ đồ kệ
-            </button>
-            <button class="ab-btn" id="manifestBtn" type="button">
-                <i data-lucide="list-checks"></i> Đưa xe ra
-            </button>
-            <button class="ab-btn primary disabled" id="batchPrintBtn" type="button">
-                <i data-lucide="printer"></i> In DS (<span id="batchCount">0</span>)
-            </button>
-        </div>
 
         <main class="wrap">
             <div class="scanner">
@@ -171,6 +172,6 @@
         <!-- Format tiền ₫ 1-nguồn (trang KHÔNG có sidebar nên không auto-inject) -->
         <script src="../shared/web2-format.js?v=20260618"></script>
         <!-- app (1 view) -->
-        <script src="./js/unit-scan.js?v=20260701d"></script>
+        <script src="./js/unit-scan.js?v=20260701e"></script>
     </body>
 </html>

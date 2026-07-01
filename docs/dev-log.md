@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### [web2 unit-scan] Đưa nút hành động lên header dính (khỏi kéo xuống)
+
+**Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
+
+User: "đưa các nút lên trên để khỏi kéo xuống". Gom 3 nút hành động (Sơ đồ kệ / Đưa xe ra / In DS) rải rác giữa trang vào **thanh actionbar hàng-2 TRONG header dính** → luôn ở đầu, không cần cuộn.
+
+- Header thành 2 hàng: `.hd` flex-column, `.hd-row` (tiêu đề + tag/led/torch), `.actionbar` (3 nút).
+- Nút giữ nguyên ID (`batchMapBtn`/`manifestBtn`/`batchPrintBtn` + `batchCount`) → mọi wiring cũ chạy. "In DS (N)" = CTA trắng nổi trên nền xanh, disable khi batch rỗng (renderBatch toggle `.disabled` + cập nhật count luôn). Big CTA dưới cùng bỏ, `#batchActions` còn nút "Xoá".
+- ⚠ Bug sticky: `body{height:100%}` phá `position:sticky` cho element thứ 2 (actionbar rời scroll khỏi top). Fix: nhét actionbar VÀO trong header (`.hd` đã sticky sẵn, chứng minh chạy) thay vì sticky riêng → abTop=52 pinned ổn định.
+- Verify: browser-test — actionbar `insideStickyHeader`, scroll xuống vẫn pinned; print disable↔enable + count đúng; 0 console error.
+
+Status: ✅ deployed-ready.
+
 ### [web2 unit-scan] Rebuild UI — "Premium Light" + màu-theo-kệ (put-to-light)
 
 **Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.
