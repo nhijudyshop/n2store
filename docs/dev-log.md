@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [web2-live-comments] #1 khóa CRUD/gán chiến dịch về ADMIN + M1 delete transactional cascade + L2
+
+**Files:** `render.com/routes/web2-live-comments.js` (POST/DELETE `/campaigns`, POST `/campaigns/:id/assign`, POST `/unassign` đổi `requireWeb2AuthSoft`→`requireWeb2Admin`; DELETE bọc transaction + cascade dọn `web2_campaign_products`+`web2_live_tv_control`+DELETE post_assign; POST create thêm giới hạn name ≤120).
+
+- **#1 (user chốt):** tạo/xóa/gán chiến dịch CHỈ ADMIN (`requireWeb2Admin`, role==='admin', hard 401/403). Non-admin vẫn XEM/CHỌN qua GET (list/posts/assignments/page-posts giữ soft-auth). Enforce an toàn vì `WEB2_AUTH_ENFORCE=1` + live-chat gửi x-web2-token.
+- **M1 (audit MEDIUM, ĐÃ SỬA):** DELETE trước đây 3 query rời không transaction + KHÔNG dọn board tables → board mồ côi (`?campaign=N`) tự lật gate GIỎ/MỚI về GLOBAL (phồng toàn cục) + phình bảng. Giờ 1 transaction: DELETE post_assign (không null → hết ambiguity) + null comments + DELETE campaign_products + tv_control + parent. Import `ensureTables` từ web2-campaign-products (chắc bảng tồn tại, no circular require — verified require-load OK).
+- **L2 (audit LOW, ĐÃ SỬA):** create campaign name >120 → 400 thay vì 500 thô.
+
+⚠ Deploy Render mới hiệu lực. Syntax + require-load OK.
+
+Status: ✅ (chờ deploy Render; part overhaul chiến dịch #1)
+
 ### [native-orders] Gom 2 dropdown chiến dịch → 1 Web2CampaignPicker + fix M8/M9 empty-state
 
 **Files:** `native-orders/index.html` (bỏ toàn bộ `#filterCampaignDropdown` cha+con → `<div id="noCampaignPicker">`, load `web2-campaign-picker.js`, bump v), `native-orders/js/native-orders-realtime-init.js` (thay wiring 2 dropdown bằng `NO.mountCampaignPicker()`), `native-orders/js/native-orders-filters-campaigns.js` (+`mountCampaignPicker`; `clearFilters` reset parent qua picker — M8), `native-orders/js/native-orders-render.js` (hasFilter gồm parentCampaignId/parentPostIds — M9).

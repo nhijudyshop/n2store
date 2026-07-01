@@ -19,7 +19,10 @@
 const express = require('express');
 // 1D-auth (2026-06-12): mutation cấu hình poller gate SOFT (enforce qua env) —
 // anonymous không tắt được thu comment giữa buổi live.
-const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+// M1 fix (2026-07-01): DELETE campaign phải dọn cả bảng board (web2_campaign_products,
+// web2_live_tv_control) — dùng ensureTables của module đó để chắc bảng tồn tại trước cascade.
+const { ensureTables: ensureCampaignProductTables } = require('./web2-campaign-products');
 const router = express.Router();
 
 function getDb(req) {
@@ -692,11 +695,15 @@ router.get('/campaigns', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // POST /campaigns { name, note } — tạo chiến dịch cha.
-router.post('/campaigns', requireWeb2AuthSoft, async (req, res) => {
+// #1 (2026-07-01): CHỈ ADMIN tạo/sửa/gán chiến dịch (user chốt). Non-admin xem/chọn
+// qua GET (requireWeb2AuthSoft). Tạo+gán là 1 nguồn = admin ở live-chat/so-order.
+router.post('/campaigns', requireWeb2Admin, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'name required' });
+    if (name.length > 120)
+        return res.status(400).json({ success: false, error: 'name quá dài (tối đa 120)' }); // L2
     try {
         await ensureCampaignTables(pool);
         const r = await pool.query(
@@ -710,26 +717,43 @@ router.post('/campaigns', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-// DELETE /campaigns/:id — xoá (gỡ gán post, KHÔNG xoá comment).
-router.delete('/campaigns/:id', requireWeb2AuthSoft, async (req, res) => {
+// DELETE /campaigns/:id — xoá chiến dịch cha. CHỈ ADMIN (#1).
+// M1 fix (audit 2026-07-01): TRANSACTIONAL + CASCADE. Trước đây 3 query rời không
+// transaction + KHÔNG dọn web2_campaign_products / web2_live_tv_control → board mồ côi
+// (còn với tới bằng ?campaign=N) tự LẬT gate GIỎ/MỚI về GLOBAL (số phồng toàn cục) +
+// bảng phình mãi. Giờ: DELETE (không null) post_assign để gate không còn ambiguity, +
+// dọn board tables, + xoá parent — tất cả trong 1 transaction (rollback nếu lỗi).
+router.delete('/campaigns/:id', requireWeb2Admin, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id))
+        return res.status(400).json({ success: false, error: 'id không hợp lệ' });
+    const client = await pool.connect();
     try {
         await ensureCampaignTables(pool);
-        const id = Number(req.params.id);
-        await pool.query(
-            'UPDATE web2_live_post_assign SET campaign_id = NULL WHERE campaign_id = $1',
-            [id]
-        );
-        await pool.query(
+        await ensureCampaignProductTables(pool); // chắc web2_campaign_products + web2_live_tv_control tồn tại
+        await client.query('BEGIN');
+        // Xoá gán bài (không null → gate scoped không còn state "board mồ côi = global").
+        await client.query('DELETE FROM web2_live_post_assign WHERE campaign_id = $1', [id]);
+        // Comment giữ lại (data livestream) nhưng gỡ liên kết campaign (cột string).
+        await client.query(
             'UPDATE web2_live_comments SET campaign_id = NULL WHERE campaign_id = $1',
             [String(id)]
         );
-        await pool.query('DELETE FROM web2_live_parent_campaigns WHERE id = $1', [id]);
-        _notify('campaign', null); // audit r9: SSE → tab khác bỏ chiến dịch đã xoá
+        // Dọn board: SP-trong-chiến-dịch + điều khiển màn TV (cùng key campaign_id).
+        await client.query('DELETE FROM web2_campaign_products WHERE campaign_id = $1', [id]);
+        await client.query('DELETE FROM web2_live_tv_control WHERE campaign_id = $1', [id]);
+        await client.query('DELETE FROM web2_live_parent_campaigns WHERE id = $1', [id]);
+        await client.query('COMMIT');
+        _notify('campaign', null); // SSE → tab khác bỏ chiến dịch đã xoá
         res.json({ success: true });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[WEB2-LIVE-COMMENTS] delete campaign error:', e.message);
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -807,8 +831,8 @@ router.get('/page-posts', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-// POST /campaigns/:id/assign { postId, postTitle, pageId } — gán bài vào chiến dịch.
-router.post('/campaigns/:id/assign', requireWeb2AuthSoft, async (req, res) => {
+// POST /campaigns/:id/assign { postId, postTitle, pageId } — gán bài vào chiến dịch. CHỈ ADMIN (#1).
+router.post('/campaigns/:id/assign', requireWeb2Admin, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const campaignId = Number(req.params.id);
@@ -834,8 +858,8 @@ router.post('/campaigns/:id/assign', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-// POST /unassign { postId } — gỡ bài khỏi chiến dịch.
-router.post('/unassign', requireWeb2AuthSoft, async (req, res) => {
+// POST /unassign { postId } — gỡ bài khỏi chiến dịch. CHỈ ADMIN (#1).
+router.post('/unassign', requireWeb2Admin, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const postId = String(req.body?.postId || '').trim();
