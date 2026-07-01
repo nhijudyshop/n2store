@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2060341` — docs(web2-campaign): thiết kế #2 cross-page cart merge (hybrid global-id + SĐT)
-**Last updated**: 2026-07-01 16:26:36 +07
-**Latest session**: [`RESUME:20260701-162636-2060341`](../20260701-162636-2060341.md)
-**Summary**: Overhaul chiến dịch cont: #2 cross-page thiết kế hybrid (doc) + điều tra định danh; #3 deep-audit đang chạy; còn #1 page-UI + #2 impl + Web2CampaignManager + wire trang + H4
+**Latest commit**: `9f9a91d` — feat(cham-cong): giờ 24h mọi renderer + modal ngày tick Vào/Ra tự chọn 'Đi làm'
+**Last updated**: 2026-07-01 16:35:42 +07
+**Latest session**: [`RESUME:20260701-163542-9f9a91d`](../20260701-163542-9f9a91d.md)
+**Summary**: feat(cham-cong): giờ 24h mọi renderer + modal ngày tick Vào/Ra tự chọn 'Đi làm'
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 12:59
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 16:26
+- [`docs/`](./docs.md) — updated 2026-07-01 16:35
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -60,7 +62,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-07-01 16:09
+- [`render.com/`](./render.com.md) — updated 2026-07-01 16:35
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
@@ -82,4 +84,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 16:09
+- [`web2/`](./web2.md) — updated 2026-07-01 16:35
