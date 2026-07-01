@@ -590,7 +590,7 @@ router.get('/pending', async (req, res) => {
 // GET /api/web2-returns/queued-by-phone/:phone
 // SP thu_ve_1_phan chờ lên bill 0đ cho 1 KH (native-orders gọi).
 // =====================================================
-router.get('/queued-by-phone/:phone', async (req, res) => {
+router.get('/queued-by-phone/:phone', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -629,35 +629,36 @@ router.get('/queued-by-phone/:phone', async (req, res) => {
 // của đơn (đã 'consumed' khi tạo PBH) + fallback queued-by-phone nếu in trước
 // khi consume. Trả items [{productCode, productName, quantity}] gộp theo mã.
 // =====================================================
-router.get('/on-order/:code', async (req, res) => {
+router.get('/on-order/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
         const code = String(req.params.code || '').trim();
         if (!code) return res.json({ success: true, items: [] });
-        // PBH number(s) của đơn (native → nhiều PBH; hoặc code CHÍNH LÀ số PBH).
+        // PBH number(s) của đơn (native → nhiều PBH LIVE; hoặc code CHÍNH LÀ số PBH).
+        // Loại PBH đã huỷ (state<>'cancel') — audit MEDIUM (không lấy phiếu của PBH huỷ).
         let numbers = [code];
-        let phone = null;
         try {
             const pbhs = await pool.query(
-                `SELECT number, partner_phone FROM fast_sale_orders
-                 WHERE (source_type='native_order' AND source_code=$1) OR number=$1`,
+                `SELECT number FROM fast_sale_orders
+                 WHERE ((source_type='native_order' AND source_code=$1) OR number=$1)
+                   AND state <> 'cancel'`,
                 [code]
             );
-            for (const row of pbhs.rows) {
-                if (row.number) numbers.push(row.number);
-                if (!phone && row.partner_phone) phone = normPhone(row.partner_phone);
-            }
+            for (const row of pbhs.rows) if (row.number) numbers.push(row.number);
         } catch {}
         numbers = [...new Set(numbers)];
+        // CHỈ phiếu ĐÃ được gắn vào PBH của đơn NÀY (consumed_pbh_code). BỎ nhánh
+        // fallback theo SĐT (audit CRITICAL/MEDIUM: match toàn bộ queued của KH → in
+        // nhầm phiếu đơn khác lên mọi bill + orphan hiện khắp nơi). Phiếu queued được
+        // xử lý lúc TẠO PBH qua collect() — bill in lại chỉ hiện đúng phần đã gộp.
         const r = await pool.query(
-            `SELECT code, items, phone FROM web2_returns
+            `SELECT code, items FROM web2_returns
              WHERE sub_type='thu_ve_1_phan' AND status='active'
-               AND ( consumed_pbh_code = ANY($1::text[])
-                     OR (bill_status='queued' AND phone = $2) )
+               AND consumed_pbh_code = ANY($1::text[])
              ORDER BY created_at ASC`,
-            [numbers, phone || (numbers.length ? numbers[0] : null)]
+            [numbers]
         );
         // Gộp theo productCode để bill gọn.
         const byCode = new Map();
@@ -1273,11 +1274,17 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             }
                         }
                     }
-                    // bill 0đ chỉ queue khi hàng vào kho BÁN ĐƯỢC ngay (khach_gui + không
-                    // skip disposition). shipper_gui → queue khi DUYỆT. Đổi hàng khach_gui
-                    // vẫn queue (SP trả lên bill 0đ cấn vào PBH đổi).
+                    // bill 0đ queue khi:
+                    //  - thu_ve_1_phan + khach_gui + CÓ đơn gốc (không đơn gốc/orphan → KHÔNG có
+                    //    PBH nào consume → kẹt queued mãi, audit LOW → chặn bằng !!sourceOrderCode)
+                    //  - VÀ (hàng vào kho bán được: sourceDeductedStock) HOẶC (đổi hàng: isExchange
+                    //    luôn cần shipper thu lại món cũ dù hàng lỗi giu_rieng — audit MEDIUM fix).
+                    // shipper_gui → queue khi DUYỆT (approve).
                     const billStatus =
-                        subType === 'thu_ve_1_phan' && method === 'khach_gui' && sourceDeductedStock
+                        subType === 'thu_ve_1_phan' &&
+                        method === 'khach_gui' &&
+                        sourceOrderCode &&
+                        (sourceDeductedStock || isExchange)
                             ? 'queued'
                             : null;
                     // Chênh lệch đổi hàng = giá trị SP đổi lấy − giá trị SP trả (chỉ để ghi
@@ -1492,9 +1499,12 @@ router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
                 hist.push({ ts: now, action: 'approve', userId: user.id, userName: user.name });
                 // shipper_gui thu_ve_1_phan: hàng GIỜ mới vào kho bán → mở hàng đợi bill 0đ
                 // (lúc create shipper_gui = null, không queue sớm khi chưa duyệt — audit #HIGH).
+                // Đổi hàng (is_exchange) LUÔN cần shipper thu lại món cũ dù hàng lỗi
+                // (stock_applied=false do giu_rieng) → vẫn queue khi duyệt (audit MEDIUM).
                 const newBillStatus =
                     row.sub_type === 'thu_ve_1_phan' &&
-                    row.stock_applied !== false &&
+                    (row.stock_applied !== false || row.is_exchange === true) &&
+                    row.source_order_code &&
                     row.bill_status == null
                         ? 'queued'
                         : row.bill_status;

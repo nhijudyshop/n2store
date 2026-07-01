@@ -2042,6 +2042,27 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
                                 [qty, stockNow, code]
                             );
                         }
+                        // [2026-07-01 audit HIGH] mark phiếu THU VỀ 'consumed' ATOMIC với PBH
+                        // INSERT (client, cùng tx). TRƯỚC ĐÂY pool.query NGOÀI tx (fire-and-forget):
+                        // crash giữa commit PBH và consume → phiếu kẹt 'queued' → lần tạo PBH sau
+                        // re-offer → dòng 0đ LẶP trên 2 PBH (driver thu 2 lần). Giờ PBH tồn tại ↔
+                        // phiếu consumed LUÔN nhất quán (rollback cùng nhau). Idempotent (WHERE
+                        // bill_status='queued'). Chỉ chạy ở nhánh INSERT thật (idempotent path
+                        // return sớm phía trên, không tới đây).
+                        {
+                            const _retCodes = Array.isArray(b.returnCodes) ? b.returnCodes : [];
+                            const _pbhNum = insRes.rows[0] && insRes.rows[0].number;
+                            if (_retCodes.length && _pbhNum) {
+                                const _now = Date.now();
+                                for (const rc of _retCodes) {
+                                    await client.query(
+                                        `UPDATE web2_returns SET bill_status='consumed', consumed_pbh_code=$1, updated_at=$2
+                                         WHERE code=$3 AND bill_status='queued'`,
+                                        [_pbhNum, _now, rc]
+                                    );
+                                }
+                            }
+                        }
                         return insRes;
                     });
                     break; // transaction commit OK → thoát retry loop
@@ -2103,22 +2124,11 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
             }
         }
 
-        // 2026-06-06: đánh dấu phiếu thu về (queued) đã lên bill → bill_status='consumed'.
-        // Fire-and-forget — không chặn flow tạo PBH.
+        // Phiếu THU VỀ 'consumed' ĐÃ được mark ATOMIC trong withTransaction (client) phía
+        // trên — ở đây CHỈ bắn SSE post-commit để UI refresh (audit HIGH: bỏ pool.query
+        // fire-and-forget ngoài tx → hết cửa sổ crash để phiếu kẹt 'queued' + double 0đ).
         const returnCodes = Array.isArray(b.returnCodes) ? b.returnCodes : [];
         if (returnCodes.length) {
-            const pbhNumber = r.rows[0]?.number || src.code;
-            for (const rc of returnCodes) {
-                try {
-                    await pool.query(
-                        `UPDATE web2_returns SET bill_status='consumed', consumed_pbh_code=$1, updated_at=$2
-                         WHERE code=$3 AND bill_status='queued'`,
-                        [pbhNumber, Date.now(), rc]
-                    );
-                } catch (e) {
-                    console.warn('[from-native-order] mark return consumed fail:', e.message);
-                }
-            }
             try {
                 req.app.locals.web2RealtimeSseNotify?.(
                     'web2:returns',

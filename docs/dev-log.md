@@ -2,6 +2,23 @@
 
 ## 2026-07-01
 
+### [thu về] Re-audit (9-agent workflow) → fix 6 lỗi thật (mark-consumed atomic, on-order scope, orphan/exchange queue, regex, auth)
+
+**Files:** `render.com/routes/web2-returns.js` · `render.com/routes/fast-sale-orders.js` · `web2/shared/web2-bill-service.js` · `web2/shared/web2-return-bill.js`.
+
+Audit lại toàn bộ thu về (đọc services + 5 trang) → 18 finding; loại false-positive (canSubmit ĐÃ check replacements; cross-pool = same web2Db pool) + intended (hàng lỗi hoàn ví = đúng reverse-logistics). Fix 6 lỗi thật:
+
+- **HIGH mark-consumed atomic**: chuyển `UPDATE web2_returns SET consumed` từ `pool.query` fire-and-forget NGOÀI tx → VÀO `withTransaction` PBH INSERT (client, cùng web2Db) → PBH tồn tại ↔ phiếu consumed nhất quán, hết cửa sổ crash gây double dòng 0đ. (`fast-sale-orders.js`)
+- **MEDIUM on-order scope**: bỏ nhánh fallback `bill_status='queued' AND phone` (match toàn bộ queued của KH → in nhầm phiếu đơn khác/orphan lên mọi bill) → chỉ `consumed_pbh_code = ANY(numbers)`; thêm `state<>'cancel'`.
+- **LOW orphan stuck-queued**: billStatus queue thêm điều kiện `sourceOrderCode` (không đơn gốc → không có PBH consume → không queue).
+- **MEDIUM exchange hàng lỗi**: billStatus/approve queue thêm `|| isExchange` → đổi hàng dù disposition giu_rieng vẫn lên khung THU LẠI.
+- **MEDIUM isReturnLine regex**: bỏ substring `/thu về/i` → khớp CHÍNH XÁC 'Thu về 0đ' + ưu tiên cờ `isReturn`. (`web2-bill-service.js`)
+- **LOW auth**: gate `on-order` + `queued-by-phone` bằng requireWeb2AuthSoft + client gửi x-web2-token. (`web2-return-bill.js`)
+
+Còn lại (report, chưa fix): so-order/live-control ẩn return_qty (display gap), KNH-after-partial over-restock (known-limitation), web2:products blast (perf nhỏ). Business-confirm: hàng lỗi huỷ có hoàn ví không (mặc định CÓ).
+
+Status: ✅ deployed-ready.
+
 ### [goods-weight] Báo cáo bung ngày → xem ảnh cân đã chụp
 
 **Files:** `web2/goods-weight/js/goods-weight.js` (`renderReport`/`toggleDay`/`renderDayPhotos`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (bump v=20260701a), `render.com/routes/web2-goods-weight.js` (`/list`).

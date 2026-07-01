@@ -19,6 +19,19 @@
         return s;
     }
 
+    // Auth header cho reads (on-order/queued-by-phone giờ gated requireWeb2AuthSoft —
+    // audit LOW info-leak). Native-orders đã có Web2Auth → gửi x-web2-token.
+    function _authHeaders() {
+        try {
+            if (window.Web2Auth && window.Web2Auth.authHeaders)
+                return window.Web2Auth.authHeaders();
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            return t && t.token ? { 'x-web2-token': t.token } : {};
+        } catch {
+            return {};
+        }
+    }
+
     // SP THU VỀ đã lên bill của 1 đơn (để IN vào bill PBH cho shipper thu lại).
     // code = native order code hoặc số PBH. Trả [{productCode,productName,quantity}].
     async function onOrder(code) {
@@ -26,7 +39,7 @@
         try {
             const r = await fetch(
                 `${WORKER_URL}/api/web2-returns/on-order/${encodeURIComponent(code)}`,
-                { cache: 'no-cache' }
+                { cache: 'no-cache', headers: _authHeaders() }
             );
             const d = await r.json();
             if (!r.ok || d.success === false) return [];
@@ -42,7 +55,7 @@
         try {
             const r = await fetch(
                 `${WORKER_URL}/api/web2-returns/queued-by-phone/${encodeURIComponent(ph)}`,
-                { cache: 'no-cache' }
+                { cache: 'no-cache', headers: _authHeaders() }
             );
             const d = await r.json();
             if (!r.ok || d.success === false) return { returns: [], items: [] };

@@ -347,9 +347,16 @@ html, body { margin: 0; padding: 0; background: #fff; }
         // Tách dòng BÁN (giao cho khách) vs dòng THU VỀ (shipper thu LẠI từ khách —
         // đổi/trả từ đơn trước, giá 0đ note 'Thu về'). Thu về KHÔNG tính vào SL giao +
         // được in ở KHUNG RIÊNG nổi bật để shipper không nhầm là quà tặng phải giao.
+        // Ưu tiên CỜ tường minh (it.isReturn) từ _buildPbhShape. Fallback note: khớp
+        // CHÍNH XÁC chuỗi server ghi cố định 'Thu về 0đ' (fast-sale-orders.js) — KHÔNG
+        // substring /thu về/ vì note bán tự do có thể chứa "thu về" (vd "nhắc khách thu
+        // về cọc") → xếp nhầm vào khung THU LẠI + lệch SL giao (audit MEDIUM).
         const isReturnLine = (it) => {
-            const note = String(it.note || it.Note || '');
-            return /thu\s*về/i.test(note) || it.isReturn === true;
+            if (it.isReturn === true) return true;
+            const note = String(it.note || it.Note || '')
+                .trim()
+                .toLowerCase();
+            return note === 'thu về 0đ' || note === 'thu về 0d';
         };
         let totalQty = 0;
         const items = [];
