@@ -490,7 +490,8 @@
         if (!isAdmin()) return toast('Chỉ admin được đồng bộ', 'error');
         if (state.busy) return;
         const ok = await confirmDanger(
-            'Đồng bộ đơn NHÁP theo gán bài hiện tại?\n\n' +
+            'Đồng bộ đơn NHÁP theo gán bài hiện tại — TOÀN HỆ THỐNG?\n\n' +
+                '• Quét TẤT CẢ đơn nháp gán nhầm trên MỌI chiến dịch (không chỉ chiến dịch đang xem).\n' +
                 '• Dời đơn nháp (chưa chốt PBH) sang chiến dịch cha đúng + cấp lại STT kệ.\n' +
                 '• KHÔNG đụng đơn đã PBH (đã lên kệ vật lý + KPI đã tính).\n\n' +
                 'Dùng khi bạn vừa gán lại / xóa bài mà đã lỡ có đơn nháp gán nhầm.'

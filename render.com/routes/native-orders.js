@@ -915,10 +915,9 @@ router.post('/reset-stt', requireWeb2AuthSoft, async (req, res) => {
 router.post('/resync-campaigns', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    const scopeId =
-        req.body && req.body.campaignId != null && String(req.body.campaignId) !== ''
-            ? Number(req.body.campaignId)
-            : null;
+    // Validate scopeId tại boundary: chỉ nhận số hữu hạn (tránh NaN lọt vào $1::bigint → 500).
+    const _cid = req.body && req.body.campaignId != null ? Number(req.body.campaignId) : NaN;
+    const scopeId = Number.isFinite(_cid) ? _cid : null;
     const client = await pool.connect();
     try {
         await ensureTables(pool);
@@ -926,38 +925,42 @@ router.post('/resync-campaigns', requireWeb2Admin, async (req, res) => {
         // Đơn DRAFT mà parent_campaign_id ≠ gán bài HIỆN TẠI (LEFT JOIN → post gỡ gán /
         // chiến dịch xoá → new_parent NULL). IS DISTINCT FROM = null-safe. Nếu scopeId:
         // chỉ đơn ĐANG gán về scope HOẶC parent hiện là scope (bài đã rời) — fix 2 chiều.
+        // KHÔNG FOR UPDATE ở đây (tránh thứ tự lock NGƯỢC với from-comment → deadlock).
+        // Chỉ đọc ứng viên; khóa row diễn ra trong UPDATE, SAU advisory-lock (đúng thứ tự
+        // như from-comment: advisory → row). Lấy sẵn live_campaign_name/id để tính nhóm MỚI JS.
         const moved = await client.query(
-            `SELECT o.id, pa.campaign_id AS new_parent
+            `SELECT o.id, o.live_campaign_name, o.live_campaign_id, pa.campaign_id AS new_parent
              FROM native_orders o
              LEFT JOIN web2_live_post_assign pa ON o.fb_post_id = pa.post_id
              WHERE o.status = 'draft'
                AND o.parent_campaign_id IS DISTINCT FROM pa.campaign_id
                ${scopeId != null ? 'AND ($1::bigint = pa.campaign_id OR $1::bigint = o.parent_campaign_id)' : ''}
-             ORDER BY o.created_at ASC
-             FOR UPDATE OF o`,
+             ORDER BY o.created_at ASC`,
             scopeId != null ? [scopeId] : []
         );
         let count = 0;
         for (const row of moved.rows) {
-            // 1) dời parent
-            await client.query(
-                `UPDATE native_orders SET parent_campaign_id = $1::bigint, updated_at = $2 WHERE id = $3`,
+            // Nhóm STT MỚI (theo new_parent) — tính JS để advisory-lock TRƯỚC khi đụng row.
+            // Thứ tự advisory→row KHỚP from-comment/merge → hết deadlock ordering.
+            const newGrp = campaignGroupKeyJs(
+                row.new_parent,
+                row.live_campaign_name,
+                row.live_campaign_id
+            );
+            await lockCampaignSttKey(client, newGrp);
+            // 1) dời parent — guard status='draft' (đơn có thể vừa bị confirm giữa SELECT↔giờ).
+            const upd = await client.query(
+                `UPDATE native_orders SET parent_campaign_id = $1::bigint, updated_at = $2
+                 WHERE id = $3 AND status = 'draft'`,
                 [row.new_parent, Date.now(), row.id]
             );
-            // 2) cấp campaign_stt = MAX+1 của NHÓM MỚI (append, KHÔNG renumber đơn khác).
-            //    Nhóm = SQL_CAMPAIGN_GROUP_ROW (parent → name-group → live_id). Loại chính nó.
-            const g = await client.query(
-                `SELECT ${SQL_CAMPAIGN_GROUP_ROW} AS grp FROM native_orders WHERE id = $1`,
-                [row.id]
-            );
-            const grp = g.rows[0].grp;
-            // Serialize với from-comment insert cùng nhóm (khóa CÙNG key) → MAX+1 không
-            // đụng STT với đơn live tạo song song. grp == campaignGroupKeyJs (cùng precedence).
-            await lockCampaignSttKey(client, grp);
+            if (!upd.rowCount) continue; // đã confirm/xóa giữa chừng → bỏ qua (không đụng đơn chốt)
+            // 2) campaign_stt = MAX+1 NHÓM MỚI (append, KHÔNG renumber đơn khác). Loại chính nó.
+            //    Sau UPDATE parent, SQL_CAMPAIGN_GROUP_ROW của row = newGrp.
             const mx = await client.query(
                 `SELECT COALESCE(MAX(campaign_stt), 0) + 1 AS n
                  FROM native_orders WHERE ${SQL_CAMPAIGN_GROUP_ROW} = $1 AND id <> $2`,
-                [grp, row.id]
+                [newGrp, row.id]
             );
             await client.query(`UPDATE native_orders SET campaign_stt = $1 WHERE id = $2`, [
                 mx.rows[0].n,

@@ -14,7 +14,9 @@ Giải bài toán "gán nhầm chiến dịch rồi sửa": `parent_campaign_id`
 
 **Bối cảnh (giải thích user):** đã phân tích snapshot-vs-live + verify code (assign/delete KHÔNG đụng native parent; board lọc fb_post_id live → trùng STT). "Unique string" không giải quyết (chỉ đổi kiểu khóa); STT là số kệ VẬT LÝ nên snapshot ĐÚNG; hủy PBH reset KPI+kho+ví nhưng không dời CD + là búa tạ. → nút draft-only là fix đúng-đủ, nhẹ.
 
-**Test:** Postgres 3 bước PASS (draft-only; STT append=MAX+1 không renumber confirmed đã lên kệ STT=5→moved thành 6,7; post gỡ gán→parent NULL; idempotent moved=0 lần 2). Browser: nút render, click→confirm→POST /resync-campaigns, 0 console error. Adversarial review.
+**Test:** Postgres PASS (draft-only; STT append=MAX+1 không renumber confirmed STT=5→6,7; post gỡ gán→parent NULL; idempotent; JS campaignGroupKeyJs==SQL group). Browser: click→confirm→POST /resync-campaigns, 0 error.
+
+**Adversarial review (10 agents) → 3 fix:** (1) LOCK-ORDER DEADLOCK — resync FOR UPDATE row→advisory NGƯỢC với from-comment advisory→row → gỡ FOR UPDATE OF o, tính nhóm MỚI JS, lockCampaignSttKey TRƯỚC UPDATE...WHERE status=draft (guard đơn vừa confirm) → khớp thứ tự, hết deadlock; (2) confirm message rõ TOÀN HỆ THỐNG—MỌI chiến dịch (nút global); (3) scopeId Number.isFinite guard (NaN→500).
 
 ⚠ Deploy Render. Giới hạn: KPI **forecast** cũ của draft (cart-add đã emit) không tự sửa — nhưng **actual** tại chốt PBH mới tính (lấy parent mới) → payroll đúng.
 
