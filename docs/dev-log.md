@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [goods-weight] Báo cáo bung ngày → xem ảnh cân đã chụp
+
+**Files:** `web2/goods-weight/js/goods-weight.js` (`renderReport`/`toggleDay`/`renderDayPhotos`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (bump v=20260701a), `render.com/routes/web2-goods-weight.js` (`/list`).
+
+Tab **Báo cáo** trước đây chỉ có bảng gộp theo ngày (số lần/kg/kiện/tiền ship), KHÔNG thấy ảnh — muốn xem ảnh phải qua tab "Cân hàng". Giờ mỗi hàng ngày **bấm để bung** ra lưới ảnh cân đã chụp của ngày đó (kg · kiện · NV · giờ), click ảnh → `Web2ImageLightbox` (vuốt qua lại).
+
+- BE `/list`: thêm filter optional `day=YYYY-MM-DD` (GMT+7) + `username`, limit 200→500. Backward-compat (không truyền = như cũ).
+- FE: lazy-fetch khi bung (cache theo hàng, không refetch), **lọc đúng ngày client-side (GMT+7)** để đúng ngay cả khi web2-api chưa deploy filter `day`. Nút xoá ngày (admin) có guard không trigger bung.
+- Verify browser: report 30/06 bung ra 2 ảnh thật (964×1280) load OK, toggle đóng/mở + cache OK, lightbox OK.
+
+Status: ✅
+
 ### [web2-bill-service] Khung "THU LẠI TỪ KHÁCH" chuyển xuống DƯỚI "TỔNG TIỀN"
 
 **Files:** `web2/shared/web2-bill-service.js` (`generateRows`).

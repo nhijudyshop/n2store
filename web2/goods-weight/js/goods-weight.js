@@ -467,7 +467,13 @@
             const user = $('#rpUser').value; // tôn trọng bộ lọc NV của báo cáo
             if (user) qs.set('username', user);
             const data = await api('/list?' + qs.toString());
-            renderDayPhotos(box, data.items || []);
+            // Chốt đúng ngày client-side (GMT+7): an toàn kể cả khi server chưa lọc theo `day`.
+            const dayOf = (ms) =>
+                new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(
+                    new Date(Number(ms))
+                );
+            const items = (data.items || []).filter((x) => dayOf(x.createdAt) === row.dataset.day);
+            renderDayPhotos(box, items);
             box.dataset.loaded = '1';
         } catch (e) {
             box.innerHTML = `<div class="rp-muted">Lỗi tải ảnh: ${esc(e.message)}</div>`;
