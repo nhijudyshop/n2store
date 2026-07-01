@@ -1315,6 +1315,10 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     // customerBear: hoàn ví THẬT = walletCredit − khách chịu (clamp 0); PBH vẫn
                     // settle FULL (decs ở trên dùng walletCredit gốc — món đã trả về đủ).
                     const depositAmt = Math.max(0, walletCredit - customerBear);
+                    // FIX (2026-07-01): set walletCreditedFinal HERE — depositAmt is block-scoped
+                    // to this transaction callback. Reading it AFTER the callback (dưới) ném
+                    // ReferenceError "depositAmt is not defined" → mọi thu_ve_1_phan hoàn ví bị 500.
+                    walletCreditedFinal = depositAmt > 0 && creditToWallet;
                     let walletTxId = null;
                     if (depositAmt > 0 && creditToWallet) {
                         const dep = await web2WalletService.processDeposit(
@@ -1397,7 +1401,6 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     }
                     return ins.rows[0];
                 });
-                walletCreditedFinal = depositAmt > 0 && creditToWallet;
                 break;
             } catch (e) {
                 if (e && e.httpStatus) {
