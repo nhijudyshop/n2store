@@ -2,6 +2,24 @@
 
 ## 2026-07-01
 
+### [web2-campaign-manager] Nút "Đồng bộ đơn nháp" — dời đơn nháp theo gán bài hiện tại (fix gán nhầm)
+
+**Files:** `render.com/routes/native-orders.js` (POST /resync-campaigns, admin), `web2/campaign-manager/index.html` + `js/campaign-manager.js` (nút + doResync).
+
+Giải bài toán "gán nhầm chiến dịch rồi sửa": `parent_campaign_id` là **snapshot lúc tạo đơn** (gán lại bài KHÔNG retroactive). Nút này dời đơn **NHÁP** sang chiến dịch cha đúng theo `web2_live_post_assign` HIỆN TẠI + cấp lại STT.
+
+- **`POST /resync-campaigns`** (`requireWeb2Admin`): draft orders `LEFT JOIN post_assign WHERE parent_campaign_id IS DISTINCT FROM pa.campaign_id` (`FOR UPDATE OF o`) → mỗi đơn: UPDATE parent=gán-hiện-tại (post gỡ gán/CD xóa → NULL); `campaign_stt = MAX+1 nhóm mới` (**append**, KHÔNG renumber). Lock `lockCampaignSttKey(grp)` chống đụng STT với from-comment live. Transaction + SSE + audit.
+- **CHỈ status='draft'** — đơn PBH/confirmed (lên kệ vật lý + KPI actual đã emit) GIỮ NGUYÊN (đúng: không dời hàng đã trên kệ). Optional `{campaignId}` giới hạn phạm vi.
+- **UI:** nút `#cmResync` (Manager header, admin) → confirmDanger giải thích rõ → POST → toast "Đã đồng bộ N đơn nháp".
+
+**Bối cảnh (giải thích user):** đã phân tích snapshot-vs-live + verify code (assign/delete KHÔNG đụng native parent; board lọc fb_post_id live → trùng STT). "Unique string" không giải quyết (chỉ đổi kiểu khóa); STT là số kệ VẬT LÝ nên snapshot ĐÚNG; hủy PBH reset KPI+kho+ví nhưng không dời CD + là búa tạ. → nút draft-only là fix đúng-đủ, nhẹ.
+
+**Test:** Postgres 3 bước PASS (draft-only; STT append=MAX+1 không renumber confirmed đã lên kệ STT=5→moved thành 6,7; post gỡ gán→parent NULL; idempotent moved=0 lần 2). Browser: nút render, click→confirm→POST /resync-campaigns, 0 console error. Adversarial review.
+
+⚠ Deploy Render. Giới hạn: KPI **forecast** cũ của draft (cart-add đã emit) không tự sửa — nhưng **actual** tại chốt PBH mới tính (lấy parent mới) → payroll đúng.
+
+Status: ✅ (chờ deploy Render)
+
 ### [web2-reconcile] Wire Web2CampaignPicker: lọc PBH theo CHIẾN DỊCH CHA (span 2 page)
 
 **Files:** `render.com/routes/reconcile.js` (GET /list +campaignId filter), `web2/reconcile/index.html` + `js/reconcile-app.js` + `reconcile-api.js` + `reconcile-state.js`, `docs/web2/WIRE-PICKER-PLAN.md` (MỚI — plan 2 trang còn lại).
