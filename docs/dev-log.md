@@ -2,6 +2,25 @@
 
 ## 2026-07-01
 
+### [web2-kpi] KPI-2PAGE-1: re-key attribution + scope theo parent_campaign_id (NV credit đúng 2 page)
+
+**Files:** `render.com/routes/v2/kpi.js` (schema + resolveBeneficiary + buildScopeWhere + loadScope + endpoints), `render.com/routes/v2/cart.js` + `render.com/routes/native-orders.js` + `render.com/routes/fast-sale-orders.js` (3 emit site pass parent + /campaigns scope), `web2/kpi/js/kpi-assignments.js` + `assignments.html` (UI chọn chiến dịch cha).
+
+Hoàn tất nốt cluster H4: KPI đổi key từ `campaign_name` (per-page "STORE X"≠"HOUSE X") sang **CHIẾN DỊCH CHA** (`native_orders.parent_campaign_id`) → NV được credit + THẤY đơn đúng CẢ 2 page (khớp campaign_stt parent-scoped commit #2).
+
+- **Schema:** `web2_kpi_assignments` +`parent_campaign_id BIGINT`+`campaign_label`, partial UNIQUE `(parent_campaign_id) WHERE NOT NULL`, `campaign_name DROP NOT NULL`. Row mới key parent; legacy name giữ (fallback).
+- **resolveBeneficiary:** ưu tiên parent_campaign_id, fallback campaign_name. **buildScopeWhere/\_buildScope:** parent-keyed hoặc legacy name (OR), áp trên native_orders. **loadScope** trả parent_campaign_id.
+- **Endpoints** `/employee-ranges/:campaignName` (GET/PUT/history) + `/assignments`: param = parent_campaign_id (số) qua `_parseAssignKey`. PUT upsert `ON CONFLICT (parent_campaign_id) WHERE NOT NULL`.
+- **3 emit site** pass parent_campaign_id: cart `_emitCartKpi`, native-orders order-edit, **fast-sale-orders PBH /confirm** (review CRIT-1). Revoke re-emit reuse stored beneficiary.
+- **/campaigns scope** (native-orders): lọc theo parent_campaign_id + legacy name (OR), KHÔNG để null lọt `ANY(::text[])` (review CRIT-2).
+- **UI:** dropdown chọn CHIẾN DỊCH CHA (`/api/web2-live-comments/campaigns`, value=id), campaignLabel=tên.
+
+**Test:** Postgres local — assignments 6/6 PASS (parent upsert ON CONFLICT + update giữ label; attribution cross-page NV1 credit STORE stt3+HOUSE stt7 cùng parent; scope A+B không lẫn parent khác; legacy coexist); /campaigns scope 2/2 PASS (parent thấy 2 page + legacy, no null leak). Browser: dropdown 6 chiến dịch cha value=id, chọn → ranges load, 0 console error. Adversarial review → 2 CRITICAL (fast-sale emit + /campaigns scope) đã sửa + verify.
+
+⚠ Deploy Render (kpi.js + 3 emit + scope). Beta: phân công KPI cũ (key name) tạo lại theo chiến dịch cha. Còn (low-risk, beta): `_parseAssignKey` nhầm nếu campaign_name toàn số; UI totalOrders hiện comment_count.
+
+Status: ✅ (chờ deploy Render; hoàn tất cluster H4 — KPI-2PAGE-1)
+
 ### [web2-goods-weight] Tiền ship cân nặng chuyển từ tuyến tính → BẢNG BẬC (mỗi lần cân)
 
 **Files:** `render.com/routes/web2-goods-weight.js` (server /report), `web2/goods-weight/js/goods-weight.js` (list + report UI).

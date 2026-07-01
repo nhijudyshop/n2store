@@ -2150,7 +2150,11 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
                 const campaignName = src.live_campaign_name || null;
                 const campaignId = src.live_campaign_id || kpiModule.SYNTHETIC_NO_CAMPAIGN;
                 const campaignStt = src.campaign_stt ?? null;
+                // KPI-2PAGE-1: attribution theo CHIẾN DỊCH CHA (span 2 page). src =
+                // native_orders row (đã có parent_campaign_id từ migration 082).
+                const parentCampaignId = src.parent_campaign_id ?? null;
                 const beneficiary = await kpiModule.resolveBeneficiary(pool, {
+                    parent_campaign_id: parentCampaignId,
                     campaign_name: campaignName,
                     campaign_stt: campaignStt,
                     actor_user_id: actorId,

@@ -1588,9 +1588,34 @@ async function _campaignsHandler(req, res) {
         if (req.kpiScope === '__deny_all__') {
             scopeFilter = `WHERE FALSE`;
         } else if (Array.isArray(req.kpiScope) && req.kpiScope.length) {
-            const names = [...new Set(req.kpiScope.map((s) => s.campaign_name))];
-            params.push(names);
-            scopeFilter = `WHERE live_campaign_name = ANY($1::text[])`;
+            // KPI-2PAGE-1: scope entry ưu tiên parent_campaign_id (chiến dịch CHA span
+            // 2 page); legacy entry chỉ có campaign_name. Lọc theo CẢ 2 (OR). Row mới có
+            // parent_campaign_id=set + campaign_name=null → KHÔNG được để null lọt vào
+            // ANY(...::text[]) (match sai). Khớp _buildScope trong kpi.js.
+            const parentIds = [
+                ...new Set(
+                    req.kpiScope
+                        .filter((s) => s.parent_campaign_id != null)
+                        .map((s) => s.parent_campaign_id)
+                ),
+            ];
+            const names = [
+                ...new Set(
+                    req.kpiScope
+                        .filter((s) => s.parent_campaign_id == null && s.campaign_name)
+                        .map((s) => s.campaign_name)
+                ),
+            ];
+            const conds = [];
+            if (parentIds.length) {
+                params.push(parentIds);
+                conds.push(`parent_campaign_id = ANY($${params.length}::bigint[])`);
+            }
+            if (names.length) {
+                params.push(names);
+                conds.push(`live_campaign_name = ANY($${params.length}::text[])`);
+            }
+            scopeFilter = conds.length ? `WHERE (${conds.join(' OR ')})` : `WHERE FALSE`;
         }
         const r = await pool.query(
             `
