@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `11c67e1` — auto: session update
-**Last updated**: 2026-07-01 12:23:26 +07
-**Latest session**: [`RESUME:20260701-122326-11c67e1`](../20260701-122326-11c67e1.md)
-**Summary**: auto: session update
+**Latest commit**: `5601798` — docs(dev-log): ghi fix web2-returns depositAmt scope bug
+**Last updated**: 2026-07-01 12:50:07 +07
+**Latest session**: [`RESUME:20260701-125007-5601798`](../20260701-125007-5601798.md)
+**Summary**: docs(dev-log): ghi fix web2-returns depositAmt scope bug
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 00:24
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 12:23
+- [`docs/`](./docs.md) — updated 2026-07-01 12:50
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
