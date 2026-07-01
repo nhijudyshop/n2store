@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f6f27d1` — feat(camera-bridge): sidecar KBVision/Dahua snapshot cho đối soát tay (Phase 2)
-**Last updated**: 2026-07-01 10:51:54 +07
-**Latest session**: [`RESUME:20260701-105154-f6f27d1`](../20260701-105154-f6f27d1.md)
-**Summary**: reconcile: camera bằng chứng đối soát tay + session model (đủ mới lưu) + KBVision camera-bridge sidecar
+**Latest commit**: `07fbc1e` — auto: session update
+**Last updated**: 2026-07-01 10:56:08 +07
+**Latest session**: [`RESUME:20260701-105608-07fbc1e`](../20260701-105608-07fbc1e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`camera-bridge/`](./camera-bridge.md) — 5 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -85,4 +82,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 10:51
+- [`web2/`](./web2.md) — updated 2026-07-01 10:56
