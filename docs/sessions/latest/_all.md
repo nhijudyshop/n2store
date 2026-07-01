@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3141076` — fix(thu về): re-audit fixes — mark-consumed atomic, on-order scope, orphan/exchange queue, bill regex, auth
-**Last updated**: 2026-07-01 10:20:13 +07
-**Latest session**: [`RESUME:20260701-102013-3141076`](../20260701-102013-3141076.md)
-**Summary**: goods-weight: báo cáo bung ngày xem ảnh cân đã chụp + lightbox
+**Latest commit**: `0ec3850` — docs(session): fill goods-weight resume details
+**Last updated**: 2026-07-01 10:21:34 +07
+**Latest session**: [`RESUME:20260701-102134-0ec3850`](../20260701-102134-0ec3850.md)
+**Summary**: docs(session): fill goods-weight resume details
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
