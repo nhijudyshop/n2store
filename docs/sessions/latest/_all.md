@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `76d9459` — feat(web2-goods-weight): tiền ship cân nặng theo bảng bậc/lần cân (thay tuyến tính 25k/kg)
-**Last updated**: 2026-07-01 18:05:49 +07
-**Latest session**: [`RESUME:20260701-180549-76d9459`](../20260701-180549-76d9459.md)
-**Summary**: feat(web2-goods-weight): tiền ship cân nặng theo bảng bậc/lần cân (thay tuyến tính 25k/kg)
+**Latest commit**: `8f5e5d0` — auto: session update
+**Last updated**: 2026-07-01 18:26:33 +07
+**Latest session**: [`RESUME:20260701-182633-8f5e5d0`](../20260701-182633-8f5e5d0.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -62,7 +61,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-07-01 18:05
+- [`render.com/`](./render.com.md) — updated 2026-07-01 18:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
@@ -84,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 18:05
+- [`web2/`](./web2.md) — updated 2026-07-01 18:26
