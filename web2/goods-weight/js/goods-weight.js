@@ -342,6 +342,7 @@
     }
 
     async function loadReport() {
+        if (_dayDrawer && _dayDrawer.isOpen()) _dayDrawer.close(); // data đổi → đóng drawer cũ
         const qs = new URLSearchParams();
         const from = $('#rpFrom').value,
             to = $('#rpTo').value,
@@ -409,8 +410,19 @@
                 const act = admin
                     ? `<button class="rp-del" data-del-day="${esc(d.day)}" data-count="${d.count}" title="Xoá toàn bộ ngày này"><i data-lucide="trash-2"></i></button>`
                     : '';
-                return `<tr class="rp-drow" data-day="${esc(d.day)}" title="Bấm để xem ảnh cân trong ngày">
-                    <td class="rp-day"><i class="rp-caret" data-lucide="chevron-right"></i><b>${dl.date}</b><span>${dl.wd}</span></td>
+                // Ảnh hiển thị ra luôn trong hàng (thumbnail); bấm → drawer xem full.
+                const withImg = (d.items || []).filter((x) => x.hasImage);
+                const preview = withImg.slice(0, 4);
+                const more = withImg.length - preview.length;
+                const thumbs = withImg.length
+                    ? `<div class="rp-day-thumbs">${preview
+                          .map((x) => `<img src="${GW}/img/${esc(x.id)}" loading="lazy" alt="" />`)
+                          .join(
+                              ''
+                          )}${more > 0 ? `<span class="rp-more">+${more}</span>` : ''}</div>`
+                    : '';
+                return `<tr class="rp-drow" data-day="${esc(d.day)}" tabindex="0" role="button" title="Xem ảnh cân ngày này">
+                    <td class="rp-day"><b>${dl.date}</b><span>${dl.wd}</span>${thumbs}</td>
                     <td class="num">${fmtInt(d.count)}</td>
                     <td class="num">${fmtKg(d.kg)}</td>
                     <td class="num">${fmtInt(d.bales)}</td>
@@ -418,8 +430,7 @@
                     <td class="num">${money(d.shipBale)}</td>
                     <td class="num rp-ship">${money(d.ship)}</td>
                     <td class="rp-act">${act}</td>
-                </tr>
-                <tr class="rp-detail" hidden><td colspan="8"><div class="rp-photos"></div></td></tr>`;
+                </tr>`;
             })
             .join('');
         $('#rpFoot').innerHTML = `<tr class="rp-total">
@@ -434,12 +445,18 @@
         </tr>`;
         $('#rpBody')
             .querySelectorAll('.rp-drow')
-            .forEach((row) =>
+            .forEach((row) => {
                 row.addEventListener('click', (e) => {
-                    if (e.target.closest('[data-del-day]')) return; // nút xoá ngày → không bung ảnh
-                    toggleDay(row);
-                })
-            );
+                    if (e.target.closest('[data-del-day]')) return; // nút xoá ngày → không mở drawer
+                    openDayDrawer(row.dataset.day);
+                });
+                row.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openDayDrawer(row.dataset.day);
+                    }
+                });
+            });
         if (admin)
             $('#rpBody')
                 .querySelectorAll('[data-del-day]')
@@ -451,43 +468,51 @@
         icons($('#panelReport'));
     }
 
-    // Bung 1 ngày trong báo cáo → tải chi tiết lần cân + ảnh đã chụp (lazy, cache theo hàng).
-    async function toggleDay(row) {
-        const detail = row.nextElementSibling; // <tr class="rp-detail">
-        if (!detail || !detail.classList.contains('rp-detail')) return;
-        const opening = detail.hidden;
-        detail.hidden = !opening;
-        row.classList.toggle('is-open', opening);
-        if (!opening) return;
-        const box = detail.querySelector('.rp-photos');
-        if (box.dataset.loaded) return; // đã tải → giữ cache, không refetch
-        box.innerHTML = '<div class="rp-muted">Đang tải ảnh…</div>';
-        try {
-            const qs = new URLSearchParams({ day: row.dataset.day, limit: '500' });
-            const user = $('#rpUser').value; // tôn trọng bộ lọc NV của báo cáo
-            if (user) qs.set('username', user);
-            const data = await api('/list?' + qs.toString());
-            // Chốt đúng ngày client-side (GMT+7): an toàn kể cả khi server chưa lọc theo `day`.
-            const dayOf = (ms) =>
-                new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(
-                    new Date(Number(ms))
-                );
-            const items = (data.items || []).filter((x) => dayOf(x.createdAt) === row.dataset.day);
-            renderDayPhotos(box, items);
-            box.dataset.loaded = '1';
-        } catch (e) {
-            box.innerHTML = `<div class="rp-muted">Lỗi tải ảnh: ${esc(e.message)}</div>`;
-        }
+    // ── Drawer ảnh cân theo ngày (module chung Web2Drawer) ──
+    let _dayDrawer = null;
+    let _drawerDay = null;
+    function ensureDrawer() {
+        if (_dayDrawer || !window.Web2Drawer) return _dayDrawer;
+        _dayDrawer = Web2Drawer.create({
+            id: 'gwDayPhotos',
+            side: 'right',
+            width: 460,
+            backdrop: true,
+            onClose: () => {
+                _drawerDay = null;
+            },
+        });
+        return _dayDrawer;
     }
-
-    function renderDayPhotos(box, items) {
-        if (!items.length) {
-            box.innerHTML = '<div class="rp-muted">Không có bản ghi.</div>';
+    function openDayDrawer(day) {
+        const row = (REPORT && REPORT.rows ? REPORT.rows : []).find((r) => r.day === day);
+        if (!row) return;
+        const items = row.items || [];
+        const dw = ensureDrawer();
+        if (!dw) {
+            // Fallback: chưa nạp Web2Drawer → mở thẳng lightbox toàn bộ ảnh ngày đó.
+            const urls = items
+                .filter((x) => x.hasImage)
+                .map((x) => `${GW}/img/${encodeURIComponent(x.id)}`);
+            if (urls.length && window.Web2ImageLightbox?.open) Web2ImageLightbox.open(urls, 0);
             return;
         }
+        if (dw.isOpen() && _drawerDay === day) return dw.close(); // bấm lại đúng ngày → đóng (toggle)
+        _drawerDay = day;
+        const dl = dayLabel(day);
+        dw.setTitle(
+            `Ảnh cân ${esc(dl.date)}<small>${esc(dl.wd)} · ${fmtInt(row.count)} lần cân · ${fmtKg(
+                row.kg
+            )} kg · ${money(row.ship)}</small>`
+        );
+        dw.setBody(dayPhotosHtml(items));
+        wireDrawerPhotos(dw.body, items);
+        dw.open();
+    }
+    function dayPhotosHtml(items) {
+        if (!items.length) return '<div class="rp-muted">Không có bản ghi.</div>';
         const withImg = items.filter((x) => x.hasImage);
-        const urls = withImg.map((x) => `${GW}/img/${encodeURIComponent(x.id)}`); // lightbox swipe
-        box.innerHTML = items
+        return `<div class="rp-photos">${items
             .map((x) => {
                 const idx = withImg.findIndex((w) => w.id === x.id);
                 const media = x.hasImage
@@ -502,8 +527,12 @@
                     </figcaption>
                 </figure>`;
             })
-            .join('');
-        box.querySelectorAll('img[data-idx]').forEach((im) =>
+            .join('')}</div>`;
+    }
+    function wireDrawerPhotos(root, items) {
+        const withImg = items.filter((x) => x.hasImage);
+        const urls = withImg.map((x) => `${GW}/img/${encodeURIComponent(x.id)}`); // lightbox swipe
+        root.querySelectorAll('img[data-idx]').forEach((im) =>
             im.addEventListener('click', () => {
                 const i = Number(im.dataset.idx) || 0;
                 try {
@@ -514,7 +543,6 @@
                 }
             })
         );
-        icons(box);
     }
 
     async function deleteDay(ymd, count) {

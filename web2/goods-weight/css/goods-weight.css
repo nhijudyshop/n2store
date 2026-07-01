@@ -732,35 +732,42 @@ body:not(.rp-admin) .rp-act {
     border-color: #f4c4c6;
 }
 
-/* ── Bung ngày → ảnh cân đã chụp ────────────────────── */
+/* ── Báo cáo: thumbnail ảnh trong hàng + drawer ảnh ─── */
 .rp-drow {
     cursor: pointer;
 }
-.rp-caret {
-    width: 15px;
-    height: 15px;
-    vertical-align: -2px;
-    margin-right: 5px;
-    color: var(--c-text-3);
-    transition: transform 0.15s ease;
+.rp-drow:focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: -2px;
 }
-.rp-drow.is-open .rp-caret {
-    transform: rotate(90deg);
+.rp-day-thumbs {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 7px;
+    flex-wrap: wrap;
+}
+.rp-day-thumbs img {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: 1px solid var(--c-line);
+    background: var(--c-bg);
+}
+.rp-more {
+    font-size: 11px;
+    font-weight: 800;
     color: var(--c-primary);
+    background: #eaf2ff;
+    border-radius: 6px;
+    padding: 3px 7px;
 }
-.rp-drow.is-open {
-    background: #f2f7ff;
-}
-.rp-detail > td {
-    padding: 0 !important;
-    background: #fafbfe;
-    white-space: normal;
-}
+/* lưới ảnh trong drawer (Web2Drawer body đã có padding sẵn) */
 .rp-photos {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
-    padding: 14px;
 }
 .rp-photo {
     margin: 0;

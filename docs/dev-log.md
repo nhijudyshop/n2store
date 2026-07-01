@@ -19,17 +19,15 @@ Còn lại (report, chưa fix): so-order/live-control ẩn return_qty (display g
 
 Status: ✅ deployed-ready.
 
-### [goods-weight] Báo cáo bung ngày → xem ảnh cân đã chụp
+### [web2-shared] `Web2Drawer` — module drawer trượt dùng chung + goods-weight báo cáo ảnh
 
-**Files:** `web2/goods-weight/js/goods-weight.js` (`renderReport`/`toggleDay`/`renderDayPhotos`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (bump v=20260701a), `render.com/routes/web2-goods-weight.js` (`/list`).
+**Files:** `web2/shared/web2-drawer.js` (MỚI — `window.Web2Drawer`), `render.com/routes/web2-goods-weight.js` (`/report` trả `items` theo ngày; revert `/list`), `web2/goods-weight/js/goods-weight.js` (`renderReport`/`openDayDrawer`/`dayPhotosHtml`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (+load web2-drawer, bump v=20260701b).
 
-Tab **Báo cáo** trước đây chỉ có bảng gộp theo ngày (số lần/kg/kiện/tiền ship), KHÔNG thấy ảnh — muốn xem ảnh phải qua tab "Cân hàng". Giờ mỗi hàng ngày **bấm để bung** ra lưới ảnh cân đã chụp của ngày đó (kg · kiện · NV · giờ), click ảnh → `Web2ImageLightbox` (vuốt qua lại).
+**`Web2Drawer` (module chung)**: panel trượt phải/trái học pattern `native-orders-control-drawer.js` (edge-toggle + slide + Esc + backdrop) nhưng generic để mọi trang Web 2.0 tái dùng — KHÔNG fork mỗi nơi 1 drawer. API `Web2Drawer.create({id,side,width,title,backdrop,lockScroll,toggle,onOpen,onClose})` → `.open()/.close()/.toggle()/.isOpen()/.setTitle()/.setBody()/.setBadge()/.body/.destroy()`. Self-contained CSS (token xanh `#0068ff`), khoá cuộn body iOS-safe (ref-count), full-width ≤520px.
 
-- BE `/list`: thêm filter optional `day=YYYY-MM-DD` (GMT+7) + `username`, limit 200→500. Backward-compat (không truyền = như cũ).
-- FE: lazy-fetch khi bung (cache theo hàng, không refetch), **lọc đúng ngày client-side (GMT+7)** để đúng ngay cả khi web2-api chưa deploy filter `day`. Nút xoá ngày (admin) có guard không trigger bung.
-- Verify browser: report 30/06 bung ra 2 ảnh thật (964×1280) load OK, toggle đóng/mở + cache OK, lightbox OK.
+**goods-weight Báo cáo** (theo yêu cầu user — bỏ collapse/expand): mỗi hàng ngày **hiện thumbnail ảnh ra luôn** (tối đa 4 + "+N"), bấm hàng → **drawer phải** hiện full ảnh cân ngày đó (kg · kiện · NV · giờ · note), click ảnh → `Web2ImageLightbox` vuốt. Bấm lại đúng ngày = đóng (toggle). `/report` giờ trả kèm `items` per-day (`json_agg`, không bytea) → thumbnail + drawer render 1 request, không fetch thêm. Revert filter `/list?day` (không cần nữa).
 
-Status: ✅
+Status: ✅ (verify browser sau khi web2-api deploy)
 
 ### [web2-bill-service] Khung "THU LẠI TỪ KHÁCH" chuyển xuống DƯỚI "TỔNG TIỀN"
 
