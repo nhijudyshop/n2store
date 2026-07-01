@@ -103,6 +103,7 @@
             month: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
+            hour12: false,
         }).format(new Date(Number(ms)));
     }
 
@@ -569,7 +570,7 @@
             <div><div class="ps-role">Người nhận lương</div>(Ký, ghi rõ họ tên)</div>
             <div><div class="ps-role">Người lập phiếu</div>(Ký, ghi rõ họ tên)</div>
           </div>
-          <div class="ps-foot">Phiếu lương in từ hệ thống Chấm công · ${new Intl.DateTimeFormat('vi-VN', { timeZone: cc.S.VN_TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date())}</div>
+          <div class="ps-foot">Phiếu lương in từ hệ thống Chấm công · ${new Intl.DateTimeFormat('vi-VN', { timeZone: cc.S.VN_TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())}</div>
         </div>
         <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script>
         </body></html>`;

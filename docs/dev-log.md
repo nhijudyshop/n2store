@@ -2,11 +2,12 @@
 
 ## 2026-07-01
 
-### [cham-cong] Ép định dạng giờ 24h ở mọi chỗ hiển thị
+### [cham-cong] Giờ 24h + modal ngày: tick Vào/Ra tự chọn "Đi làm"
 
-**Files:** `web2/cham-cong/js/cham-cong-app.js` (fmt "lần cuối" sync + `fmtEditTs`), `web2/cham-cong/js/cham-cong-payroll.js` (`fmtLockTime` + footer phiếu lương in).
+**Files:** `web2/cham-cong/js/cham-cong-app.js` (fmt sync + `fmtEditTs` + modal wiring), `web2/cham-cong/js/cham-cong-payroll.js` (`fmtLockTime` + footer phiếu lương in).
 
-4 `Intl.DateTimeFormat('vi-VN', …)` có render giờ nhưng thiếu `hour12: false` → Chrome CLDR `vi-VN` có thể chèn SA/CH (12h). Thêm `hour12: false` để khớp 3 chỗ đã có sẵn. Giờ 7/7 renderer đều 24h.
+1. **24h:** 4 `Intl.DateTimeFormat('vi-VN', …)` có render giờ nhưng thiếu `hour12: false` → Chrome CLDR `vi-VN` có thể chèn SA/CH (12h). Thêm `hour12: false` khớp 3 chỗ đã có. Giờ 7/7 renderer đều 24h.
+2. **Auto radio:** modal chấm công 1 ngày — tick checkbox `ccInChk`/`ccOutChk` (Vào/Ra) → tự chọn radio `ccLeave=work` (Đi làm). Chỉ đẩy 1 chiều: bỏ tick cả 2 KHÔNG tự đổi sang nghỉ (không phân biệt được có phép/không phép).
 
 Status: ✅
 
