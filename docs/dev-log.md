@@ -62,7 +62,7 @@ Status: ✅ deployed-ready.
 
 **goods-weight Báo cáo** (theo yêu cầu user — bỏ collapse/expand): mỗi hàng ngày **hiện thumbnail ảnh ra luôn** (tối đa 4 + "+N"), bấm hàng → **drawer phải** hiện full ảnh cân ngày đó (kg · kiện · NV · giờ · note), click ảnh → `Web2ImageLightbox` vuốt. Bấm lại đúng ngày = đóng (toggle). `/report` giờ trả kèm `items` per-day (`json_agg`, không bytea) → thumbnail + drawer render 1 request, không fetch thêm. Revert filter `/list?day` (không cần nữa).
 
-Status: ✅ (verify browser sau khi web2-api deploy)
+Status: ✅ verify browser (web2-api live b9647865f): thumbnail 2 hàng render, drawer 30/06 mở với 2 ảnh thật 964px, lightbox OK, toggle re-click đóng + unlock body, 0 console error.
 
 ### [web2-bill-service] Khung "THU LẠI TỪ KHÁCH" chuyển xuống DƯỚI "TỔNG TIỀN"
 

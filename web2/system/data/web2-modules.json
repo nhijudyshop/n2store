@@ -1,16 +1,16 @@
 {
-    "generatedAt": "2026-06-29T09:57:15.908Z",
+    "generatedAt": "2026-07-01T03:47:48.339Z",
     "source": "docs/web2/web2-codemap.json + render.com scan",
     "totals": {
-        "sharedModules": 148,
+        "sharedModules": 152,
         "pages": 48,
         "backendRoutes": 63,
         "backendServices": 35,
-        "frontendFiles": 457,
-        "functions": 3767
+        "frontendFiles": 465,
+        "functions": 3902
     },
     "sharedByCategory": {
-        "other": 51,
+        "other": 55,
         "beauty": 3,
         "chat": 35,
         "popup-ui": 6,
@@ -71,7 +71,7 @@
             "globals": ["Web2BeautyStudio"],
             "purpose": "Beauty studio UI editor",
             "api": [],
-            "lines": 607,
+            "lines": 609,
             "consumerCount": 1,
             "consumerPages": ["web2/ai-photo"],
             "category": "beauty"
@@ -104,7 +104,7 @@
             "globals": ["Web2ChatEntityDetect"],
             "purpose": "Entity detection in messages (phone, address)",
             "api": [],
-            "lines": 142,
+            "lines": 144,
             "consumerCount": 2,
             "consumerPages": [],
             "category": "chat"
@@ -137,7 +137,7 @@
             "globals": [],
             "purpose": "Chat panel state management",
             "api": [],
-            "lines": 202,
+            "lines": 204,
             "consumerCount": 0,
             "consumerPages": [],
             "category": "chat"
@@ -181,7 +181,7 @@
             "globals": ["Web2Page"],
             "purpose": "Generic CRUD page builder",
             "api": [],
-            "lines": 763,
+            "lines": 765,
             "consumerCount": 0,
             "consumerPages": [],
             "category": "popup-ui"
@@ -232,7 +232,7 @@
             "globals": ["Web2AiAssistant"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 1335,
+            "lines": 1337,
             "consumerCount": 3,
             "consumerPages": ["web2/ai-assistant"],
             "category": "other"
@@ -243,7 +243,7 @@
             "globals": ["Web2AiDescribe"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 302,
+            "lines": 304,
             "consumerCount": 4,
             "consumerPages": ["web2/ai-hub"],
             "category": "other"
@@ -319,7 +319,7 @@
             "globals": ["Web2AuditLogData", "Web2AuditLog"],
             "purpose": "Audit log display",
             "api": [],
-            "lines": 477,
+            "lines": 479,
             "consumerCount": 20,
             "consumerPages": [
                 "native-orders",
@@ -348,7 +348,7 @@
             "purpose": "Token storage and page guard",
             "api": [],
             "lines": 308,
-            "consumerCount": 144,
+            "consumerCount": 149,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -387,7 +387,8 @@
                 "web2/system",
                 "web2/users",
                 "web2/variants",
-                "web2/video-maker"
+                "web2/video-maker",
+                "web2/zalo"
             ],
             "category": "format-util"
         },
@@ -409,8 +410,8 @@
             "purpose": "On-device barcode/QR scanning via camera",
             "api": [],
             "lines": 443,
-            "consumerCount": 4,
-            "consumerPages": ["web2/reconcile", "web2/unit-scan"],
+            "consumerCount": 5,
+            "consumerPages": ["web2/reconcile", "web2/returns", "web2/unit-scan"],
             "category": "qr-barcode"
         },
         {
@@ -445,8 +446,8 @@
             "globals": ["Web2Bill"],
             "purpose": "Bill/invoice service",
             "api": [],
-            "lines": 757,
-            "consumerCount": 3,
+            "lines": 814,
+            "consumerCount": 4,
             "consumerPages": ["native-orders", "web2/fastsaleorder-invoice"],
             "category": "other"
         },
@@ -456,7 +457,7 @@
             "globals": ["Web2Campaign"],
             "purpose": "Campaign management",
             "api": [],
-            "lines": 225,
+            "lines": 232,
             "consumerCount": 4,
             "consumerPages": ["live-chat", "native-orders", "web2/live-control", "web2/live-tv"],
             "category": "campaign"
@@ -563,7 +564,7 @@
             "globals": ["Web2CkAssignPicker"],
             "purpose": "CK assignment picker",
             "api": [],
-            "lines": 269,
+            "lines": 271,
             "consumerCount": 1,
             "consumerPages": ["native-orders"],
             "category": "other"
@@ -574,7 +575,7 @@
             "globals": ["Web2CkReview"],
             "purpose": "CK verification review",
             "api": [],
-            "lines": 494,
+            "lines": 498,
             "consumerCount": 3,
             "consumerPages": ["native-orders", "web2/ck-dashboard"],
             "category": "other"
@@ -585,7 +586,7 @@
             "globals": ["Web2CommandPalette"],
             "purpose": "Command palette (Ctrl+K)",
             "api": [],
-            "lines": 269,
+            "lines": 271,
             "consumerCount": 1,
             "consumerPages": [],
             "category": "sidebar-nav"
@@ -596,7 +597,7 @@
             "globals": ["Web2ContentMaker"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 382,
+            "lines": 384,
             "consumerCount": 2,
             "consumerPages": ["web2/ai-hub"],
             "category": "other"
@@ -640,7 +641,7 @@
             "globals": ["Web2CustomerDetailModal"],
             "purpose": "Customer detail modal",
             "api": [],
-            "lines": 417,
+            "lines": 423,
             "consumerCount": 3,
             "consumerPages": ["web2/balance-history", "web2/customers"],
             "category": "customers"
@@ -662,7 +663,7 @@
             "globals": ["Web2CustomerStore"],
             "purpose": "Customer store (single source)",
             "api": [],
-            "lines": 521,
+            "lines": 523,
             "consumerCount": 12,
             "consumerPages": ["live-chat", "web2/balance-history"],
             "category": "customers"
@@ -706,6 +707,17 @@
             "category": "other"
         },
         {
+            "file": "web2/shared/web2-drawer.js",
+            "name": "Web2Drawer",
+            "globals": ["Web2Drawer"],
+            "purpose": "WEB2.0 — Drawer trượt dùng chung (mọi trang Web 2.0).",
+            "api": [],
+            "lines": 228,
+            "consumerCount": 1,
+            "consumerPages": ["web2/goods-weight"],
+            "category": "other"
+        },
+        {
             "file": "web2/shared/web2-effects.js",
             "name": "Web2Effects",
             "globals": ["Web2Effects"],
@@ -723,21 +735,31 @@
             "purpose": "String escaping utilities",
             "api": [],
             "lines": 64,
-            "consumerCount": 52,
+            "consumerCount": 89,
             "consumerPages": [
+                "live-chat",
                 "native-orders",
                 "so-order",
+                "web2/ai-hub",
                 "web2/balance-history",
+                "web2/cham-cong",
+                "web2/chi-tieu",
                 "web2/ck-dashboard",
                 "web2/customer-wallet",
                 "web2/customers",
                 "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-invoice",
                 "web2/fastsaleorder-refund",
+                "web2/fb-ads-stats",
+                "web2/fb-insights",
+                "web2/fb-posts",
                 "web2/kpi",
                 "web2/live-control",
                 "web2/live-tv",
                 "web2/multi-tool",
                 "web2/order-tags",
+                "web2/overview",
+                "web2/pancake-settings",
                 "web2/payment-confirm",
                 "web2/product-card",
                 "web2/product-types",
@@ -746,11 +768,23 @@
                 "web2/reconcile",
                 "web2/supplier-debt",
                 "web2/supplier-wallet",
+                "web2/system",
                 "web2/users",
                 "web2/variants",
                 "web2/video-maker"
             ],
             "category": "format-util"
+        },
+        {
+            "file": "web2/shared/web2-evidence-camera.js",
+            "name": "Web2EvidenceCamera",
+            "globals": ["Web2EvidenceCamera"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "lines": 224,
+            "consumerCount": 2,
+            "consumerPages": ["web2/reconcile"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-export-helpers.js",
@@ -791,7 +825,7 @@
             "globals": ["Web2FbPostPreview"],
             "purpose": "Facebook post preview",
             "api": [],
-            "lines": 147,
+            "lines": 149,
             "consumerCount": 1,
             "consumerPages": ["web2/fb-posts"],
             "category": "other"
@@ -814,18 +848,27 @@
             "purpose": "Currency/date/time formatting (GMT+7)",
             "api": [],
             "lines": 92,
-            "consumerCount": 21,
+            "consumerCount": 32,
             "consumerPages": [
                 "so-order",
                 "web2/balance-history",
+                "web2/cham-cong",
+                "web2/chi-tieu",
                 "web2/ck-dashboard",
+                "web2/clearance",
                 "web2/customer-wallet",
+                "web2/customers",
                 "web2/fastsaleorder-delivery",
+                "web2/fastsaleorder-invoice",
                 "web2/fastsaleorder-refund",
                 "web2/kpi",
                 "web2/payment-confirm",
+                "web2/products",
+                "web2/purchase-refund",
+                "web2/reconcile",
                 "web2/supplier-debt",
-                "web2/supplier-wallet"
+                "web2/supplier-wallet",
+                "web2/unit-scan"
             ],
             "category": "format-util"
         },
@@ -835,7 +878,7 @@
             "globals": ["Web2GeminiChat"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 471,
+            "lines": 473,
             "consumerCount": 2,
             "consumerPages": ["web2/ai-hub"],
             "category": "other"
@@ -921,8 +964,13 @@
             "purpose": "Image lightbox viewer with navigation",
             "api": [],
             "lines": 353,
-            "consumerCount": 7,
-            "consumerPages": ["web2/goods-weight", "web2/live-tv", "web2/purchase-refund"],
+            "consumerCount": 9,
+            "consumerPages": [
+                "web2/goods-weight",
+                "web2/live-tv",
+                "web2/purchase-refund",
+                "web2/reconcile"
+            ],
             "category": "image"
         },
         {
@@ -947,7 +995,7 @@
             "globals": ["Web2Import"],
             "purpose": "File import handler",
             "api": [],
-            "lines": 595,
+            "lines": 597,
             "consumerCount": 3,
             "consumerPages": ["so-order", "web2/products"],
             "category": "other"
@@ -969,7 +1017,7 @@
             "globals": ["Web2Kpi"],
             "purpose": "KPI utilities",
             "api": [],
-            "lines": 97,
+            "lines": 100,
             "consumerCount": 5,
             "consumerPages": ["native-orders", "web2/kpi"],
             "category": "kpi"
@@ -991,7 +1039,7 @@
             "globals": ["Web2LiveTvDisplay"],
             "purpose": "WEB2.0 shared — quy tắc HIỂN THỊ màn TV livestream.",
             "api": [],
-            "lines": 139,
+            "lines": 158,
             "consumerCount": 2,
             "consumerPages": ["web2/live-control", "web2/live-tv"],
             "category": "other"
@@ -1090,7 +1138,7 @@
             "globals": ["Web2NotificationBell"],
             "purpose": "Notification bell component",
             "api": [],
-            "lines": 188,
+            "lines": 190,
             "consumerCount": 0,
             "consumerPages": [],
             "category": "popup-ui"
@@ -1113,14 +1161,15 @@
             "purpose": "WEB2.0 shared — 1 NGUỒN format số khi NHẬP (live thousand \".\" + decimal \",\") cho Web 2.0.",
             "api": [],
             "lines": 372,
-            "consumerCount": 16,
+            "consumerCount": 18,
             "consumerPages": [
                 "native-orders",
                 "so-order",
                 "web2/balance-history",
                 "web2/chi-tieu",
                 "web2/products",
-                "web2/purchase-refund"
+                "web2/purchase-refund",
+                "web2/returns"
             ],
             "category": "other"
         },
@@ -1131,7 +1180,7 @@
             "purpose": "Optimistic UI pattern",
             "api": [],
             "lines": 110,
-            "consumerCount": 26,
+            "consumerCount": 29,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1142,6 +1191,7 @@
                 "web2/fastsaleorder-invoice",
                 "web2/fastsaleorder-refund",
                 "web2/jt-tracking",
+                "web2/live-control",
                 "web2/pancake-settings",
                 "web2/payment-confirm",
                 "web2/product-types",
@@ -1158,7 +1208,7 @@
             "globals": ["Web2OrderTagDetail"],
             "purpose": "Order tag detail display",
             "api": [],
-            "lines": 389,
+            "lines": 387,
             "consumerCount": 2,
             "consumerPages": ["native-orders"],
             "category": "popup-ui"
@@ -1169,7 +1219,7 @@
             "globals": ["Web2OrderTagPill"],
             "purpose": "Order tag pill component",
             "api": [],
-            "lines": 93,
+            "lines": 95,
             "consumerCount": 3,
             "consumerPages": ["native-orders", "web2/order-tags"],
             "category": "popup-ui"
@@ -1235,9 +1285,9 @@
             "globals": ["Web2PhoneUtils"],
             "purpose": "Vietnamese phone normalization",
             "api": [],
-            "lines": 38,
-            "consumerCount": 5,
-            "consumerPages": [],
+            "lines": 53,
+            "consumerCount": 15,
+            "consumerPages": ["live-chat", "web2/balance-history", "web2/customer-wallet"],
             "category": "format-util"
         },
         {
@@ -1246,7 +1296,7 @@
             "globals": ["Web2PosInstaller"],
             "purpose": "Multi-store installer",
             "api": [],
-            "lines": 247,
+            "lines": 268,
             "consumerCount": 2,
             "consumerPages": ["web2/video-maker"],
             "category": "other"
@@ -1257,7 +1307,7 @@
             "globals": ["Web2Printer"],
             "purpose": "Printer manager and ESC/POS printing",
             "api": [],
-            "lines": 740,
+            "lines": 782,
             "consumerCount": 3,
             "consumerPages": ["web2/products"],
             "category": "other"
@@ -1290,7 +1340,7 @@
             "globals": ["Web2ProductGroup"],
             "purpose": "WEB2.0 shared.",
             "api": [],
-            "lines": 98,
+            "lines": 100,
             "consumerCount": 2,
             "consumerPages": ["so-order", "web2/products"],
             "category": "other"
@@ -1305,6 +1355,25 @@
             "consumerCount": 1,
             "consumerPages": ["web2/fb-posts"],
             "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-product-status.js",
+            "name": "Web2ProductStatus",
+            "globals": ["Web2ProductStatus"],
+            "purpose": "WEB2.0 module — 1 NGUỒN trạng thái SP.",
+            "api": [
+                "Web2ProductStatus.meta(status) → {label, short, icon, tone}",
+                "Web2ProductStatus.isChoHang(status) → bool (status === 'CHO_MUA')",
+                "Web2ProductStatus.isMua1Phan(status) → bool",
+                "Web2ProductStatus.isHetHang(status) → bool",
+                "Web2ProductStatus.tableBadge(p) → badge bảng Kho SP (web2/products)",
+                "Web2ProductStatus.pill(p) → pill trang chi tiết SP",
+                "Web2ProductStatus.chip(p) → chip góc card live-chat (CHỈ status đặc biệt)"
+            ],
+            "lines": 159,
+            "consumerCount": 3,
+            "consumerPages": ["live-chat", "web2/products"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-product-types-cache.js",
@@ -1323,7 +1392,7 @@
             "globals": ["Web2ProductUnits"],
             "purpose": "WEB2.0 shared.",
             "api": [],
-            "lines": 158,
+            "lines": 172,
             "consumerCount": 4,
             "consumerPages": ["so-order", "web2/products", "web2/unit-scan"],
             "category": "other"
@@ -1334,8 +1403,8 @@
             "globals": ["Web2ProductsApi"],
             "purpose": "Products API client",
             "api": [],
-            "lines": 159,
-            "consumerCount": 12,
+            "lines": 167,
+            "consumerCount": 13,
             "consumerPages": [
                 "so-order",
                 "web2/live-control",
@@ -1351,7 +1420,7 @@
             "purpose": "Products cache with Firestore sync",
             "api": [],
             "lines": 324,
-            "consumerCount": 25,
+            "consumerCount": 26,
             "consumerPages": [
                 "so-order",
                 "web2/fb-posts",
@@ -1362,6 +1431,17 @@
                 "web2/video-maker"
             ],
             "category": "products"
+        },
+        {
+            "file": "web2/shared/web2-putwall.js",
+            "name": "Web2PutWall",
+            "globals": ["Web2PutWall"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "lines": 130,
+            "consumerCount": 1,
+            "consumerPages": ["web2/unit-scan"],
+            "category": "other"
         },
         {
             "file": "web2/shared/web2-pwa.js",
@@ -1424,7 +1504,7 @@
             "globals": ["NativeReturnBill"],
             "purpose": "Return bill handler",
             "api": [],
-            "lines": 59,
+            "lines": 103,
             "consumerCount": 1,
             "consumerPages": ["native-orders"],
             "category": "other"
@@ -1446,7 +1526,7 @@
             "globals": ["Web2Sidebar"],
             "purpose": "Main sidebar navigation",
             "api": [],
-            "lines": 981,
+            "lines": 983,
             "consumerCount": 17,
             "consumerPages": [
                 "web2/cham-cong",
@@ -1554,8 +1634,8 @@
             "globals": ["Web2SSE"],
             "purpose": "SSE bridge for realtime updates",
             "api": [],
-            "lines": 289,
-            "consumerCount": 69,
+            "lines": 324,
+            "consumerCount": 70,
             "consumerPages": [
                 "live-chat",
                 "native-orders",
@@ -1661,7 +1741,7 @@
             "globals": ["Web2Tryon"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "lines": 790,
+            "lines": 792,
             "consumerCount": 2,
             "consumerPages": ["web2/ai-hub"],
             "category": "other"
@@ -1672,7 +1752,7 @@
             "globals": ["Web2UnitReprint"],
             "purpose": "WEB2.0 shared — In lại tem ĐƠN VỊ (per-unit reprint). Đặc tả: docs/web2/PER-UNIT-QR-PLAN.md",
             "api": [],
-            "lines": 294,
+            "lines": 291,
             "consumerCount": 1,
             "consumerPages": ["web2/products"],
             "category": "other"
@@ -1683,7 +1763,7 @@
             "globals": ["Web2UnreadPanel"],
             "purpose": "Unread messages panel",
             "api": [],
-            "lines": 151,
+            "lines": 153,
             "consumerCount": 2,
             "consumerPages": ["web2/ck-dashboard"],
             "category": "other"
@@ -1722,7 +1802,7 @@
             "globals": ["Web2UserProfile"],
             "purpose": "WEB2.0 module — Hồ sơ user + đổi avatar DiceBear (dùng chung mọi trang).",
             "api": [],
-            "lines": 479,
+            "lines": 481,
             "consumerCount": 3,
             "consumerPages": ["web2/overview", "web2/users"],
             "category": "other"
@@ -1758,7 +1838,7 @@
                 "Deps (đọc, KHÔNG gọi API trực tiếp): Web2VariantsCache (gợi ý Màu/Size),",
                 "Web2ProductTypesCache (loại), Web2VariantMulti (cartesian/expand). An toàn dùng"
             ],
-            "lines": 405,
+            "lines": 407,
             "consumerCount": 3,
             "consumerPages": ["so-order"],
             "category": "other"
@@ -1817,7 +1897,7 @@
             "globals": ["Web2WalletApi"],
             "purpose": "Customer wallet API client",
             "api": [],
-            "lines": 227,
+            "lines": 229,
             "consumerCount": 4,
             "consumerPages": ["web2/customer-wallet"],
             "category": "wallet"
@@ -1828,7 +1908,7 @@
             "globals": ["Web2WalletBalance"],
             "purpose": "Wallet balance display helper",
             "api": [],
-            "lines": 335,
+            "lines": 337,
             "consumerCount": 19,
             "consumerPages": [
                 "live-chat",
@@ -1858,7 +1938,7 @@
             "globals": ["Web2ZaloOwner", "ZaloApi"],
             "purpose": "Zalo API wrapper",
             "api": [],
-            "lines": 277,
+            "lines": 273,
             "consumerCount": 11,
             "consumerPages": ["web2/zalo"],
             "category": "chat"
@@ -1880,7 +1960,7 @@
             "globals": ["Web2Zalo"],
             "purpose": "Zalo helper (single source)",
             "api": [],
-            "lines": 388,
+            "lines": 380,
             "consumerCount": 6,
             "consumerPages": ["web2/jt-tracking", "web2/zalo"],
             "category": "chat"
@@ -2000,7 +2080,7 @@
         {
             "page": "live-chat",
             "fileCount": 86,
-            "totalLines": 23991,
+            "totalLines": 24108,
             "globals": [
                 "API_CONFIG",
                 "APP_CONFIG",
@@ -2050,6 +2130,10 @@
                     "category": "customers"
                 },
                 {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2Ext",
                     "category": "other"
                 },
@@ -2060,6 +2144,14 @@
                 {
                     "name": "Web2PancakeAccounts",
                     "category": "suppliers"
+                },
+                {
+                    "name": "Web2PhoneUtils",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2ProductStatus",
+                    "category": "other"
                 },
                 {
                     "name": "Web2Realtime",
@@ -2082,12 +2174,12 @@
                     "category": "wallet"
                 }
             ],
-            "usesSharedCount": 14
+            "usesSharedCount": 17
         },
         {
             "page": "native-orders",
-            "fileCount": 22,
-            "totalLines": 7404,
+            "fileCount": 23,
+            "totalLines": 8162,
             "globals": [
                 "NativeOrdersApi",
                 "NativeOrders",
@@ -2099,11 +2191,11 @@
             "oversized": [
                 {
                     "file": "native-orders/js/native-orders-pbh-bill.js",
-                    "lines": 849
+                    "lines": 903
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
-                    "lines": 939
+                    "lines": 1048
                 }
             ],
             "usesShared": [
@@ -2216,10 +2308,14 @@
         },
         {
             "page": "so-order",
-            "fileCount": 27,
-            "totalLines": 9441,
+            "fileCount": 28,
+            "totalLines": 9628,
             "globals": ["SoOrder", "SoOrderStorage"],
             "oversized": [
+                {
+                    "file": "so-order/js/so-order-receive.js",
+                    "lines": 814
+                },
                 {
                     "file": "so-order/js/so-order-render.js",
                     "lines": 1039
@@ -2354,7 +2450,7 @@
         {
             "page": "web2/ai-hub",
             "fileCount": 7,
-            "totalLines": 1770,
+            "totalLines": 1772,
             "globals": [
                 "AiChat",
                 "AiGeminiChat",
@@ -2391,6 +2487,10 @@
                     "category": "other"
                 },
                 {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2GeminiChat",
                     "category": "other"
                 },
@@ -2411,7 +2511,7 @@
                     "category": "other"
                 }
             ],
-            "usesSharedCount": 11
+            "usesSharedCount": 12
         },
         {
             "page": "web2/ai-photo",
@@ -2446,7 +2546,7 @@
         {
             "page": "web2/balance-history",
             "fileCount": 18,
-            "totalLines": 3692,
+            "totalLines": 3715,
             "globals": [
                 "W2BH",
                 "Web2BalanceHistoryApp",
@@ -2507,6 +2607,10 @@
                     "category": "suppliers"
                 },
                 {
+                    "name": "Web2PhoneUtils",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2Skeleton",
                     "category": "other"
                 },
@@ -2523,12 +2627,12 @@
                     "category": "wallet"
                 }
             ],
-            "usesSharedCount": 16
+            "usesSharedCount": 17
         },
         {
             "page": "web2/cham-cong",
             "fileCount": 5,
-            "totalLines": 2349,
+            "totalLines": 2352,
             "globals": [
                 "ChamCongApi",
                 "ChamCong",
@@ -2539,7 +2643,7 @@
             "oversized": [
                 {
                     "file": "web2/cham-cong/js/cham-cong-app.js",
-                    "lines": 901
+                    "lines": 903
                 }
             ],
             "usesShared": [
@@ -2549,6 +2653,14 @@
                 },
                 {
                     "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
                     "category": "format-util"
                 },
                 {
@@ -2568,12 +2680,12 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 6
+            "usesSharedCount": 8
         },
         {
             "page": "web2/chi-tieu",
             "fileCount": 3,
-            "totalLines": 822,
+            "totalLines": 827,
             "globals": ["ChiTieuApi", "ChiTieu", "ChiTieuReport"],
             "oversized": [],
             "usesShared": [
@@ -2583,6 +2695,14 @@
                 },
                 {
                     "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
                     "category": "format-util"
                 },
                 {
@@ -2606,12 +2726,12 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 7
+            "usesSharedCount": 9
         },
         {
             "page": "web2/ck-dashboard",
             "fileCount": 1,
-            "totalLines": 487,
+            "totalLines": 489,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -2669,12 +2789,16 @@
         {
             "page": "web2/clearance",
             "fileCount": 1,
-            "totalLines": 252,
+            "totalLines": 257,
             "globals": [],
             "oversized": [],
             "usesShared": [
                 {
                     "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
                     "category": "format-util"
                 },
                 {
@@ -2686,12 +2810,12 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 3
+            "usesSharedCount": 4
         },
         {
             "page": "web2/customer-wallet",
             "fileCount": 5,
-            "totalLines": 1497,
+            "totalLines": 1506,
             "globals": ["W2CW", "Web2CustomerWalletApp"],
             "oversized": [],
             "usesShared": [
@@ -2716,6 +2840,10 @@
                     "category": "format-util"
                 },
                 {
+                    "name": "Web2PhoneUtils",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2Skeleton",
                     "category": "other"
                 },
@@ -2728,12 +2856,12 @@
                     "category": "wallet"
                 }
             ],
-            "usesSharedCount": 8
+            "usesSharedCount": 9
         },
         {
             "page": "web2/customers",
             "fileCount": 6,
-            "totalLines": 1190,
+            "totalLines": 1193,
             "globals": ["CustomersApi"],
             "oversized": [],
             "usesShared": [
@@ -2759,6 +2887,10 @@
                 },
                 {
                     "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
                     "category": "format-util"
                 },
                 {
@@ -2794,12 +2926,12 @@
                     "category": "wallet"
                 }
             ],
-            "usesSharedCount": 14
+            "usesSharedCount": 15
         },
         {
             "page": "web2/fastsaleorder-delivery",
             "fileCount": 1,
-            "totalLines": 284,
+            "totalLines": 288,
             "globals": ["DlvApp"],
             "oversized": [],
             "usesShared": [
@@ -2845,7 +2977,7 @@
         {
             "page": "web2/fastsaleorder-invoice",
             "fileCount": 6,
-            "totalLines": 1141,
+            "totalLines": 1144,
             "globals": ["PbhActions", "PbhApi", "PbhApp", "PbhFilters", "PbhRender", "PbhState"],
             "oversized": [],
             "usesShared": [
@@ -2862,6 +2994,14 @@
                     "category": "other"
                 },
                 {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2Optimistic",
                     "category": "optimistic"
                 },
@@ -2874,12 +3014,12 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 6
+            "usesSharedCount": 8
         },
         {
             "page": "web2/fastsaleorder-refund",
             "fileCount": 1,
-            "totalLines": 291,
+            "totalLines": 295,
             "globals": ["RfApp"],
             "oversized": [],
             "usesShared": [
@@ -2929,7 +3069,7 @@
         {
             "page": "web2/fb-ads-stats",
             "fileCount": 2,
-            "totalLines": 646,
+            "totalLines": 650,
             "globals": ["FBAdsManual"],
             "oversized": [],
             "usesShared": [
@@ -2939,6 +3079,40 @@
                 },
                 {
                     "name": "WEB2_CONFIG",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2FbClient",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Sidebar",
+                    "category": "sidebar-nav"
+                },
+                {
+                    "name": "Web2Skeleton",
+                    "category": "other"
+                }
+            ],
+            "usesSharedCount": 6
+        },
+        {
+            "page": "web2/fb-insights",
+            "fileCount": 1,
+            "totalLines": 351,
+            "globals": ["Web2FbInsightsData"],
+            "oversized": [],
+            "usesShared": [
+                {
+                    "name": "Web2CkReview",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Escape",
                     "category": "format-util"
                 },
                 {
@@ -2957,35 +3131,9 @@
             "usesSharedCount": 5
         },
         {
-            "page": "web2/fb-insights",
-            "fileCount": 1,
-            "totalLines": 349,
-            "globals": ["Web2FbInsightsData"],
-            "oversized": [],
-            "usesShared": [
-                {
-                    "name": "Web2CkReview",
-                    "category": "other"
-                },
-                {
-                    "name": "Web2FbClient",
-                    "category": "other"
-                },
-                {
-                    "name": "Web2Sidebar",
-                    "category": "sidebar-nav"
-                },
-                {
-                    "name": "Web2Skeleton",
-                    "category": "other"
-                }
-            ],
-            "usesSharedCount": 4
-        },
-        {
             "page": "web2/fb-posts",
             "fileCount": 5,
-            "totalLines": 1587,
+            "totalLines": 1597,
             "globals": [
                 "FBPosts",
                 "FBPostsComposer",
@@ -3005,6 +3153,10 @@
                 },
                 {
                     "name": "Web2AuditLogData",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Escape",
                     "category": "format-util"
                 },
                 {
@@ -3044,12 +3196,12 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 12
+            "usesSharedCount": 13
         },
         {
             "page": "web2/goods-weight",
             "fileCount": 1,
-            "totalLines": 445,
+            "totalLines": 656,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3062,6 +3214,10 @@
                     "category": "format-util"
                 },
                 {
+                    "name": "Web2Drawer",
+                    "category": "other"
+                },
+                {
                     "name": "Web2ImageLightbox",
                     "category": "image"
                 },
@@ -3070,7 +3226,7 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 4
+            "usesSharedCount": 5
         },
         {
             "page": "web2/jt-tracking",
@@ -3129,7 +3285,7 @@
         {
             "page": "web2/kpi",
             "fileCount": 2,
-            "totalLines": 683,
+            "totalLines": 688,
             "globals": ["Web2KpiData"],
             "oversized": [],
             "usesShared": [
@@ -3171,12 +3327,12 @@
         {
             "page": "web2/live-control",
             "fileCount": 1,
-            "totalLines": 1085,
+            "totalLines": 1082,
             "globals": [],
             "oversized": [
                 {
                     "file": "web2/live-control/js/live-control.js",
-                    "lines": 1085
+                    "lines": 1082
                 }
             ],
             "usesShared": [
@@ -3203,6 +3359,10 @@
                 {
                     "name": "Web2LiveTvDisplay",
                     "category": "other"
+                },
+                {
+                    "name": "Web2Optimistic",
+                    "category": "optimistic"
                 },
                 {
                     "name": "Web2Perm",
@@ -3233,12 +3393,12 @@
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 13
+            "usesSharedCount": 14
         },
         {
             "page": "web2/live-tv",
             "fileCount": 1,
-            "totalLines": 424,
+            "totalLines": 415,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3285,7 +3445,7 @@
         {
             "page": "web2/multi-tool",
             "fileCount": 1,
-            "totalLines": 675,
+            "totalLines": 677,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3319,7 +3479,7 @@
         {
             "page": "web2/order-tags",
             "fileCount": 1,
-            "totalLines": 602,
+            "totalLines": 636,
             "globals": ["Web2OrderTagsApp"],
             "oversized": [],
             "usesShared": [
@@ -3365,7 +3525,7 @@
         {
             "page": "web2/overview",
             "fileCount": 1,
-            "totalLines": 610,
+            "totalLines": 612,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3374,16 +3534,20 @@
                     "category": "format-util"
                 },
                 {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2UserProfile",
                     "category": "other"
                 }
             ],
-            "usesSharedCount": 2
+            "usesSharedCount": 3
         },
         {
             "page": "web2/pancake-settings",
             "fileCount": 5,
-            "totalLines": 1464,
+            "totalLines": 1466,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3398,6 +3562,10 @@
                 {
                     "name": "Web2Chat",
                     "category": "chat"
+                },
+                {
+                    "name": "Web2Escape",
+                    "category": "format-util"
                 },
                 {
                     "name": "Web2Optimistic",
@@ -3420,12 +3588,12 @@
                     "category": "other"
                 }
             ],
-            "usesSharedCount": 8
+            "usesSharedCount": 9
         },
         {
             "page": "web2/payment-confirm",
             "fileCount": 1,
-            "totalLines": 403,
+            "totalLines": 405,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3502,7 +3670,7 @@
         {
             "page": "web2/product-card",
             "fileCount": 2,
-            "totalLines": 955,
+            "totalLines": 957,
             "globals": ["Web2ProductCard", "ProductCardPage"],
             "oversized": [],
             "usesShared": [
@@ -3558,7 +3726,7 @@
         {
             "page": "web2/product-types",
             "fileCount": 2,
-            "totalLines": 469,
+            "totalLines": 471,
             "globals": ["Web2ProductTypesApi", "Web2ProductTypesApp"],
             "oversized": [],
             "usesShared": [
@@ -3596,7 +3764,7 @@
         {
             "page": "web2/products",
             "fileCount": 13,
-            "totalLines": 4698,
+            "totalLines": 4638,
             "globals": [
                 "Web2ProductDetail",
                 "Web2ProductsCore",
@@ -3624,6 +3792,10 @@
                 },
                 {
                     "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
                     "category": "format-util"
                 },
                 {
@@ -3657,6 +3829,10 @@
                 {
                     "name": "Web2ProductsCache",
                     "category": "products"
+                },
+                {
+                    "name": "Web2ProductStatus",
+                    "category": "other"
                 },
                 {
                     "name": "Web2ProductTypesCache",
@@ -3703,12 +3879,12 @@
                     "category": "products"
                 }
             ],
-            "usesSharedCount": 24
+            "usesSharedCount": 26
         },
         {
             "page": "web2/purchase-refund",
             "fileCount": 6,
-            "totalLines": 1874,
+            "totalLines": 1879,
             "globals": ["PurchaseRefund"],
             "oversized": [],
             "usesShared": [
@@ -3722,6 +3898,10 @@
                 },
                 {
                     "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
+                    "name": "Web2Format",
                     "category": "format-util"
                 },
                 {
@@ -3773,12 +3953,12 @@
                     "category": "format-util"
                 }
             ],
-            "usesSharedCount": 15
+            "usesSharedCount": 16
         },
         {
             "page": "web2/reconcile",
             "fileCount": 5,
-            "totalLines": 1302,
+            "totalLines": 1703,
             "globals": ["RC"],
             "oversized": [],
             "usesShared": [
@@ -3803,8 +3983,20 @@
                     "category": "format-util"
                 },
                 {
+                    "name": "Web2EvidenceCamera",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2HistoryTimeline",
                     "category": "format-util"
+                },
+                {
+                    "name": "Web2ImageLightbox",
+                    "category": "image"
                 },
                 {
                     "name": "Web2LabelOcr",
@@ -3819,12 +4011,12 @@
                     "category": "format-util"
                 }
             ],
-            "usesSharedCount": 9
+            "usesSharedCount": 12
         },
         {
             "page": "web2/returns",
-            "fileCount": 8,
-            "totalLines": 1196,
+            "fileCount": 9,
+            "totalLines": 1897,
             "globals": [
                 "Web2ReturnsApi",
                 "Web2Returns",
@@ -3833,6 +4025,7 @@
                 "ReturnsCustomer",
                 "ReturnsForm",
                 "ReturnsItems",
+                "ReturnsScenario",
                 "ReturnsTabs"
             ],
             "oversized": [],
@@ -3848,6 +4041,14 @@
                 {
                     "name": "Web2AuditLogData",
                     "category": "format-util"
+                },
+                {
+                    "name": "Web2BarcodeScanner",
+                    "category": "qr-barcode"
+                },
+                {
+                    "name": "Web2NumberInput",
+                    "category": "other"
                 },
                 {
                     "name": "Web2Sidebar",
@@ -3870,12 +4071,12 @@
                     "category": "wallet"
                 }
             ],
-            "usesSharedCount": 8
+            "usesSharedCount": 10
         },
         {
             "page": "web2/shared",
-            "fileCount": 148,
-            "totalLines": 45106,
+            "fileCount": 152,
+            "totalLines": 46153,
             "globals": [
                 "Web2BeautyFace",
                 "Web2BeautyFilters",
@@ -3901,7 +4102,7 @@
             "oversized": [
                 {
                     "file": "web2/shared/web2-ai-assistant.js",
-                    "lines": 1335
+                    "lines": 1337
                 },
                 {
                     "file": "web2/shared/web2-ai-page-registry.js",
@@ -3912,12 +4113,16 @@
                     "lines": 897
                 },
                 {
+                    "file": "web2/shared/web2-bill-service.js",
+                    "lines": 814
+                },
+                {
                     "file": "web2/shared/web2-effects.js",
                     "lines": 815
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 981
+                    "lines": 983
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
@@ -3930,7 +4135,7 @@
         {
             "page": "web2/supplier-debt",
             "fileCount": 6,
-            "totalLines": 1553,
+            "totalLines": 1555,
             "globals": [],
             "oversized": [],
             "usesShared": [
@@ -3980,7 +4185,7 @@
         {
             "page": "web2/supplier-wallet",
             "fileCount": 6,
-            "totalLines": 1458,
+            "totalLines": 1460,
             "globals": ["SW_DEBUG", "SupplierWalletStorage"],
             "oversized": [],
             "usesShared": [
@@ -4041,10 +4246,11 @@
         },
         {
             "page": "web2/system",
-            "fileCount": 7,
-            "totalLines": 2063,
+            "fileCount": 8,
+            "totalLines": 2356,
             "globals": [
                 "SystemAiSuggestions",
+                "SystemDedup",
                 "SystemModules",
                 "SystemServices",
                 "SystemSSERegistry",
@@ -4066,6 +4272,10 @@
                     "category": "other"
                 },
                 {
+                    "name": "Web2Escape",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2Sidebar",
                     "category": "sidebar-nav"
                 },
@@ -4074,21 +4284,34 @@
                     "category": "other"
                 }
             ],
-            "usesSharedCount": 5
+            "usesSharedCount": 6
         },
         {
             "page": "web2/unit-scan",
             "fileCount": 1,
-            "totalLines": 755,
+            "totalLines": 1403,
             "globals": [],
-            "oversized": [],
+            "oversized": [
+                {
+                    "file": "web2/unit-scan/js/unit-scan.js",
+                    "lines": 1403
+                }
+            ],
             "usesShared": [
                 {
                     "name": "Web2BarcodeScanner",
                     "category": "qr-barcode"
                 },
                 {
+                    "name": "Web2Format",
+                    "category": "format-util"
+                },
+                {
                     "name": "Web2ProductUnits",
+                    "category": "other"
+                },
+                {
+                    "name": "Web2PutWall",
                     "category": "other"
                 },
                 {
@@ -4100,17 +4323,17 @@
                     "category": "sse-realtime"
                 }
             ],
-            "usesSharedCount": 4
+            "usesSharedCount": 6
         },
         {
             "page": "web2/users",
             "fileCount": 1,
-            "totalLines": 982,
+            "totalLines": 984,
             "globals": ["Web2UsersApp"],
             "oversized": [
                 {
                     "file": "web2/users/js/users-app.js",
-                    "lines": 982
+                    "lines": 984
                 }
             ],
             "usesShared": [
@@ -4156,7 +4379,7 @@
         {
             "page": "web2/variants",
             "fileCount": 2,
-            "totalLines": 595,
+            "totalLines": 600,
             "globals": ["Web2VariantsApi", "Web2VariantsApp"],
             "oversized": [],
             "usesShared": [
@@ -4216,7 +4439,7 @@
         {
             "page": "web2/video-maker",
             "fileCount": 11,
-            "totalLines": 4755,
+            "totalLines": 4759,
             "globals": [
                 "Web2VideoAiScript",
                 "Web2VideoAnim",
@@ -4233,7 +4456,7 @@
             "oversized": [
                 {
                     "file": "web2/video-maker/js/video-maker.js",
-                    "lines": 1616
+                    "lines": 1618
                 }
             ],
             "usesShared": [
@@ -4279,13 +4502,17 @@
         {
             "page": "web2/zalo",
             "fileCount": 6,
-            "totalLines": 1477,
+            "totalLines": 1584,
             "globals": ["WZApp"],
             "oversized": [],
             "usesShared": [
                 {
                     "name": "Popup",
                     "category": "popup-ui"
+                },
+                {
+                    "name": "WEB2_CONFIG",
+                    "category": "format-util"
                 },
                 {
                     "name": "Web2Ext",
@@ -4320,7 +4547,7 @@
                     "category": "chat"
                 }
             ],
-            "usesSharedCount": 9
+            "usesSharedCount": 10
         }
     ],
     "backend": {
@@ -4329,7 +4556,7 @@
                 "file": "render.com/routes/admin-web2-data-reset.js",
                 "kind": "route",
                 "purpose": "ADMIN WEB2 DATA RESET — backup + wipe data Sản phẩm / Đơn Web / PBH / Cart",
-                "lines": 644
+                "lines": 648
             },
             {
                 "file": "render.com/routes/admin-web2-import-customers.js",
@@ -4383,7 +4610,7 @@
                 "file": "render.com/routes/services-overview.js",
                 "kind": "route",
                 "purpose": "SERVICES OVERVIEW — tổng hợp DB stats + service inventory",
-                "lines": 385
+                "lines": 393
             },
             {
                 "file": "render.com/routes/wallet-deposits.js",
@@ -4419,7 +4646,7 @@
                 "file": "render.com/routes/web2-campaign-products.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — SẢN PHẨM TRONG CHIẾN DỊCH LIVESTREAM (campaign ⇄ product)",
-                "lines": 715
+                "lines": 750
             },
             {
                 "file": "render.com/routes/web2-cashbook.js",
@@ -4473,7 +4700,7 @@
                 "file": "render.com/routes/web2-goods-weight.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — CÂN NẶNG HÀNG (goods weight log)",
-                "lines": 262
+                "lines": 291
             },
             {
                 "file": "render.com/routes/web2-jt-tracking.js",
@@ -4485,7 +4712,7 @@
                 "file": "render.com/routes/web2-live-comments.js",
                 "kind": "route",
                 "purpose": "web2-live-comments — kho comment livestream Web 2.0 (web2Db).",
-                "lines": 1014
+                "lines": 1018
             },
             {
                 "file": "render.com/routes/web2-live-relay.js",
@@ -4509,7 +4736,7 @@
                 "file": "render.com/routes/web2-order-tags.js",
                 "kind": "route",
                 "purpose": "Web 2.0 — TAG đơn hàng (config). CRUD bảng web2_order_tags + danh sách trigger.",
-                "lines": 229
+                "lines": 232
             },
             {
                 "file": "render.com/routes/web2-pancake-refresh.js",
@@ -4533,13 +4760,13 @@
                 "file": "render.com/routes/web2-product-units.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — PER-UNIT PRODUCT TRACKING (mã đơn vị + QR riêng/món)",
-                "lines": 1217
+                "lines": 1248
             },
             {
                 "file": "render.com/routes/web2-products.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 PRODUCTS REST API",
-                "lines": 2086
+                "lines": 2152
             },
             {
                 "file": "render.com/routes/web2-quick-replies.js",
@@ -4551,7 +4778,7 @@
                 "file": "render.com/routes/web2-returns.js",
                 "kind": "route",
                 "purpose": "WEB 2.0 — THU VỀ (Goods Return) REST API",
-                "lines": 1586
+                "lines": 1898
             },
             {
                 "file": "render.com/routes/web2-sepay-invoices.js",
@@ -4629,7 +4856,7 @@
                 "file": "render.com/routes/web2-zalo.js",
                 "kind": "route",
                 "purpose": "NGUỒN DUY NHẤT mọi dữ liệu + chức năng Zalo của Web 2.0.",
-                "lines": 2356
+                "lines": 2448
             },
             {
                 "file": "render.com/routes/v2/audit-log.js",
@@ -4656,7 +4883,7 @@
                 "file": "render.com/routes/v2/kpi.js",
                 "kind": "route-v2",
                 "purpose": "WEB 2.0 — KPI Attribution System",
-                "lines": 1131
+                "lines": 1152
             },
             {
                 "file": "render.com/routes/v2/notifications.js",
@@ -4687,7 +4914,7 @@
                 "file": "render.com/routes/v2/web2-customers.js",
                 "kind": "route-v2",
                 "purpose": "/api/web2/customers — KHO KHÁCH HÀNG RIÊNG Web 2.0 (warehouse).",
-                "lines": 1190
+                "lines": 1197
             },
             {
                 "file": "render.com/routes/v2/web2-geocode.js",
@@ -4827,7 +5054,7 @@
                 "file": "render.com/services/web2-order-tags-service.js",
                 "kind": "service",
                 "purpose": "Web 2.0 — Order auto-tag ENGINE (single source of truth).",
-                "lines": 848
+                "lines": 872
             },
             {
                 "file": "render.com/services/web2-pancake-creds.js",
@@ -4917,7 +5144,7 @@
                 "file": "render.com/services/web2-zalo-zca.js",
                 "kind": "service",
                 "purpose": "Quản lý phiên zca-js cho account_type='personal' (đăng nhập cá nhân).",
-                "lines": 1213
+                "lines": 1252
             }
         ]
     }
