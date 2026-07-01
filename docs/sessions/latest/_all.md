@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `eb5a454` — chore(web2-system): đóng 9 servicesAuditFindings — inventory live đã fresh, registry khớp
-**Last updated**: 2026-07-01 20:27:28 +07
-**Latest session**: [`RESUME:20260701-202728-eb5a454`](../20260701-202728-eb5a454.md)
-**Summary**: chore(web2-system): đóng 9 servicesAuditFindings — inventory live đã fresh, registry khớp
+**Latest commit**: `4b8ca78` — chore(web2-system): regenerate data manifest — phản ánh gỡ poller page + gộp chiến dịch
+**Last updated**: 2026-07-01 20:33:53 +07
+**Latest session**: [`RESUME:20260701-203353-4b8ca78`](../20260701-203353-4b8ca78.md)
+**Summary**: chore(web2-system): regenerate data manifest — phản ánh gỡ poller page + gộp chiến dịch
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`docs/`](./docs.md) — 4 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -29,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 12:59
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 20:27
+- [`docs/`](./docs.md) — updated 2026-07-01 20:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -83,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 20:27
+- [`web2/`](./web2.md) — updated 2026-07-01 20:33
