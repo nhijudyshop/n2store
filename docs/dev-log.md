@@ -2,6 +2,23 @@
 
 ## 2026-07-01
 
+### [web2-campaign] Audit chiến dịch livestream + sửa 2 lỗi HIGH (gate join sai cột, TV không hiện lại SP)
+
+**Files:** `render.com/routes/web2-campaign-products.js` (H1: gate GIỎ/MỚI GET / + /cart-detail đổi `n.live_campaign_id IN (post_assign.post_id)` → `n.fb_post_id IN (...)`), `web2/live-tv/js/live-tv.js` (H2: +`state.allCodes` tập thành viên đầy đủ trước filter, dùng cho relevance SSE `web2:products`), `docs/web2/CAMPAIGN-AUDIT-2026-07-01.md` (báo cáo audit 32 phát hiện).
+
+Audit đa-agent (87 agents: 7 map + 8 dimension × 2 verifier + critic + synth) toàn bộ luồng chiến dịch: tạo (live-chat) → gán bài (`web2_live_post_assign`) → gán SP (`web2_campaign_products` + autoSync) → đơn↔chiến dịch (`live_campaign_id`/`campaign_stt`) → board TV + SSE. 32 phát hiện xác nhận (≥1 verifier độc lập), 3 refuted.
+
+- **H1 (HIGH, ĐÃ SỬA):** session gate GIỎ/MỚI join `native_orders.live_campaign_id` (= Pancake campaign Id) vào `web2_live_post_assign.post_id` (= FB post id) — SAI CỘT, chỉ chạy nhờ invariant tình cờ `camp.Id === camp.Facebook_LiveId`. Đổi sang `fb_post_id` (cột đơn thật lưu Facebook_LiveId, KHỚP native-orders parent filter `native-orders.js:1868`). Equivalent hôm nay, hết latent silent-zero khi 2 field lệch.
+- **H2 (HIGH, ĐÃ SỬA):** SP bán hết (isActive=false→ẩn trên TV, không vào `state.codes`) rồi nhập lại kho → event `web2:products` bị `state.codes` lọc mất → không reload → SP có hàng vẫn vô hình trên TV. Thêm `state.allCodes` (mã thành viên TRƯỚC filter) dùng cho relevance check.
+- **H3 (HIGH, CHỜ QUYẾT):** mutation chiến dịch chỉ `requireWeb2AuthSoft` (login-level), không kiểm quyền theo hành động (viewer ghi được `web2_products` bất kỳ mã qua `/pending`, xóa campaign). `requireWeb2Permission` fail-closed → wire cần xác nhận role-grant tránh khóa operator đang live.
+- **H4 (HIGH, CHỜ QUYẾT):** `campaign_stt` group-key bất đồng: from-comment=name-group (strip STORE/HOUSE), merge=raw live_campaign_id → trùng số kệ/KPI dưới concurrency. Fix là quyết định semantics + re-run backfill prod.
+
+MEDIUM/LOW (chưa sửa, 12 nhóm): xem `docs/web2/CAMPAIGN-AUDIT-2026-07-01.md` §3. Notable: CHO VƯỠT/region là dead feature (M10), newCust trim divergence tile vs popup (M2), DELETE campaign non-transactional + orphan cp/tv_control (M1), native-orders "Xóa bộ lọc" không reset parent filter (M8/M9).
+
+⚠ H1 = **deploy Render** (`web2-campaign-products.js`) mới hiệu lực; H2 (live-tv.js) chạy ngay GitHub Pages. Syntax OK cả 2 file, không còn `live_campaign_id IN` sai cột trong repo.
+
+Status: ✅ H1+H2 sửa xong (chờ deploy Render cho H1) · ⏳ H3+H4 chờ user quyết
+
 ### [web2-reconcile] Gọn tab lọc + "Hủy đóng gói" chụp ảnh lưu lịch sử
 
 **Files:** `web2/reconcile/index.html` (bỏ 3 tab lọc + chip audit "Tích tay (cũ)", bump js v=20260701ui), `web2/reconcile/js/reconcile-state.js` (default `filterState` `active`→`pending`, +label `cancel-pack`), `web2/reconcile/js/reconcile-render.js` (bỏ nút "Giao shipper" `rcBtnShip` + wiring), `web2/reconcile/js/reconcile-actions.js` (`cancelPack` chụp ảnh `Web2EvidenceCamera` → gửi `evidence` + badge audit cho cancel-pack), `render.com/routes/reconcile.js` (`/cancel-pack` nhận `evidence` → lưu `pbh_fulfillment_snapshots` + log `manualPhotos`).

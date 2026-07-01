@@ -6,7 +6,8 @@
     var state = {
         campaignId: null,
         campaignName: '',
-        codes: new Set(),
+        codes: new Set(), // mã SP HIỂN THỊ (sau filter ghost/hết-hàng)
+        allCodes: new Set(), // mã SP thành viên board (TRƯỚC filter) — dùng cho relevance SSE web2:products
         groups: [],
         // layout + trang + địa danh (do live-control điều khiển) — region đổi cột KH → CÒN
         control: { rows: 1, cols: 4, page: 0, region: 'HƯƠNG CHÂU' },
@@ -185,6 +186,18 @@
         if (state.campaignId == null) return;
         try {
             var items = await window.Web2Campaign.listProducts(state.campaignId);
+            // Tập mã THÀNH VIÊN đầy đủ (TRƯỚC filter) — để relevance check của SSE
+            // web2:products bắt được cả SP đang ẩn: SP bán hết (isActive=false→ẩn) rồi
+            // NHẬP LẠI kho phải trigger reload để hiện lại trên TV. Nếu chỉ dùng codes
+            // sau filter thì SP ẩn không bao giờ nằm trong tập → không reload (audit H2,
+            // 2026-07-01).
+            state.allCodes = new Set(
+                items
+                    .map(function (i) {
+                        return i && i.code;
+                    })
+                    .filter(Boolean)
+            );
             // Lọc GHOST (missing=true → SP xoá khỏi kho còn sót cp row) + HẾT HÀNG
             // (isActive===false → bán hết tự ẩn, logic mới 2026-06-28). Màn TV KHÔNG
             // gửi sync nên lọc client; board (live-control) sync sẽ dọn cp mồ côi.
@@ -267,7 +280,10 @@
             var touched = [];
             if (d.code) touched.push(String(d.code));
             if (Array.isArray(d.codes)) touched = touched.concat(d.codes.map(String));
-            if (!touched.length || touched.some((c) => state.codes.has(c))) scheduleReload();
+            // So với tập THÀNH VIÊN đầy đủ (allCodes) — gồm cả SP đang ẩn (hết hàng) —
+            // để SP nhập-lại kho hiện lại realtime (audit H2). Fallback codes nếu chưa reload.
+            var member = state.allCodes && state.allCodes.size ? state.allCodes : state.codes;
+            if (!touched.length || touched.some((c) => member.has(c))) scheduleReload();
         }
     }
 

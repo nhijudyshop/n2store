@@ -308,10 +308,14 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         const codes = [...new Set(items.map((it) => it.code).filter(Boolean))];
         if (codes.length) {
             // GIỎ scope theo PHIÊN LIVE (bước 3, 2026-06-30): chỉ đếm đơn của bài đã
-            // GÁN vào chiến dịch này (native_orders.live_campaign_id = FB post id =
-            // web2_live_post_assign.post_id → campaign_id cha). Gate lũy tiến: chiến
-            // dịch CHƯA gán bài nào → KHÔNG lọc (giữ global, không board nào tự về 0).
-            // Verified bằng seed test local (campaign có gán → scoped; chưa gán → global).
+            // GÁN vào chiến dịch này. Bài livestream định danh bằng FB post id =
+            // web2_live_post_assign.post_id (= Facebook_LiveId), lưu trên đơn ở cột
+            // native_orders.fb_post_id (KHÔNG phải live_campaign_id — đó là campaign Id
+            // của Pancake; hai field chỉ tình cờ bằng nhau nên trước đây join sai cột
+            // vẫn chạy, xem audit H1 2026-07-01). Dùng fb_post_id để KHỚP native-orders
+            // parent filter (native-orders.js:1868 `fb_post_id = ANY(...)`). Gate lũy
+            // tiến: chiến dịch CHƯA gán bài nào → KHÔNG lọc (giữ global, không board
+            // nào tự về 0).
             const hr = await pool.query(
                 `SELECT COALESCE(prod->>'productCode', prod->>'code') AS code,
                         SUM(COALESCE((prod->>'quantity')::numeric, (prod->>'qty')::numeric, 0)) AS sold,
@@ -323,7 +327,7 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
                    AND n.status = 'draft'
                    AND (
                      NOT EXISTS (SELECT 1 FROM web2_live_post_assign WHERE campaign_id = $2)
-                     OR n.live_campaign_id IN (
+                     OR n.fb_post_id IN (
                        SELECT post_id FROM web2_live_post_assign WHERE campaign_id = $2
                      )
                    )
@@ -662,7 +666,7 @@ router.get('/cart-detail', requireWeb2AuthSoft, async (req, res) => {
         const scopeSql = hasCampaign
             ? `AND (
                  NOT EXISTS (SELECT 1 FROM web2_live_post_assign WHERE campaign_id = $2)
-                 OR n.live_campaign_id IN (
+                 OR n.fb_post_id IN (
                    SELECT post_id FROM web2_live_post_assign WHERE campaign_id = $2
                  )
                )`
