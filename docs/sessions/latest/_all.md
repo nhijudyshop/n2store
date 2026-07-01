@@ -3,34 +3,35 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `93f58e9` — docs(web2): register Web2Drawer in codemap/system data + verify goods-weight drawer
-**Last updated**: 2026-07-01 10:48:44 +07
-**Latest session**: [`RESUME:20260701-104844-93f58e9`](../20260701-104844-93f58e9.md)
-**Summary**: Web2Drawer module chung + goods-weight báo cáo thumbnail+drawer ảnh cân
+**Latest commit**: `f6f27d1` — feat(camera-bridge): sidecar KBVision/Dahua snapshot cho đối soát tay (Phase 2)
+**Last updated**: 2026-07-01 10:51:54 +07
+**Latest session**: [`RESUME:20260701-105154-f6f27d1`](../20260701-105154-f6f27d1.md)
+**Summary**: reconcile: camera bằng chứng đối soát tay + session model (đủ mới lưu) + KBVision camera-bridge sidecar
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 4 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 21 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`camera-bridge/`](./camera-bridge.md) — 5 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-28 22:00
 - [`.github/`](./.github.md) — updated 2026-07-01 00:24
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-07-01 00:05
+- [`_root/`](./_root.md) — updated 2026-07-01 10:51
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`attendance-sync/`](./attendance-sync.md) — updated 2026-06-24 14:02
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
 - [`balance-history/`](./balance-history.md) — updated 2026-06-20 12:07
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
 - [`bg-remover/`](./bg-remover.md) — updated 2026-06-24 16:53
+- [`camera-bridge/`](./camera-bridge.md) — updated 2026-07-01 10:51
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 00:24
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 10:48
+- [`docs/`](./docs.md) — updated 2026-07-01 10:51
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -84,4 +85,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 10:48
+- [`web2/`](./web2.md) — updated 2026-07-01 10:51

@@ -1,4 +1,4 @@
-# Latest Snapshot — `web2/`
+# Latest Snapshot — `camera-bridge/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-07-01 10:51:54 +07
 **Summary**: reconcile: camera bằng chứng đối soát tay + session model (đủ mới lưu) + KBVision camera-bridge sidecar
 
-## Files changed in this commit (`web2/`)
+## Files changed in this commit (`camera-bridge/`)
 
-- `web2/shared/web2-evidence-camera.js`
+- `camera-bridge/README.md`
+- `camera-bridge/camera-bridge.js`
+- `camera-bridge/camera-tunnel.ps1`
+- `camera-bridge/camera.config.example.json`
+- `camera-bridge/run-camera-bridge.bat`
 
-## Last 5 commits touching `web2/`
+## Last 5 commits touching `camera-bridge/`
 
 - `f6f27d100` feat(camera-bridge): sidecar KBVision/Dahua snapshot cho đối soát tay (Phase 2) _(2026-07-01)_
-- `93f58e9d1` docs(web2): register Web2Drawer in codemap/system data + verify goods-weight drawer _(2026-07-01)_
-- `a67b70118` feat(so-order+live-control): hiện return*qty (thu về chờ duyệt) → tránh đặt dư NCC *(2026-07-01)\_
-- `20ecb0b89` feat(web2 reconcile): camera bằng chứng đối soát tay + session model (đủ mới lưu) _(2026-07-01)_
-- `00a2c7851` feat(thu về): 'Khách chịu (₫)' — hoàn ví 1 phần (khách chịu lỗ), PBH settle full _(2026-07-01)_
 
 ---
 
