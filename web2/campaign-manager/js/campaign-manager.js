@@ -484,6 +484,45 @@
         }
     }
 
+    // Đồng bộ đơn NHÁP theo gán bài hiện tại (dùng khi gán lại/xóa bài sau khi đã có
+    // đơn nháp). CHỈ đụng đơn draft; đơn đã PBH (lên kệ + KPI) giữ nguyên.
+    async function doResync() {
+        if (!isAdmin()) return toast('Chỉ admin được đồng bộ', 'error');
+        if (state.busy) return;
+        const ok = await confirmDanger(
+            'Đồng bộ đơn NHÁP theo gán bài hiện tại?\n\n' +
+                '• Dời đơn nháp (chưa chốt PBH) sang chiến dịch cha đúng + cấp lại STT kệ.\n' +
+                '• KHÔNG đụng đơn đã PBH (đã lên kệ vật lý + KPI đã tính).\n\n' +
+                'Dùng khi bạn vừa gán lại / xóa bài mà đã lỡ có đơn nháp gán nhầm.'
+        );
+        if (!ok) return;
+        state.busy = true;
+        try {
+            const base =
+                (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+                (window.WEB2_CONFIG && window.WEB2_CONFIG.WORKER_URL) ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const headers = { 'Content-Type': 'application/json' };
+            const tok =
+                window.Web2Auth && window.Web2Auth.getStored && window.Web2Auth.getStored()?.token;
+            if (tok) headers['x-web2-token'] = tok;
+            const r = await fetch(`${base}/api/native-orders/resync-campaigns`, {
+                method: 'POST',
+                headers,
+                body: '{}',
+            });
+            const d = await r.json().catch(() => ({}));
+            if (r.status === 401 || r.status === 403) throw new Error('Cần đăng nhập admin');
+            if (!r.ok) throw new Error(d.error || 'Lỗi không xác định');
+            await toast(`Đã đồng bộ ${d.moved || 0} đơn nháp theo gán bài`, 'success');
+            await reloadAll(true);
+        } catch (e) {
+            await toast('Lỗi đồng bộ: ' + e.message, 'error');
+        } finally {
+            state.busy = false;
+        }
+    }
+
     // ---------- Events ----------
     function wireEvents() {
         // List column: click campaign
@@ -513,6 +552,7 @@
             renderDetail();
         });
         $('cmRefresh')?.addEventListener('click', () => reloadAll(false));
+        $('cmResync')?.addEventListener('click', doResync);
 
         // Detail column: delegated (create + campaign controls)
         $('cmDetail')?.addEventListener('click', (e) => {

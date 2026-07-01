@@ -904,7 +904,91 @@ router.post('/reset-stt', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /api/native-orders/resync-campaigns — ADMIN (#gán-nhầm).
+// Đồng bộ parent_campaign_id + campaign_stt của đơn DRAFT theo GÁN BÀI HIỆN TẠI
+// (web2_live_post_assign). Dùng khi admin gán lại / xoá bài SAU khi đã có đơn nháp
+// → dời đơn nháp sang chiến dịch cha đúng, cấp lại STT (append MAX+1 nhóm mới).
+// ⚠ CHỈ đụng status='draft'. Đơn PBH/confirmed đã lên kệ vật lý + KPI actual đã emit
+//   → GIỮ NGUYÊN (không dời, không renumber). Body optional { campaignId } để giới hạn
+//   phạm vi (đơn liên quan chiến dịch đó: đang gán về nó, hoặc parent=nó mà bài đã rời).
+// -----------------------------------------------------
+router.post('/resync-campaigns', requireWeb2Admin, async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const scopeId =
+        req.body && req.body.campaignId != null && String(req.body.campaignId) !== ''
+            ? Number(req.body.campaignId)
+            : null;
+    const client = await pool.connect();
+    try {
+        await ensureTables(pool);
+        await client.query('BEGIN');
+        // Đơn DRAFT mà parent_campaign_id ≠ gán bài HIỆN TẠI (LEFT JOIN → post gỡ gán /
+        // chiến dịch xoá → new_parent NULL). IS DISTINCT FROM = null-safe. Nếu scopeId:
+        // chỉ đơn ĐANG gán về scope HOẶC parent hiện là scope (bài đã rời) — fix 2 chiều.
+        const moved = await client.query(
+            `SELECT o.id, pa.campaign_id AS new_parent
+             FROM native_orders o
+             LEFT JOIN web2_live_post_assign pa ON o.fb_post_id = pa.post_id
+             WHERE o.status = 'draft'
+               AND o.parent_campaign_id IS DISTINCT FROM pa.campaign_id
+               ${scopeId != null ? 'AND ($1::bigint = pa.campaign_id OR $1::bigint = o.parent_campaign_id)' : ''}
+             ORDER BY o.created_at ASC
+             FOR UPDATE OF o`,
+            scopeId != null ? [scopeId] : []
+        );
+        let count = 0;
+        for (const row of moved.rows) {
+            // 1) dời parent
+            await client.query(
+                `UPDATE native_orders SET parent_campaign_id = $1::bigint, updated_at = $2 WHERE id = $3`,
+                [row.new_parent, Date.now(), row.id]
+            );
+            // 2) cấp campaign_stt = MAX+1 của NHÓM MỚI (append, KHÔNG renumber đơn khác).
+            //    Nhóm = SQL_CAMPAIGN_GROUP_ROW (parent → name-group → live_id). Loại chính nó.
+            const g = await client.query(
+                `SELECT ${SQL_CAMPAIGN_GROUP_ROW} AS grp FROM native_orders WHERE id = $1`,
+                [row.id]
+            );
+            const grp = g.rows[0].grp;
+            // Serialize với from-comment insert cùng nhóm (khóa CÙNG key) → MAX+1 không
+            // đụng STT với đơn live tạo song song. grp == campaignGroupKeyJs (cùng precedence).
+            await lockCampaignSttKey(client, grp);
+            const mx = await client.query(
+                `SELECT COALESCE(MAX(campaign_stt), 0) + 1 AS n
+                 FROM native_orders WHERE ${SQL_CAMPAIGN_GROUP_ROW} = $1 AND id <> $2`,
+                [grp, row.id]
+            );
+            await client.query(`UPDATE native_orders SET campaign_stt = $1 WHERE id = $2`, [
+                mx.rows[0].n,
+                row.id,
+            ]);
+            count++;
+        }
+        await client.query('COMMIT');
+        if (count) _notify('resync-campaigns', null);
+        recordAuditEvent(pool, {
+            entity: 'native-order-campaign',
+            entityId: scopeId != null ? String(scopeId) : 'all',
+            action: 'resync-campaigns',
+            userId: req.web2User?.id ?? null,
+            userName: req.web2User?.display_name ?? null,
+            sourcePage: 'campaign-manager',
+            changes: { moved: count, scope: scopeId != null ? scopeId : 'all' },
+        });
+        res.json({ success: true, moved: count });
+    } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[NATIVE-ORDERS] resync-campaigns error:', e.message);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// -----------------------------------------------------
 // POST /api/native-orders/from-comment
+// Body:
 // Body:
 //  { fbUserId, fbUserName, fbPageId, fbPostId, fbCommentId,
 //    message?, phone?, address?, note?,
