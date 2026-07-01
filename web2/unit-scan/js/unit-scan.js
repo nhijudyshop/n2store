@@ -55,6 +55,18 @@
                 navigator.vibrate(ms);
             } catch (_) {}
     }
+    // Chớp cả khung camera khi quét (packer không nhìn toast góc màn) — xanh OK / đỏ trùng-lỗi.
+    function flashScan(kind) {
+        const el = $('#scanFlash');
+        if (!el) return;
+        el.style.setProperty(
+            '--flash',
+            kind === 'warn' ? 'rgba(229,72,77,.55)' : 'rgba(26,162,81,.5)'
+        );
+        el.classList.remove('go');
+        void el.offsetWidth; // reflow → replay animation mỗi lần quét
+        el.classList.add('go');
+    }
     let _ac = null;
     function beep(kind) {
         try {
@@ -112,6 +124,20 @@
         const l = locate(s);
         return l && l.ke ? l.ke : null;
     };
+    // Màu-theo-kệ (put-to-light): mỗi kệ 1 màu định danh — dùng CHUNG hero/ring/pill/sơ đồ.
+    // Màu = "bỏ vào kệ nào" → mắt nhận màu trước cả khi đọc số. 9 kệ = 9 hue tương phản trên nền sáng.
+    const KE_COLORS = [
+        '#f59e0b',
+        '#ef4444',
+        '#8b5cf6',
+        '#10b981',
+        '#0ea5e9',
+        '#f97316',
+        '#ec4899',
+        '#6366f1',
+        '#14b8a6',
+    ];
+    const keColor = (ke) => (ke >= 1 && ke <= 9 ? KE_COLORS[ke - 1] : '#5b6b7d');
 
     async function onScan(target) {
         if (!target) return;
@@ -137,6 +163,7 @@
             const r = markSorted(data.unit);
             beep(r.full ? 'done' : r.dup ? 'warn' : 'ok');
             vibe(r.full ? [40, 50, 60] : 40);
+            flashScan(r.dup ? 'warn' : 'ok');
             // Put-to-light: sáng đúng ô kệ của tem vừa quét (nếu đã bật + cấu hình ESP32).
             if (
                 window.Web2PutWall?.isOn() &&
@@ -152,6 +179,7 @@
                 esc(target.id ? 'u=' + target.id : target.code) +
                 '</span></div></div>';
             beep('warn');
+            flashScan('warn');
         } finally {
             resolving = false;
         }
@@ -162,28 +190,34 @@
             const l = locate(s);
             return l && l.ke ? `<div class="hero-pos">📍 ${esc(l.full)}</div>` : '';
         };
-        if (u.status === 'ASSIGNED' && u.orderStt != null) {
-            const ke = keOfStt(u.orderStt);
-            return `<div class="stt-hero done">
-                <div class="lbl">➡️ Bỏ vào KỆ ${ke != null ? esc(ke) : '?'}</div>
-                <div class="num">${esc(u.orderStt)}</div>
-                ${posLine(u.orderStt)}
-                <div class="sub">${esc(u.customerName || '')}${u.orderCode ? ' · ' + esc(u.orderCode) : ''}</div>
+        // Hero "bỏ vào kệ N" tô theo MÀU KỆ (--ke). assigned=đã gán / suggested=gợi ý (viền nét đứt).
+        const keHero = (stt, sub, assigned) => {
+            const ke = keOfStt(stt);
+            return `<div class="stt-hero has-ke${assigned ? '' : ' suggested'}" style="--ke:${keColor(ke)}">
+                <div class="hero-ke">${assigned ? '➡️' : '💡'} BỎ VÀO KỆ ${ke != null ? esc(ke) : '?'}${assigned ? '' : '<span class="hero-tag">gợi ý</span>'}</div>
+                <div class="num">${esc(stt)}</div>
+                ${posLine(stt)}
+                <div class="sub">${sub}</div>
             </div>`;
+        };
+        if (u.status === 'ASSIGNED' && u.orderStt != null) {
+            return keHero(
+                u.orderStt,
+                `${esc(u.customerName || '')}${u.orderCode ? ' · ' + esc(u.orderCode) : ''}`,
+                true
+            );
         }
         if (suggested && suggested.stt != null) {
-            const ke = keOfStt(suggested.stt);
-            return `<div class="stt-hero">
-                <div class="lbl">➡️ Bỏ vào KỆ ${ke != null ? esc(ke) : '?'}</div>
-                <div class="num">${esc(suggested.stt)}</div>
-                ${posLine(suggested.stt)}
-                <div class="sub">${esc(suggested.customerName || 'Đơn ' + (suggested.orderCode || ''))}${suggested.remaining ? ' · còn thiếu ' + suggested.remaining : ''}</div>
-            </div>`;
+            return keHero(
+                suggested.stt,
+                `${esc(suggested.customerName || 'Đơn ' + (suggested.orderCode || ''))}${suggested.remaining ? ' · còn thiếu ' + suggested.remaining : ''}`,
+                false
+            );
         }
         if ((current?.orders || []).length) {
-            return `<div class="stt-hero done"><div class="lbl">Tất cả đơn đã đủ</div><div class="sub" style="margin-top:6px">Món này DƯ — để IN_STOCK</div></div>`;
+            return `<div class="stt-hero neutral ok"><div class="hero-ke">✓ Tất cả đơn đã đủ</div><div class="sub" style="margin-top:6px">Món này DƯ — để IN_STOCK</div></div>`;
         }
-        return `<div class="stt-hero"><div class="lbl">Chưa có đơn nào cần SP này</div><div class="sub" style="margin-top:6px">Để IN_STOCK — chờ khách đặt</div></div>`;
+        return `<div class="stt-hero neutral"><div class="hero-ke">Chưa có đơn nào cần SP này</div><div class="sub" style="margin-top:6px">Để IN_STOCK — chờ khách đặt</div></div>`;
     }
 
     function renderResult(data) {
@@ -477,9 +511,16 @@
             .map((g) => {
                 const done = kDone(g);
                 const title = g.ke ? `Kệ ${g.ke}` : 'Chưa rõ kệ';
-                return `<div class="ke-card${done ? ' done' : ''}" id="ke-${g.ke}" data-ke="${g.ke}">
+                // Ring donut = tiến độ chia của kệ (arc = sorted/needed), tô MÀU KỆ.
+                const pct =
+                    g.needed > 0
+                        ? Math.min(360, Math.round((g.sorted / g.needed) * 360))
+                        : done
+                          ? 360
+                          : 0;
+                return `<div class="ke-card${done ? ' done' : ''}" id="ke-${g.ke}" data-ke="${g.ke}" style="--ke:${keColor(g.ke)}">
                     <div class="c-top">
-                        <div class="c-badge">${g.ke || '?'}</div>
+                        <div class="c-ring" style="--p:${pct}deg"><span class="c-ring-num">${g.ke || '?'}</span></div>
                         <div class="c-info">
                             <div class="c-name">${esc(title)} <span class="c-wall">${esc(g.wall)}</span></div>
                             <div class="c-prog">${done ? '✓ ĐỦ — đưa xe ra' : `đã chia ${g.sorted}/${g.needed}`} · ${g.orders.length} đơn</div>
@@ -937,18 +978,18 @@
             .reverse()
             .map((u) => {
                 const l = u.orderStt != null ? locate(u.orderStt) : null;
-                const pos =
-                    l && l.ke
-                        ? `📍 ${esc(l.short)}`
-                        : u.orderStt != null
-                          ? `STT ${esc(u.orderStt)}`
-                          : 'kho';
+                const ke = l && l.ke ? l.ke : null;
+                const pos = ke
+                    ? `📍 ${esc(l.short)}`
+                    : u.orderStt != null
+                      ? `STT ${esc(u.orderStt)}`
+                      : 'kho';
                 return `<div class="bt-row">
                     <div class="bt-info">
                         <div class="bt-code">${esc(u.unitCode)}</div>
                         <div class="bt-name">${esc(u.name || u.productCode)}</div>
                     </div>
-                    <span class="bt-pos">${pos}</span>
+                    <span class="bt-pos${ke ? ' ke' : ''}"${ke ? ` style="--ke:${keColor(ke)}"` : ''}>${pos}</span>
                     <button class="bt-x" data-id="${u.id}" type="button" aria-label="Bỏ khỏi danh sách"><i data-lucide="x"></i></button>
                 </div>`;
             })

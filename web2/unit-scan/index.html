@@ -67,6 +67,12 @@
         <main class="wrap">
             <div class="scanner">
                 <div id="scanHost"></div>
+                <!-- Overlay khung quét: 4 góc + laser + chớp xanh/đỏ khi quét (decorative, pointer-events:none) -->
+                <div class="scan-frame" aria-hidden="true">
+                    <i></i><i></i><i></i><i></i>
+                    <div class="scan-laser"></div>
+                </div>
+                <div class="scan-flash" id="scanFlash" aria-hidden="true"></div>
                 <div class="scan-hint">Đưa mã QR vào khung</div>
             </div>
             <div class="manual">

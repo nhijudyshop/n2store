@@ -7,9 +7,9 @@
 :root {
     --c-primary: #0068ff;
     --c-primary-d: #0052cc;
-    --c-bg: #eef1f6;
+    --c-bg: #f2f5fa;
     --c-surface: #ffffff;
-    --c-line: #e7ebf1;
+    --c-line: #e3e8f0;
     --c-text: #16202c;
     --c-text-2: #5b6b7d;
     --c-text-3: #9aa7b6;
@@ -144,6 +144,93 @@ body {
     font-weight: 600;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
     pointer-events: none;
+    z-index: 2;
+}
+/* Overlay khung quét — 4 góc bo + laser chạy. Decorative, KHÔNG chặn camera/nút. */
+.scan-frame {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+.scan-frame > i {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    border-radius: 5px;
+}
+.scan-frame > i:nth-child(1) {
+    top: 16px;
+    left: 16px;
+    border-right: 0;
+    border-bottom: 0;
+}
+.scan-frame > i:nth-child(2) {
+    top: 16px;
+    right: 16px;
+    border-left: 0;
+    border-bottom: 0;
+}
+.scan-frame > i:nth-child(3) {
+    bottom: 16px;
+    left: 16px;
+    border-right: 0;
+    border-top: 0;
+}
+.scan-frame > i:nth-child(4) {
+    bottom: 16px;
+    right: 16px;
+    border-left: 0;
+    border-top: 0;
+}
+.scan-laser {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(90, 180, 255, 0.95), transparent);
+    box-shadow: 0 0 10px rgba(90, 180, 255, 0.6);
+    animation: scanLaser 2.6s ease-in-out infinite;
+}
+@keyframes scanLaser {
+    0% {
+        top: 18px;
+        opacity: 0.25;
+    }
+    50% {
+        top: calc(100% - 18px);
+        opacity: 1;
+    }
+    100% {
+        top: 18px;
+        opacity: 0.25;
+    }
+}
+/* Chớp cả khung khi quét — xanh OK / đỏ trùng-lỗi (packer không nhìn toast góc) */
+.scan-flash {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: var(--flash, rgba(26, 162, 81, 0.5));
+    opacity: 0;
+}
+.scan-flash.go {
+    animation: scanFlash 0.42s ease-out;
+}
+@keyframes scanFlash {
+    0% {
+        opacity: 0;
+    }
+    16% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 /* PWA/iOS: camera đen (cần gesture/quyền) → nút chạm-để-bật phủ khung */
 .cam-retry {
