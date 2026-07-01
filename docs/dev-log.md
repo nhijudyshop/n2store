@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [web2-system/services] Đóng 9 servicesAuditFindings — inventory live đã fresh, registry giờ khớp
+
+**Files:** `web2/system/data/web2-third-parties.json` (`servicesAuditFindings` → `status: resolved` + `resolvedDate` + `resolution` cho cả 9).
+
+User (a): "fix 9 chỗ stale trong services-overview.js cho trang live tươi". Khảo sát: **8/9 đã fix sẵn trong update 2026-06-24** của `SERVICES_INVENTORY` (Firestore drained, web2Db real tables bỏ '78+ entities', Firebase Auth Postgres, Postgres 2 pool tách rõ, Cloudflare proxy chung, SePay thêm entry, GitHub→nhijudy.store; #8 Bunny báo active qua plan/cost). Trang Services **đã tươi** — thứ còn stale là **chính list `servicesAuditFindings`** vẫn ghi 9 cái "open" (kèm line-ref cũ đã lệch code).
+
+- Đánh dấu cả 9 `status:'resolved'` + `resolvedDate` + `resolution` (trỏ trạng thái hiện tại), bỏ field `current`/`fix` cũ (mô tả code cũ + fix đã làm).
+- Registry là **curated** (không generate, không hiển thị trên trang live) → chỉ sửa JSON, `gen-web2-system-data.js` KHÔNG đọc findings nên không cần regen.
+- Bài học (memory `feedback_read_system_services_when_coding`): nguồn-data primary = `SERVICES_INVENTORY` (live, auto-refresh) — giữ nó chính xác; findings-registry phải khớp, đừng để claim issue đã fix là open.
+
+**Test:** JSON valid (`require` OK, 9/9 resolved); `gen-web2-system-data.js` không ref findings; `node --check services-overview.js` OK.
+
+Status: ✅ (registry khớp inventory; trang live vốn đã fresh từ 2026-06-24)
+
 ### [livestream-poller] GỠ trang cấu hình poller comment + /poller-pages (Scope A — giữ ingest WS-relay)
 
 **Files:** XOÁ `web2/livestream-poller/` (page); `render.com/routes/web2-live-comments.js` (gỡ `ensurePollerTable` + CRUD `/poller-pages` GET/POST/PATCH/DELETE), `web2/shared/web2-sidebar.js` (gỡ mục "Lấy comment Live"), `render.com/routes/web2-users.js` (gỡ slug `livestream-poller`).

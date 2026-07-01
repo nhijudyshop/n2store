@@ -41,56 +41,65 @@
         {
             "severity": "CRITICAL",
             "issue": "Firebase Firestore listed as active Web 2.0 data storage — OUTDATED",
-            "current": "Line 182: 'purpose: Web 2.0 data (so-order, wallets, snapshots)' + Firestore Spark plan listed as active",
-            "fix": "Firestore data migrated to Postgres web2Db 2026-06-14. Update purpose to: 'Legacy/drained (Web 2.0 data moved to Postgres web2_*). Only active use: pancake_tokens/accounts for Pancake credential bootstrap.' Mark status as passive/legacy."
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "Firestore inventory entry now: 'LEGACY/drained cho Web 2.0 — data đã chuyển sang Postgres web2_* (2026-06-14). Còn ACTIVE: collection pancake_tokens/accounts (token Pancake).' plan Spark, costMonth 0."
         },
         {
             "severity": "HIGH",
             "issue": "MISSING 10+ ACTIVE AI/MEDIA SERVICES used by Web 2.0",
-            "current": "SERVICES_INVENTORY has 8 items; missing: Groq (LLM), OpenRouter (LLM), Gemini/Nano Banana (paid image generation), ElevenLabs (TTS), Pollinations (free image generation), Cloudflare Workers AI, VieNeu-TTS (voice clone server), Pexels (stock photos), Pixabay (stock photos)",
-            "fix": "Add 10 new services: (1) Groq (free LLM, llama/gpt-oss); (2) OpenRouter (free LLM proxy); (3) Gemini API (Nano Banana paid image); (4) ElevenLabs (paid TTS); (5) Pollinations (free image, no key needed); (6) Cloudflare Workers AI (free image ~10k/day); (7) VieNeu-TTS backend (voice clone, Render standard); (8) Pexels (free stock photos); (9) Pixabay (free stock photos); (10) HuggingFace (fallback inference). All currently active in web2-ai-image-service.js, web2-ai-service.js, web2-caption-service.js, web2-elevenlabs-service.js, web2-stock-media-service.js."
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "Added consolidated inventory entry 'AI / LLM / TTS / Media (đa nhà cung cấp)' (Gemini/Groq/OpenRouter/ElevenLabs/Vivibe/Pollinations…) deferring to tab 'Bên thứ 3' — nơi liệt kê đầy đủ 70 bên thứ 3 (AI/LLM 7, TTS 4, media-gen 7, stock 3)."
         },
         {
             "severity": "CRITICAL",
             "issue": "web2Db purpose text inaccurate — says '78+ entities' but doesn't reflect Postgres table schema reality",
-            "current": "Line 143: 'DB Web 2.0 generic — web2_records (78+ entities, JSONB). TÁCH RIÊNG...'",
-            "fix": "Update to: 'DB Web 2.0 — Postgres tables (web2_products, web2_variants, web2_so_order, web2_supplier_meta, web2_supplier_ledger, web2_customer_wallets, web2_native_orders, fast_sale_orders, web2_balance_history, web2_zalo_accounts, web2_live_comments, realtime_credentials, +many). Migrated from Firestore 2026-06-14. Size ~500MB+. TÁCH RIÊNG khỏi Web 1.0 chatDb.'"
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "web2Db purpose now lists real tables (web2_products/variants/so_order/supplier_meta/ledger/customers/customer_wallets/wallet_transactions/balance_history/users/records + native_orders/fast_sale_orders). Bỏ text '78+ entities'."
         },
         {
             "severity": "HIGH",
             "issue": "Firebase Auth purpose mentions 'Web 2.0 fallback' — MISLEADING after DB migration",
-            "current": "Line 194: 'purpose: Legacy n2store auth (AuthManager) + web 2.0 fallback'",
-            "fix": "Update to: 'Legacy Web 1.0 auth (AuthManager). Web 2.0 uses Postgres auth + session table. Firebase Auth now deprecated for Web 2.0; Firestore JWT bootstrap only (pancake_tokens). No active listeners.'"
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "Firebase Auth purpose now: 'Auth Web 1.0 (AuthManager). Web 2.0 dùng auth Postgres riêng (web2_users + web2_user_sessions, x-web2-token) — KHÔNG còn phụ thuộc Firebase Auth.'"
         },
         {
             "severity": "MEDIUM",
             "issue": "DUPLICATE Postgres entries — confusing pool/instance names",
-            "current": "Lines 118-131 (chatDb 'DB chính') and Lines 133-148 (web2Db 'DB Web 2.0'). Both say 'Basic 1GB Singapore' but purpose is unclear which hosts which table prefixes.",
-            "fix": "Clarify poolKey + host + separate tables: (1) chatDb line 128 PURPOSE change to list Web 1.0 tables explicitly (customers, balance_history, customer_wallets, orders, orders_meta, etc.). (2) web2Db line 143 PURPOSE already good but remove '78+ entities' vague language; list major web2_* prefixed tables instead."
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "2 entry phân biệt rõ: 'Render Postgres (Web 1.0)' poolKey chatDb vs '(Web 2.0)' poolKey web2Db, kèm host riêng. Không phải trùng — 2 DB thật đã tách (cutover 2026-06-03)."
         },
         {
             "severity": "MEDIUM",
             "issue": "Cloudflare Workers purpose outdated — claims 'TPOS/Pancake/FB proxy, Edge Cache' only but also serves Web 2.0 routes",
-            "current": "Line 170: 'purpose: chatomni-proxy — TPOS/Pancake/FB proxy, Edge Cache'",
-            "fix": "Update to: 'Unified proxy (chatomni-proxy) — TPOS/Pancake/FB/Web 2.0 API proxy. Matches paths tường minh Web 2.0 trước catch-all TPOS. Edge cache + rate-limit.'"
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "Cloudflare purpose now: 'chatomni-proxy — proxy CHUNG: TPOS/Pancake/FB (Web 1.0) + route /api/web2-* → web2-api (Web 2.0). Match path Web 2.0 tường minh TRƯỚC catch-all TPOS.'"
         },
         {
             "severity": "MEDIUM",
             "issue": "Missing SePay integration detail — critical for Web 2.0 wallet",
-            "current": "No entry for SePay (payment signal processor feeding Web 2.0 wallet). Listed nowhere.",
-            "fix": "Add SePay service: {category: 'payment', name: 'SePay', plan: 'API', provider: 'SePay Vietnam', costMonth: 0, currency: 'USD', purpose: 'Web 2.0 wallet payment signals — balance sync via webhook (balance_history → web2_balance_history). Also used for legacy Web 1.0.', url: 'https://sepay.vn'}"
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "Added SePay entry (category payment; 589.000đ/tháng ≈ $24; 2 kênh độc lập shop+Home; webhook biến động số dư → nạp ví web2_customer_wallets + Sổ quỹ)."
         },
         {
             "severity": "LOW",
             "issue": "Bunny CDN purpose mentions 'CHỈ AI KOL Studio' but doesn't mention it's still active",
-            "current": "Line 206: 'purpose: CHỈ AI KOL Studio — n2store-aikol zone'",
-            "fix": "Keep as-is but optionally add note: '(Web 1.0 legacy — NOT used by Web 2.0. Video-maker in Web 2.0 uses browser canvas export or Postgres bytea instead.)'"
+            "status": "resolved",
+            "resolvedDate": "2026-07-01",
+            "resolution": "Bunny entry: plan 'Pay-as-go' + costMonth '~1' báo hiệu ACTIVE; purpose 'CHỈ AI KOL Studio (Web 1.0) — n2store-aikol zone. Web 2.0 KHÔNG dùng (ảnh lưu Postgres bytea).'"
         },
         {
             "severity": "MEDIUM",
             "issue": "GitHub Pages outdated — claims 'nhijudyshop.github.io/n2store' but live at 'nhijudy.store' only now",
-            "current": "Line 218: 'purpose: Static frontend hosting — nhijudyshop.github.io/n2store'",
-            "fix": "Update to: 'Static frontend hosting (legacy). Live frontend now at nhijudy.store (Cloudflare domain). GitHub Pages used for GitHub OAuth only (fallback URL).'"
+            "status": "resolved",
+            "resolvedDate": "2026-06-24",
+            "resolution": "GitHub Pages purpose now: 'Host frontend tĩnh (deploy qua git push). Domain chính hiện tại: nhijudy.store. Repo: nhijudyshop/n2store.'"
         }
     ],
     "thirdParties": [
