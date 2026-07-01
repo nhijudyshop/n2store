@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [fast-sale-orders.js] Huỷ PBH → revert phiếu thu về consumed về 'queued' (fix mất dấu thu về)
+
+**Files:** `render.com/routes/fast-sale-orders.js` (`_cancelPbhInTx`).
+
+Gap phát hiện qua E2E test: huỷ PBH đã gộp thu về KHÔNG revert `web2_returns.bill_status` từ `consumed` → phiếu kẹt consumed (không xoá được, không re-lên bill lần sau) dù PBH đã huỷ → **mất dấu món thu về** (khách vẫn cần trả nhưng bill mới không hiện).
+
+- `_cancelPbhInTx` (điểm chung `/cancel` + `/by-source/cancel` + `/bulk-cancel` + DELETE): sau restock/hoàn ví, thêm SAVEPOINT best-effort `UPDATE web2_returns SET bill_status='queued', consumed_pbh_code=NULL WHERE consumed_pbh_code=<số PBH> AND bill_status='consumed' AND status='active'` → SSE `web2:returns`.
+- Idempotent; lỗi không kéo đổ cancel (mirror delivery-sync). Native cancel cũng route qua đây.
+- Vòng đời tồn kho khép kín: create +1 → consume −1 → cancel +1 (restock dòng 0đ) + re-queue → re-consume −1.
+
+Status: ✅ deployed-ready.
+
 ### [web2 unit-scan] Nút gạt "Quét nhanh" — ẩn thẻ chi tiết khi quét liên tục
 
 **Files:** `web2/unit-scan/index.html` · `web2/unit-scan/js/unit-scan.js` · `web2/unit-scan/css/unit-scan.css`.

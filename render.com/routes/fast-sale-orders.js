@@ -2561,6 +2561,40 @@ async function _cancelPbhInTx(client, number, performedBy) {
         await client.query('ROLLBACK TO SAVEPOINT dlv_sync').catch(() => {});
         console.warn('[FAST-SALE-ORDERS] cancel: delivery sync skip:', e.message);
     }
+    // [2026-07-01] Huỷ PBH → phiếu THU VỀ đã lên bill này (bill_status='consumed',
+    // consumed_pbh_code = số PBH) PHẢI revert về 'queued' → món thu về RE-xuất hiện
+    // trên bill lần sau (khách vẫn cần trả, hàng đã restock ở dòng 0đ phía trên). Không
+    // revert = "mất dấu" món thu về sau khi huỷ đơn đổi. Idempotent (WHERE
+    // bill_status='consumed'). SAVEPOINT best-effort — lỗi KHÔNG kéo đổ cancel.
+    let returnsReverted = 0;
+    try {
+        await client.query('SAVEPOINT rtn_revert');
+        const rr = await client.query(
+            `UPDATE web2_returns
+             SET bill_status = 'queued', consumed_pbh_code = NULL, updated_at = $2
+             WHERE consumed_pbh_code = $1 AND bill_status = 'consumed' AND status = 'active'
+             RETURNING code`,
+            [pr.number, Date.now()]
+        );
+        returnsReverted = rr.rows.length;
+        if (returnsReverted && _notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:returns',
+                    { action: 'revert-consumed', pbh: pr.number, ts: Date.now() },
+                    'update'
+                );
+            } catch (e) {}
+        }
+        if (returnsReverted) {
+            console.log(
+                `[FAST-SALE-ORDERS] cancel ${pr.number} → revert ${returnsReverted} phiếu thu về về 'queued'`
+            );
+        }
+    } catch (e) {
+        await client.query('ROLLBACK TO SAVEPOINT rtn_revert').catch(() => {});
+        console.warn('[FAST-SALE-ORDERS] cancel: return-revert skip:', e.message);
+    }
     return {
         prevRow: pr,
         wasNotCancelled: notCancelled,
@@ -2568,6 +2602,7 @@ async function _cancelPbhInTx(client, number, performedBy) {
         restock,
         walletRefunded,
         deliveryCancelled,
+        returnsReverted,
     };
 }
 
