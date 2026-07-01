@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6b9b9d0` — fix(web2-campaign): audit chiến dịch livestream + sửa 2 lỗi HIGH
-**Last updated**: 2026-07-01 15:33:03 +07
-**Latest session**: [`RESUME:20260701-153303-6b9b9d0`](../20260701-153303-6b9b9d0.md)
-**Summary**: Audit chiến dịch livestream (87 agents) + sửa H1 gate fb_post_id + H2 TV allCodes; H3 quyền + H4 campaign_stt chờ quyết
+**Latest commit**: `2395762` — feat(web2-campaign): shared Web2CampaignPicker (bộ lọc chiến dịch 1 nguồn) + postsForCampaign
+**Last updated**: 2026-07-01 15:45:12 +07
+**Latest session**: [`RESUME:20260701-154512-2395762`](../20260701-154512-2395762.md)
+**Summary**: Foundation Web2CampaignPicker + postsForCampaign; overhaul chiến dịch 6 mục (mapper xong, drag ở inventory-panel); H4 name-group + native-orders dropdown surgery + wire 10 trang còn lại
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 12:59
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-01 15:33
+- [`docs/`](./docs.md) — updated 2026-07-01 15:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -84,4 +83,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-01 15:33
+- [`web2/`](./web2.md) — updated 2026-07-01 15:45
