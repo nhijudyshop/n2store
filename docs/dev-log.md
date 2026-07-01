@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [livestream-poller] GỠ trang cấu hình poller comment + /poller-pages (Scope A — giữ ingest WS-relay)
+
+**Files:** XOÁ `web2/livestream-poller/` (page); `render.com/routes/web2-live-comments.js` (gỡ `ensurePollerTable` + CRUD `/poller-pages` GET/POST/PATCH/DELETE), `web2/shared/web2-sidebar.js` (gỡ mục "Lấy comment Live"), `render.com/routes/web2-users.js` (gỡ slug `livestream-poller`).
+
+User: "bỏ poller comment đi — lấy từ pancake post rồi". Chốt **Scope A** (gỡ trang cấu hình + poller-pages, GIỮ pipeline comment server-side).
+
+- **Vì sao an toàn:** background poll đã tắt sẵn (2026-06-11, `start()` không schedule loop). Comment realtime vào `web2_live_comments` qua **WS relay → POST /ingest** (WS-DIRECT 2026-06-15: dùng luôn comment trong event WS, KHÔNG poll). `/ingest` **KHÔNG đọc** `web2_live_poller_pages` → gỡ CRUD + trang cấu hình không đụng luồng comment.
+- **GIỮ NGUYÊN:** poller **service** `web2-livestream-poller.js` (còn `reconcileFullText` vá snippet "…" + `listLivePostsForAssign` on-demand — vẫn tự tạo/seed bảng `web2_live_poller_pages` lúc boot), `/ingest`, `/stats`, `/poll-now`, `web2_live_comments`, đếm comment chiến dịch + "Xem comment" live-chat + harvest KH.
+- **Luồng comment (tham chiếu):** Pancake WS (service web2-realtime, `live-chat/server`) → `relay.js forwardToFallback('/ingest', body)` (x-relay-secret) → `upsertComments` → `web2_live_comments` + SSE `web2:live-comments`.
+
+**Test:** `node --check` 3 file JS OK; không dangling ref tới `/poller-pages`/`ensurePollerTable`; page là consumer duy nhất của CRUD. ⚠ Deploy Render (web2-api) mới ẩn route; sidebar ẩn ngay trên Pages.
+
+Status: ✅ (Scope A; chờ deploy Render ẩn /poller-pages)
+
 ### [live-chat + campaign-manager] Gộp 1 NGUỒN chiến dịch — live-chat CHỈ XEM, tạo/quản lý ở campaign-manager
 
 **Files:** `live-chat/js/live/live-campaign-manager.js` (gut → read-only viewer), `live-chat/index.html` (bump v), `web2/campaign-manager/js/campaign-manager.js` (deep-link `?create=1`), `web2/livestream-poller/index.html` + `web2/live-control/js/live-control.js` + `native-orders/js/native-orders-filters-campaigns.js` + `native-orders-realtime-init.js` (pointer/comment → campaign-manager).

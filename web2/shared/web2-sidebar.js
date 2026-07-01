@@ -382,13 +382,9 @@
                     adminOnly: true,
                     // Web 2.0-only — CRUD chiến dịch CHA (span 2 page) + gán bài FB 1 luồng.
                 },
-                {
-                    label: 'Lấy comment Live (poller)',
-                    icon: 'radio',
-                    our: '../web2/livestream-poller/index.html',
-                    adminOnly: true,
-                    // Web 2.0-only — bật/tắt trang server tự lấy comment livestream.
-                },
+                // GỠ 2026-07-01: "Lấy comment Live (poller)" — poll nền đã tắt sẵn,
+                // comment realtime vào qua WS relay → /ingest; fetch bài/comment lấy
+                // trực tiếp Pancake post trong browser. Trang cấu hình không còn cần.
                 {
                     label: 'Pancake (Token)',
                     icon: 'key-round',

@@ -416,12 +416,7 @@ const WEB2_PAGES = [
     // ─── Cấu hình (thêm) ───────────────────────────────────────────
     { slug: 'audit-log', label: 'Lịch sử thao tác', group: 'Cấu hình', actions: ['view'] },
     { slug: 'order-tags', label: 'TAG đơn hàng', group: 'Cấu hình', actions: ['view', 'edit'] },
-    {
-        slug: 'livestream-poller',
-        label: 'Lấy comment Live (poller)',
-        group: 'Cấu hình',
-        actions: ['view', 'edit'],
-    },
+    // GỠ 2026-07-01: 'livestream-poller' (Lấy comment Live) — trang cấu hình poller bỏ.
     // ─── Tính năng mới (thêm) ──────────────────────────────────────
     { slug: 'kpi', label: 'KPI Nhân viên', group: 'Tính năng mới', actions: ['view'] },
     { slug: 'notifications', label: 'Thông báo', group: 'Tính năng mới', actions: ['view'] },
