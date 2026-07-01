@@ -25,6 +25,40 @@
             .trim()
             .toUpperCase();
     }
+
+    // Tem per-unit mã hoá QR = URL /web2/unit-scan/?u=<id> (id đơn vị, KHÔNG phải mã SP).
+    // Scanner đọc ra URL → cần resolve id → mã SP để khớp dòng PBH ("quét ra mã, không ra link").
+    // Giữ nguyên tính năng QR-trace (điện thoại quét vẫn mở trang trace); chỉ dạy reconcile
+    // hiểu scheme URL này. 1 nguồn scheme = Web2ProductUnits (web2-product-units.js).
+    function parseUnitScan(value) {
+        if (!/[?&](u|code)=/.test(value) && !/unit-scan/i.test(value)) return null;
+        let url;
+        try {
+            url = new URL(value);
+        } catch (_) {
+            try {
+                url = new URL(value, 'http://x/');
+            } catch (_2) {
+                return null;
+            }
+        }
+        const u = url.searchParams.get('u');
+        const code = url.searchParams.get('code');
+        if (u && /^\d+$/.test(u)) return { id: Number(u) };
+        if (code) return { code };
+        return null;
+    }
+    // URL tem → mã SP (resolve qua API). null nếu không phải tem unit / resolve lỗi.
+    async function scanToProductCode(value) {
+        const q = parseUnitScan(value);
+        if (!q || !window.Web2ProductUnits || !window.Web2ProductUnits.resolve) return null;
+        try {
+            const r = await window.Web2ProductUnits.resolve(q);
+            return (r && (r.product?.code || r.unit?.productCode)) || null;
+        } catch (_) {
+            return null;
+        }
+    }
     const LOCKED_STATES = ['packed', 'shipped', 'delivered', 'returned'];
 
     // ---------- select PBH ----------
@@ -382,10 +416,20 @@
             feedback('Quét barcode trên bill trước, hoặc chọn 1 PBH', true);
             return;
         }
+        // Tem per-unit: QR = URL /unit-scan/?u=<id> → resolve ra mã SP. Quét mã SP thường → giữ nguyên.
+        let codeToMatch = value;
+        if (parseUnitScan(value)) {
+            const resolved = await scanToProductCode(value);
+            if (!resolved) {
+                feedback('✗ Không đọc được mã SP từ tem đã quét', true);
+                return;
+            }
+            codeToMatch = resolved;
+        }
         // Quét mã SP → +1 picked_qty (trong RAM).
-        const line = (pbh.lines || []).find((l) => normC(l.productCode) === normC(value));
+        const line = (pbh.lines || []).find((l) => normC(l.productCode) === normC(codeToMatch));
         if (!line) {
-            feedback(`✗ Mã "${value}" không có trong PBH này`, true);
+            feedback(`✗ Mã "${codeToMatch}" không có trong PBH này`, true);
             return;
         }
         const need = Number(line.quantity) || 0;

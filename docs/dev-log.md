@@ -2,6 +2,19 @@
 
 ## 2026-07-01
 
+### [web2-reconcile] Quét tem per-unit ra MÃ SP (không ra link) khi đối soát
+
+**Files:** `web2/reconcile/js/reconcile-actions.js` (thêm `parseUnitScan`/`scanToProductCode`; `onScannerSubmit` resolve URL tem → mã SP trước khi khớp dòng PBH), `web2/reconcile/index.html` (+load `web2-product-units.js`, bump reconcile-actions v=20260701scan).
+
+Bug (user báo): quét tem SP ở trang reconcile **ra link chứ không ra mã** nên khớp sai. Nguyên nhân: tem per-unit mã hoá QR = URL `/web2/unit-scan/?u=<id>` (id đơn vị, KHÔNG phải mã SP — scheme 1 nguồn `Web2ProductUnits.printUnit`), nhưng `onScannerSubmit` khớp raw scan `=== productCode` → URL không bao giờ khớp (line cũ 386). Fix ở **phía scanner** (reconcile), KHÔNG đổi nội dung QR → giữ nguyên tính năng QR-trace (điện thoại quét vẫn mở trang trace).
+
+- `parseUnitScan(value)`: nhận diện URL unit-scan (`?u=<id>` | `?code=<unitCode>`), bỏ qua mã SP/bill thường (không misfire).
+- `scanToProductCode`: `Web2ProductUnits.resolve({id}|{code})` → `product.code` (fallback `unit.productCode`); lỗi/không phải tem unit → null.
+- `onScannerSubmit`: nếu là tem URL → resolve ra mã SP rồi khớp; thất bại → feedback rõ; feedback "không có trong PBH" hiển thị mã đã resolve thay vì URL.
+- Self-check node: parser đúng cho URL localhost/prod + `?code=`, trả null cho mã SP/unit-code trần/bill/empty (ALL PASS).
+
+Status: ✅
+
 ### [web2-shared] `Web2PinchZoom` + goods-weight preview pinch-to-zoom
 
 **Files:** `web2/shared/web2-pinch-zoom.js` (MỚI — `window.Web2PinchZoom`), `web2/goods-weight/js/goods-weight.js` (mount trên `#gwPreviewImg`, reset khi đổi/xoá ảnh), `web2/goods-weight/index.html` (+load pinch-zoom, bump js v=20260701h).
