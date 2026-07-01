@@ -306,20 +306,50 @@
         if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
         if (
             !(await Popup.danger(
-                `Hủy đóng gói PBH ${STATE.currentPbh.number}? (đưa về trạng thái pick)`,
+                `Hủy đóng gói PBH ${STATE.currentPbh.number}? (đưa về trạng thái pick)\n\n` +
+                    `→ Hệ thống sẽ CHỤP ẢNH camera lưu bằng chứng (như tích tay).`,
                 { okText: 'Hủy đóng gói' }
             ))
         )
             return;
+        // Chụp ảnh bằng chứng ngay lúc hủy đóng gói (giống tích tay) → lưu vào lịch sử.
+        let cap = null;
+        let imageBase64 = null;
         try {
+            if (window.Web2EvidenceCamera) {
+                cap = await window.Web2EvidenceCamera.capture();
+                if (cap?.blob) imageBase64 = await window.Web2EvidenceCamera.blobToBase64(cap.blob);
+            }
+        } catch (e) {
+            notify(
+                'Không chụp được ảnh camera (' + e.message + ') — vẫn hủy nhưng THIẾU ảnh',
+                'warning'
+            );
+        }
+        try {
+            const body = {};
+            if (imageBase64) {
+                body.evidence = [
+                    {
+                        capturedAt: cap?.capturedAt || Date.now(),
+                        source: cap?.source || null,
+                        imageBase64,
+                    },
+                ];
+            }
+            if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(body);
             const res = await api(
                 'POST',
-                `/${encodeURIComponent(STATE.currentPbh.number)}/cancel-pack`
+                `/${encodeURIComponent(STATE.currentPbh.number)}/cancel-pack`,
+                body
             );
             STATE.currentPbh = res.pbh;
             RC.renderDetail();
             RC.loadHistory(STATE.currentPbh?.number);
-            notify('Đã hủy đóng gói', 'info');
+            notify(
+                imageBase64 ? '📷 Đã hủy đóng gói — đã chụp ảnh' : 'Đã hủy đóng gói (thiếu ảnh)',
+                'info'
+            );
             RC.loadList();
         } catch (e) {
             notify(e.message, 'error');
@@ -586,7 +616,10 @@
                 const label = RC_HISTORY_LABELS[l.action] || l.action;
                 const isManual =
                     l.action === 'manual-pick' && (p.pickedQty == null || p.pickedQty > 0);
-                const nPhotos = l.action === 'finalize' ? Number(p.manualPhotos) || 0 : 0;
+                const nPhotos =
+                    l.action === 'finalize' || l.action === 'cancel-pack'
+                        ? Number(p.manualPhotos) || 0
+                        : 0;
                 const cam = isManual
                     ? '<span class="rc-audit-cam">📹 camera</span>'
                     : nPhotos > 0

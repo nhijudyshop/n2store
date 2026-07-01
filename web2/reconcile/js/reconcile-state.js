@@ -33,7 +33,7 @@
 
     const STATE = {
         items: [],
-        filterState: 'active',
+        filterState: 'pending', // 2026-07-01: bỏ tab "Đang xử lý"/active → mặc định "Chờ pick"
         search: '',
         selectedNumber: null,
         currentPbh: null,
@@ -81,6 +81,7 @@
         'manual-pick': '✋ Tích tay',
         'reset-pick': '↺ Reset pick',
         pack: '📦 Đóng gói',
+        'cancel-pack': '📦 Hủy đóng gói',
         finalize: '✅ Chốt đối soát',
         ship: '🚚 Giao shipper',
         deliver: '✅ Đã giao',

@@ -972,6 +972,28 @@ router.post('/:number/cancel-pack', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const { number } = req.params;
     const user = userFromReq(req);
+    // Ảnh bằng chứng lúc hủy đóng gói (giống tích tay/finalize) — decode TRƯỚC tx.
+    const now = Date.now();
+    const evidenceIn = Array.isArray(req.body?.evidence) ? req.body.evidence.slice(0, 1) : [];
+    const evidence = [];
+    for (const e of evidenceIn) {
+        const rawImg = String(e?.imageBase64 || '').replace(/^data:[^;]+;base64,/, '');
+        if (!rawImg) continue;
+        let buf;
+        try {
+            buf = Buffer.from(rawImg, 'base64');
+        } catch {
+            continue;
+        }
+        if (!buf.length || buf.length > MAX_IMG_BYTES) continue;
+        evidence.push({
+            capturedAt: Number(e.capturedAt) || now,
+            source: e.source === 'kbvision' ? 'kbvision' : 'webcam',
+            data: buf,
+            mime: 'image/jpeg',
+            size: buf.length,
+        });
+    }
     try {
         await ensureTables(pool);
         // 1D-reconcile-no-lock FIX: lock + check + UPDATE cùng transaction —
@@ -1017,7 +1039,35 @@ router.post('/:number/cancel-pack', async (req, res) => {
                      WHERE number = $2`,
                     [ns, number]
                 );
-                await logAction(client, number, 'cancel-pack', {}, sBefore, ns, user);
+                // Lưu ảnh bằng chứng (product_code null = ảnh chung cho thao tác hủy).
+                for (const ev of evidence) {
+                    await client.query(
+                        `INSERT INTO pbh_fulfillment_snapshots
+                           (pbh_number, product_code, captured_at, source, image_data, image_mime, image_size, user_id, user_name, created_at)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                        [
+                            number,
+                            null,
+                            ev.capturedAt,
+                            ev.source,
+                            ev.data,
+                            ev.mime,
+                            ev.size,
+                            user.id,
+                            user.name,
+                            now,
+                        ]
+                    );
+                }
+                await logAction(
+                    client,
+                    number,
+                    'cancel-pack',
+                    { manualPhotos: evidence.length },
+                    sBefore,
+                    ns,
+                    user
+                );
                 return { stateBefore: sBefore, newState: ns };
             }));
         } catch (err) {

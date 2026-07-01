@@ -105,38 +105,11 @@
                             <button
                                 type="button"
                                 class="rc-tab is-active"
-                                data-state="active"
+                                data-state="pending"
                                 role="tab"
                                 aria-selected="true"
                             >
-                                Đang xử lý
-                            </button>
-                            <button
-                                type="button"
-                                class="rc-tab"
-                                data-state="pending"
-                                role="tab"
-                                aria-selected="false"
-                            >
                                 Chờ pick
-                            </button>
-                            <button
-                                type="button"
-                                class="rc-tab"
-                                data-state="picking"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                Đang pick
-                            </button>
-                            <button
-                                type="button"
-                                class="rc-tab"
-                                data-state="picked"
-                                role="tab"
-                                aria-selected="false"
-                            >
-                                Đã pick đủ
                             </button>
                             <button
                                 type="button"
@@ -247,9 +220,6 @@
                         <button class="rc-achip" type="button" data-action="return-failed">
                             ↩ Trả về
                         </button>
-                        <button class="rc-achip" type="button" data-action="manual-pick">
-                            ✋ Tích tay (cũ)
-                        </button>
                     </div>
                     <div class="rc-audit-row">
                         <label class="rc-audit-field"
@@ -317,10 +287,10 @@
                 }
             });
         </script>
-        <script src="js/reconcile-state.js?v=20260701sess"></script>
+        <script src="js/reconcile-state.js?v=20260701ui"></script>
         <script src="js/reconcile-api.js?v=20260701sess"></script>
-        <script src="js/reconcile-render.js?v=20260701sess"></script>
-        <script src="js/reconcile-actions.js?v=20260701scan"></script>
+        <script src="js/reconcile-render.js?v=20260701ui"></script>
+        <script src="js/reconcile-actions.js?v=20260701ui"></script>
         <script src="js/reconcile-app.js?v=20260701sess"></script>
     </body>
 </html>

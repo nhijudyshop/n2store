@@ -2,6 +2,21 @@
 
 ## 2026-07-01
 
+### [web2-reconcile] Gọn tab lọc + "Hủy đóng gói" chụp ảnh lưu lịch sử
+
+**Files:** `web2/reconcile/index.html` (bỏ 3 tab lọc + chip audit "Tích tay (cũ)", bump js v=20260701ui), `web2/reconcile/js/reconcile-state.js` (default `filterState` `active`→`pending`, +label `cancel-pack`), `web2/reconcile/js/reconcile-render.js` (bỏ nút "Giao shipper" `rcBtnShip` + wiring), `web2/reconcile/js/reconcile-actions.js` (`cancelPack` chụp ảnh `Web2EvidenceCamera` → gửi `evidence` + badge audit cho cancel-pack), `render.com/routes/reconcile.js` (`/cancel-pack` nhận `evidence` → lưu `pbh_fulfillment_snapshots` + log `manualPhotos`).
+
+Theo yêu cầu user:
+
+1. **Bỏ tab lọc** "Đang xử lý" (active), "Đang pick" (picking), "Đã pick đủ" (picked) → còn `Chờ pick`(mặc định) · `Đã đóng gói` · `Đã giao shipper` · `Đã giao` · `Trả về/Hủy`. (picking/picked vốn vestigial theo session-model: finalize nhảy thẳng pending→packed.)
+2. **Bỏ nút "Giao shipper"** (`rcBtnShip`) ở PBH đã đóng gói.
+3. **"Hủy đóng gói" chụp ảnh lưu lịch sử** giống tích tay: sau confirm → `Web2EvidenceCamera.capture()` → base64 → body `evidence[]` → server lưu snapshot (product_code null = ảnh chung) + log `cancel-pack {manualPhotos}`. Audit modal hiện badge "📷 N ảnh" cho cancel-pack. Thiếu camera → vẫn hủy (cảnh báo thiếu ảnh).
+4. **Bỏ chip audit "✋ Tích tay (cũ)"** (`data-action=manual-pick`).
+
+⚠ Server-side lưu ảnh cancel-pack cần **deploy Render** (`reconcile.js`) mới có hiệu lực; frontend chạy ngay trên localhost. Verify served files: tabs/chips/nút đúng, product-units loaded, syntax OK.
+
+Status: ✅ (chờ deploy Render cho phần lưu ảnh server)
+
 ### [web2-reconcile] Quét tem per-unit ra MÃ SP (không ra link) khi đối soát
 
 **Files:** `web2/reconcile/js/reconcile-actions.js` (thêm `parseUnitScan`/`scanToProductCode`; `onScannerSubmit` resolve URL tem → mã SP trước khi khớp dòng PBH), `web2/reconcile/index.html` (+load `web2-product-units.js`, bump reconcile-actions v=20260701scan).

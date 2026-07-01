@@ -216,7 +216,6 @@
         b('rcBtnReset', RC.resetPick);
         b('rcBtnFinalize', RC.finalize);
         b('rcBtnCancelPack', RC.cancelPack);
-        b('rcBtnShip', RC.shipOrder);
         b('rcBtnDeliver', RC.deliverOrder);
         b('rcBtnReturnFailed', RC.returnFailedOrder);
         // Toàn bộ thao tác PBH = module chung Web2AuditLog (gộp 'pbh' tạo/sửa/huỷ +
@@ -319,11 +318,9 @@
             return buttons.join('');
         }
         if (fState === 'packed') {
+            // 2026-07-01: bỏ nút "Giao shipper" ở reconcile (giao chuyển sang nơi khác).
             buttons.push(
                 `<button class="btn btn-secondary btn-sm" id="rcBtnCancelPack"><i data-lucide="package-open"></i> Hủy đóng gói</button>`
-            );
-            buttons.push(
-                `<button class="btn btn-warn" id="rcBtnShip"><i data-lucide="truck"></i> Giao shipper</button>`
             );
         }
         if (fState === 'shipped') {
