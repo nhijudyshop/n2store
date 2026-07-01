@@ -77,6 +77,24 @@ async function ensureTables(pool) {
             );
             CREATE INDEX IF NOT EXISTS idx_pbh_log_number ON pbh_fulfillment_logs(pbh_number);
             CREATE INDEX IF NOT EXISTS idx_pbh_log_created ON pbh_fulfillment_logs(created_at DESC);
+
+            -- 2026-07-01 (#camera): ảnh bằng chứng lúc TÍCH TAY (không quét barcode).
+            -- Lưu BYTEA trên web2Db (policy: KHÔNG Bunny) — mirror livestream_snapshots.
+            -- Chỉ ghi khi PBH ĐỦ hàng (finalize); phiên chưa đủ = không persist.
+            CREATE TABLE IF NOT EXISTS pbh_fulfillment_snapshots (
+                id           BIGSERIAL PRIMARY KEY,
+                pbh_number   VARCHAR(50) NOT NULL,
+                product_code VARCHAR(64),          -- SP được tích tay (null = ảnh chung)
+                captured_at  BIGINT NOT NULL,       -- thời điểm tích tay (ms, GMT+7 hiển thị)
+                source       VARCHAR(20),           -- 'webcam' | 'kbvision'
+                image_data   BYTEA,
+                image_mime   VARCHAR(50),
+                image_size   INTEGER,
+                user_id      VARCHAR(100),
+                user_name    VARCHAR(255),
+                created_at   BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_pbh_snap_number ON pbh_fulfillment_snapshots(pbh_number);
         `);
         _ensuredPools.add(pool);
         console.log('[RECONCILE] Tables created/verified (migration 076b)');
@@ -780,6 +798,171 @@ router.post('/:number/pack', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// POST /:number/finalize — CHỐT đối soát 1 phiên (session-based, 2026-07-01).
+// Trang đối soát gom picks + ảnh tích-tay TRONG RAM; CHỈ khi đủ 100% mới gọi đây:
+//   → verify picked lines phủ đủ order_lines (đủ hàng)
+//   → set fulfillment_picked_lines + fulfillment_state='packed' + packed_at
+//   → lưu ảnh bằng chứng tích-tay (BYTEA) vào pbh_fulfillment_snapshots
+//   → audit log — TẤT CẢ trong 1 transaction (atomic: ảnh + state cùng số phận).
+// Phiên chưa đủ KHÔNG gọi finalize → không persist gì (refresh/thoát = làm lại).
+// Body: { pickedLines:[{productCode,pickedQty}], evidence:[{productCode,capturedAt,source,imageBase64}] }
+// -----------------------------------------------------
+const MAX_EVIDENCE = 60; // trần số ảnh / lần finalize (tránh payload lạm dụng)
+const MAX_IMG_BYTES = 8 * 1024 * 1024; // 8MB / ảnh
+router.post('/:number/finalize', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const { number } = req.params;
+    const user = userFromReq(req);
+    const pickedLines = Array.isArray(req.body?.pickedLines) ? req.body.pickedLines : [];
+    const evidenceIn = Array.isArray(req.body?.evidence)
+        ? req.body.evidence.slice(0, MAX_EVIDENCE)
+        : [];
+
+    // Giải mã ảnh base64 → Buffer TRƯỚC tx (validate sớm, tránh giữ lock lâu).
+    const now = Date.now();
+    const evidence = [];
+    for (const e of evidenceIn) {
+        const raw = String(e?.imageBase64 || '').replace(/^data:[^;]+;base64,/, '');
+        if (!raw) continue;
+        let buf;
+        try {
+            buf = Buffer.from(raw, 'base64');
+        } catch {
+            continue;
+        }
+        if (!buf.length || buf.length > MAX_IMG_BYTES) continue;
+        evidence.push({
+            productCode: e.productCode ? String(e.productCode).slice(0, 64) : null,
+            capturedAt: Number(e.capturedAt) || now,
+            source: e.source === 'kbvision' ? 'kbvision' : 'webcam',
+            data: buf,
+            mime: 'image/jpeg',
+            size: buf.length,
+        });
+    }
+
+    try {
+        await ensureTables(pool);
+        let result;
+        try {
+            result = await withTransaction(pool, async (client) => {
+                const r = await client.query(
+                    `SELECT state, fulfillment_state, order_lines
+                     FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (r.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const row = r.rows[0];
+                if (row.state === 'cancel') {
+                    const err = new Error('PBH đã huỷ — không thể chốt đối soát');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                if (!['draft', 'confirmed', 'done'].includes(row.state)) {
+                    const err = new Error(`PBH state=${row.state} không thể đóng gói`);
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const sBefore = row.fulfillment_state || 'pending';
+                if (!['pending', 'picking', 'picked'].includes(sBefore)) {
+                    const err = new Error(
+                        `Không chốt được từ trạng thái '${sBefore}' (đã đóng gói/giao rồi?)`
+                    );
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                // Verify ĐỦ: mọi order line phải được pick đủ SL từ body.pickedLines.
+                const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
+                const pickedMap = new Map(
+                    pickedLines.map((p) => [normCode(p.productCode), Number(p.pickedQty) || 0])
+                );
+                const finalPicked = [];
+                const missing = [];
+                for (const l of lines) {
+                    const code = l.productCode || l.code;
+                    const need = Number(l.quantity) || 0;
+                    const got = pickedMap.get(normCode(code)) || 0;
+                    if (got < need) {
+                        missing.push({ code, name: l.productName || l.name, need, got });
+                    } else if (need > 0) {
+                        // cap = need (không lưu quá SL); dùng mã canonical của line.
+                        finalPicked.push({
+                            productCode: code,
+                            picked_qty: need,
+                            last_scan_at: now,
+                        });
+                    }
+                }
+                if (missing.length > 0) {
+                    const err = new Error('Chưa đủ hàng — không thể chốt đối soát');
+                    err.httpStatus = 400;
+                    err.missing = missing;
+                    throw err;
+                }
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_picked_lines = $1::jsonb,
+                         fulfillment_state = 'packed',
+                         fulfillment_packed_at = $2,
+                         date_updated = NOW()
+                     WHERE number = $3`,
+                    [JSON.stringify(finalPicked), now, number]
+                );
+                // Lưu ảnh bằng chứng tích-tay.
+                const snapshotIds = [];
+                for (const ev of evidence) {
+                    const ins = await client.query(
+                        `INSERT INTO pbh_fulfillment_snapshots
+                           (pbh_number, product_code, captured_at, source, image_data, image_mime, image_size, user_id, user_name, created_at)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+                        [
+                            number,
+                            ev.productCode,
+                            ev.capturedAt,
+                            ev.source,
+                            ev.data,
+                            ev.mime,
+                            ev.size,
+                            user.id,
+                            user.name,
+                            now,
+                        ]
+                    );
+                    snapshotIds.push(Number(ins.rows[0].id));
+                }
+                await logAction(
+                    client,
+                    number,
+                    'finalize',
+                    { manualPhotos: evidence.length, lines: finalPicked.length },
+                    sBefore,
+                    'packed',
+                    user
+                );
+                return { snapshotIds, photos: evidence.length };
+            });
+        } catch (err) {
+            if (err.httpStatus)
+                return res
+                    .status(err.httpStatus)
+                    .json({ error: err.message, missing: err.missing });
+            throw err;
+        }
+        _notify('finalize', number, { photos: result.photos });
+        const updated = await getPbh(pool, number);
+        res.json({ success: true, pbh: mapPbh(updated), snapshotIds: result.snapshotIds });
+    } catch (e) {
+        console.error('[RECONCILE] finalize error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // POST /:number/cancel-pack — hủy đóng gói (packed → picked/picking/pending).
 // Undo khi lỡ đóng gói nhầm (chưa giao shipper). Tính lại state từ picked_lines,
 // xóa packed_at. Chặn nếu đã shipped/delivered.
@@ -1144,6 +1327,66 @@ router.get('/:number/logs', async (req, res) => {
                 createdAt: Number(x.created_at),
             })),
         });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// GET /:number/snapshots — meta ảnh bằng chứng tích-tay của 1 PBH (không kèm bytes).
+// -----------------------------------------------------
+router.get('/:number/snapshots', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `SELECT id, product_code, captured_at, source, image_mime, image_size,
+                    user_id, user_name, created_at
+             FROM pbh_fulfillment_snapshots
+             WHERE pbh_number = $1
+             ORDER BY captured_at ASC`,
+            [req.params.number]
+        );
+        res.json({
+            success: true,
+            snapshots: r.rows.map((x) => ({
+                id: Number(x.id),
+                productCode: x.product_code,
+                capturedAt: Number(x.captured_at),
+                source: x.source,
+                mime: x.image_mime,
+                size: x.image_size,
+                userId: x.user_id,
+                userName: x.user_name,
+            })),
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
+// GET /snapshot/:id/image — serve BYTEA ảnh (cache immutable). Frontend fetch kèm
+// x-web2-token (router.use requireWeb2AuthSoft) → blob → objectURL (img không set header).
+// 3 segment nên KHÔNG bị '/:number' (1 segment) bắt.
+// -----------------------------------------------------
+router.get('/snapshot/:id/image', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        const id = parseInt(req.params.id, 10) || 0;
+        const r = await pool.query(
+            `SELECT image_data, image_mime FROM pbh_fulfillment_snapshots WHERE id = $1`,
+            [id]
+        );
+        if (!r.rows.length || !r.rows[0].image_data)
+            return res.status(404).json({ error: 'snapshot not found' });
+        const { image_data, image_mime } = r.rows[0];
+        res.setHeader('Content-Type', image_mime || 'image/jpeg');
+        res.setHeader('Content-Length', image_data.length);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.end(image_data);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
