@@ -32,6 +32,19 @@ const { withTransaction } = require('../db/with-transaction');
 // (web2-supplier-wallet.js, web2-payment-signals.js). GET reads để mở.
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const { recordAuditEvent } = require('../services/web2-audit-sink');
+// Refresh tồn SP CHA sau khi thu về ghi tồn CON (stock/return_qty). Nếu không, badge
+// "Thu về"/tồn trên dòng cha ở Kho SP bị stale. Best-effort, post-commit (audit gap).
+const web2ProductsRouter = require('./web2-products');
+async function _recomputeParents(pool, items) {
+    try {
+        const codes = [...new Set((items || []).map((it) => it && it.productCode).filter(Boolean))];
+        if (codes.length && web2ProductsRouter.recomputeParentsForCodes) {
+            await web2ProductsRouter.recomputeParentsForCodes(pool, codes);
+        }
+    } catch (e) {
+        console.warn('[WEB2-RETURNS] _recomputeParents failed:', e.message);
+    }
+}
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js via initializeNotifiers().
@@ -76,7 +89,28 @@ function _notifyWallet(phone) {
 // -----------------------------------------------------
 const METHODS = new Set(['khach_gui', 'shipper_gui']);
 const SUB_TYPES = new Set(['khong_nhan_hang', 'thu_ve_1_phan', 'cod_shipper']);
-const REASONS = new Set(['khach_boom', 'khong_lien_lac', 'sai_dia_chi', 'doi_y', 'khac']);
+// [2026-07-01] Thêm lý do hàng LỖI (shop/vận chuyển chịu) — lái disposition mặc định
+// 'giu_rieng' (không nhập kho bán) ở frontend. Backend chỉ cần chấp nhận là reason hợp lệ.
+const REASONS = new Set([
+    'khach_boom',
+    'khong_lien_lac',
+    'sai_dia_chi',
+    'doi_y',
+    'hang_loi',
+    'giao_sai',
+    'hu_van_chuyen',
+    'khac',
+]);
+// Disposition: hàng thu về xử lý thế nào với TỒN KHO BÁN ĐƯỢC.
+//   nhap_ban  → cộng kho bán (mặc định — hàng còn tốt)
+//   giu_rieng → KHÔNG cộng kho bán (hàng lỗi/giữ riêng kiểm) — reuse gate stock_applied=FALSE
+//   huy       → KHÔNG cộng kho (write-off) — cũng skip stock
+const DISPOSITIONS = new Set(['nhap_ban', 'giu_rieng', 'huy']);
+// Hình thức hoàn (thu_ve_1_phan/đổi/không-đơn-gốc): ví/công nợ = cộng ví; tiền mặt/CK =
+// KHÔNG cộng ví (đưa tiền tay), chỉ ghi nhận. khong_nhan_hang LUÔN theo ví/công nợ
+// (đối xứng vòng đời PBH — không đổi path đã hardened).
+const REFUND_METHODS = new Set(['vi', 'cong_no', 'tien_mat', 'ck']);
+const FEE_BEARERS = new Set(['shop', 'khach']);
 // Lý do "Vấn đề shipper" (Sửa COD shipper gọi). 'tru_cong_no_khach' → trừ ví khách.
 const SHIPPER_REASONS = new Set([
     'tinh_sai_ship',
@@ -120,6 +154,13 @@ function mapRow(r) {
         approvedBy: r.approved_by || null,
         billStatus: r.bill_status || null,
         consumedPbhCode: r.consumed_pbh_code || null,
+        disposition: r.disposition || 'nhap_ban',
+        returnShippingFee: Number(r.return_shipping_fee || 0),
+        feeBearer: r.fee_bearer || null,
+        refundMethod: r.refund_method || 'vi',
+        isExchange: r.is_exchange === true,
+        replacementItems: r.replacement_items || [],
+        exchangeDiff: Number(r.exchange_diff || 0),
         status: r.status,
         note: r.note || null,
         history: r.history || [],
@@ -235,6 +276,25 @@ async function ensureTables(pool) {
         ALTER TABLE IF EXISTS web2_returns
             ADD COLUMN IF NOT EXISTS stock_applied BOOLEAN NOT NULL DEFAULT TRUE;
     `);
+    // [2026-07-01] Mở rộng nghiệp vụ (audit đổi-trả): disposition hàng lỗi, phí ship
+    // 2 chiều + bên chịu, hình thức hoàn, đổi hàng (thu_ve_1_phan + replacement).
+    //   disposition          — nhap_ban | giu_rieng | huy (giu_rieng/huy → skip stock bán)
+    //   return_shipping_fee  — phí ship hoàn (GHI NHẬN để báo cáo; chưa auto trừ ví)
+    //   fee_bearer           — shop | khach (ai chịu phí)
+    //   refund_method        — vi | cong_no | tien_mat | ck (tien_mat/ck → không cộng ví)
+    //   is_exchange          — TRUE = phiếu đổi hàng (thu_ve_1_phan + replacement_items)
+    //   replacement_items    — [{productCode,productName,quantity,price}] SP khách đổi lấy
+    //   exchange_diff        — chênh lệch (replacement − returned); >0 khách bù, <0 shop hoàn
+    await pool.query(`
+        ALTER TABLE IF EXISTS web2_returns
+            ADD COLUMN IF NOT EXISTS disposition         VARCHAR(20) DEFAULT 'nhap_ban',
+            ADD COLUMN IF NOT EXISTS return_shipping_fee NUMERIC(14,2) NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS fee_bearer          VARCHAR(10),
+            ADD COLUMN IF NOT EXISTS refund_method       VARCHAR(20) DEFAULT 'vi',
+            ADD COLUMN IF NOT EXISTS is_exchange         BOOLEAN NOT NULL DEFAULT FALSE,
+            ADD COLUMN IF NOT EXISTS replacement_items   JSONB NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS exchange_diff       NUMERIC(14,2) NOT NULL DEFAULT 0;
+    `);
     // 3H2 (2026-06-12): backstop chống 2 phiếu "không nhận hàng" active cùng 1
     // đơn nguồn (double-submit/2 user = cộng ví + cộng kho ×2). Pre-check trong
     // transaction là lớp 1; index này là lớp chốt khi race. try/catch riêng:
@@ -309,6 +369,35 @@ async function _applyStock(client, items, method, sign) {
          WHERE p.code = v.code`,
         params
     );
+}
+
+// Hoàn (cộng lại) wallet_deducted về 1 PBH khi huỷ phiếu KNH, CAP ≤ amount_total
+// của PBH đó → wallet_deducted không vượt giá trị đơn (chống over-refund khi cancel
+// PBH sau). Trả về số thực cộng; warn nếu phải cap (phần dư kẹt = under-refund an toàn).
+async function _restoreCapped(client, pbhId, add, returnCode) {
+    if (!(add > 0) || !pbhId) return 0;
+    const r = await client.query(
+        `SELECT COALESCE(wallet_deducted,0)::numeric AS wd, COALESCE(amount_total,0)::numeric AS tot
+         FROM fast_sale_orders WHERE id = $1 FOR UPDATE`,
+        [pbhId]
+    );
+    if (!r.rows[0]) return 0;
+    const cur = Number(r.rows[0].wd) || 0;
+    const tot = Number(r.rows[0].tot) || 0;
+    const room = Math.max(0, tot - cur);
+    const applied = Math.min(add, room);
+    if (applied > 0) {
+        await client.query(
+            `UPDATE fast_sale_orders SET wallet_deducted = wallet_deducted + $1, date_updated = NOW() WHERE id = $2`,
+            [applied, pbhId]
+        );
+    }
+    if (applied < add) {
+        console.warn(
+            `[WEB2-RETURNS] _restoreCapped: huỷ ${returnCode} — dư ${add - applied} không cộng lại PBH#${pbhId} (đã đầy amount_total). Kiểm tra ví tay nếu cần.`
+        );
+    }
+    return applied;
 }
 
 // Lấy items + wallet_deducted của 1 đơn cũ (cho khong_nhan_hang / boom).
@@ -396,7 +485,17 @@ router.get('/list', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
-        const { search, status, stockStatus, page = 1, limit = 100 } = req.query;
+        const {
+            search,
+            status,
+            stockStatus,
+            method,
+            issue,
+            from,
+            to,
+            page = 1,
+            limit = 100,
+        } = req.query;
         const pageNum = Math.max(1, parseInt(page, 10));
         const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10)));
         const offset = (pageNum - 1) * limitNum;
@@ -409,6 +508,25 @@ router.get('/list', async (req, res) => {
         if (stockStatus) {
             params.push(stockStatus);
             conds.push(`stock_status = $${params.length}`);
+        }
+        if (method === 'khach_gui' || method === 'shipper_gui') {
+            params.push(method);
+            conds.push(`method = $${params.length}`);
+        }
+        if (issue === 'van_de_khach' || issue === 'van_de_shipper') {
+            params.push(issue);
+            conds.push(`issue = $${params.length}`);
+        }
+        // Lọc theo khoảng ngày tạo (epoch ms). from/to = timestamp đầu/cuối ngày (client set).
+        const fromTs = Number(from);
+        if (Number.isFinite(fromTs) && fromTs > 0) {
+            params.push(fromTs);
+            conds.push(`created_at >= $${params.length}`);
+        }
+        const toTs = Number(to);
+        if (Number.isFinite(toTs) && toTs > 0) {
+            params.push(toTs);
+            conds.push(`created_at <= $${params.length}`);
         }
         if (search) {
             params.push(`%${search}%`);
@@ -570,6 +688,32 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
 
     const user = _user(req);
     const issue = b.issue === 'van_de_shipper' ? 'van_de_shipper' : 'van_de_khach';
+    // [2026-07-01] Mở rộng nghiệp vụ đổi-trả (van_de_khach flow):
+    //   disposition   → giu_rieng/huy = hàng lỗi, KHÔNG cộng kho bán (reuse gate stock_applied=FALSE)
+    //   refundMethod  → tien_mat/ck = KHÔNG cộng ví (trả tiền tay, chỉ ghi nhận)
+    //   isExchange    → phiếu đổi hàng: thu_ve_1_phan + replacementItems (SP đổi lấy, bán ở PBH sau)
+    //   returnShippingFee/feeBearer → GHI NHẬN phí ship 2 chiều để báo cáo (chưa auto trừ ví)
+    const disposition = DISPOSITIONS.has(b.disposition) ? b.disposition : 'nhap_ban';
+    const skipStock = disposition === 'giu_rieng' || disposition === 'huy';
+    const returnShippingFee = Math.max(0, Number(b.returnShippingFee) || 0);
+    const feeBearer = FEE_BEARERS.has(b.feeBearer) ? b.feeBearer : null;
+    // refund_method chỉ lái ví cho thu_ve_1_phan (fresh credit). khong_nhan_hang LUÔN
+    // theo ví/công nợ (đối xứng vòng đời PBH — không đổi path đã hardened).
+    const refundMethod =
+        subType === 'thu_ve_1_phan' && REFUND_METHODS.has(b.refundMethod) ? b.refundMethod : 'vi';
+    const creditToWallet = refundMethod === 'vi' || refundMethod === 'cong_no';
+    const isExchange = b.isExchange === true && subType === 'thu_ve_1_phan';
+    const replacementItems =
+        isExchange && Array.isArray(b.replacementItems)
+            ? b.replacementItems
+                  .map((it) => ({
+                      productCode: String(it.productCode || '').trim(),
+                      productName: it.productName || '',
+                      quantity: Number(it.quantity) || 0,
+                      price: Number(it.price) || 0,
+                  }))
+                  .filter((it) => it.productCode && it.quantity > 0)
+            : [];
     try {
         await ensureTables(pool);
 
@@ -765,6 +909,10 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     return res.status(400).json({ error: 'SP không khớp đơn nguồn' });
                 totalAmount = items.reduce((s, it) => s + it.price * it.quantity, 0);
                 // Cap tổng cộng ví theo số tiền đơn đã trừ ví (không hoàn quá).
+                // ⚠ walletCredit = số tiền cần QUYẾT TOÁN với PBH nguồn (settle wallet_deducted)
+                // BẤT KỂ hình thức hoàn. refundMethod=tien_mat/ck chỉ SKIP bước cộng vào SỐ DƯ ví
+                // (dưới, tại processDeposit) — vẫn phải decrement wallet_deducted của PBH để huỷ
+                // PBH sau KHÔNG hoàn ví 2 lần. Xem creditToWallet ở processDeposit + INSERT.
                 const capped = Math.min(totalAmount, Number(src.walletDeducted) || 0);
                 walletCredit = capped > 0 ? capped : 0;
             } else {
@@ -776,7 +924,9 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
         items = items.map((it) => ({ ...it, amount: (Number(it.price) || 0) * it.quantity }));
 
         const stockStatus = method === 'shipper_gui' ? 'pending' : 'applied';
-        const billStatus = subType === 'thu_ve_1_phan' ? 'queued' : null;
+        // billStatus (bill 0đ queued) tính TRONG transaction sau khi biết sourceDeductedStock
+        // + skipStock: chỉ queue khi hàng THẬT SỰ vào kho bán được (khach_gui, không skip).
+        // shipper_gui → queue lúc DUYỆT (approve) sau khi return_qty→stock.
 
         // Idempotency/dedupe cho thu_ve_1_phan: chữ ký item-set ổn định (sort
         // theo productCode + quantity) + cửa sổ ngắn để chặn double-submit /
@@ -990,6 +1140,10 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             sourceDeductedStock = pbhChk.rows.length > 0;
                         }
                     }
+                    // Disposition giu_rieng/huy (hàng lỗi/write-off) → KHÔNG nhập kho bán:
+                    // reuse gate stock_applied=FALSE để create + DELETE đối xứng (không trừ
+                    // kho ảo lúc huỷ). Ví vẫn cộng bình thường (khách vẫn được hoàn tiền).
+                    if (skipStock) sourceDeductedStock = false;
                     if (sourceDeductedStock) {
                         await _applyStock(client, items, method, +1);
                     }
@@ -1059,18 +1213,34 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             }
                         }
                     }
+                    // bill 0đ chỉ queue khi hàng vào kho BÁN ĐƯỢC ngay (khach_gui + không
+                    // skip disposition). shipper_gui → queue khi DUYỆT. Đổi hàng khach_gui
+                    // vẫn queue (SP trả lên bill 0đ cấn vào PBH đổi).
+                    const billStatus =
+                        subType === 'thu_ve_1_phan' && method === 'khach_gui' && sourceDeductedStock
+                            ? 'queued'
+                            : null;
+                    // Chênh lệch đổi hàng = giá trị SP đổi lấy − giá trị SP trả (chỉ để ghi
+                    // nhận/hiển thị; tiền thực chốt ở PBH đổi dùng ví đã cộng để cấn trừ).
+                    const exchangeDiff = isExchange
+                        ? replacementItems.reduce((s, it) => s + it.price * it.quantity, 0) -
+                          (Number(totalAmount) || 0)
+                        : 0;
                     const hist = [
                         {
                             ts: now,
                             action: 'create',
                             userId: user.id,
                             userName: user.name,
-                            note: `${method} / ${subType}${reason ? ' / ' + reason : ''}`,
+                            note: `${method} / ${subType}${reason ? ' / ' + reason : ''}${isExchange ? ' / đổi hàng' : ''}${skipStock ? ' / ' + disposition : ''}`,
                         },
                     ];
                     // Cộng ví TRONG cùng transaction (client) — atomic với phiếu+kho.
+                    // creditToWallet=false (tien_mat/ck): SKIP cộng số dư ví (trả tiền tay)
+                    // NHƯNG PBH nguồn ĐÃ được settle (decs ở trên) → không double-refund khi
+                    // huỷ PBH. wallet_credited lưu 0 (không có gì để đảo ở ví khi huỷ phiếu).
                     let walletTxId = null;
-                    if (walletCredit > 0) {
+                    if (walletCredit > 0 && creditToWallet) {
                         const dep = await web2WalletService.processDeposit(
                             client,
                             phone,
@@ -1093,8 +1263,11 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                           (code, phone, customer_name, customer_id, method, sub_type, issue, reason, reason_note,
                            source_order_code, source_order_type, items, total_amount, wallet_credited,
                            wallet_tx_id, stock_status, bill_status, status, note, history, created_at, updated_at,
-                           created_by, created_by_name, pbh_wallet_snapshot, stock_applied)
-                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21,$22::jsonb,$23)
+                           created_by, created_by_name, pbh_wallet_snapshot, stock_applied,
+                           disposition, return_shipping_fee, fee_bearer, refund_method, is_exchange,
+                           replacement_items, exchange_diff)
+                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21,$22::jsonb,$23,
+                                 $24,$25,$26,$27,$28,$29::jsonb,$30)
                          RETURNING *`,
                         [
                             code,
@@ -1109,7 +1282,9 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             sourceOrderType,
                             JSON.stringify(items),
                             totalAmount,
-                            walletCredit,
+                            // Ví CỘNG THẬT (số dư) chỉ khi hoàn qua ví/công nợ. tien_mat/ck → 0
+                            // (PBH đã settle qua decs; huỷ phiếu chỉ đảo PBH, không đảo ví).
+                            creditToWallet ? walletCredit : 0,
                             walletTxId,
                             stockStatus,
                             billStatus,
@@ -1124,6 +1299,13 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                             // Native-only (no PBH) = gate skip _applyStock → FALSE → DELETE
                             // PHẢI skip trừ kho (nếu không huỷ phiếu sẽ trừ kho ảo = mất hàng).
                             sourceDeductedStock,
+                            disposition,
+                            returnShippingFee,
+                            feeBearer,
+                            refundMethod,
+                            isExchange,
+                            JSON.stringify(replacementItems),
+                            exchangeDiff,
                         ]
                     );
                     // 3H2: đánh dấu PBH nguồn đã quyết toán qua phiếu thu về.
@@ -1137,7 +1319,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     }
                     return ins.rows[0];
                 });
-                walletCreditedFinal = walletCredit > 0;
+                walletCreditedFinal = walletCredit > 0 && creditToWallet;
                 break;
             } catch (e) {
                 if (e && e.httpStatus) {
@@ -1157,6 +1339,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
         }
 
         if (walletCreditedFinal) _notifyWallet(phone);
+        await _recomputeParents(pool, inserted.items);
         _notify('create', inserted.code, { phone });
         _auditReturn(req, 'create', inserted.code, 'Tạo phiếu trả hàng');
         res.json({ success: true, return: mapRow(inserted) });
@@ -1177,6 +1360,7 @@ router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
     try {
         await ensureTables(pool);
         const now = Date.now();
+        let approvedItems = [];
         // FOR UPDATE: lock record return TRƯỚC khi check trạng thái + cộng stock.
         // Chống 2 admin double-approve (stock cộng 2 lần). Re-check guard SAU khi
         // lock — admin thua race sẽ thấy stock_status='approved' → reject.
@@ -1203,45 +1387,70 @@ router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
                     throw err;
                 }
                 const items = Array.isArray(row.items) ? row.items : [];
+                approvedItems = items;
                 // return_qty → stock cho từng SP. CHỈ khi create thật sự đã cộng
                 // return_qty (stock_applied). Native-only (gate skip) → return_qty chưa
                 // tăng → duyệt mà cộng stock = bơm tồn ảo → skip. (đối xứng DELETE)
+                // Duyệt "thu về" → return_qty → stock (batch VALUES, gom theo mã: 1 query
+                // thay N — audit #HIGH). Un-retire HET_HANG → DANG_BAN/MUA_1_PHAN + hiện lại.
+                // CHỈ khi create thật sự đã cộng return_qty (stock_applied). Native-only (gate
+                // skip) → return_qty chưa tăng → duyệt cộng stock = tồn ảo → skip (đối xứng DELETE).
+                const approveDeltas = new Map();
                 if (row.stock_applied !== false) {
                     for (const it of items) {
                         const qty = Number(it.quantity) || 0;
                         if (!it.productCode || qty <= 0) continue;
-                        // Duyệt "thu về" → +stock. Nếu SP đã HẾT HÀNG (bán hết trước
-                        // đó) nay có tồn lại → un-retire (logic mới 2026-06-28): status
-                        // DANG_BAN/MUA_1_PHAN + is_active=true. CHỈ đụng status='HET_HANG'
-                        // → không ghi đè SP user tự "Tạm dừng". CASE đọc giá trị TRƯỚC update.
-                        await client.query(
-                            `UPDATE web2_products
-                             SET return_qty = GREATEST(0, return_qty - $1),
-                                 stock = stock + $1,
-                                 status = CASE WHEN status = 'HET_HANG' AND stock + $1 > 0
-                                               THEN (CASE WHEN COALESCE(pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
-                                               ELSE status END,
-                                 is_active = CASE WHEN status = 'HET_HANG' AND stock + $1 > 0 THEN true ELSE is_active END,
-                                 updated_at = $2
-                             WHERE code = $3`,
-                            [qty, now, it.productCode]
+                        approveDeltas.set(
+                            it.productCode,
+                            (approveDeltas.get(it.productCode) || 0) + qty
                         );
                     }
                 }
+                if (approveDeltas.size) {
+                    const params = [now];
+                    const valuesSql = [...approveDeltas.entries()]
+                        .map(([code, qty]) => {
+                            params.push(code, qty);
+                            return `($${params.length - 1}::text, $${params.length}::int)`;
+                        })
+                        .join(',');
+                    await client.query(
+                        `UPDATE web2_products AS p
+                         SET return_qty = GREATEST(0, COALESCE(p.return_qty, 0) - v.qty),
+                             stock = p.stock + v.qty,
+                             status = CASE WHEN p.status = 'HET_HANG' AND p.stock + v.qty > 0
+                                           THEN (CASE WHEN COALESCE(p.pending_qty, 0) > 0 THEN 'MUA_1_PHAN' ELSE 'DANG_BAN' END)
+                                           ELSE p.status END,
+                             is_active = CASE WHEN p.status = 'HET_HANG' AND p.stock + v.qty > 0 THEN true ELSE p.is_active END,
+                             updated_at = $1
+                         FROM (VALUES ${valuesSql}) AS v(code, qty)
+                         WHERE p.code = v.code`,
+                        params
+                    );
+                }
                 const hist = Array.isArray(row.history) ? row.history : [];
                 hist.push({ ts: now, action: 'approve', userId: user.id, userName: user.name });
+                // shipper_gui thu_ve_1_phan: hàng GIỜ mới vào kho bán → mở hàng đợi bill 0đ
+                // (lúc create shipper_gui = null, không queue sớm khi chưa duyệt — audit #HIGH).
+                const newBillStatus =
+                    row.sub_type === 'thu_ve_1_phan' &&
+                    row.stock_applied !== false &&
+                    row.bill_status == null
+                        ? 'queued'
+                        : row.bill_status;
                 await client.query(
                     `UPDATE web2_returns
                      SET stock_status = 'approved', approved_at = $1, approved_by = $2,
-                         history = $3::jsonb, updated_at = $1
+                         history = $3::jsonb, bill_status = $5, updated_at = $1
                      WHERE code = $4`,
-                    [now, user.name, JSON.stringify(hist), req.params.code]
+                    [now, user.name, JSON.stringify(hist), req.params.code, newBillStatus]
                 );
             });
         } catch (e) {
             if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
             throw e;
         }
+        await _recomputeParents(pool, approvedItems);
         _notify('approve', req.params.code);
         _auditReturn(req, 'approve', req.params.code, 'Duyệt phiếu trả hàng');
         res.json({ success: true });
@@ -1282,6 +1491,12 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const user = _user(req);
+    // "Từ chối" hàng shipper gửi về (lỗi/không đúng) = huỷ phiếu pending với cờ decline
+    // + lý do. Đảo kho/ví Y HỆT huỷ thường (pending → trả return_qty, hoàn ví) — chỉ khác
+    // NHÃN action trong history để phân biệt "từ chối nhận" vs "huỷ do tạo nhầm".
+    const _declined = (req.body && req.body.declined) === true;
+    const _declineReason =
+        req.body && req.body.reason ? String(req.body.reason).slice(0, 300) : null;
     try {
         await ensureTables(pool);
         // FOR UPDATE: lock record TRƯỚC khi check trạng thái + rollback kho/ví.
@@ -1293,6 +1508,7 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
         // 409, KHÔNG huỷ phiếu (an toàn tiền hơn lệch ví im lặng).
         let cancelledPhone = null;
         let walletReverted = false;
+        let cancelledItems = [];
         try {
             await withTransaction(pool, async (client) => {
                 const cur = await client.query(
@@ -1324,6 +1540,7 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                     throw err;
                 }
                 const items = Array.isArray(row.items) ? row.items : [];
+                cancelledItems = items;
                 const now = Date.now();
                 // Rollback tồn kho — CHỈ khi lúc tạo phiếu kho ĐÃ thật sự được cộng
                 // (stock_applied). Native order chưa convert PBH = create gate skip
@@ -1397,7 +1614,13 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                     walletReverted = true;
                 }
                 const hist = Array.isArray(row.history) ? row.history : [];
-                hist.push({ ts: now, action: 'cancel', userId: user.id, userName: user.name });
+                hist.push({
+                    ts: now,
+                    action: _declined ? 'decline' : 'cancel',
+                    userId: user.id,
+                    userName: user.name,
+                    note: _declineReason || undefined,
+                });
                 const upd = await client.query(
                     `UPDATE web2_returns SET status = 'cancelled', history = $1::jsonb, updated_at = $2
                      WHERE code = $3 AND status = 'active' RETURNING code`,
@@ -1468,19 +1691,26 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                                 );
                                 const remainder = creditedBack - restored;
                                 if (remainder > 0) {
-                                    const firstLive = lockQ.rows[0].id;
-                                    await client.query(
-                                        `UPDATE fast_sale_orders
-                                         SET wallet_deducted = wallet_deducted + $1 WHERE id = $2`,
-                                        [remainder, firstLive]
+                                    // FIX audit 2026-07-01 (over-refund edge): CAP phần dồn
+                                    // ≤ (amount_total − wallet_deducted hiện tại) của PBH đầu
+                                    // → wallet_deducted KHÔNG vượt giá trị đơn → cancel PBH sau
+                                    // KHÔNG hoàn ví quá số KH thực trả. Nếu không đủ chỗ (đã đầy)
+                                    // → warn (phần dư kẹt, chấp nhận under-refund > over-refund).
+                                    await _restoreCapped(
+                                        client,
+                                        lockQ.rows[0].id,
+                                        remainder,
+                                        row.code
                                     );
                                 }
                             } else {
-                                // Không có snapshot khớp (data cũ) → fallback lump
-                                // về PBH đầu (giữ tổng đúng).
-                                await client.query(
-                                    `UPDATE fast_sale_orders SET wallet_deducted = $1 WHERE id = $2`,
-                                    [creditedBack, lockQ.rows[0].id]
+                                // Không có snapshot khớp (data cũ) → fallback về PBH đầu,
+                                // NHƯNG cap ≤ amount_total (chống over-refund như trên).
+                                await _restoreCapped(
+                                    client,
+                                    lockQ.rows[0].id,
+                                    creditedBack,
+                                    row.code
                                 );
                             }
                         }
@@ -1573,6 +1803,7 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
         }
 
         if (walletReverted) _notifyWallet(cancelledPhone);
+        await _recomputeParents(pool, cancelledItems);
         _notify('cancel', req.params.code, { phone: cancelledPhone });
         res.json({ success: true });
     } catch (e) {

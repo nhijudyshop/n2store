@@ -2142,4 +2142,7 @@ router.post('/backfill-supplier', requireWeb2Admin, async (req, res) => {
 });
 
 router.initializeNotifiers = initializeNotifiers;
+// Cho phép module khác (vd web2-returns) refresh tồn CHA sau khi ghi tồn CON.
+// Gọi SAU COMMIT, best-effort (đã try/catch bên trong).
+router.recomputeParentsForCodes = _recomputeParentsForCodes;
 module.exports = router;
