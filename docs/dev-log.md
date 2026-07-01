@@ -7,7 +7,8 @@
 **Files:** `web2/cham-cong/js/cham-cong-app.js` (fmt sync + `fmtEditTs` + modal wiring), `web2/cham-cong/js/cham-cong-payroll.js` (`fmtLockTime` + footer phiếu lương in).
 
 1. **24h:** 4 `Intl.DateTimeFormat('vi-VN', …)` có render giờ nhưng thiếu `hour12: false` → Chrome CLDR `vi-VN` có thể chèn SA/CH (12h). Thêm `hour12: false` khớp 3 chỗ đã có. Giờ 7/7 renderer đều 24h.
-2. **Auto radio:** modal chấm công 1 ngày — tick checkbox `ccInChk`/`ccOutChk` (Vào/Ra) → tự chọn radio `ccLeave=work` (Đi làm). Chỉ đẩy 1 chiều: bỏ tick cả 2 KHÔNG tự đổi sang nghỉ (không phân biệt được có phép/không phép).
+2. **Auto radio:** modal chấm công 1 ngày — tick checkbox `ccInChk`/`ccOutChk` (Vào/Ra) → radio `ccLeave` theo: có tick → `work` (Đi làm), bỏ cả 2 → `absent` (Nghỉ không phép). _Có phép_ vẫn chọn tay.
+3. **Chuột phải chấm nhanh:** right-click 1 ô lưới (`.cc-cell`) → `quickFillWork` chấm "đúng giờ" ca chuẩn (Vào=workStart, Ra=workEnd) cho ngày nghỉ / chấm thiếu. Chỉ THÊM lượt còn thiếu (không xoá/ghi đè giờ thật); bỏ qua tháng chốt / ngày lễ / ngày đã đủ; nghỉ có phép → gỡ override rồi chấm. Tooltip ô thêm gợi ý.
 
 Status: ✅
 

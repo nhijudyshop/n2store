@@ -485,7 +485,7 @@
                         ? ` · ✏️ Đã sửa ${esc(fmtEditTs(edit.at))}${edit.by ? ' bởi ' + esc(edit.by) : ''}`
                         : '';
                 const stLabel = st === 'inprogress' ? 'Đang làm (chưa tan ca)' : S.STATUS_LABEL[st];
-                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}${editCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${stLabel} — bấm xem chi tiết${noteTitle}${editTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${stLabel}" data-g="${GLYPH[st] || ''}"></span></td>`;
+                cells += `<td class="cc-cell${wd === 'CN' ? ' sun' : ''}${noteCls}${editCls}" data-uid="${esc(du.device_user_id)}" data-dk="${dk}" title="${stLabel} — bấm xem chi tiết · chuột phải: chấm đúng giờ${noteTitle}${editTitle}"><span class="cc-dot cc-dot-${st}" role="img" aria-label="${stLabel}" data-g="${GLYPH[st] || ''}"></span></td>`;
             }
             rows += `<tr>${cells}</tr>`;
         }
@@ -530,6 +530,14 @@
                 const t = e.target.closest('.cc-cell, .cc-reconcile-chip');
                 if (t && el.contains(t) && t.dataset.uid && t.dataset.dk)
                     openDay(t.dataset.uid, t.dataset.dk);
+            });
+            // Chuột phải 1 ô → tự chấm "đúng giờ" ca chuẩn (nhanh cho ngày nghỉ / chấm thiếu).
+            el.addEventListener('contextmenu', (e) => {
+                const t = e.target.closest('.cc-cell');
+                if (t && el.contains(t) && t.dataset.uid && t.dataset.dk) {
+                    e.preventDefault();
+                    quickFillWork(t.dataset.uid, t.dataset.dk);
+                }
             });
         }
     }
@@ -805,6 +813,42 @@
             }
             toast('Đã lưu chấm công ngày.', 'success');
             ctx.close();
+            await loadAll();
+        } catch (e) {
+            toast(e.message, 'error');
+        }
+    }
+
+    // Chuột phải 1 ô → chấm "đúng giờ" ca chuẩn cho ngày nghỉ / chấm thiếu.
+    // Chỉ THÊM lượt còn thiếu (Vào = workStart, Ra = workEnd) — KHÔNG xoá/ghi đè giờ thật đã có.
+    // Bỏ qua: tháng đã chốt, ngày lễ (shop nghỉ), ngày đã đủ Vào+Ra. Nghỉ có phép → gỡ override rồi chấm.
+    async function quickFillWork(deviceUserId, dateKey) {
+        if (state.lock)
+            return toast('Tháng đã CHỐT lương — Mở khoá ở Bảng lương để sửa.', 'warning');
+        const du = state.deviceUsers.find((d) => d.device_user_id === deviceUserId);
+        if (!du) return;
+        if (state.holidaySet.has(dateKey)) return toast('Ngày này shop nghỉ (lễ).', 'info');
+        const recs = recordsFor(deviceUserId)[dateKey] || [];
+        const isFull = state.fulldaySet.has(`${deviceUserId}_${dateKey}`);
+        const hasIn = recs.some((r) => r.type === 0);
+        const hasOut = recs.some((r) => r.type === 1);
+        if (hasIn && hasOut && !isFull) return toast('Ngày này đã có đủ giờ Vào/Ra.', 'info');
+        const cfg = cfgFor(du);
+        try {
+            if (isFull) await Api.delFullday(`${deviceUserId}_${dateKey}`);
+            if (!hasIn)
+                await Api.addRecord({
+                    device_user_id: deviceUserId,
+                    check_time: `${dateKey} ${cfg.workStart}:00`,
+                    type: 0,
+                });
+            if (!hasOut)
+                await Api.addRecord({
+                    device_user_id: deviceUserId,
+                    check_time: `${dateKey} ${cfg.workEnd}:00`,
+                    type: 1,
+                });
+            toast(`Đã chấm đúng giờ ca (${cfg.workStart}–${cfg.workEnd}).`, 'success');
             await loadAll();
         } catch (e) {
             toast(e.message, 'error');
