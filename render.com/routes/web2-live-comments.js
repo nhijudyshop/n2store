@@ -576,7 +576,18 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         const pageIds = list(req.query.pageIds);
         if (postIds.length) add('post_id = ANY($?)', postIds);
         if (pageIds.length) add('page_id = ANY($?)', pageIds);
-        if (req.query.campaignId) add('campaign_id = $?', String(req.query.campaignId));
+        // CI1 fix (audit 2026-07-01): RESOLVE campaign lúc ĐỌC thay vì tin campaign_id
+        // đã lưu. Ingest inherit campaign_id là fail-open (nuốt lỗi) → comment tới lúc DB
+        // blip có thể campaign_id=NULL VĨNH VIỄN → biến mất khỏi view chiến dịch (nặng
+        // với chiến dịch GỘP 2 PAGE — view này là bề mặt merge duy nhất). COALESCE với
+        // campaign_id của post (web2_live_post_assign) → NULL đã lưu vô hại, không cần sweep.
+        if (req.query.campaignId)
+            add(
+                'COALESCE(web2_live_comments.campaign_id, ' +
+                    '(SELECT a.campaign_id::text FROM web2_live_post_assign a ' +
+                    'WHERE a.post_id = web2_live_comments.post_id)) = $?',
+                String(req.query.campaignId)
+            );
         if (req.query.since) add('created_time >= $?', new Date(Number(req.query.since)));
         // Delta cursor theo updated_at (epoch ms server-assigned, bump mỗi upsert).
         // Vì sao KHÔNG dùng created_time làm cursor delta: (a) comment bị UPDATE

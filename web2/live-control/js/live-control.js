@@ -902,7 +902,15 @@
             if (d.campaignId == null || Number(d.campaignId) === Number(state.campaignId))
                 scheduleBoard();
         } else if (msg.topic === 'web2:products') {
-            scheduleBoard();
+            // CAMP-2 (audit 2026-07-01): chỉ reload board khi SP bị chạm THUỘC board
+            // (state.addedCodes) — như live-tv. web2:products bắn cho MỌI SP trong kho →
+            // trước đây reload full board (JOIN + jsonb aggregate nặng) vô ích mỗi lần.
+            // code rỗng (returns/bulk) → vẫn reload (đúng). Picker pending vẫn refresh.
+            var touched = [];
+            if (d.code) touched.push(String(d.code));
+            if (Array.isArray(d.codes)) touched = touched.concat(d.codes.map(String));
+            var member = state.addedCodes;
+            if (!touched.length || !member || touched.some((c) => member.has(c))) scheduleBoard();
             if (state.pickerTab === 'pending') schedulePicker();
         } else if (msg.topic === 'web2:live-comments') {
             // Audit SSE 2026-06-25: chiến dịch tạo/xoá/gán ở máy khác → dropdown

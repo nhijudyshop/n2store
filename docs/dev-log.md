@@ -2,6 +2,38 @@
 
 ## 2026-07-01
 
+### [cham-cong] Ép định dạng giờ 24h ở mọi chỗ hiển thị
+
+**Files:** `web2/cham-cong/js/cham-cong-app.js` (fmt "lần cuối" sync + `fmtEditTs`), `web2/cham-cong/js/cham-cong-payroll.js` (`fmtLockTime` + footer phiếu lương in).
+
+4 `Intl.DateTimeFormat('vi-VN', …)` có render giờ nhưng thiếu `hour12: false` → Chrome CLDR `vi-VN` có thể chèn SA/CH (12h). Thêm `hour12: false` để khớp 3 chỗ đã có sẵn. Giờ 7/7 renderer đều 24h.
+
+Status: ✅
+
+### [web2-campaign] Deep-audit #3 (11 findings) + fix CI1 (comment biến mất) + CAMP-2 (board reload thừa)
+
+**Files:** `render.com/routes/web2-live-comments.js` (CI1: GET /?campaignId resolve read-time COALESCE với post_assign), `web2/live-control/js/live-control.js` (CAMP-2: onSse web2:products lọc theo state.addedCodes; bump v20260701b).
+
+Deep-audit workflow (#3, 21 agents, 8 gap + 2-page campaign): 11 confirmed. Fix 2 cái an toàn self-contained:
+
+- **CI1 (MEDIUM, ĐÃ SỬA):** ingest inherit campaign_id fail-open → comment tới lúc DB blip có thể campaign_id=NULL vĩnh viễn → biến mất khỏi view chiến dịch (nặng với chiến dịch gộp 2 page). Fix read-time COALESCE(campaign_id, post_assign.campaign_id) → NULL vô hại, không cần sweep.
+- **CAMP-2 (LOW, ĐÃ SỬA):** live-control reload full board (JOIN+jsonb nặng) mỗi web2:products bất kể liên quan → lọc theo addedCodes như live-tv (=M6).
+
+**Cluster order-path (chưa sửa — đụng luồng tạo đơn live, gom về 1 fix keyed PARENT campaign_id):**
+
+- **MP1 (HIGH):** campaign_stt KHÔNG span 2 page — mỗi post STT 1..N riêng → trùng số kệ put-wall.
+- **KPI-2PAGE-1 (HIGH):** KPI range key theo tên campaign có prefix, campaign_stt cấp khác → sai quy kết KPI 2 page.
+- **CAMP-1 (MEDIUM):** put-wall STT vs board grouping khác key.
+- **MP3 (MEDIUM):** = yêu cầu #2 (2 page = 2 giỏ) — đã thiết kế hybrid.
+- **MERGE-DUP-1 (MEDIUM):** /merge concat SP không dedup → PBH order_lines trùng code → vỡ packing reconcile + under-restock. Fix: dedup fold ở from-native-order (fast-sale-orders.js:1771).
+  → Insight: MP1+KPI+CAMP-1+H4+#2 cùng gốc "2-page grouping phải key theo PARENT campaign_id (qua post_assign), KHÔNG theo tên/id Pancake per-post". Fix gom 1 lần với context tươi.
+
+LOW còn: CI2, CAMP-3 (avatar scope), MERGE-2PAGE-FBPOST, TVDISPLAY-1. Đầy đủ: `w2aeondcu` + scratchpad/deep-audit-report.md.
+
+⚠ CI1 deploy Render. CAMP-2 chạy ngay Pages.
+
+Status: ✅ CI1+CAMP-2 (chờ deploy CI1)
+
 ### [web2-campaign] Thiết kế #2 cross-page cart merge (hybrid global-id + SĐT) + điều tra định danh
 
 **Files:** `docs/web2/CAMPAIGN-CROSSPAGE-DESIGN.md` (MỚI — thiết kế đầy đủ + feasibility).
