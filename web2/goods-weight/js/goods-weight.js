@@ -56,7 +56,7 @@
                 });
             } catch (_) {}
     }
-    // GMT+7 (Asia/Ho_Chi_Minh) — quy ước hiển thị Web 2.0.
+    // GMT+7 (Asia/Ho_Chi_Minh) — hiển thị ĐẦY ĐỦ ngày + giờ:phút:giây (Lịch sử cân + đồng hồ).
     const FMT = new Intl.DateTimeFormat('vi-VN', {
         timeZone: 'Asia/Ho_Chi_Minh',
         day: '2-digit',
@@ -64,6 +64,8 @@
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
     });
     const fmtTime = (ms) => (ms ? FMT.format(new Date(Number(ms))) : '');
 
@@ -75,12 +77,24 @@
     const money = (n) => VND.format(Math.round(Number(n) || 0)) + 'đ';
     const fmtInt = (n) => VND.format(Math.round(Number(n) || 0));
     const fmtKg = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 1 });
-    // 'YYYY-MM-DD' (GMT+7) → { wd:'T2', date:'29/06/2026' }. Tách chuỗi, không new Date(str) (tránh lệch UTC).
-    function dayLabel(d) {
-        const [y, m, dd] = String(d).split('-').map(Number);
-        const wd = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date(y, m - 1, dd).getDay()];
-        return { wd, date: `${String(dd).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}` };
-    }
+    // Thời gian đầy đủ 1 lần cân (GMT+7): ngày + giờ:phút:giây — mỗi lần cân 1 dòng riêng, KHÔNG gộp ngày.
+    const FMT_DATE = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+    const FMT_HMS = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
+    const fmtDateTime = (ms) => {
+        const d = new Date(Number(ms));
+        return { date: FMT_DATE.format(d), time: FMT_HMS.format(d) };
+    };
 
     let toastTimer = null;
     function toast(msg, kind) {
@@ -358,9 +372,6 @@
         try {
             REPORT = await api('/report?' + reportQs());
             renderReport();
-            // Drawer đang mở → refresh TẠI CHỖ theo data mới (SSE/đổi lọc), KHÔNG đóng thô bạo.
-            if (_drawerDay && _dayDrawer?.isOpen() && !setDrawerForDay(_drawerDay))
-                _dayDrawer.close(); // ngày không còn trong khoảng lọc → đóng
         } catch (e) {
             $('#rpBody').innerHTML = `<tr><td colspan="8" class="rp-muted">Lỗi: ${esc(
                 e.message
@@ -405,207 +416,105 @@
             )
             .join('');
 
-        if (!rows.length) {
+        // MỖI LẦN CÂN = 1 dòng riêng (không gộp theo ngày) — sắp mới nhất trước.
+        const caps = rows
+            .flatMap((d) => d.items || [])
+            .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+        if (!caps.length) {
             $('#rpBody').innerHTML =
                 '<tr><td colspan="8" class="rp-muted">Không có dữ liệu trong khoảng lọc.</td></tr>';
             $('#rpFoot').innerHTML = '';
             return;
         }
-        $('#rpBody').innerHTML = rows
-            .map((d) => {
-                const dl = dayLabel(d.day);
+        const withImg = caps.filter((x) => x.hasImage);
+        const urls = withImg.map((x) => `${GW}/img/${encodeURIComponent(x.id)}`); // lightbox toàn bộ
+        $('#rpBody').innerHTML = caps
+            .map((x) => {
+                const kg = Number(x.weightKg) || 0;
+                const bales = Number(x.baleCount) || 0;
+                const shipKg = kg * rates.kg;
+                const shipBale = bales * rates.bale;
+                const dt = fmtDateTime(x.createdAt);
+                const idx = withImg.findIndex((w) => w.id === x.id);
+                const thumb = x.hasImage
+                    ? `<img class="rp-cap-thumb" src="${GW}/img/${esc(x.id)}" data-idx="${idx}" loading="lazy" alt="Ảnh cân" title="Xem ảnh to" />`
+                    : `<div class="rp-cap-thumb rp-cap-empty"><i data-lucide="image-off"></i></div>`;
                 const act = admin
-                    ? `<button class="rp-del" data-del-day="${esc(d.day)}" data-count="${d.count}" title="Xoá toàn bộ ngày này"><i data-lucide="trash-2"></i></button>`
+                    ? `<button class="rp-del" data-edit="${esc(x.id)}" data-kg="${esc(x.weightKg)}" data-bales="${esc(x.baleCount)}" data-note="${esc(x.note || '')}" title="Sửa"><i data-lucide="pencil"></i></button>
+                       <button class="rp-del" data-delrec="${esc(x.id)}" title="Xoá lần cân"><i data-lucide="trash-2"></i></button>`
                     : '';
-                // Ảnh hiển thị ra luôn trong hàng (thumbnail); bấm → drawer xem full.
-                const withImg = (d.items || []).filter((x) => x.hasImage);
-                const preview = withImg.slice(0, 4);
-                const more = withImg.length - preview.length;
-                const thumbs = withImg.length
-                    ? `<div class="rp-day-thumbs">${preview
-                          .map((x) => `<img src="${GW}/img/${esc(x.id)}" loading="lazy" alt="" />`)
-                          .join(
-                              ''
-                          )}${more > 0 ? `<span class="rp-more">+${more}</span>` : ''}</div>`
-                    : '';
-                return `<tr class="rp-drow" data-day="${esc(d.day)}" tabindex="0" role="button" title="Xem ảnh cân ngày này">
-                    <td class="rp-day"><b>${dl.date}</b><span>${dl.wd}</span>${thumbs}</td>
-                    <td class="num">${fmtInt(d.count)}</td>
-                    <td class="num">${fmtKg(d.kg)}</td>
-                    <td class="num">${fmtInt(d.bales)}</td>
-                    <td class="num">${money(d.shipKg)}</td>
-                    <td class="num">${money(d.shipBale)}</td>
-                    <td class="num rp-ship">${money(d.ship)}</td>
-                    <td class="rp-act">${act}</td>
+                return `<tr data-cap="${esc(x.id)}">
+                    <td class="rp-day"><b>${dt.date}</b><span>${dt.time} · ${esc(x.username || '—')}</span>${x.note ? `<span class="rp-cap-note">${esc(x.note)}</span>` : ''}</td>
+                    <td class="rp-cap-imgcell">${thumb}</td>
+                    <td class="num">${esc(x.weightKg)}</td>
+                    <td class="num">${esc(x.baleCount)}</td>
+                    <td class="num">${money(shipKg)}</td>
+                    <td class="num">${money(shipBale)}</td>
+                    <td class="num rp-ship">${money(shipKg + shipBale)}</td>
+                    <td class="rp-act rp-act2">${act}</td>
                 </tr>`;
             })
             .join('');
         $('#rpFoot').innerHTML = `<tr class="rp-total">
-            <td>Tổng cộng</td>
-            <td class="num">${fmtInt(t.count)}</td>
+            <td>Tổng cộng (${fmtInt(t.count)} lần)</td>
+            <td></td>
             <td class="num">${fmtKg(t.kg)}</td>
             <td class="num">${fmtInt(t.bales)}</td>
             <td class="num">${money(t.shipKg)}</td>
             <td class="num">${money(t.shipBale)}</td>
             <td class="num rp-ship">${money(t.ship)}</td>
-            <td class="rp-act"></td>
+            <td class="rp-act rp-act2"></td>
         </tr>`;
+        // Thumbnail → lightbox (vuốt toàn bộ lần cân)
         $('#rpBody')
-            .querySelectorAll('.rp-drow')
-            .forEach((row) => {
-                row.addEventListener('click', (e) => {
-                    if (e.target.closest('[data-del-day]')) return; // nút xoá ngày → không mở drawer
-                    openDayDrawer(row.dataset.day);
-                });
-                row.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        openDayDrawer(row.dataset.day);
+            .querySelectorAll('.rp-cap-thumb[data-idx]')
+            .forEach((im) =>
+                im.addEventListener('click', () => {
+                    const i = Number(im.dataset.idx) || 0;
+                    try {
+                        if (window.Web2ImageLightbox?.open) Web2ImageLightbox.open(urls, i);
+                        else window.open(urls[i], '_blank');
+                    } catch (_) {
+                        window.open(urls[i], '_blank');
                     }
-                });
-            });
-        if (admin)
+                })
+            );
+        // admin: sửa / xoá từng lần cân
+        if (admin) {
             $('#rpBody')
-                .querySelectorAll('[data-del-day]')
-                .forEach((b) =>
-                    b.addEventListener('click', () =>
-                        deleteDay(b.dataset.delDay, Number(b.dataset.count))
-                    )
-                );
+                .querySelectorAll('[data-edit]')
+                .forEach((b) => b.addEventListener('click', () => startEditRow(b)));
+            $('#rpBody')
+                .querySelectorAll('[data-delrec]')
+                .forEach((b) => b.addEventListener('click', () => delRecord(b.dataset.delrec)));
+        }
         icons($('#panelReport'));
     }
 
-    // ── Drawer ảnh cân theo ngày (module chung Web2Drawer) ──
-    let _dayDrawer = null;
-    let _drawerDay = null;
-    function ensureDrawer() {
-        if (_dayDrawer || !window.Web2Drawer) return _dayDrawer;
-        _dayDrawer = Web2Drawer.create({
-            id: 'gwDayPhotos',
-            side: 'right',
-            width: 460,
-            backdrop: true,
-            onClose: () => {
-                _drawerDay = null;
-            },
-        });
-        return _dayDrawer;
+    // ── Sửa / xoá 1 lần cân ngay trong bảng báo cáo (admin) ──
+    // Sửa: bung 1 dòng form ngay dưới hàng (kg / kiện / ghi chú). Ảnh + người + giờ giữ nguyên.
+    function startEditRow(btn) {
+        const tr = btn.closest('tr');
+        if (!tr || tr.nextElementSibling?.classList.contains('rp-erow')) return; // đang sửa rồi
+        const id = btn.dataset.edit;
+        const er = document.createElement('tr');
+        er.className = 'rp-erow';
+        er.innerHTML = `<td colspan="8"><div class="rp-edit rp-edit-inline">
+            <label>Kg<input type="number" inputmode="decimal" step="0.1" min="0" class="rp-e-kg" value="${esc(btn.dataset.kg)}" /></label>
+            <label>Kiện<input type="number" inputmode="numeric" step="1" min="0" class="rp-e-bales" value="${esc(btn.dataset.bales)}" /></label>
+            <label class="rp-e-notewrap">Ghi chú<input type="text" class="rp-e-note" value="${esc(btn.dataset.note)}" /></label>
+            <button class="rp-e-save" type="button">Lưu</button>
+            <button class="rp-e-cancel" type="button">Huỷ</button>
+        </div></td>`;
+        tr.after(er);
+        er.querySelector('.rp-e-save').addEventListener('click', () => saveEditRow(id, er));
+        er.querySelector('.rp-e-cancel').addEventListener('click', () => er.remove());
+        er.querySelector('.rp-e-kg').focus();
     }
-    function openDayDrawer(day) {
-        const row = (REPORT && REPORT.rows ? REPORT.rows : []).find((r) => r.day === day);
-        if (!row) return;
-        const dw = ensureDrawer();
-        if (!dw) {
-            // Fallback: chưa nạp Web2Drawer → mở thẳng lightbox toàn bộ ảnh ngày đó.
-            const urls = (row.items || [])
-                .filter((x) => x.hasImage)
-                .map((x) => `${GW}/img/${encodeURIComponent(x.id)}`);
-            if (urls.length && window.Web2ImageLightbox?.open) Web2ImageLightbox.open(urls, 0);
-            return;
-        }
-        if (dw.isOpen() && _drawerDay === day) return dw.close(); // bấm lại đúng ngày → đóng (toggle)
-        _drawerDay = day;
-        if (setDrawerForDay(day)) dw.open();
-        else _drawerDay = null;
-    }
-    // Đổ tiêu đề + nội dung drawer cho 1 ngày từ REPORT. Trả true nếu có bản ghi (không tự đóng).
-    function setDrawerForDay(day) {
-        if (!_dayDrawer) return false;
-        const row = (REPORT && REPORT.rows ? REPORT.rows : []).find((r) => r.day === day);
-        if (!row || !(row.items || []).length) return false;
-        const dl = dayLabel(day);
-        _dayDrawer.setTitle(
-            `Ảnh cân ${esc(dl.date)}<small>${esc(dl.wd)} · ${fmtInt(row.count)} lần cân · ${fmtKg(
-                row.kg
-            )} kg · ${money(row.ship)}</small>`
-        );
-        _dayDrawer.setBody(dayPhotosHtml(row.items));
-        wireDrawerPhotos(_dayDrawer.body, row.items);
-        return true;
-    }
-    function dayPhotosHtml(items) {
-        if (!items.length) return '<div class="rp-muted">Không có bản ghi.</div>';
-        const admin = isAdmin();
-        const withImg = items.filter((x) => x.hasImage);
-        return `<div class="rp-photos">${items
-            .map((x) => {
-                const idx = withImg.findIndex((w) => w.id === x.id);
-                const media = x.hasImage
-                    ? `<img src="${GW}/img/${esc(x.id)}" loading="lazy" data-idx="${idx}" alt="Ảnh cân" />`
-                    : `<div class="rp-photo-empty"><i data-lucide="image-off"></i></div>`;
-                const act = admin
-                    ? `<div class="rp-photo-act">
-                        <button class="rp-pa-edit" data-edit="${esc(x.id)}" title="Sửa kg/kiện/ghi chú"><i data-lucide="pencil"></i></button>
-                        <button class="rp-pa-del" data-delrec="${esc(x.id)}" title="Xoá bản ghi"><i data-lucide="trash-2"></i></button>
-                    </div>`
-                    : '';
-                return `<figure class="rp-photo" data-id="${esc(x.id)}" data-kg="${esc(x.weightKg)}" data-bales="${esc(x.baleCount)}" data-note="${esc(x.note || '')}">
-                    ${media}${act}
-                    <figcaption>
-                        <b>${esc(x.weightKg)} kg</b> · ${esc(x.baleCount)} kiện
-                        <span>${esc(x.username || '—')} · ${esc(fmtTime(x.createdAt))}</span>
-                        ${x.note ? `<span class="rp-photo-note">${esc(x.note)}</span>` : ''}
-                    </figcaption>
-                </figure>`;
-            })
-            .join('')}</div>`;
-    }
-    function wireDrawerPhotos(root, items) {
-        const withImg = items.filter((x) => x.hasImage);
-        const urls = withImg.map((x) => `${GW}/img/${encodeURIComponent(x.id)}`); // lightbox swipe
-        root.querySelectorAll('img[data-idx]').forEach((im) =>
-            im.addEventListener('click', () => {
-                const i = Number(im.dataset.idx) || 0;
-                try {
-                    if (window.Web2ImageLightbox?.open) Web2ImageLightbox.open(urls, i);
-                    else window.open(urls[i], '_blank');
-                } catch (_) {
-                    window.open(urls[i], '_blank');
-                }
-            })
-        );
-        // admin: sửa / xoá từng bản ghi cân
-        root.querySelectorAll('[data-edit]').forEach((b) =>
-            b.addEventListener('click', (e) => {
-                e.stopPropagation();
-                startEditPhoto(b.closest('.rp-photo'));
-            })
-        );
-        root.querySelectorAll('[data-delrec]').forEach((b) =>
-            b.addEventListener('click', (e) => {
-                e.stopPropagation();
-                delRecord(b.dataset.delrec);
-            })
-        );
-    }
-
-    // Sửa inline 1 bản ghi trong drawer (kg / kiện / ghi chú). Ảnh giữ nguyên.
-    function startEditPhoto(fig) {
-        if (!fig) return;
-        const cap = fig.querySelector('figcaption');
-        if (!cap || cap.querySelector('.rp-edit')) return; // đang sửa rồi
-        const id = fig.dataset.id;
-        cap.innerHTML = `<div class="rp-edit">
-            <div class="rp-edit-row">
-                <label>Kg<input type="number" inputmode="decimal" step="0.1" min="0" class="rp-e-kg" value="${esc(fig.dataset.kg)}" /></label>
-                <label>Kiện<input type="number" inputmode="numeric" step="1" min="0" class="rp-e-bales" value="${esc(fig.dataset.bales)}" /></label>
-            </div>
-            <input type="text" class="rp-e-note" placeholder="Ghi chú" value="${esc(fig.dataset.note)}" />
-            <div class="rp-edit-btns">
-                <button class="rp-e-save" type="button">Lưu</button>
-                <button class="rp-e-cancel" type="button">Huỷ</button>
-            </div>
-        </div>`;
-        cap.querySelector('.rp-e-save').addEventListener('click', () => saveEditPhoto(id, cap));
-        cap.querySelector('.rp-e-cancel').addEventListener('click', () =>
-            setDrawerForDay(_drawerDay)
-        );
-        cap.querySelector('.rp-e-kg').focus();
-    }
-    async function saveEditPhoto(id, cap) {
-        const kg = Number(cap.querySelector('.rp-e-kg').value);
-        const bales = Math.round(Number(cap.querySelector('.rp-e-bales').value)) || 0;
-        const note = cap.querySelector('.rp-e-note').value.trim();
+    async function saveEditRow(id, er) {
+        const kg = Number(er.querySelector('.rp-e-kg').value);
+        const bales = Math.round(Number(er.querySelector('.rp-e-bales').value)) || 0;
+        const note = er.querySelector('.rp-e-note').value.trim();
         if (!Number.isFinite(kg) || kg <= 0) return toast('Số kg không hợp lệ', 'err');
         if (bales < 0) return toast('Số kiện không hợp lệ', 'err');
         try {
@@ -614,7 +523,7 @@
                 body: JSON.stringify({ weightKg: kg, baleCount: bales, note }),
             });
             toast('✓ Đã sửa', 'ok');
-            await afterRecordMutation();
+            loadReport();
             load(); // đồng bộ tab Cân hàng
         } catch (e) {
             toast('Lỗi: ' + e.message, 'err');
@@ -623,50 +532,14 @@
     async function delRecord(id) {
         if (!isAdmin()) return toast('Chỉ admin được xoá', 'err');
         const ok = window.Popup?.confirm
-            ? await window.Popup.confirm('Xoá bản ghi cân này?')
-            : confirm('Xoá bản ghi cân này?');
+            ? await window.Popup.confirm('Xoá lần cân này?')
+            : confirm('Xoá lần cân này?');
         if (!ok) return;
         try {
             await api('/' + encodeURIComponent(id), { method: 'DELETE' });
             toast('✓ Đã xoá', 'ok');
-            await afterRecordMutation();
-            load();
-        } catch (e) {
-            toast('Lỗi: ' + e.message, 'err');
-        }
-    }
-    // Sau khi sửa/xoá 1 bản ghi: tải lại số liệu báo cáo + làm mới drawer TẠI CHỖ (giữ mở).
-    async function afterRecordMutation() {
-        const day = _drawerDay; // chốt trước khi bất kỳ thứ gì reset (SSE reload có thể chen vào)
-        try {
-            REPORT = await api('/report?' + reportQs());
-            renderReport(); // vẽ lại bảng + thumbnail
-        } catch (e) {
-            toast('Lỗi tải lại: ' + e.message, 'err');
-        }
-        if (!day || !_dayDrawer) return;
-        if (setDrawerForDay(day)) {
-            _drawerDay = day;
-            if (!_dayDrawer.isOpen()) _dayDrawer.open(); // SSE có thể đã đóng → mở lại
-        } else {
-            _dayDrawer.close(); // ngày hết bản ghi (xoá bản ghi cuối) → đóng
-        }
-    }
-
-    async function deleteDay(ymd, count) {
-        if (!isAdmin()) return toast('Chỉ admin được xoá', 'err');
-        const user = $('#rpUser').value;
-        const dl = dayLabel(ymd);
-        const who = user ? ` của "${user}"` : '';
-        const msg = `Xoá TOÀN BỘ ${count} lần cân ngày ${dl.date}${who}?\nKhông thể hoàn tác.`;
-        const ok = window.Popup?.confirm ? await window.Popup.confirm(msg) : confirm(msg);
-        if (!ok) return;
-        try {
-            const qs = user ? '?username=' + encodeURIComponent(user) : '';
-            const r = await api('/day/' + encodeURIComponent(ymd) + qs, { method: 'DELETE' });
-            toast(`✓ Đã xoá ${r.deleted ?? count} bản ghi`, 'ok');
             loadReport();
-            load(); // đồng bộ lại danh sách Lịch sử cân
+            load();
         } catch (e) {
             toast('Lỗi: ' + e.message, 'err');
         }
@@ -698,7 +571,6 @@
             _filterDrawer.showToggle(!log); // nút "BỘ LỌC" chỉ hiện ở tab Báo cáo
             if (log) _filterDrawer.close();
         }
-        if (log && _dayDrawer?.isOpen()) _dayDrawer.close();
         if (!log && !REPORT) selectMonth(currentMonth()); // mặc định: tháng hiện tại
     }
 
@@ -777,7 +649,7 @@
         $('#gwRefresh').addEventListener('click', load);
         setupReport();
         tickClock();
-        setInterval(tickClock, 1000 * 30);
+        setInterval(tickClock, 1000); // 1s: đồng hồ hiện giây chạy live
         icons();
         load();
         setupSSE();

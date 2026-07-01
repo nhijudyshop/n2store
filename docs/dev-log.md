@@ -2,6 +2,17 @@
 
 ## 2026-07-01
 
+### [goods-weight] Báo cáo: MỖI LẦN CÂN 1 dòng (bỏ gộp ngày) + full datetime giây
+
+**Files:** `web2/goods-weight/js/goods-weight.js` (rewrite `renderReport` per-capture, `startEditRow`/`saveEditRow`/`delRecord`, `fmtDateTime`, FMT +giây, bỏ day-drawer + `dayLabel`/`deleteDay`), `web2/goods-weight/css/goods-weight.css`, `web2/goods-weight/index.html` (thead + bump css/js v=20260701f).
+
+Theo yêu cầu user: (1) **KHÔNG gộp theo ngày** — mỗi lần cân là 1 dòng riêng, cột "Thời gian" = ngày + **giờ:phút:giây** (GMT+7), sắp mới nhất trước; (2) tab **Cân hàng** cũng hiện đầy đủ giờ:phút:giây (FMT +second, đồng hồ tick 1s).
+
+- Bảng báo cáo: flatten `rows[].items` → per-capture; cột Thời gian | Ảnh (thumbnail→lightbox) | Kg | Kiện | Tiền kg | Tiền kiện | Tổng | sửa/xoá (admin). Sửa = bung dòng form dưới hàng (`rp-erow`); xoá = `DELETE /:id`; đổi xong → `loadReport()`.
+- Gỡ hẳn day-drawer (obsolete khi không gộp ngày) + `dayLabel`/`deleteDay` (dead). GIỮ filter drawer "BỘ LỌC" + chip tháng trên bảng. Backend không đổi (frontend-only; `/report` items + `PATCH /:id` đã live).
+
+Status: 🔄 verify browser
+
 ### [goods-weight] Chip tháng lên trên bảng + sửa/xoá bản ghi cân trong drawer
 
 **Files:** `web2/goods-weight/index.html` (tách `#rpMonths` khỏi `.rp-bar`, bump v=20260701d), `web2/goods-weight/css/goods-weight.css` (`.rp-months-bar` + edit form/action btn), `web2/goods-weight/js/goods-weight.js` (`setDrawerForDay`/`startEditPhoto`/`saveEditPhoto`/`delRecord`/`afterRecordMutation`/`reportQs`), `render.com/routes/web2-goods-weight.js` (`PATCH /:id`).

@@ -740,36 +740,46 @@ body:not(.rp-admin) .rp-act {
     border-color: #f4c4c6;
 }
 
-/* ── Báo cáo: thumbnail ảnh trong hàng + drawer ảnh ─── */
-.rp-drow {
-    cursor: pointer;
+/* ── Báo cáo: MỖI LẦN CÂN 1 DÒNG (thumbnail + thời gian đầy đủ) ─── */
+.rp-cap-imgcell {
+    width: 60px;
 }
-.rp-drow:focus-visible {
-    outline: 2px solid var(--c-primary);
-    outline-offset: -2px;
-}
-.rp-day-thumbs {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    margin-top: 7px;
-    flex-wrap: wrap;
-}
-.rp-day-thumbs img {
-    width: 36px;
-    height: 36px;
+.rp-cap-thumb {
+    width: 50px;
+    height: 50px;
     object-fit: cover;
-    border-radius: 7px;
+    border-radius: 9px;
     border: 1px solid var(--c-line);
     background: var(--c-bg);
+    cursor: zoom-in;
+    display: block;
 }
-.rp-more {
+.rp-cap-empty {
+    display: grid;
+    place-items: center;
+    color: var(--c-text-3);
+    cursor: default;
+}
+.rp-cap-empty i {
+    width: 20px;
+    height: 20px;
+}
+.rp-cap-note {
+    display: block;
     font-size: 11px;
-    font-weight: 800;
-    color: var(--c-primary);
-    background: #eaf2ff;
-    border-radius: 6px;
-    padding: 3px 7px;
+    font-weight: 600;
+    color: var(--c-text-2);
+    margin-top: 2px;
+    white-space: normal;
+    max-width: 240px;
+}
+/* cột thao tác 2 nút (sửa + xoá) */
+.rp-act2 {
+    width: 82px;
+    white-space: nowrap;
+}
+.rp-act2 .rp-del + .rp-del {
+    margin-left: 4px;
 }
 /* thanh lọc .rp-bar chuyển vào Web2Drawer → bỏ chrome card (drawer body đã là nền trắng) */
 .w2dw-body .rp-bar {
@@ -778,103 +788,38 @@ body:not(.rp-admin) .rp-act {
     border-radius: 0;
     padding: 0;
 }
-/* lưới ảnh trong drawer (Web2Drawer body đã có padding sẵn) */
-.rp-photos {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 12px;
+/* dòng form sửa 1 lần cân — bung ngay dưới hàng trong bảng */
+.rp-erow > td {
+    background: #f5f8fd;
+    padding: 10px 14px !important;
 }
-.rp-photo {
-    margin: 0;
-    background: var(--c-surface);
-    border: 1px solid var(--c-line);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: var(--c-shadow);
-}
-.rp-photo img {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-    display: block;
-    cursor: zoom-in;
-    background: var(--c-bg);
-}
-.rp-photo-empty {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    display: grid;
-    place-items: center;
-    color: var(--c-text-3);
-    background: var(--c-bg);
-}
-.rp-photo-empty i {
-    width: 26px;
-    height: 26px;
-}
-.rp-photo figcaption {
-    padding: 7px 9px 9px;
-    font-size: 12px;
-    color: var(--c-text-2);
-    line-height: 1.35;
-}
-.rp-photo figcaption b {
-    font-size: 14px;
-    font-weight: 800;
-    color: var(--c-text);
-}
-.rp-photo figcaption span {
-    display: block;
-    color: var(--c-text-3);
-    font-weight: 600;
-    margin-top: 1px;
-}
-.rp-photo-note {
-    color: var(--c-text-2) !important;
-    word-break: break-word;
-}
-/* nút sửa/xoá trên mỗi ảnh trong drawer (admin) */
-.rp-photo {
-    position: relative;
-}
-.rp-photo-act {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    display: flex;
-    gap: 5px;
-}
-.rp-photo-act button {
-    width: 30px;
-    height: 30px;
-    border: none;
-    border-radius: 8px;
-    background: rgba(16, 24, 40, 0.62);
-    color: #fff;
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-}
-.rp-photo-act button:hover {
-    background: rgba(16, 24, 40, 0.85);
-}
-.rp-pa-del:hover {
-    background: var(--c-red) !important;
-}
-.rp-photo-act i {
-    width: 15px;
-    height: 15px;
-}
-/* form sửa inline trong figcaption */
 .rp-edit {
     display: flex;
     flex-direction: column;
     gap: 7px;
     margin-top: 2px;
 }
-.rp-edit-row {
-    display: flex;
-    gap: 8px;
+.rp-edit-inline {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 0;
+}
+.rp-edit-inline label {
+    flex: 0 0 auto;
+}
+.rp-edit-inline .rp-e-kg,
+.rp-edit-inline .rp-e-bales {
+    width: 90px;
+}
+.rp-edit-inline .rp-e-notewrap {
+    flex: 1 1 200px;
+}
+.rp-edit-inline .rp-e-save,
+.rp-edit-inline .rp-e-cancel {
+    flex: 0 0 auto;
+    padding: 0 18px;
 }
 .rp-edit label {
     flex: 1;
