@@ -2,6 +2,20 @@
 
 ## 2026-07-01
 
+### [web2-system] Regenerate data manifest (modules/codemap/derived docs) phản ánh session này
+
+**Files:** `web2/system/data/web2-modules.json`, `docs/web2/web2-codemap.json`, `docs/web2/WEB2-CODEMAP.md`, `docs/web2/WEB2-PAGE-MODULES.md`, `docs/web2/WEB2-THIRD-PARTIES.md` (auto-gen).
+
+User: "cập nhật mới dữ liệu" các tab web2/system. Chạy 2 generator theo thứ tự:
+`node scripts/gen-web2-codemap.js` → `node scripts/gen-web2-system-data.js`.
+
+- **Kết quả:** codemap 468 files · 154 shared · 3950 funcs · 188 dup-names · 20 oversized; modules.json shared=154 pages=49 routes=63 services=35.
+- **Phản ánh đúng session:** trang `web2/livestream-poller/` đã biến mất khỏi pages; chỉ còn **service** `web2-livestream-poller.js` (giữ lại). `campaign-manager` present. live-campaign-manager gut.
+- **Tab nào auto-fresh (không cần regen):** `services` (live `/api/services-overview`), `sse` (live stats), `pages` (đọc DOM sidebar → tự bỏ poller), `ai` (runtime `Web2AiPageRegistry`).
+- **Tab curated (hand-maintained, KHÔNG có generator):** `dedup` (`web2-dedup-audit.json`, từ audit nhiều vòng), `sse` registry (`web2-sse-registry.json`), `thirdparty` (`web2-third-parties.json` — vừa cập nhật findings ở commit trước). Các file này chỉ đổi khi audit tay — không fabricate.
+
+Status: ✅ (data manifest khớp code hiện tại)
+
 ### [web2-system/services] Đóng 9 servicesAuditFindings — inventory live đã fresh, registry giờ khớp
 
 **Files:** `web2/system/data/web2-third-parties.json` (`servicesAuditFindings` → `status: resolved` + `resolvedDate` + `resolution` cho cả 9).
