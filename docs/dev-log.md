@@ -2,6 +2,14 @@
 
 ## 2026-07-02
 
+### [cham-cong] Bỏ cột Phụ cấp khỏi bảng lương
+
+**Files:** `web2/cham-cong/js/cham-cong-payroll.js`, `index.html` (bump v).
+
+Bỏ cột Phụ cấp: header + ô bấm + tfoot + Excel export + phiếu lương in + KIND_CFG/V-map (dead code). Skeleton 11→10 cột. GIỮ field `allowances` trong `saveInline` body + engine (data cũ nếu có vẫn tính vào tổng, merge-safe không wipe).
+
+Status: ✅
+
 ### [cham-cong] Bảng lương: bỏ modal "Điều chỉnh lương" → bấm từng ô mở modal kiểu TPOS + lương ngày trọn khi chấm đủ
 
 **Files:** `web2/cham-cong/js/cham-cong-payroll.js` (bỏ Sửa/openEdit/openDetail, thêm 4 modal `cc-tpl`), `cham-cong-salary.js` (calcDay: chấm đủ = trọn lương ngày), `css/cham-cong.css` (+cc-tpl styles, -input inline), `index.html` (bump v), `render.com/routes/web2-attendance.js` (+2 cột `lam_them_detail`, `luong_chinh_detail` JSONB + PUT).

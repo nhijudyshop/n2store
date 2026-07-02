@@ -113,8 +113,8 @@
         if (!el) return;
         if (cc.state.loading) {
             // First-load only (loading chỉ bật khi load lạnh / đổi tháng) → skeleton bảng
-            // lương 11 cột; reload nền không bật loading nên không flash.
-            if (global.Web2Skeleton) global.Web2Skeleton.table(el, { rows: 8, cols: 11 });
+            // lương 10 cột; reload nền không bật loading nên không flash.
+            if (global.Web2Skeleton) global.Web2Skeleton.table(el, { rows: 8, cols: 10 });
             else el.innerHTML = `<div class="cc-empty">Đang tải…</div>`;
             return;
         }
@@ -135,7 +135,7 @@
         const dupEmpIds = new Set(Object.keys(empIdCount).filter((k) => empIdCount[k] > 1));
 
         let rows = '';
-        let tot = { luong: 0, ot: 0, pc: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
+        let tot = { luong: 0, ot: 0, thuong: 0, giam: 0, tong: 0, datra: 0, con: 0 };
         // B3-fix (2026-06-26): 1 NV gán nhiều PIN → CHỈ cộng vào TỔNG 1 lần (PIN đầu),
         // các dòng trùng vẫn hiển thị nhưng đánh dấu "không tính tổng" → tổng không phồng.
         const countedEmpIds = new Set();
@@ -159,7 +159,6 @@
             if (!skipTotal) {
                 tot.luong += m.luongChinh;
                 tot.ot += m.lamThem;
-                tot.pc += m.phuCap;
                 tot.thuong += m.thuong;
                 tot.giam += m.giamTru;
                 tot.tong += m.tongLuong;
@@ -176,7 +175,6 @@
                 <td class="num">${m.workedDays}</td>
                 ${clickCell(en, 'luongchinh', locked)}
                 ${clickCell(en, 'ot', locked)}
-                ${clickCell(en, 'allowance', locked)}
                 ${clickCell(en, 'thuong', locked)}
                 ${clickCell(en, 'giam', locked)}
                 <td class="num tong">${fmt(m.tongLuong)}</td>
@@ -204,14 +202,14 @@
             <table class="cc-payroll">
               <thead><tr>
                 <th>Nhân viên</th><th>Công</th><th>Lương chính</th><th>Tăng ca</th>
-                <th>Phụ cấp</th><th>Thưởng</th><th>Giảm trừ</th><th>Tổng lương</th>
+                <th>Thưởng</th><th>Giảm trừ</th><th>Tổng lương</th>
                 <th>Đã trả</th><th>Còn lại</th><th>Ghi chú</th>
               </tr></thead>
               <tbody>${rows}</tbody>
               <tfoot><tr>
                 <td>TỔNG (${dusLen} NV)</td><td></td>
                 <td class="num">${fmt(tot.luong)}</td><td class="num ot">${fmt(tot.ot)}</td>
-                <td class="num">${fmt(tot.pc)}</td><td class="num thuong">${fmt(tot.thuong)}</td>
+                <td class="num thuong">${fmt(tot.thuong)}</td>
                 <td class="num giam">${fmt(tot.giam)}</td><td class="num tong">${fmt(tot.tong)}</td>
                 <td class="num">${fmt(tot.datra)}</td><td class="num con">${fmt(tot.con)}</td><td></td>
               </tr></tfoot>
@@ -374,7 +372,6 @@
         const V = {
             luongchinh: { cls: '', sign: '', val: m.luongChinh },
             ot: { cls: 'ot', sign: '+', val: m.lamThem },
-            allowance: { cls: '', sign: '', val: m.phuCap },
             thuong: { cls: 'thuong', sign: '+', val: m.thuong },
             giam: { cls: 'giam', sign: '−', val: m.giamTru },
             datra: { cls: '', sign: '', val: m.daTra },
@@ -385,14 +382,6 @@
     }
 
     const KIND_CFG = {
-        allowance: {
-            title: 'Các khoản phụ cấp',
-            colL: 'Loại phụ cấp',
-            colR: 'Tiền phụ cấp',
-            field: 'allowances',
-            src: 'allowances',
-            groups: ['Phụ cấp cố định', 'Phụ cấp khác'],
-        },
         thuong: {
             title: 'Các khoản thưởng',
             colL: 'Loại thưởng',
@@ -486,7 +475,7 @@
             .filter((x) => x.label || x.amount);
     }
 
-    // Modal Thưởng / Phụ cấp / Đã trả — danh sách khoản {label, amount}.
+    // Modal Thưởng / Đã trả — danh sách khoản {label, amount}.
     function openItemsModal(uid, kind) {
         const cc = CC();
         if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
@@ -980,8 +969,6 @@
             <tr><td class="ps-sub">${luongChinhDesc}</td><td class="ps-amt">${fmt(m.luongChinh)}</td></tr>
             ${sectionHead('Tăng ca (OT)', m.lamThem ? '+' + fmt(m.lamThem) : '0đ', 'ot')}
             ${otRows || '<tr><td class="ps-sub">Không có tăng ca.</td><td class="ps-amt">—</td></tr>'}
-            ${sectionHead('Phụ cấp', m.phuCap ? '+' + fmt(m.phuCap) : '0đ')}
-            ${itemRows(pr.allowances, '+') || '<tr><td class="ps-sub">—</td><td class="ps-amt">—</td></tr>'}
             ${sectionHead('Thưởng', m.thuong ? '+' + fmt(m.thuong) : '0đ', 'thuong')}
             ${itemRows(pr.thuong_items, '+', 'thuong') || '<tr><td class="ps-sub">—</td><td class="ps-amt">—</td></tr>'}
             ${sectionHead('Giảm trừ', m.giamTru ? '−' + fmt(m.giamTru) : '0đ', 'giam')}
@@ -1035,7 +1022,6 @@
                     'Công',
                     'Lương chính',
                     'Tăng ca',
-                    'Phụ cấp',
                     'Thưởng',
                     'Giảm trừ',
                     'Tổng lương',
@@ -1050,7 +1036,6 @@
                     m.workedDays,
                     m.luongChinh,
                     m.lamThem,
-                    m.phuCap,
                     m.thuong,
                     m.giamTru,
                     m.tongLuong,
