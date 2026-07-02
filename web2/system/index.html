@@ -101,6 +101,33 @@
                         </span>
                     </div>
 
+                    <!-- Chuẩn debug browser (user 2026-07-02): đọc source, KHÔNG dựa chụp hình -->
+                    <div class="sd-render-note">
+                        <i data-lucide="bug"></i>
+                        <span>
+                            <strong>Chuẩn debug browser — đọc SOURCE, không dựa chụp hình</strong>
+                            (chụp hình không thấy delay/lag/state ẩn). Đọc qua
+                            <code>eval</code>/<code>feval</code> (REPL) hoặc DevTools MCP:
+                            <strong>DOM/HTML</strong> (<code>querySelector</code>, snapshot) ·
+                            <strong>CSS thật</strong> (<code>getComputedStyle</code>,
+                            <code>getBoundingClientRect</code>) · <strong>Network</strong> (<code
+                                >netlast N</code
+                            >, headers/set-cookie/timing) · <strong>Console/errors</strong> (hook
+                            <code>console.error</code>) ·
+                            <strong>Cookies/Storage</strong> (<code>document.cookie</code>,
+                            <code>localStorage</code>, IDB) · <strong>Delay/lag</strong> =
+                            Performance API
+                            (<code>performance.getEntriesByType('longtask'|'paint'|'layout-shift'|'resource')</code>,
+                            <code>performance.now()</code> bọc thao tác). Screenshot CHỈ để verify
+                            visual cuối. <strong>Debug SSE</strong> → tab
+                            <a href="?tab=sse">Realtime (SSE)</a> + topic
+                            <code>web2:_admin:sse-log</code> (ring buffer 500 có sẵn) —
+                            <strong>KHÔNG bơm thêm debug event vào SSE hub</strong> (broadcast mọi
+                            client + LISTEN/NOTIFY fan-out → quá tải vô ích; đo lag client bằng
+                            Performance API là local, zero tải server).
+                        </span>
+                    </div>
+
                     <!-- Database cards -->
                     <section class="sd-section">
                         <h2><i data-lucide="database"></i> Cơ sở dữ liệu (Render Postgres)</h2>

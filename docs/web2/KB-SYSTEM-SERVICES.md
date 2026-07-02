@@ -69,6 +69,8 @@ Toàn bộ logic ở `web2/system/js/system-services.js` (`renderAll(data)` → 
 
 "Tất cả dịch vụ Render đều PAID — 3 web service (web2-api Standard $25 · n2store-fallback Standard $25 · web2-realtime Starter $7) + 2 Postgres Basic 1GB $19 = **$95/mo**. Paid ⇒ không idle-sleep…".
 
+Kèm note thứ 2 (2026-07-02) — **Chuẩn debug browser**: đọc SOURCE qua `eval`/`feval`/DevTools MCP (DOM · CSS computed · network headers · console · cookies/storage · **delay/lag = Performance API** `longtask`/`paint`/`layout-shift`), screenshot CHỈ verify visual cuối; debug SSE dùng tab Realtime + `web2:_admin:sse-log` có sẵn, **KHÔNG bơm debug event vào SSE hub** (quá tải vô ích).
+
 ### c) DB live cards (`#sdDbGrid`)
 
 Render bởi `renderDatabases(data.databases)` — duyệt từng pool (`chatDb`, `web2Db`). Mỗi card hiển thị:
