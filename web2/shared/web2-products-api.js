@@ -25,6 +25,9 @@
     }
 
     async function _fetchJson(url, options = {}) {
+        // 1 NGUỒN: Web2ApiFetch.json (autoload sidebar). Fallback inline khi chưa load (load-order safe).
+        if (window.Web2ApiFetch && window.Web2ApiFetch.json)
+            return window.Web2ApiFetch.json(url, options);
         const res = await fetch(url, {
             ...options,
             headers: { Accept: 'application/json', ..._w2Auth(), ...(options.headers || {}) },

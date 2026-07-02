@@ -314,20 +314,21 @@
             "category": "util",
             "title": "Wrapper fetch JSON + auth + throw (_fetchJson / jsonFetch)",
             "severity": "low",
-            "status": "pending",
+            "status": "partial",
             "filesAffected": 13,
-            "concept": "~13 file (_fetchJson 7 + jsonFetch 6) tự viết wrapper fetch: set Accept json + auth headers + try json + if(!res.ok) throw Error(data.error||HTTP status). web2-api.js / web2-variants-api.js / web2-products-api.js BYTE-IDENTICAL (chỉ khác tên helper auth _authHeaders vs _w2Auth). Chồng 1 phần với group util-auth (#7) nhưng đây là CẢ wrapper (auth+parse+throw), đơn vị lặp lớn hơn helper auth đơn.",
-            "canonical": "Đề xuất Web2Api.fetchJson(url, opts) — web2/shared/web2-api.js (đã có _fetchJson gần-canonical, chỉ cần export + api-module khác delegate).",
-            "resolution": "Signal mới 2026-07-01: đọc 4 bản _fetchJson (native-orders-api/web2-api/variants-api/products-api) → 3 bản shared byte-identical. web2-api.js đã có bản chuẩn; promote thành Web2Api.fetchJson public rồi api-module delegate (giữ fallback). Actionable. ⚠ vài bản (products-api) thêm err.status/message → cần giữ superset khi gộp. Chưa thực thi.",
+            "concept": "~13 file tự viết wrapper fetch: set Accept json + auth headers + try json + if(!res.ok) throw Error(data.error||HTTP status). NGUỒN 1-source ĐÃ CÓ SẴN từ trước: `Web2ApiFetch.json` (web2/shared/web2-api-fetch.js — authHeaders + parse content-type-aware + throw Error(.status/.body)), autoload qua sidebar.",
+            "canonical": "web2/shared/web2-api-fetch.js → Web2ApiFetch.json(url, options). Các wrapper cục bộ DELEGATE về đây (dòng đầu) + giữ body cũ làm fallback load-order-safe.",
+            "resolution": "2026-07-01: migrate 6 wrapper sang delegate-with-fallback `if(window.Web2ApiFetch?.json) return Web2ApiFetch.json(url,options); <body cũ fallback>` — web2-api, web2-products-api, web2-variants-api, web2-product-types-api, native-orders-api, live-native-orders-api (bản này delegate GIỮ timeout 15s: `{...options, signal:AbortSignal.timeout(15000)}`). semanticMatch verify (return JSON body + x-web2-token + throw Error khớp; chỉ khác .message edge non-JSON). **web2-chat-utils.js KHÔNG migrate** (workflow refuse): `_fetchJson` CỐ TÌNH không gắn x-web2-token (callers gọi Pancake proxy auth bằng JWT/page-token trong URL) → delegate sẽ đổi header + shape trả về, phá call sites.",
             "commit": "",
             "sites": [
-                "web2/shared/web2-api.js (_fetchJson — ứng viên canonical)",
-                "web2/shared/web2-products-api.js",
-                "web2/variants/js/web2-variants-api.js",
-                "web2/product-types/js/web2-product-types-api.js",
-                "web2/shared/web2-chat-utils.js",
-                "native-orders/js/native-orders-api.js",
-                "live-chat/js/live/live-native-orders-api.js"
+                "web2/shared/web2-api-fetch.js (NGUỒN — Web2ApiFetch.json, có sẵn)",
+                "web2/shared/web2-api.js (✅ delegate+fallback)",
+                "web2/shared/web2-products-api.js (✅ delegate+fallback)",
+                "web2/variants/js/web2-variants-api.js (✅ delegate+fallback)",
+                "web2/product-types/js/web2-product-types-api.js (✅ delegate+fallback)",
+                "native-orders/js/native-orders-api.js (✅ delegate+fallback)",
+                "live-chat/js/live/live-native-orders-api.js (✅ delegate+fallback, giữ timeout 15s)",
+                "web2/shared/web2-chat-utils.js (KHÔNG migrate — cố tình không x-web2-token, Pancake proxy dùng token URL)"
             ]
         },
         {

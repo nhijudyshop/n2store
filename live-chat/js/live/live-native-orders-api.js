@@ -31,6 +31,13 @@ const NativeOrdersApi = {
     },
 
     async _fetchJson(url, options = {}) {
+        // 1 NGUỒN: Web2ApiFetch.json (autoload sidebar). Fallback inline khi chưa load (load-order safe).
+        // GIỮ timeout 15s (như fallback) khi delegate — signal sau options để luôn áp (khớp hành vi cũ).
+        if (window.Web2ApiFetch && window.Web2ApiFetch.json)
+            return window.Web2ApiFetch.json(url, {
+                ...options,
+                signal: AbortSignal.timeout(15000),
+            });
         const response = await fetch(url, {
             ...options,
             signal: AbortSignal.timeout(15000),
