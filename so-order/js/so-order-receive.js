@@ -694,7 +694,10 @@
                 }));
             if (!partialItems.length) throw new Error('Không có code nào để confirm partial');
             const res = await fetch(
-                'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-products/confirm-purchase-partial',
+                (window.API_CONFIG?.WORKER_URL ||
+                    window.WEB2_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev') +
+                    '/api/web2-products/confirm-purchase-partial',
                 {
                     method: 'POST',
                     headers: SO._w2Auth({ 'Content-Type': 'application/json' }),

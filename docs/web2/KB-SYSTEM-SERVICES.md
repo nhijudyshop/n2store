@@ -58,12 +58,12 @@ Toàn bộ logic ở `web2/system/js/system-services.js` (`renderAll(data)` → 
 
 ### a) Cost summary strip (4 card)
 
-- **💵 Tổng chi phí /tháng** — cộng động `s.costMonth` của mọi service có `costMonth > 0` → ~$95 USD.
+- **💵 Tổng chi phí /tháng** — cộng động `s.costMonth` của mọi service có `costMonth > 0` → **~$119 USD** (Render $95 + SePay ~$24/589k VND — SePay thêm vào inventory 2026-06-28).
 - **💸 Đang trả tiền** — đếm service `costMonth > 0`.
 - **🆓 Đang dùng free** — đếm service `costMonth` không > 0.
 - **⚙️ Render uptime** — `data.process.uptimePretty`.
 
-> ⚠ `costMonth` của Bunny CDN là chuỗi `"~1"` → `Number("~1")` = `NaN` → bị đếm vào **free** và KHÔNG cộng vào total. Tổng động (~$95) khớp các service Render có cost dạng số.
+> ⚠ `costMonth` của Bunny CDN là chuỗi `"~1"` → `Number("~1")` = `NaN` → bị đếm vào **free** và KHÔNG cộng vào total. Tổng động (~$119) = Render $95 + SePay $24 (các service cost dạng số).
 
 ### b) Render note tĩnh (hardcode trong HTML)
 
@@ -75,7 +75,7 @@ Render bởi `renderDatabases(data.databases)` — duyệt từng pool (`chatDb`
 
 - Provider: `chatDb` → "Render PG — n2store-chat-db"; còn lại → "Render PG — n2store-web2-db".
 - Plan badge hardcode: "Basic 1GB · PAID ($19/mo)" (cả 2 đều paid, không có badge free).
-- 📊 Dung lượng DB + usage bar so với hằng số **1 GB** (`DB_LIMITS`, `1024^3` bytes). Màu: `pct >= 80` → danger, `>= 60` → warn.
+- 📊 Dung lượng DB + usage bar so với **15 GB disk** (`DB_LIMITS`, Render API `diskSizeGB=15` — sửa 2026-06-28, trước đó hardcode 1GB báo sai 101.9%). Màu: `pct >= 80` → danger, `>= 60` → warn.
 - 📁 Tổng bảng, 🔌 Connection pool (node-postgres internal: total · idle · waiting), ⚙️ DB connections (`pg_stat_activity` group by state).
 - Top **8** bảng theo size (cột Tên/Rows/Size); >8 bảng → nút "Xem tất cả N bảng" (backend trả tối đa 10).
 - Dòng đỏ ⚠️ nếu `stats.dbError`.
@@ -233,7 +233,7 @@ Quy tắc: cần capability → tra registry TRƯỚC, tái dùng KHÔNG viết 
 - **Tab Services = LIVE API** `${WORKER}/api/services-overview` (refresh 60s). Chỉ các tab Modules/Bên-thứ-3 mới đọc `web2/system/data/*.json`. Tab Pages đọc DOM sidebar, tab SSE poll stats.
 - **Chi phí là HARDCODE** trong `SERVICES_INVENTORY` (backend), KHÔNG query Render billing runtime — phải cập nhật tay khi đổi plan.
 - **Bunny CDN `costMonth = "~1"` (string)** → `NaN` → bị tính vào FREE, không cộng vào tổng. Đừng tin "đang dùng free" cho Bunny.
-- **DB usage bar so với hằng số 1GB cứng** (`DB_LIMITS`), không đọc plan thật từ Render → nếu nâng plan, bar vẫn tính theo 1GB.
+- **DB usage bar so với hằng số 15GB cứng** (`DB_LIMITS`, khớp Render API `diskSizeGB=15` tại 2026-06-28), không đọc plan thật runtime → nếu đổi plan disk, phải sửa tay `DB_DISK_BYTES` trong `system-services.js`.
 - **Chi tiết = modal**, KHÔNG expand inline. Dòng bảng trong modal "Xem tất cả N bảng" KHÔNG click mở tiếp được (delegation chỉ ở grid).
 - **"AI widget" KHÔNG có UI** — chỉ là accessor `SystemServices.getData()`.
 - **web2-api vs n2store-fallback:** web2-api là nơi backend Web 2.0 THỰC SỰ chạy (route + hub SSE web2 + cron web2). n2store-fallback vẫn mount route web2 nhưng vô hại. **Worker** mới là nơi định tuyến.

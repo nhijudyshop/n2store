@@ -215,7 +215,12 @@
             <div id="content">Đang tải…</div>
         </div>
         <script>
-            const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            // 1 nguồn base-URL = WEB2_CONFIG khi có (trang print có thể không load web2-auth
+            // → literal fallback vẫn chạy).
+            const WORKER =
+                window.API_CONFIG?.WORKER_URL ||
+                window.WEB2_CONFIG?.WORKER_URL ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
             const params = new URLSearchParams(location.search);
             const number = params.get('number');
 

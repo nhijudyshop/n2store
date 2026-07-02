@@ -251,8 +251,14 @@
     }
 
     // ----- QR VietQR fetch -----
-    const QR_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
-    const QR_DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const QR_BASE =
+        (window.API_CONFIG?.WORKER_URL ||
+            window.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/customer-wallet';
+    const QR_DIRECT_BASE =
+        (window.WEB2_CONFIG?.WEB2_API || 'https://web2-api-kv04.onrender.com') +
+        '/api/web2/customer-wallet';
     async function qrFetch(path, options) {
         try {
             const r = await fetch(`${QR_BASE}${path}`, options);

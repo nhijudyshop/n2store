@@ -209,7 +209,11 @@
         <script>
             (function () {
                 'use strict';
-                const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js); literal chỉ là fallback.
+                const WORKER =
+                    window.API_CONFIG?.WORKER_URL ||
+                    window.WEB2_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
                 // 2026-06-03: web2 — tổng hợp từ fast_sale_orders (web2Db), bỏ /api/v2 Web 1.0
                 const API = `${WORKER}/api/pbh-reports/delivery`;
 

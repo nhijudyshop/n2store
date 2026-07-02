@@ -9,8 +9,14 @@
 (function (global) {
     'use strict';
 
-    const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
-    const FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2/balance-history';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const _WORKER =
+        global.API_CONFIG?.WORKER_URL ||
+        global.WEB2_CONFIG?.WORKER_URL ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const _DIRECT = global.WEB2_CONFIG?.WEB2_API || 'https://web2-api-kv04.onrender.com';
+    const BASE = _WORKER + '/api/web2/balance-history';
+    const FALLBACK = _DIRECT + '/api/web2/balance-history';
 
     let _selectedKh = null; // { id, name, phone }
     let _nccLoaded = false;
@@ -228,8 +234,8 @@
         _searchCache.set(k, { ts: Date.now(), results });
     }
 
-    const CW_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
-    const CW_FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
+    const CW_BASE = _WORKER + '/api/web2/customer-wallet';
+    const CW_FALLBACK = _DIRECT + '/api/web2/customer-wallet';
 
     async function searchKhAggregate(query) {
         const url = `${CW_BASE}/aggregate?limit=20&search=${encodeURIComponent(query)}`;
@@ -393,9 +399,7 @@
             // (a) số dư theo NCC từ ledger /state
             const balByName = new Map();
             try {
-                const r = await jsonFetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-supplier-wallet/state'
-                );
+                const r = await jsonFetch(_WORKER + '/api/web2-supplier-wallet/state');
                 const wallets = (r && r.wallets) || {};
                 for (const name of Object.keys(wallets)) {
                     if (!name) continue;

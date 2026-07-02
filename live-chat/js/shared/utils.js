@@ -194,7 +194,10 @@ const SharedUtils = {
             );
         }
 
-        let url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${fbId}`;
+        // 1 nguồn base-URL = API_CONFIG live-chat (api-config.js); literal chỉ là fallback.
+        const _worker =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        let url = `${_worker}/api/fb-avatar?id=${fbId}`;
         if (pageId) url += `&page=${pageId}`;
         if (token) url += `&token=${encodeURIComponent(token)}`;
         return url;

@@ -315,7 +315,11 @@
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../../web2/shared/web2-sidebar.js?v=20260629e"></script>
         <script>
-            const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js); literal chỉ là fallback.
+            const WORKER =
+                window.API_CONFIG?.WORKER_URL ||
+                window.WEB2_CONFIG?.WORKER_URL ||
+                'https://chatomni-proxy.nhijudyshop.workers.dev';
             let currentDays = 30;
             const $ = (s) => document.querySelector(s);
 

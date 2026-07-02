@@ -8,8 +8,14 @@
 (function (global) {
     'use strict';
 
-    const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
-    const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/balance-history';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const BASE =
+        (global.API_CONFIG?.WORKER_URL ||
+            global.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/balance-history';
+    const DIRECT_BASE =
+        (global.WEB2_CONFIG?.WEB2_API || 'https://web2-api-kv04.onrender.com') +
+        '/api/web2/balance-history';
 
     let _modal = null;
     let _activeTxId = null;

@@ -436,7 +436,10 @@
             (function () {
                 const btn = document.getElementById('btnCkReview');
                 const cnt = document.getElementById('ckReviewCount');
-                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                // 1 nguồn base-URL = API_CONFIG live-chat; literal chỉ là fallback.
+                const PROXY =
+                    window.API_CONFIG?.WORKER_URL ||
+                    'https://chatomni-proxy.nhijudyshop.workers.dev';
                 async function refreshCount() {
                     try {
                         const r = await fetch(PROXY + '/api/web2/payment-signals/stats', {

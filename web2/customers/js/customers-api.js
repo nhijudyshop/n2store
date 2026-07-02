@@ -8,8 +8,14 @@
 (function () {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers';
-    const DIRECT = 'https://web2-api-kv04.onrender.com/api/web2/customers';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const WORKER =
+        (window.API_CONFIG?.WORKER_URL ||
+            window.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/customers';
+    const DIRECT =
+        (window.WEB2_CONFIG?.WEB2_API || 'https://web2-api-kv04.onrender.com') +
+        '/api/web2/customers';
 
     // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho mutation /api/web2/customers/*
     // (create/upsert/merge/:id PATCH/DELETE… — soft-gate → WEB2_AUTH_ENFORCE=1).

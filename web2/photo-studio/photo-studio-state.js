@@ -23,7 +23,11 @@
         'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
     PS.SEG_INPUT_W = 256; // downscale khung gửi model → nhanh + loop mask nhỏ
     PS.IMGLY_URL = 'https://esm.sh/@imgly/background-removal@1.5.5';
-    PS.CUTOUT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/cutout';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    PS.CUTOUT_API =
+        (global.API_CONFIG?.WORKER_URL ||
+            global.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/cutout';
 
     PS.state = {
         mode: 'ai', // mặc định AI nhanh (tức thì). 'hq' AI nét chậm hơn nhưng sắc | 'chroma'

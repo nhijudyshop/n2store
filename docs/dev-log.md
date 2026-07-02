@@ -1,5 +1,22 @@
 # Dev Log
 
+## 2026-07-02
+
+### [web2-shared] Dedup worker-base HOÀN TẤT — 18 file config-first (0 primary-literal còn) + KB services sync live
+
+**Files:** 9 JS (`customers-api`, `customer-wallet-api`, `bh-core`, `manual-deposit` ×3 chỗ, `pm-core` ×5 endpoint, `link-customer-modal`, `photo-studio-state`, `so-order-receive`, `live-chat/js/shared/utils.js` fb-avatar) + 9 HTML inline (`report-revenue`, `balance-history`, `dashboard`, `users-permissions`, `report-delivery`, `pbh print`, `notifications`, `live-chat index+chat`); `web2-dedup-audit.json` (group → **resolved**); `docs/web2/KB-SYSTEM-SERVICES.md` (sync số liệu live); regen codemap/modules/derived docs.
+
+Hoàn thiện đợt 2+3 của worker-base (đợt 1 = 5 file shared/system hôm qua). Pattern: `(API_CONFIG?.WORKER_URL || WEB2_CONFIG?.WORKER_URL || literal) + path`; DIRECT dùng `WEB2_CONFIG.WEB2_API`; live-chat dùng `API_CONFIG` bản riêng. **Behavior-identical** (config resolve cùng URL).
+
+- **KHÔNG phải violation (verify, không đụng):** 3 file live-chat (order-history/campaign-manager/live-source) đã `LiveState.workerUrl||literal`; product-detail đã `PROXY_BASE||literal`; 2 `<link rel=preconnect>` (goods-weight, comments-mobile) = HTML tĩnh không đọc được config, stale preconnect vô hại — by design.
+- **Re-scan cuối: 0 JS violation, 2 HTML = preconnect only** → group `util-worker-base` → resolved.
+- **KB sync trang live** (LUẬT VÀNG): tổng chi phí ~$95 → **~$119** (Render $95 + SePay $24); DB usage bar 1GB → **15GB disk** (`diskSizeGB=15`, fix 2026-06-28) ở §2a/§2c/§7.
+- Regen: codemap 469 files · 155 shared (có Web2Pagination) · modules pages=49 routes=63.
+
+**Test:** `node --check` 9/9 JS OK; browser verify tab Services live render đúng (~119 USD, 2 DB card 15GB, uptime) + balance-history (411 GD, 4 file sửa hoạt động). Browser đóng giữa chừng bởi agent khác giữ Chrome — các HTML còn lại cùng pattern đã proven.
+
+Status: ✅ (dedup 3/3 ứng viên xong: pagination + fetch-json + worker-base; 20 groups = 13 resolved · 4 partial · 3 pending)
+
 ## 2026-07-01
 
 ### [web2-shared] Dedup worker-base — RE-SCOPE: fallback-chain đúng by-design; fix 5 file primary-literal

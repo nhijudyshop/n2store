@@ -15,13 +15,18 @@
     const W2PM = global.W2PM || (global.W2PM = {});
 
     // ---- Endpoints / constants ----
-    W2PM.BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
-    W2PM.DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/balance-history';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const _WORKER =
+        global.API_CONFIG?.WORKER_URL ||
+        global.WEB2_CONFIG?.WORKER_URL ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const _DIRECT = global.WEB2_CONFIG?.WEB2_API || 'https://web2-api-kv04.onrender.com';
+    W2PM.BASE = _WORKER + '/api/web2/balance-history';
+    W2PM.DIRECT_BASE = _DIRECT + '/api/web2/balance-history';
     // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — bỏ /api/v2/customers Web 1.0
-    W2PM.CUSTOMER_SEARCH_BASE =
-        'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers/search';
-    W2PM.CUSTOMER_SEARCH_FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2/customers/search';
-    W2PM._WORKER_AVATAR = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar';
+    W2PM.CUSTOMER_SEARCH_BASE = _WORKER + '/api/web2/customers/search';
+    W2PM.CUSTOMER_SEARCH_FALLBACK = _DIRECT + '/api/web2/customers/search';
+    W2PM._WORKER_AVATAR = _WORKER + '/api/fb-avatar';
 
     // ---- Shared mutable state ----
     W2PM._modal = null;
