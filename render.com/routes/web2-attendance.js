@@ -196,10 +196,14 @@ async function ensureSchema(pool) {
             salary_days_override     NUMERIC,
             ot_hours_override        NUMERIC,
             lam_them_override        NUMERIC,
+            lam_them_detail          JSONB,   -- giờ OT từng loại ngày (modal Lương làm thêm)
+            luong_chinh_detail       JSONB,   -- ngày công từng loại ngày (modal Lương chính)
             giam_tru_late_override   BIGINT,
             updated_at               BIGINT NOT NULL
         );
         ALTER TABLE web2_attendance_payroll ADD COLUMN IF NOT EXISTS lam_them_override NUMERIC;
+        ALTER TABLE web2_attendance_payroll ADD COLUMN IF NOT EXISTS lam_them_detail JSONB;
+        ALTER TABLE web2_attendance_payroll ADD COLUMN IF NOT EXISTS luong_chinh_detail JSONB;
         -- Ngày công đủ (full) override thủ công (vd nghỉ phép có lương / lỗi máy).
         CREATE TABLE IF NOT EXISTS web2_attendance_fullday (
             id          VARCHAR(80) PRIMARY KEY, -- '{emp_id}_{date_key}'
@@ -783,11 +787,12 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
         const r = await db.query(
             `INSERT INTO web2_attendance_payroll
                 (id, emp_id, month_key, thuong_items, giam_tru_items, da_tra_items, allowances,
-                 ghi_chu, salary_days_override, ot_hours_override, lam_them_override, giam_tru_late_override, updated_at)
+                 ghi_chu, salary_days_override, ot_hours_override, lam_them_override,
+                 lam_them_detail, luong_chinh_detail, giam_tru_late_override, updated_at)
              VALUES ($1,$2,$3,
                  COALESCE($4::jsonb,'[]'::jsonb), COALESCE($5::jsonb,'[]'::jsonb),
                  COALESCE($6::jsonb,'[]'::jsonb), COALESCE($7::jsonb,'[]'::jsonb),
-                 $8,$9,$10,$11,$12,$13)
+                 $8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15)
              ON CONFLICT (id) DO UPDATE SET
                 thuong_items   = COALESCE($4::jsonb, web2_attendance_payroll.thuong_items),
                 giam_tru_items = COALESCE($5::jsonb, web2_attendance_payroll.giam_tru_items),
@@ -797,8 +802,10 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
                 salary_days_override   = $9,
                 ot_hours_override      = $10,
                 lam_them_override      = $11,
-                giam_tru_late_override = $12,
-                updated_at = $13
+                lam_them_detail        = $12::jsonb,
+                luong_chinh_detail     = $13::jsonb,
+                giam_tru_late_override = $14,
+                updated_at = $15
              RETURNING *`,
             [
                 id,
@@ -812,6 +819,8 @@ router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
                 b.salaryDaysOverride ?? null,
                 b.otHoursOverride ?? null,
                 b.lamThemOverride ?? null,
+                b.lamThemDetail != null ? JSON.stringify(b.lamThemDetail) : null,
+                b.luongChinhDetail != null ? JSON.stringify(b.luongChinhDetail) : null,
                 b.giamTruLateOverride ?? null,
                 now(),
             ]

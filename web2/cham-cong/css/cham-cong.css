@@ -453,9 +453,7 @@
     width: 15px;
     height: 15px;
 }
-/* Input sửa thẳng trong bảng lương */
-.cc-pl-money,
-.cc-pl-ot,
+/* Input ghi chú sửa thẳng trong bảng lương */
 .cc-pl-note {
     width: 100%;
     box-sizing: border-box;
@@ -469,17 +467,6 @@
         border-color 0.12s,
         box-shadow 0.12s;
 }
-.cc-pl-money,
-.cc-pl-ot {
-    max-width: 116px;
-    text-align: right;
-    font-weight: 600;
-}
-.cc-pl-ot {
-    color: var(--web2-info-hover);
-}
-.cc-pl-money:focus,
-.cc-pl-ot:focus,
 .cc-pl-note:focus {
     outline: none;
     border-color: var(--web2-info);
@@ -487,6 +474,208 @@
 }
 .cc-pl-note-cell {
     min-width: 150px;
+}
+/* Ô tiền bấm được → mở modal chỉnh (Lương chính/Tăng ca/Phụ cấp/Thưởng/Giảm trừ/Đã trả) */
+.cc-pl-cell {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    padding: 4px 6px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    border-bottom: 1px dashed transparent;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+.cc-pl-cell:hover {
+    background: var(--web2-primary-soft);
+    border-bottom-color: var(--web2-primary);
+}
+/* Modal chỉnh khoản lương kiểu TPOS (cc-tpl) */
+.cc-tpl .cc-tpl-title {
+    font-weight: 800;
+    font-size: 16px;
+}
+.cc-tpl .cc-tpl-sub {
+    font-size: 12.5px;
+    color: var(--web2-text-3);
+    font-weight: 400;
+    margin-top: 2px;
+}
+.cc-tpl-subline {
+    font-size: 13px;
+    color: var(--web2-text-2);
+    padding: 2px 0 10px;
+    border-bottom: 1px solid var(--web2-border);
+    margin-bottom: 8px;
+}
+.cc-tpl-cols {
+    display: flex;
+    justify-content: space-between;
+    background: var(--web2-bg-cell-head);
+    padding: 9px 12px;
+    border-radius: 8px 8px 0 0;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--web2-text-2);
+}
+.cc-tpl-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--web2-bg-light);
+    border-bottom: 1px solid var(--web2-border);
+    font-size: 14px;
+}
+.cc-tpl-total b {
+    font-size: 15px;
+}
+.cc-tpl-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--web2-border);
+}
+.cc-tpl-item input {
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 13px;
+    font-family: inherit;
+}
+.cc-tpl-ilabel {
+    flex: 1;
+}
+.cc-tpl-iamt {
+    width: 130px;
+    text-align: right;
+    font-weight: 600;
+}
+.cc-tpl-idel {
+    border: 0;
+    background: transparent;
+    color: var(--web2-text-faded);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+}
+.cc-tpl-idel:hover {
+    color: var(--web2-danger);
+}
+.cc-tpl-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--web2-border);
+    font-size: 13.5px;
+    color: var(--web2-text);
+    gap: 12px;
+}
+.cc-tpl-group.link > span {
+    color: var(--web2-primary);
+    cursor: pointer;
+    font-weight: 600;
+}
+.cc-tpl-group.fixed input {
+    width: 150px;
+    text-align: right;
+    font-weight: 600;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--web2-danger);
+}
+.cc-tpl-add {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 50%;
+    border: 1.5px solid var(--web2-primary);
+    background: #fff;
+    color: var(--web2-primary);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        color 0.12s;
+}
+.cc-tpl-add:hover {
+    background: var(--web2-primary);
+    color: #fff;
+}
+.cc-tpl-note {
+    display: block;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--web2-text-3);
+    text-align: right;
+}
+.cc-tpl-note textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 5px;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+    resize: vertical;
+}
+.cc-tpl-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--web2-text-faded);
+}
+/* Bảng giờ OT / ngày công (modal Lương làm thêm + Lương chính) */
+.cc-tpl-ot {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.cc-tpl-ot th {
+    background: var(--web2-bg-cell-head);
+    font-weight: 700;
+    color: var(--web2-text-2);
+    padding: 9px 10px;
+    text-align: left;
+}
+.cc-tpl-ot th.num,
+.cc-tpl-ot td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.cc-tpl-ot td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--web2-border);
+}
+.cc-tpl-ot .cc-tpl-otdef td {
+    background: var(--web2-primary-soft);
+}
+.cc-tpl-otsub {
+    font-size: 11.5px;
+    color: var(--web2-text-faded);
+    font-weight: 400;
+}
+.cc-tpl-oth {
+    width: 84px;
+    text-align: right;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 600;
 }
 /* Modal Chi tiết chấm công — thống kê + lịch tháng */
 .cc-at-stats {

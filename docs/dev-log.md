@@ -2,6 +2,22 @@
 
 ## 2026-07-02
 
+### [cham-cong] Bảng lương: bỏ modal "Điều chỉnh lương" → bấm từng ô mở modal kiểu TPOS + lương ngày trọn khi chấm đủ
+
+**Files:** `web2/cham-cong/js/cham-cong-payroll.js` (bỏ Sửa/openEdit/openDetail, thêm 4 modal `cc-tpl`), `cham-cong-salary.js` (calcDay: chấm đủ = trọn lương ngày), `css/cham-cong.css` (+cc-tpl styles, -input inline), `index.html` (bump v), `render.com/routes/web2-attendance.js` (+2 cột `lam_them_detail`, `luong_chinh_detail` JSONB + PUT).
+
+1. **Bỏ nút "Sửa" + modal Điều chỉnh lương cũ** (openEdit/itemsEditor/openDetail xoá hẳn). Bấm thẳng ô trong bảng:
+    - **Lương chính** → modal bảng ngày công (Ngày thường / Ngày nghỉ 100% / Ngày lễ tết 100%): đếm auto theo `dayResults`+holidaySet+CN; sửa "Số ngày tính lương" → `salary_days_override` (tổng) + `luong_chinh_detail`. Lương tháng → chỉ xem.
+    - **Tăng ca** → modal "Lương làm thêm": bảng giờ theo ca (Mặc định auto + 5 loại ngày) × đơn giá (giờ × hệ số OT) → `lam_them_override` + `lam_them_detail`. Xoá hết giờ = về auto; không đổi = không lưu (dirty-guard). Lương tháng → nhập TIỀN thẳng.
+    - **Thưởng / Phụ cấp** → modal nhóm ("Thưởng theo ngày làm việc"/"Thưởng khác"…) + nút ⊕ thêm khoản. **Đã trả** → "Thêm khoản trả" (link).
+    - **Giảm trừ** → ô "đi muộn, về sớm, cố định" (rỗng = auto phạt muộn, nhập = override) + 2 nhóm khoản + ghi chú (bind `ghi_chu`).
+    - Tất cả lưu qua `saveInline` (full body + patch — merge-safe), tháng chốt = read-only.
+2. **Engine (user chốt): chấm công ĐỦ (2 lượt vào/ra) = TRỌN lương ngày** — bỏ pro-rate theo giờ trong `calcDay`; đi muộn/về sớm chỉ trừ qua phạt muộn/Giảm trừ. Lương chính giờ = công × đơn giá đúng nghĩa.
+
+⚠ 2 cột detail cần Render deploy mới persist (trước đó: tổng vẫn lưu OK, chi tiết fallback auto). Verified browser: 90 ô bấm/15 NV, 5 modal render đúng, round-trip thưởng 5.000₫ add→save→delete→revert, 0 console error.
+
+Status: ✅
+
 ### [web2-shared] Dedup worker-base HOÀN TẤT — 18 file config-first (0 primary-literal còn) + KB services sync live
 
 **Files:** 9 JS (`customers-api`, `customer-wallet-api`, `bh-core`, `manual-deposit` ×3 chỗ, `pm-core` ×5 endpoint, `link-customer-modal`, `photo-studio-state`, `so-order-receive`, `live-chat/js/shared/utils.js` fb-avatar) + 9 HTML inline (`report-revenue`, `balance-history`, `dashboard`, `users-permissions`, `report-delivery`, `pbh print`, `notifications`, `live-chat index+chat`); `web2-dedup-audit.json` (group → **resolved**); `docs/web2/KB-SYSTEM-SERVICES.md` (sync số liệu live); regen codemap/modules/derived docs.

@@ -174,18 +174,15 @@
                   <button class="cc-pl-ico cc-pl-hist" data-uid="${cc.esc(en.uid)}" title="Lịch sử chỉnh sửa lương"><i data-lucide="history"></i></button>
                 </td>
                 <td class="num">${m.workedDays}</td>
-                <td class="num">${fmt(m.luongChinh)}</td>
-                ${otCell(en, locked)}
-                ${moneyCell(en, 'allowance', locked)}
-                ${moneyCell(en, 'thuong', locked)}
-                ${moneyCell(en, 'giam', locked)}
+                ${clickCell(en, 'luongchinh', locked)}
+                ${clickCell(en, 'ot', locked)}
+                ${clickCell(en, 'allowance', locked)}
+                ${clickCell(en, 'thuong', locked)}
+                ${clickCell(en, 'giam', locked)}
                 <td class="num tong">${fmt(m.tongLuong)}</td>
-                ${moneyCell(en, 'datra', locked)}
+                ${clickCell(en, 'datra', locked)}
                 <td class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</td>
                 ${noteCell(en, locked)}
-                <td class="cc-pl-acts">
-                    ${locked ? '' : `<button class="cc-btn cc-btn-ghost cc-pl-edit" data-uid="${cc.esc(en.uid)}">Sửa</button>`}
-                </td>
             </tr>`;
         }
         const dusLen = entries.length;
@@ -208,7 +205,7 @@
               <thead><tr>
                 <th>Nhân viên</th><th>Công</th><th>Lương chính</th><th>Tăng ca</th>
                 <th>Phụ cấp</th><th>Thưởng</th><th>Giảm trừ</th><th>Tổng lương</th>
-                <th>Đã trả</th><th>Còn lại</th><th>Ghi chú</th><th></th>
+                <th>Đã trả</th><th>Còn lại</th><th>Ghi chú</th>
               </tr></thead>
               <tbody>${rows}</tbody>
               <tfoot><tr>
@@ -216,7 +213,7 @@
                 <td class="num">${fmt(tot.luong)}</td><td class="num ot">${fmt(tot.ot)}</td>
                 <td class="num">${fmt(tot.pc)}</td><td class="num thuong">${fmt(tot.thuong)}</td>
                 <td class="num giam">${fmt(tot.giam)}</td><td class="num tong">${fmt(tot.tong)}</td>
-                <td class="num">${fmt(tot.datra)}</td><td class="num con">${fmt(tot.con)}</td><td></td><td></td>
+                <td class="num">${fmt(tot.datra)}</td><td class="num con">${fmt(tot.con)}</td><td></td>
               </tr></tfoot>
             </table>
           </div>
@@ -224,8 +221,15 @@
             <button class="cc-btn cc-btn-ghost" id="ccExportPayroll"><i data-lucide="download"></i> Xuất Excel bảng lương</button>
             ${locked ? '' : `<button class="cc-btn cc-btn-primary" id="ccLockPeriod"><i data-lucide="lock"></i> Chốt lương tháng này</button>`}
           </div>`;
-        el.querySelectorAll('.cc-pl-edit').forEach((b) => {
-            b.addEventListener('click', () => openEdit(b.dataset.uid));
+        el.querySelectorAll('.cc-pl-cell').forEach((b) => {
+            b.addEventListener('click', () => {
+                const uid = b.dataset.uid;
+                const kind = b.dataset.kind;
+                if (kind === 'luongchinh') openLuongChinhModal(uid);
+                else if (kind === 'ot') openOtModal(uid);
+                else if (kind === 'giam') openGiamTruModal(uid);
+                else openItemsModal(uid, kind);
+            });
         });
         el.querySelectorAll('.cc-pl-cal').forEach((b) => {
             b.addEventListener('click', () => openAttendance(b.dataset.uid));
@@ -244,12 +248,6 @@
                     title: `Lịch sử chỉnh sửa lương · ${R ? R.name : ''} · ${cc.state.monthKey}`,
                 });
             });
-        });
-        el.querySelectorAll('.cc-pl-ot').forEach((inp) => {
-            inp.addEventListener('change', () => saveInlineOt(inp));
-        });
-        el.querySelectorAll('.cc-pl-money').forEach((inp) => {
-            inp.addEventListener('change', () => saveInlineMoney(inp));
         });
         el.querySelectorAll('.cc-pl-note').forEach((inp) => {
             inp.addEventListener('change', () => saveInlineNote(inp));
@@ -322,7 +320,7 @@
         }
     }
 
-    // ── Modal CHI TIẾT (read-only): giải thích vì sao có từng khoản ──────────
+    // ── Helpers hiển thị ngày/giờ (phiếu lương in) ────────────────────────────
     function dmy(dk) {
         // 'YYYY-MM-DD' → 'DD/MM'
         const p = String(dk).split('-');
@@ -333,20 +331,10 @@
         const m = (mins || 0) % 60;
         return h ? `${h}g${m ? ' ' + m + 'p' : ''}` : `${m}p`;
     }
-    function itemLines(items, sign) {
-        const list = Array.isArray(items) ? items : [];
-        if (!list.length) return '';
-        return list
-            .map(
-                (it) =>
-                    `<div class="cc-dl-line"><span>${CC().esc(it.label || '(không nhãn)')}</span><span class="num">${sign}${fmt(Math.abs(Number(it.amount) || 0))}</span></div>`
-            )
-            .join('');
-    }
 
     // ── Inline sửa 1 cột tiền / ghi chú trong bảng (không mở popup) ───────────
     // Backend PUT /payroll là MERGE cho items nhưng override set THẲNG → gửi FULL body
-    // (dựng lại từ pr hiện tại) + patch 1 field để KHÔNG xoá nhầm khoản khác. Giống openEdit.
+    // (dựng lại từ pr hiện tại) + patch field cần đổi để KHÔNG xoá nhầm khoản khác.
     async function saveInline(uid, pr, patch) {
         const cc = CC();
         if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
@@ -359,6 +347,8 @@
             salaryDaysOverride: pr.salary_days_override ?? null,
             otHoursOverride: pr.ot_hours_override ?? null,
             lamThemOverride: pr.lam_them_override ?? null,
+            lamThemDetail: pr.lam_them_detail ?? null,
+            luongChinhDetail: pr.luong_chinh_detail ?? null,
             giamTruLateOverride: pr.giam_tru_late_override ?? null,
             ...patch,
         };
@@ -370,85 +360,425 @@
             cc.toast(e.message, 'error');
         }
     }
-    const INLINE_LABEL = {
-        allowances: 'Phụ cấp',
-        thuongItems: 'Thưởng',
-        giamTruItems: 'Giảm trừ',
-        daTraItems: 'Đã trả',
-    };
-    const INLINE_SRC = {
-        allowances: 'allowances',
-        thuongItems: 'thuong_items',
-        giamTruItems: 'giam_tru_items',
-        daTraItems: 'da_tra_items',
-    };
-    function saveInlineMoney(inp) {
-        const cc = CC();
-        const uid = inp.dataset.uid;
-        const field = inp.dataset.field;
-        const amount = Number(String(inp.value).replace(/[^\d]/g, '')) || 0;
-        const pr = cc.payrollFor(uid) || {};
-        const existing = Array.isArray(pr[INLINE_SRC[field]]) ? pr[INLINE_SRC[field]] : [];
-        const label = (existing[0] && existing[0].label) || INLINE_LABEL[field];
-        const patch = { [field]: amount === 0 ? [] : [{ label, amount }] };
-        // Giảm trừ: ô hiển thị TỔNG (phạt muộn auto + thủ công) → ép phạt muộn về 0
-        // để tổng đúng bằng số vừa nhập.
-        if (field === 'giamTruItems') patch.giamTruLateOverride = 0;
-        return saveInline(uid, pr, patch);
-    }
     function saveInlineNote(inp) {
         const cc = CC();
         return saveInline(inp.dataset.uid, cc.payrollFor(inp.dataset.uid) || {}, {
             ghiChu: inp.value,
         });
     }
-    // Tăng ca: override tiền THẲNG. Rỗng → null (auto OT lại); có số → chốt số đó.
-    function saveInlineOt(inp) {
-        const cc = CC();
-        const raw = String(inp.value).replace(/[^\d]/g, '');
-        return saveInline(inp.dataset.uid, cc.payrollFor(inp.dataset.uid) || {}, {
-            lamThemOverride: raw === '' ? null : Number(raw) || 0,
-        });
-    }
-    function otCell(en, locked) {
-        const cc = CC();
-        const amt = en.m.lamThem || 0;
-        if (locked) return `<td class="num ot">${amt ? '+' + fmt(amt) : '—'}</td>`;
-        return `<td class="num ot"><input class="cc-pl-ot" type="text" inputmode="numeric" data-uid="${cc.esc(en.uid)}" value="${amt ? amt.toLocaleString('vi-VN') : ''}" placeholder="—"></td>`;
-    }
-    // 1 ô cột tiền: input sửa thẳng nếu ≤1 khoản (& Giảm trừ không có phạt muộn auto);
-    // nhiều khoản / có phạt muộn / đã khoá → read-only tổng + gợi ý bấm "Sửa".
-    function moneyCell(en, key, locked) {
+
+    // ── Ô tiền bấm được trong bảng → mở modal chỉnh từng khoản (kiểu TPOS) ────
+    function clickCell(en, kind, locked) {
         const cc = CC();
         const m = en.m;
-        const pr = en.pr || {};
-        const MAP = {
-            allowance: { src: 'allowances', field: 'allowances', sign: '', cls: '', val: m.phuCap },
-            thuong: {
-                src: 'thuong_items',
-                field: 'thuongItems',
-                sign: '+',
-                cls: 'thuong',
-                val: m.thuong,
-            },
-            giam: {
-                src: 'giam_tru_items',
-                field: 'giamTruItems',
-                sign: '−',
-                cls: 'giam',
-                val: m.giamTru,
-            },
-            datra: { src: 'da_tra_items', field: 'daTraItems', sign: '', cls: '', val: m.daTra },
-        }[key];
-        const items = Array.isArray(pr[MAP.src]) ? pr[MAP.src] : [];
-        // Giảm trừ: input = TỔNG (phạt muộn auto + thủ công). Sửa → ép phạt muộn về 0
-        // (saveInlineMoney) để số hiển thị đúng bằng số nhập.
-        const editable = !locked && items.length <= 1;
-        if (!editable) {
-            return `<td class="num ${MAP.cls}" title="Nhiều khoản — bấm Sửa để chi tiết">${MAP.val ? MAP.sign + fmt(MAP.val) : '—'}</td>`;
+        const V = {
+            luongchinh: { cls: '', sign: '', val: m.luongChinh },
+            ot: { cls: 'ot', sign: '+', val: m.lamThem },
+            allowance: { cls: '', sign: '', val: m.phuCap },
+            thuong: { cls: 'thuong', sign: '+', val: m.thuong },
+            giam: { cls: 'giam', sign: '−', val: m.giamTru },
+            datra: { cls: '', sign: '', val: m.daTra },
+        }[kind];
+        const txt = V.val ? V.sign + fmt(V.val) : '—';
+        if (locked) return `<td class="num ${V.cls}">${txt}</td>`;
+        return `<td class="num ${V.cls}"><button type="button" class="cc-pl-cell" data-uid="${cc.esc(en.uid)}" data-kind="${kind}" title="Bấm để chỉnh">${txt}</button></td>`;
+    }
+
+    const KIND_CFG = {
+        allowance: {
+            title: 'Các khoản phụ cấp',
+            colL: 'Loại phụ cấp',
+            colR: 'Tiền phụ cấp',
+            field: 'allowances',
+            src: 'allowances',
+            groups: ['Phụ cấp cố định', 'Phụ cấp khác'],
+        },
+        thuong: {
+            title: 'Các khoản thưởng',
+            colL: 'Loại thưởng',
+            colR: 'Tiền thưởng',
+            field: 'thuongItems',
+            src: 'thuong_items',
+            groups: ['Thưởng theo ngày làm việc', 'Thưởng khác'],
+        },
+        datra: {
+            title: 'Đã trả nhân viên',
+            colL: 'Nội dung',
+            colR: 'Số tiền',
+            field: 'daTraItems',
+            src: 'da_tra_items',
+            groups: ['Thêm khoản trả'],
+            link: true,
+        },
+    };
+    function parseAmt(v) {
+        return Number(String(v || '').replace(/[^\d]/g, '')) || 0;
+    }
+
+    // Khung modal chung (head + foot "Bỏ qua"/"Xong"). Caller tự wire #ccTplDone.
+    function tplShell(title, name, inner) {
+        const cc = CC();
+        const mount = document.getElementById('ccModalMount');
+        mount.innerHTML = `
+          <div class="cc-modal-backdrop" id="ccTplBackdrop">
+            <div class="cc-modal cc-modal-lg cc-tpl" role="dialog" aria-modal="true" aria-label="${title}">
+              <div class="cc-modal-head">
+                <div><div class="cc-tpl-title">${title}</div><div class="cc-tpl-sub">Nhân viên: ${cc.esc(name)}</div></div>
+                <button class="cc-x" id="ccTplX">✕</button>
+              </div>
+              <div class="cc-modal-body">${inner}</div>
+              <div class="cc-modal-foot">
+                <span class="cc-foot-spacer"></span>
+                <button class="cc-btn cc-btn-ghost" id="ccTplCancel">Bỏ qua</button>
+                <button class="cc-btn cc-btn-primary" id="ccTplDone">Xong</button>
+              </div>
+            </div>
+          </div>`;
+        const close = () => (mount.innerHTML = '');
+        document.getElementById('ccTplX').onclick = close;
+        document.getElementById('ccTplCancel').onclick = close;
+        document.getElementById('ccTplBackdrop').onclick = (e) => {
+            if (e.target.id === 'ccTplBackdrop') close();
+        };
+        return { mount, close };
+    }
+    function itemRowHtml(label, amount) {
+        return `<div class="cc-tpl-item">
+            <input class="cc-tpl-ilabel" value="${String(label || '').replace(/"/g, '&quot;')}" placeholder="Diễn giải">
+            <input class="cc-tpl-iamt" type="text" inputmode="numeric" value="${amount ? Number(amount).toLocaleString('vi-VN') : ''}" placeholder="0">
+            <button class="cc-tpl-idel" type="button" title="Xoá khoản này">✕</button>
+        </div>`;
+    }
+    // Wire xoá/nhập cho item rows + nút (+) thêm row (label mặc định = tên nhóm).
+    function wireItems(mount, list, recompute) {
+        const wireRow = (row) => {
+            row.querySelector('.cc-tpl-idel').onclick = () => {
+                row.remove();
+                recompute();
+            };
+            row.querySelector('.cc-tpl-iamt').addEventListener('input', recompute);
+        };
+        list.querySelectorAll('.cc-tpl-item').forEach(wireRow);
+        mount.querySelectorAll('.cc-tpl-add').forEach((b) => {
+            const add = () => {
+                const div = document.createElement('div');
+                div.innerHTML = itemRowHtml(b.dataset.label, 0);
+                const row = div.firstElementChild;
+                list.appendChild(row);
+                wireRow(row);
+                row.querySelector('.cc-tpl-iamt').focus();
+                recompute();
+            };
+            b.onclick = add;
+            const g = b.closest('.cc-tpl-group');
+            if (g && g.classList.contains('link'))
+                g.onclick = (e) => {
+                    if (!b.contains(e.target)) add();
+                };
+        });
+    }
+    function collectItems(list) {
+        return [...list.querySelectorAll('.cc-tpl-item')]
+            .map((r) => ({
+                label: r.querySelector('.cc-tpl-ilabel').value.trim(),
+                amount: parseAmt(r.querySelector('.cc-tpl-iamt').value),
+            }))
+            .filter((x) => x.label || x.amount);
+    }
+
+    // Modal Thưởng / Phụ cấp / Đã trả — danh sách khoản {label, amount}.
+    function openItemsModal(uid, kind) {
+        const cc = CC();
+        if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
+        const K = KIND_CFG[kind];
+        const R = resolveRow(uid);
+        if (!R) return;
+        const pr = cc.payrollFor(uid) || {};
+        const items = Array.isArray(pr[K.src]) ? pr[K.src] : [];
+        const inner = `
+            <div class="cc-tpl-cols"><span>${K.colL}</span><span>${K.colR}</span></div>
+            <div class="cc-tpl-total"><span></span><b id="ccTplTotal">-</b></div>
+            <div class="cc-tpl-list" id="ccTplList">${items.map((it) => itemRowHtml(it.label, it.amount)).join('')}</div>
+            ${K.groups.map((g) => `<div class="cc-tpl-group${K.link ? ' link' : ''}"><span>${g}</span><button class="cc-tpl-add" type="button" data-label="${g}" title="Thêm khoản">+</button></div>`).join('')}`;
+        const { mount, close } = tplShell(K.title, R.name, inner);
+        const list = document.getElementById('ccTplList');
+        const totalEl = document.getElementById('ccTplTotal');
+        const recompute = () => {
+            let s = 0;
+            list.querySelectorAll('.cc-tpl-iamt').forEach((i) => (s += parseAmt(i.value)));
+            totalEl.textContent = s ? fmt(s) : '-';
+        };
+        wireItems(mount, list, recompute);
+        recompute();
+        document.getElementById('ccTplDone').onclick = async () => {
+            await saveInline(uid, pr, { [K.field]: collectItems(list) });
+            close();
+        };
+    }
+
+    // Modal Giảm trừ — ô "đi muộn, về sớm, cố định" (rỗng = auto theo chấm công,
+    // nhập số = override) + khoản thủ công theo nhóm + ghi chú (chung ghi_chu tháng).
+    function openGiamTruModal(uid) {
+        const cc = CC();
+        if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
+        const R = resolveRow(uid);
+        if (!R) return;
+        const pr = cc.payrollFor(uid) || {};
+        const items = Array.isArray(pr.giam_tru_items) ? pr.giam_tru_items : [];
+        const ovLate = pr.giam_tru_late_override;
+        const autoLate = Number(R.m.lateDeduction) || 0;
+        const inner = `
+            <div class="cc-tpl-cols"><span>Loại giảm trừ</span><span>Tiền giảm trừ</span></div>
+            <div class="cc-tpl-total"><span></span><b id="ccTplTotal">-</b></div>
+            <div class="cc-tpl-group fixed"><span>Giảm trừ đi muộn, về sớm, cố định</span>
+                <input id="ccTplLate" type="text" inputmode="numeric" value="${ovLate != null && ovLate !== '' ? Number(ovLate).toLocaleString('vi-VN') : ''}" placeholder="${autoLate ? autoLate.toLocaleString('vi-VN') : '-'}" title="Rỗng = phạt muộn TỰ ĐỘNG theo chấm công · nhập số = ghi đè"></div>
+            <div class="cc-tpl-list" id="ccTplList">${items.map((it) => itemRowHtml(it.label, it.amount)).join('')}</div>
+            <div class="cc-tpl-group"><span>Phạt vi phạm theo ngày</span><button class="cc-tpl-add" type="button" data-label="Phạt vi phạm theo ngày" title="Thêm khoản">+</button></div>
+            <div class="cc-tpl-group"><span>Giảm trừ khác</span><button class="cc-tpl-add" type="button" data-label="Giảm trừ khác" title="Thêm khoản">+</button></div>
+            <label class="cc-tpl-note">Ghi chú<textarea id="ccTplNote" rows="2" placeholder="Ghi chú giảm trừ…">${cc.esc(pr.ghi_chu || '')}</textarea></label>`;
+        const { mount, close } = tplShell('Các khoản giảm trừ', R.name, inner);
+        const list = document.getElementById('ccTplList');
+        const totalEl = document.getElementById('ccTplTotal');
+        const lateInp = document.getElementById('ccTplLate');
+        const recompute = () => {
+            let s = lateInp.value.trim() === '' ? autoLate : parseAmt(lateInp.value);
+            list.querySelectorAll('.cc-tpl-iamt').forEach((i) => (s += parseAmt(i.value)));
+            totalEl.textContent = s ? '−' + fmt(s) : '-';
+        };
+        lateInp.addEventListener('input', recompute);
+        wireItems(mount, list, recompute);
+        recompute();
+        document.getElementById('ccTplDone').onclick = async () => {
+            await saveInline(uid, pr, {
+                giamTruItems: collectItems(list),
+                giamTruLateOverride: lateInp.value.trim() === '' ? null : parseAmt(lateInp.value),
+                ghiChu: document.getElementById('ccTplNote').value,
+            });
+            close();
+        };
+    }
+
+    // Modal Tăng ca ("Lương làm thêm") — bảng giờ theo loại ngày × đơn giá OT.
+    // Lương NGÀY: nhập SỐ GIỜ → thành tiền = giờ × (đơn giá giờ × hệ số OT). Không đổi
+    //   gì → đóng không lưu; xoá hết giờ → về auto. Giờ từng ca lưu lam_them_detail.
+    // Lương THÁNG: không có đơn giá giờ chuẩn → nhập TIỀN tăng ca trực tiếp.
+    const OT_ROWS = [
+        { k: 'ngay_thuong', label: 'Ngày thường' },
+        { k: 'thu7', label: 'Thứ 7' },
+        { k: 'chu_nhat', label: 'Chủ nhật' },
+        { k: 'ngay_nghi', label: 'Ngày nghỉ' },
+        { k: 'le_tet', label: 'Ngày lễ tết' },
+    ];
+    function openOtModal(uid) {
+        const cc = CC();
+        if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
+        const R = resolveRow(uid);
+        if (!R) return;
+        const cfg = cc.cfgFor(R.du);
+        const pr = cc.payrollFor(uid) || {};
+        const m = R.m;
+
+        if (cfg.salaryType === 'monthly') {
+            const ov = pr.lam_them_override;
+            const inner = `
+                <div class="cc-tpl-subline">Loại lương: Theo tháng — nhập TIỀN tăng ca trực tiếp (rỗng = không có).</div>
+                <div class="cc-tpl-group fixed"><span>Tiền tăng ca tháng này</span>
+                    <input id="ccTplOtMoney" type="text" inputmode="numeric" value="${ov != null && ov !== '' ? Number(ov).toLocaleString('vi-VN') : ''}" placeholder="0"></div>`;
+            const { close } = tplShell('Lương làm thêm', R.name, inner);
+            document.getElementById('ccTplDone').onclick = async () => {
+                const v = document.getElementById('ccTplOtMoney').value.trim();
+                await saveInline(uid, pr, {
+                    lamThemOverride: v === '' ? null : parseAmt(v),
+                    lamThemDetail: null,
+                });
+                close();
+            };
+            return;
         }
-        const amt = MAP.val || 0;
-        return `<td class="num ${MAP.cls}"><input class="cc-pl-money" type="text" inputmode="numeric" data-uid="${cc.esc(en.uid)}" data-field="${MAP.field}" value="${amt ? amt.toLocaleString('vi-VN') : ''}" placeholder="—"></td>`;
+
+        const startMin = cc.S.hmToMinutes(cfg.workStart || '08:00');
+        const endMin = cc.S.hmToMinutes(cfg.workEnd || '20:00');
+        const stdH = Math.max(0.5, (endMin - startMin) / 60);
+        const hourly = (Number(cfg.dailyRate) || 0) / stdH;
+        const otMult = Number.isFinite(Number(cfg.otMultiplier)) ? Number(cfg.otMultiplier) : 1;
+        const otRate = hourly * otMult;
+        const autoH = Math.round(((m.otMinutes || 0) / 60) * 100) / 100;
+        const detail =
+            pr.lam_them_detail && typeof pr.lam_them_detail === 'object'
+                ? pr.lam_them_detail
+                : null;
+        const defOf = (k) => {
+            const v = detail ? Number(detail[k]) || 0 : k === 'macdinh' ? autoH : 0;
+            return v || '';
+        };
+        const rowHtml = (k, label, sub, autoHours) => `
+            <tr class="${k === 'macdinh' ? 'cc-tpl-otdef' : ''}">
+                <td><b>${label}</b>${sub ? `<div class="cc-tpl-otsub">${sub}</div>` : ''}</td>
+                <td class="num">${k === 'macdinh' ? '' : Math.round(otRate).toLocaleString('vi-VN')}</td>
+                <td class="num">${autoHours || 0}</td>
+                <td class="num"><input class="cc-tpl-oth" type="number" min="0" step="0.5" data-k="${k}" value="${defOf(k)}" placeholder="0"></td>
+                <td class="num" data-money="${k}">-</td>
+            </tr>`;
+        const inner = `
+            <div class="cc-tpl-subline">Loại lương: Theo ngày công chuẩn</div>
+            <table class="cc-tpl-ot">
+              <thead><tr><th>Ca</th><th class="num">Mỗi giờ làm thêm</th><th class="num">Số giờ làm thêm</th><th class="num">Số giờ tính lương</th><th class="num">Thành tiền</th></tr></thead>
+              <tbody>
+                ${rowHtml('macdinh', 'Mặc định', Math.round(hourly).toLocaleString('vi-VN') + '/Giờ', autoH)}
+                ${OT_ROWS.map((r) => rowHtml(r.k, r.label, '', 0)).join('')}
+              </tbody>
+            </table>
+            <div class="cc-tpl-total"><span>Tổng tăng ca</span><b id="ccTplTotal">-</b></div>
+            <div class="cc-tpl-hint">Không nhập gì = OT tự động theo chấm công. Nhập giờ = chốt tiền tăng ca theo bảng này (xoá hết giờ để quay về tự động).</div>`;
+        const { mount, close } = tplShell('Lương làm thêm', R.name, inner);
+        const inputs = [...mount.querySelectorAll('.cc-tpl-oth')];
+        let dirty = false;
+        const recompute = () => {
+            let total = 0;
+            inputs.forEach((i) => {
+                const money = Math.round((parseFloat(i.value) || 0) * otRate);
+                total += money;
+                const cell = mount.querySelector(`[data-money="${i.dataset.k}"]`);
+                if (cell) cell.textContent = money ? fmt(money) : '-';
+            });
+            const totalEl = document.getElementById('ccTplTotal');
+            if (totalEl) totalEl.textContent = total ? '+' + fmt(total) : '-';
+            return total;
+        };
+        inputs.forEach((i) =>
+            i.addEventListener('input', () => {
+                dirty = true;
+                recompute();
+            })
+        );
+        recompute();
+        document.getElementById('ccTplDone').onclick = async () => {
+            if (!dirty) return close(); // không đổi gì → không lưu (giữ auto/override cũ)
+            const hours = {};
+            let any = false;
+            inputs.forEach((i) => {
+                const h = parseFloat(i.value) || 0;
+                hours[i.dataset.k] = h;
+                if (h > 0) any = true;
+            });
+            await saveInline(
+                uid,
+                pr,
+                any
+                    ? { lamThemOverride: recompute(), lamThemDetail: hours }
+                    : { lamThemOverride: null, lamThemDetail: null }
+            );
+            close();
+        };
+    }
+
+    // Modal Lương chính — bảng ngày công theo loại ngày × lương/ngày.
+    // Chấm công đủ = trọn lương ngày (engine calcDay 2026-07-02). "Số ngày tính lương"
+    // sửa được → salary_days_override (tổng) + luong_chinh_detail (chia theo loại ngày).
+    // Không đổi gì → đóng không lưu; xoá hết → về auto. Lương THÁNG: chỉ xem (cố định).
+    const LC_ROWS = [
+        { k: 'ngay_thuong', label: 'Ngày thường', sub: '' },
+        { k: 'ngay_nghi', label: 'Ngày nghỉ', sub: '100%' },
+        { k: 'le_tet', label: 'Ngày lễ tết', sub: '100%' },
+    ];
+    function openLuongChinhModal(uid) {
+        const cc = CC();
+        if (isLocked()) return cc.toast('Tháng đã chốt — mở khoá để sửa.', 'warning');
+        const R = resolveRow(uid);
+        if (!R) return;
+        const cfg = cc.cfgFor(R.du);
+        const pr = cc.payrollFor(uid) || {};
+        const m = R.m;
+        const dayRate = Number(cfg.dailyRate) || 0;
+        const days = cc.S.daysOfMonth(cc.state.monthKey);
+
+        if (cfg.salaryType === 'monthly') {
+            const inner = `
+                <div class="cc-tpl-subline">Loại lương: Theo tháng (cố định)</div>
+                <div class="cc-tpl-group fixed"><span>Lương tháng cố định — đi làm ${m.workedDays} ngày</span><b>${fmt(m.luongChinh)}</b></div>
+                <div class="cc-tpl-hint">Lương tháng KHÔNG nhân số ngày công. Trừ ngày nghỉ qua "Giảm trừ".</div>`;
+            const { close } = tplShell('Lương chính', R.name, inner);
+            document.getElementById('ccTplDone').onclick = close;
+            return;
+        }
+
+        // Đếm ngày công auto theo loại ngày: lễ (holidaySet) / CN / thường.
+        const cnt = { ngay_thuong: 0, ngay_nghi: 0, le_tet: 0 };
+        const dr = m.dayResults || {};
+        for (const dk of days) {
+            if (!dr[dk] || !dr[dk].worked) continue;
+            if (cc.state.holidaySet.has(dk)) cnt.le_tet++;
+            else if (new Date(`${dk}T12:00:00+07:00`).getDay() === 0) cnt.ngay_nghi++;
+            else cnt.ngay_thuong++;
+        }
+        const detail =
+            pr.luong_chinh_detail && typeof pr.luong_chinh_detail === 'object'
+                ? pr.luong_chinh_detail
+                : null;
+        const defOf = (k) => {
+            const v = detail ? Number(detail[k]) || 0 : cnt[k] || 0;
+            return v || '';
+        };
+        const rowHtml = (r) => `
+            <tr>
+                <td><b>${r.label}</b>${r.sub ? `<div class="cc-tpl-otsub">${r.sub}</div>` : ''}</td>
+                <td class="num">${Math.round(dayRate).toLocaleString('vi-VN')}</td>
+                <td class="num">${cnt[r.k] || 0}</td>
+                <td class="num"><input class="cc-tpl-oth" type="number" min="0" step="0.5" data-k="${r.k}" value="${defOf(r.k)}" placeholder="0"></td>
+                <td class="num" data-money="${r.k}">-</td>
+            </tr>`;
+        const inner = `
+            <div class="cc-tpl-subline">Loại lương: Theo ngày công chuẩn &nbsp;·&nbsp; Ngày công chuẩn: ${days.length} &nbsp;·&nbsp; Mức lương: ${fmt(dayRate * days.length)}</div>
+            <table class="cc-tpl-ot">
+              <thead><tr><th>Ngày</th><th class="num">Lương mỗi ngày</th><th class="num">Số ngày chấm công</th><th class="num">Số ngày tính lương</th><th class="num">Thành tiền</th></tr></thead>
+              <tbody>${LC_ROWS.map(rowHtml).join('')}</tbody>
+            </table>
+            <div class="cc-tpl-total"><span>Tổng lương chính</span><b id="ccTplTotal">-</b></div>
+            <div class="cc-tpl-hint">Chấm công đủ Vào/Ra = trọn lương ngày. Sửa "Số ngày tính lương" = chốt số công tay (xoá hết để quay về tự động — phạt muộn auto sẽ bỏ khi chốt tay).</div>`;
+        const { mount, close } = tplShell('Lương chính', R.name, inner);
+        const inputs = [...mount.querySelectorAll('.cc-tpl-oth')];
+        let dirty = false;
+        const recompute = () => {
+            let totalDays = 0;
+            inputs.forEach((i) => {
+                const d = parseFloat(i.value) || 0;
+                totalDays += d;
+                const cell = mount.querySelector(`[data-money="${i.dataset.k}"]`);
+                if (cell) cell.textContent = d ? fmt(Math.round(d * dayRate)) : '-';
+            });
+            const totalEl = document.getElementById('ccTplTotal');
+            if (totalEl)
+                totalEl.textContent = totalDays ? fmt(Math.round(totalDays * dayRate)) : '-';
+            return totalDays;
+        };
+        inputs.forEach((i) =>
+            i.addEventListener('input', () => {
+                dirty = true;
+                recompute();
+            })
+        );
+        recompute();
+        document.getElementById('ccTplDone').onclick = async () => {
+            if (!dirty) return close(); // không đổi gì → không lưu (giữ auto)
+            const detailOut = {};
+            let totalDays = 0;
+            inputs.forEach((i) => {
+                const d = parseFloat(i.value) || 0;
+                detailOut[i.dataset.k] = d;
+                totalDays += d;
+            });
+            await saveInline(
+                uid,
+                pr,
+                totalDays > 0
+                    ? {
+                          salaryDaysOverride: Math.round(totalDays * 100) / 100,
+                          luongChinhDetail: detailOut,
+                      }
+                    : { salaryDaysOverride: null, luongChinhDetail: null }
+            );
+            close();
+        };
     }
     function noteCell(en, locked) {
         const cc = CC();
@@ -532,123 +862,6 @@
         document.getElementById('ccAtBackdrop').onclick = (e) => {
             if (e.target.id === 'ccAtBackdrop') close();
         };
-    }
-
-    function openDetail(deviceUserId) {
-        const cc = CC();
-        const R = resolveRow(deviceUserId); // snapshot nếu đã chốt, ngược lại live
-        if (!R) return;
-        const du = R.du;
-        const cfg = cc.cfgFor(du);
-        const m = R.m;
-        const pr = R.pr;
-
-        // Lương chính
-        const dayRate = Number(cfg.dailyRate) || 0;
-        const isMonthly = cfg.salaryType === 'monthly';
-        let luongBlock;
-        if (isMonthly) {
-            luongBlock = `<div class="cc-dl-line"><span>Lương tháng cố định (đi làm ${m.workedDays} ngày)</span><span class="num">${fmt(m.luongChinh)}</span></div>
-                <div class="cc-dl-sub">Lương tháng KHÔNG nhân số ngày công. Trừ ngày nghỉ qua mục "Giảm trừ" bên dưới.</div>`;
-        } else {
-            luongBlock = `<div class="cc-dl-line"><span>${m.workedDays} công × ${fmt(dayRate)}/ngày</span><span class="num">${fmt(m.luongChinh)}</span></div>`;
-            if (pr.salary_days_override != null && pr.salary_days_override !== '')
-                luongBlock += `<div class="cc-dl-sub">⚙ Override công thủ công: ${cc.esc(String(pr.salary_days_override))}</div>`;
-        }
-
-        // Tăng ca
-        let otBlock = '';
-        if (pr.ot_hours_override != null && pr.ot_hours_override !== '') {
-            otBlock = `<div class="cc-dl-sub">⚙ Override OT thủ công: ${cc.esc(String(pr.ot_hours_override))} giờ</div>`;
-        } else if (m.otDays && m.otDays.length) {
-            otBlock = m.otDays
-                .map(
-                    (d) =>
-                        `<div class="cc-dl-line"><span>${dmy(d.dateKey)} · tăng ca ${hm(d.minutes)}</span><span class="num ot">+${fmt(d.pay)}</span></div>`
-                )
-                .join('');
-        } else {
-            otBlock = `<div class="cc-dl-empty">Không có tăng ca.</div>`;
-        }
-
-        // Giảm trừ — phạt muộn (auto) + thủ công
-        let lateBlock = '';
-        if (pr.giam_tru_late_override != null && pr.giam_tru_late_override !== '') {
-            lateBlock = `<div class="cc-dl-sub">⚙ Override phạt muộn thủ công: ${fmt(pr.giam_tru_late_override)}</div>`;
-        } else if (m.lateDays && m.lateDays.length) {
-            lateBlock = m.lateDays
-                .map(
-                    (d) =>
-                        `<div class="cc-dl-line"><span>${dmy(d.dateKey)} · đi muộn ${hm(d.minutes)}</span><span class="num giam">−${fmt(d.amount)}</span></div>`
-                )
-                .join('');
-        } else {
-            lateBlock = `<div class="cc-dl-empty">Không bị phạt muộn.</div>`;
-        }
-        const manualGiam = itemLines(pr.giam_tru_items, '−');
-
-        // Ghi chú theo ngày (từ state.dayNotes) cho NV + tháng này
-        const prefix = `${deviceUserId}_${cc.state.monthKey}`;
-        const noteEntries = Object.keys(cc.state.dayNotes || {})
-            .filter((k) => k.startsWith(prefix))
-            .map((k) => ({ dk: k.slice(deviceUserId.length + 1), note: cc.state.dayNotes[k] }))
-            .filter((x) => x.note)
-            .sort((a, b) => a.dk.localeCompare(b.dk));
-        const notesBlock = noteEntries.length
-            ? noteEntries
-                  .map((n) => `<div class="cc-dl-note"><b>${dmy(n.dk)}</b> ${cc.esc(n.note)}</div>`)
-                  .join('')
-            : `<div class="cc-dl-empty">Chưa có ghi chú ngày nào. Thêm ở Bảng công → bấm 1 ngày → "Ghi chú ngày này".</div>`;
-
-        const section = (title, body, totalLabel, totalVal, cls) =>
-            `<div class="cc-dl-sec">
-                <div class="cc-dl-h"><span>${title}</span>${totalLabel ? `<span class="cc-dl-tot ${cls || ''}">${totalLabel}</span>` : ''}</div>
-                ${body || `<div class="cc-dl-empty">—</div>`}
-            </div>`;
-
-        const mount = document.getElementById('ccModalMount');
-        mount.innerHTML = `
-          <div class="cc-modal-backdrop" id="ccDtBackdrop">
-            <div class="cc-modal cc-modal-lg" role="dialog" aria-modal="true" aria-label="Chi tiết bảng lương nhân viên">
-              <div class="cc-modal-head">
-                <div>Chi tiết lương · <b>${cc.esc(R.name)}</b> · ${cc.state.monthKey}${isLocked() ? ' <span style="color:#059669;font-size:12px">🔒 đã chốt</span>' : ''}</div>
-                <button class="cc-x" id="ccDtClose">✕</button>
-              </div>
-              <div class="cc-modal-body cc-detail-body">
-                ${section('Lương chính', luongBlock, fmt(m.luongChinh))}
-                ${section('Tăng ca (OT)', otBlock, m.lamThem ? '+' + fmt(m.lamThem) : '0đ', 'ot')}
-                ${section('Phụ cấp', itemLines(pr.allowances, '+'), m.phuCap ? '+' + fmt(m.phuCap) : '0đ')}
-                ${section('Thưởng', itemLines(pr.thuong_items, '+'), m.thuong ? '+' + fmt(m.thuong) : '0đ', 'thuong')}
-                ${section('Giảm trừ', `<div class="cc-dl-subh">Phạt đi muộn</div>${lateBlock}${manualGiam ? `<div class="cc-dl-subh">Giảm trừ thủ công</div>${manualGiam}` : ''}`, m.giamTru ? '−' + fmt(m.giamTru) : '0đ', 'giam')}
-                ${section('Đã trả', itemLines(pr.da_tra_items, ''), m.daTra ? fmt(m.daTra) : '0đ')}
-                <div class="cc-dl-summary">
-                  <div class="cc-dl-line tot"><span>Tổng lương</span><span class="num tong">${fmt(m.tongLuong)}</span></div>
-                  <div class="cc-dl-line tot"><span>Còn lại phải trả</span><span class="num con ${m.conCanTra > 0 ? 'pos' : ''}">${fmt(m.conCanTra)}</span></div>
-                </div>
-                ${pr.ghi_chu ? `<div class="cc-dl-sec"><div class="cc-dl-h"><span>Ghi chú tháng</span></div><div class="cc-dl-monthnote">${cc.esc(pr.ghi_chu)}</div></div>` : ''}
-                ${section('📝 Ghi chú theo ngày', notesBlock)}
-              </div>
-              <div class="cc-modal-foot">
-                ${isLocked() ? '' : '<button class="cc-btn cc-btn-ghost" id="ccDtEdit">Sửa điều chỉnh</button>'}
-                <button class="cc-btn cc-btn-ghost" id="ccDtPrint">🖨 In phiếu lương</button>
-                <span class="cc-foot-spacer"></span>
-                <button class="cc-btn cc-btn-primary" id="ccDtOk">Đóng</button>
-              </div>
-            </div>
-          </div>`;
-        const close = () => (mount.innerHTML = '');
-        document.getElementById('ccDtClose').onclick = close;
-        document.getElementById('ccDtOk').onclick = close;
-        document.getElementById('ccDtBackdrop').onclick = (e) => {
-            if (e.target.id === 'ccDtBackdrop') close();
-        };
-        const dtEdit = document.getElementById('ccDtEdit');
-        if (dtEdit)
-            dtEdit.onclick = () => {
-                close();
-                openEdit(deviceUserId);
-            };
-        document.getElementById('ccDtPrint').onclick = () => printPayslip(deviceUserId);
     }
 
     // ── In phiếu lương tháng (payslip A4) ────────────────────────────────────
@@ -800,112 +1013,6 @@
         w.document.open();
         w.document.write(html);
         w.document.close();
-    }
-
-    // ── Modal sửa điều chỉnh lương ──────────────────────────────────────────
-    function itemsEditor(title, items, key) {
-        const list = Array.isArray(items) ? items : [];
-        const rows = list
-            .map(
-                (it, i) => `<div class="cc-item-row" data-key="${key}" data-i="${i}">
-                <input class="cc-item-label" value="${(it.label || '').replace(/"/g, '&quot;')}" placeholder="Diễn giải">
-                <input class="cc-item-amount" type="number" value="${Number(it.amount) || 0}" placeholder="0">
-                <button class="cc-item-del" type="button">✕</button>
-            </div>`
-            )
-            .join('');
-        return `<div class="cc-item-group" data-group="${key}">
-            <div class="cc-item-head"><span>${title}</span><button class="cc-item-add cc-btn cc-btn-ghost" type="button" data-key="${key}">+ Thêm</button></div>
-            <div class="cc-item-list">${rows}</div>
-          </div>`;
-    }
-
-    function openEdit(deviceUserId) {
-        const cc = CC();
-        const du = cc.state.deviceUsers.find((d) => d.device_user_id === deviceUserId);
-        if (!du) return;
-        const pr = cc.payrollFor(deviceUserId) || {};
-        const mount = document.getElementById('ccModalMount');
-        mount.innerHTML = `
-          <div class="cc-modal-backdrop" id="ccPlBackdrop">
-            <div class="cc-modal cc-modal-lg" role="dialog" aria-modal="true" aria-label="Sửa bảng lương nhân viên">
-              <div class="cc-modal-head">
-                <div>Điều chỉnh lương · <b>${cc.esc(cc.empName(du))}</b> · ${cc.state.monthKey}</div>
-                <button class="cc-x" id="ccPlClose">✕</button>
-              </div>
-              <div class="cc-modal-body">
-                ${itemsEditor('Thưởng', pr.thuong_items, 'thuong')}
-                ${itemsEditor('Giảm trừ thủ công', pr.giam_tru_items, 'giam')}
-                ${itemsEditor('Phụ cấp', pr.allowances, 'allowance')}
-                ${itemsEditor('Đã trả', pr.da_tra_items, 'datra')}
-                <div class="cc-overrides">
-                  <label>Override công <input type="number" id="ccOvDays" value="${pr.salary_days_override ?? ''}" placeholder="auto"></label>
-                  <label>Override giờ OT <input type="number" id="ccOvOt" value="${pr.ot_hours_override ?? ''}" placeholder="auto"></label>
-                  <label>Override phạt muộn <input type="number" id="ccOvLate" value="${pr.giam_tru_late_override ?? ''}" placeholder="auto"></label>
-                </div>
-                <label class="cc-note-lbl">Ghi chú <textarea id="ccNote" rows="2">${cc.esc(pr.ghi_chu || '')}</textarea></label>
-              </div>
-              <div class="cc-modal-foot">
-                <button class="cc-btn cc-btn-ghost" id="ccPlCancel">Huỷ</button>
-                <button class="cc-btn cc-btn-primary" id="ccPlSave">Lưu</button>
-              </div>
-            </div>
-          </div>`;
-        const close = () => (mount.innerHTML = '');
-        document.getElementById('ccPlClose').onclick = close;
-        document.getElementById('ccPlCancel').onclick = close;
-        document.getElementById('ccPlBackdrop').onclick = (e) => {
-            if (e.target.id === 'ccPlBackdrop') close();
-        };
-        // add/del item rows
-        mount.querySelectorAll('.cc-item-add').forEach((b) => {
-            b.onclick = () => {
-                const listEl = b.closest('.cc-item-group').querySelector('.cc-item-list');
-                const div = document.createElement('div');
-                div.className = 'cc-item-row';
-                div.dataset.key = b.dataset.key;
-                div.innerHTML = `<input class="cc-item-label" placeholder="Diễn giải">
-                    <input class="cc-item-amount" type="number" placeholder="0">
-                    <button class="cc-item-del" type="button">✕</button>`;
-                listEl.appendChild(div);
-                div.querySelector('.cc-item-del').onclick = () => div.remove();
-            };
-        });
-        mount.querySelectorAll('.cc-item-del').forEach((b) => {
-            b.onclick = () => b.closest('.cc-item-row').remove();
-        });
-        document.getElementById('ccPlSave').onclick = async () => {
-            const collect = (key) =>
-                [...mount.querySelectorAll(`.cc-item-group[data-group="${key}"] .cc-item-row`)]
-                    .map((r) => ({
-                        label: r.querySelector('.cc-item-label').value.trim(),
-                        amount: Number(r.querySelector('.cc-item-amount').value) || 0,
-                    }))
-                    .filter((x) => x.label || x.amount);
-            const numOrNull = (id) => {
-                const v = document.getElementById(id).value.trim();
-                return v === '' ? null : Number(v);
-            };
-            const body = {
-                thuongItems: collect('thuong'),
-                giamTruItems: collect('giam'),
-                allowances: collect('allowance'),
-                daTraItems: collect('datra'),
-                ghiChu: document.getElementById('ccNote').value,
-                salaryDaysOverride: numOrNull('ccOvDays'),
-                otHoursOverride: numOrNull('ccOvOt'),
-                lamThemOverride: pr.lam_them_override ?? null,
-                giamTruLateOverride: numOrNull('ccOvLate'),
-            };
-            try {
-                await cc.Api.putPayroll(`${deviceUserId}_${cc.state.monthKey}`, body);
-                cc.toast('Đã lưu điều chỉnh lương.', 'success');
-                close();
-                await cc.loadAll();
-            } catch (e) {
-                cc.toast(e.message, 'error');
-            }
-        };
     }
 
     // ── Xuất Excel ────────────────────────────────────────────────────────────

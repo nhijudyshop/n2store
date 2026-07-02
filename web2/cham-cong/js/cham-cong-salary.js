@@ -111,12 +111,13 @@
             checkOut = new Date(checkOut.getTime() + forgiven);
         }
 
-        // Lương cơ bản: cửa sổ [max(in,start) .. min(out,end)].
-        const workStart = checkIn > startMoment ? checkIn : startMoment;
-        const workEnd = checkOut < endMoment ? checkOut : endMoment;
-        const baseMinutes = Math.max(0, (workEnd - workStart) / 60000);
-        out.baseSalary = Math.round((hourlyRate * baseMinutes) / 60);
-        out.worked = baseMinutes > 0;
+        // Lương cơ bản (2026-07-02, user chốt): chấm công ĐỦ (2 lượt vào/ra) = TRỌN lương
+        // ngày — KHÔNG pro-rate theo giờ. Đi muộn/về sớm chỉ trừ qua phạt muộn (lateDeduction)
+        // hoặc Giảm trừ thủ công, không cắt lương ngày.
+        if (checkOut > startMoment) {
+            out.baseSalary = dailyRate;
+            out.worked = true;
+        }
 
         // OT: ra sau mốc kết ca. Lương THÁNG (cố định) KHÔNG auto-OT (hourlyRate suy ra
         // từ lương tháng sẽ sai khổng lồ) → otPay=0, muốn thưởng OT thì thêm tay ở "Thưởng".
