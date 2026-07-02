@@ -3,17 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `441e548` — refactor(web2-shared): dedup worker-base — config-first 5 file primary-literal (re-scope group)
-**Last updated**: 2026-07-02 09:20:27 +07
-**Latest session**: [`RESUME:20260702-092027-441e548`](../20260702-092027-441e548.md)
-**Summary**: refactor(web2-shared): dedup worker-base — config-first 5 file primary-literal (re-scope group)
+**Latest commit**: `2e643ba` — feat(cham-cong): bảng lương bấm ô mở modal kiểu TPOS (bỏ nút Sửa) + chấm đủ = trọn lương ngày
+**Last updated**: 2026-07-02 09:42:10 +07
+**Latest session**: [`RESUME:20260702-094210-2e643ba`](../20260702-094210-2e643ba.md)
+**Summary**: feat(cham-cong): bảng lương bấm ô mở modal kiểu TPOS (bỏ nút Sửa) + chấm đủ = trọn lương ngày
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 10 file(s)
+- [`docs/`](./docs.md) — 5 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
+- [`web2/`](./web2.md) — 20 file(s)
 
 ## All folder snapshots
 
@@ -31,7 +32,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-07-01 12:59
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-07-02 09:20
+- [`docs/`](./docs.md) — updated 2026-07-02 09:42
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-30 18:57
@@ -47,7 +48,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-26 14:08
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-07-02 09:20
+- [`live-chat/`](./live-chat.md) — updated 2026-07-02 09:42
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-07-01 00:24
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -63,14 +64,14 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-07-01 20:19
+- [`render.com/`](./render.com.md) — updated 2026-07-02 09:42
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-30 16:56
 - [`service-costs/`](./service-costs.md) — updated 2026-07-01 05:51
 - [`shared/`](./shared.md) — updated 2026-07-01 00:24
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-07-01 10:48
+- [`so-order/`](./so-order.md) — updated 2026-07-02 09:42
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
@@ -85,4 +86,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-07-02 09:20
+- [`web2/`](./web2.md) — updated 2026-07-02 09:42
