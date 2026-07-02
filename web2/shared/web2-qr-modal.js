@@ -13,8 +13,14 @@
 (function (global) {
     'use strict';
 
-    const QR_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
-    const QR_DIRECT = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const QR_BASE =
+        (global.API_CONFIG?.WORKER_URL ||
+            global.WEB2_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/customer-wallet';
+    const QR_DIRECT =
+        (global.WEB2_CONFIG?.WEB2_API || 'https://web2-api-kv04.onrender.com') +
+        '/api/web2/customer-wallet';
 
     function _w2Auth(extra) {
         if (window.Web2Auth && window.Web2Auth.authHeaders)

@@ -2,6 +2,18 @@
 
 ## 2026-07-01
 
+### [web2-shared] Dedup worker-base — RE-SCOPE: fallback-chain đúng by-design; fix 5 file primary-literal
+
+**Files:** `web2/shared/web2-wallet-balance.js`, `web2-qr-modal.js`, `web2-sse-bridge.js`, `web2-wallet-api.js`, `web2/system/js/system-sse.js` (config-first); `web2/system/data/web2-dedup-audit.json` (group util-worker-base re-scope → partial).
+
+Ứng viên dedup #3. **Đánh giá thẳng:** 16 file có chuỗi fallback `API_CONFIG.WORKER_URL || WEB2_CONFIG.WORKER_URL || literal` mà audit flag là **ĐÚNG BY DESIGN** (policy base-URL CLAUDE.md: literal chỉ là fallback defensive; đổi URL → sửa web2-auth.js vẫn propagate vì chain đọc config runtime) → KHÔNG đụng.
+
+- **Vấn đề THẬT tìm ra khi verify:** ~29 file (18 JS + 11 HTML) dùng literal `chatomni-proxy…` làm **PRIMARY** (không đọc config trong file) → đổi URL ở web2-auth.js KHÔNG propagate tới chúng (latent bug khi migrate worker URL).
+- **Fix 5 file shared/system blast-radius rộng nhất** → config-first: wallet-balance + qr-modal + wallet-api (`(API_CONFIG?.WORKER_URL || WEB2_CONFIG?.WORKER_URL || literal) + path`; DIRECT dùng `WEB2_CONFIG.WEB2_API`), sse-bridge (`WEB2_CONFIG.REALTIME_SSE || literal`), system-sse (`_WORKER` chung). **Behavior-identical hôm nay** (config resolve về đúng literal cũ; web2-auth load trước mọi consumer) — chỉ làm URL-change propagate được. Không cần bump `?v=` (không đổi hành vi).
+- **Còn lại (follow-up, mechanical):** 13 JS page-local + 11 HTML inline — liệt kê đủ trong dedup group (⚠ live-chat có API_CONFIG bản giàu riêng, đọc kỹ trước khi sửa 4 file live-chat).
+
+Status: ✅ (5/29 fixed — phần blast-radius rộng nhất; group → partial với danh sách còn lại)
+
 ### [web2-shared] Dedup fetch-json → delegate Web2ApiFetch.json (6 wrapper; chat-utils giữ riêng có chủ ý)
 
 **Files:** migrate `web2/shared/web2-api.js`, `web2-products-api.js`, `web2/variants/js/web2-variants-api.js`, `web2/product-types/js/web2-product-types-api.js`, `native-orders/js/native-orders-api.js`, `live-chat/js/live/live-native-orders-api.js`; `web2/system/data/web2-dedup-audit.json` (group util-fetch-json → partial).

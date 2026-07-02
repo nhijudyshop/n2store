@@ -4,8 +4,13 @@
 (function () {
     'use strict';
 
-    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2';
-    const USERS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-users';
+    // 1 nguồn base-URL = WEB2_CONFIG (web2-auth.js load trước); literal chỉ là fallback.
+    const _WORKER =
+        window.API_CONFIG?.WORKER_URL ||
+        window.WEB2_CONFIG?.WORKER_URL ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE = _WORKER + '/api/realtime/web2';
+    const USERS_API = _WORKER + '/api/web2-users';
     const STATS_POLL_MS = 2000;
     const MAX_LOG_ROWS = 1000;
     const ADMIN_TOPIC = 'web2:_admin:sse-log';

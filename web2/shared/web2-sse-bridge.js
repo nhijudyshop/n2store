@@ -29,7 +29,11 @@
 
     if (global.Web2SSE) return;
 
-    const SSE_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse';
+    // 1 nguồn base-URL = WEB2_CONFIG.REALTIME_SSE (web2-auth.js); literal chỉ là fallback
+    // cho trang không load web2-auth (vd context ngoài web2).
+    const SSE_BASE =
+        global.WEB2_CONFIG?.REALTIME_SSE ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/web2/sse';
     const RECONNECT_BASE_MS = 1500;
     const RECONNECT_MAX_MS = 30000;
 
